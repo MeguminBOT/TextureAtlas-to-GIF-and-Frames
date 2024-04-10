@@ -7,6 +7,8 @@ A tool that extracts all frames from a folder with spritesheets and sorts them i
 
 ## Not yet implemented
 * Option to select specific sprites. (Currently does the entire folder).
+* Option to save GIFs to their own folder.
+* Option to tweak FPS of GIFs.
 * Option to delete frames after GIF is generated.
 * Better and more functional UI
 
