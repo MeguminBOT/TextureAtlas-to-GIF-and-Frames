@@ -6,7 +6,7 @@ from PIL import Image
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import imageio
-from PIL import ImageSequence
+from PIL import Image, ImageSequence
 
 def select_input_directory(input_dir):
     input_dir.set(filedialog.askdirectory())
@@ -32,23 +32,30 @@ def extract_sprites(atlas_path, xml_path, output_dir, progress_var, tk_root, cre
         width = int(sprite.get('width'))
         height = int(sprite.get('height'))
 
-        sprite_image = atlas.crop((x, y, x + width, y + height))
-        
-        # Check if the image mode is 'RGBA' and, if not, convert it
-        if sprite_image.mode != 'RGBA':
-            sprite_image = sprite_image.convert('RGBA')
+        frameX = int(sprite.get('frameX')) if sprite.get('frameX') else 0
+        frameY = int(sprite.get('frameY')) if sprite.get('frameY') else 0
+        frameWidth = int(sprite.get('frameWidth')) if sprite.get('frameWidth') else width
+        frameHeight = int(sprite.get('frameHeight')) if sprite.get('frameHeight') else height
 
-        sprite_image.save(os.path.join(output_dir, name + '.png'))
+        sprite_image = atlas.crop((x, y, x + width, y + height))
+
+        frame_image = Image.new('RGBA', (frameWidth, frameHeight))
+        frame_image.paste(sprite_image, (-frameX, -frameY))
+
+        if frame_image.mode != 'RGBA':
+            frame_image = frame_image.convert('RGBA')
+
+        frame_image.save(os.path.join(output_dir, name + '.png'))
 
         if create_gif.get():
-            animation_name = re.sub(r'\d+$', '', name)  # Remove trailing numbers only for GIF creation
+            animation_name = re.sub(r'\d+$', '', name)
             if animation_name not in animations:
                 animations[animation_name] = []
-            animations[animation_name].append(sprite_image)
+            animations[animation_name].append(frame_image)
 
     if create_gif.get():
         for animation_name, images in animations.items():
-            images[0].save(os.path.join(output_dir, animation_name + '.gif'), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
+            images[0].save(os.path.join(output_dir, '_' + animation_name + '.gif'), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
 
 def process_directory(input_dir, output_dir, progress_var, tk_root):
     progress_var.set(0)
