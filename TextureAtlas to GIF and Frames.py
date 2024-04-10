@@ -1,4 +1,5 @@
 ## Script by AutisticLulu
+import re
 import os
 import xml.etree.ElementTree as ET
 from PIL import Image
@@ -40,14 +41,14 @@ def extract_sprites(atlas_path, xml_path, output_dir, progress_var, tk_root, cre
         sprite_image.save(os.path.join(output_dir, name + '.png'))
 
         if create_gif.get():
-            animation_name = name.split('_')[0]
+            animation_name = re.sub(r'\d+$', '', name)  # Remove trailing numbers only for GIF creation
             if animation_name not in animations:
                 animations[animation_name] = []
             animations[animation_name].append(sprite_image)
 
     if create_gif.get():
         for animation_name, images in animations.items():
-            images[0].save(os.path.join(output_dir, '_' + animation_name + '.gif'), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
+            images[0].save(os.path.join(output_dir, animation_name + '.gif'), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
 
 def process_directory(input_dir, output_dir, progress_var, tk_root):
     progress_var.set(0)
