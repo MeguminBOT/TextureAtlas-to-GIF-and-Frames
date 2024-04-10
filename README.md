@@ -1,16 +1,16 @@
-# TextureAtlas-to-GIF-and-Frames
-A tool that extracts all frames from a folder with spritesheets and sorts them into their own folders. Also includes a create gif option.
+# TextureAtlas to GIF and Frames
+
+This tool simplifies the process of extracting frames from sprite sheets, organizing them into individual folders, and optionally creating GIFs. It's designed to streamline animation workflow by automating tedious tasks.
 
 ## Functionality
-* Exports and sorts frames of each animation into a folder sharing the name of the sprite
-* Option to automatically create GIFs at 24 FPS for each animation (gets prefixed with a "_" to end up at the top of the folder with the frame animations.
+* Extracts and organizes frames from sprite sheets into folders named after respective sprites.
+* Provides an option to generate GIFs at 24 FPS for each animation. GIFs are prefixed with "_" for easy identification and placed at the top of the frame animation folder.
 
 ## Not yet implemented
-* Option to select specific sprites. (Currently does the entire folder).
-* Option to save GIFs to their own folder.
-* Option to tweak FPS of GIFs.
-* Option to delete frames after GIF is generated.
-* Better and more functional UI
+* Selection of specific sprites for extraction (Currently processes entire folders).
+* Ability to designate a separate folder for saving GIFs.
+* Customization of GIF frame rate.
+* Automated deletion of frames after GIF generation.
+* Improved user interface for enhanced usability.
 
-
-Available as .exe here: https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/
+**Download**: [Get the executable here](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/)
