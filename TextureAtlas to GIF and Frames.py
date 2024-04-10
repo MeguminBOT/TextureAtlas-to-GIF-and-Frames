@@ -32,6 +32,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, progress_var, tk_root, cre
         height = int(sprite.get('height'))
 
         sprite_image = atlas.crop((x, y, x + width, y + height))
+        
+        # Check if the image mode is 'RGBA' and, if not, convert it
+        if sprite_image.mode != 'RGBA':
+            sprite_image = sprite_image.convert('RGBA')
+
         sprite_image.save(os.path.join(output_dir, name + '.png'))
 
         if create_gif.get():
@@ -39,7 +44,6 @@ def extract_sprites(atlas_path, xml_path, output_dir, progress_var, tk_root, cre
 
     if create_gif.get():
         images[0].save(os.path.join(output_dir, '_animation.gif'), save_all=True, append_images=images[1:], optimize=False, duration=1000/24, loop=0)
-
 
 def process_directory(input_dir, output_dir, progress_var, tk_root):
     progress_var.set(0)
