@@ -79,7 +79,6 @@ def process_directory(input_dir, output_dir, progress_var, tk_root):
 
 root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
-root.iconbitmap("E:\GitHub\icon.ico")
 
 input_dir = tk.StringVar()
 output_dir = tk.StringVar()
