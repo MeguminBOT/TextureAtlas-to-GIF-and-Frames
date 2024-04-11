@@ -4,6 +4,37 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image, ImageSequence
 import xml.etree.ElementTree as ET
+import webbrowser
+import requests
+import sys
+
+def contributeLink(url):
+    webbrowser.open_new(url)
+
+def check_for_updates(current_version):
+    try:
+        response = requests.get('https://raw.githubusercontent.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/main/latestVersion.txt')
+        latest_version = response.text.strip()
+
+        if latest_version > current_version:
+            root = tk.Tk()
+            root.withdraw()
+            result = messagebox.askyesno("Update available", "An update is available. Do you want to download it now?")
+            if result:
+                print("User chose to download the update.")
+                webbrowser.open('https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases')
+                sys.exit()
+            else:
+                print("User chose not to download the update.")
+            root.destroy()
+        else:
+            print("You are using the latest version of the application.")
+    except requests.exceptions.RequestException as err:
+        print ("No internet connection or something went wrong, could not check for updates.")
+        print ("Error details:", err)
+
+current_version = '1.2.0'
+check_for_updates(current_version)
 
 def select_directory(variable):
     directory = filedialog.askdirectory()
@@ -14,7 +45,7 @@ def count_png_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
 
 def sanitize_filename(name):
-    return re.sub(r'[\\/:*?"<>|]', '_', name)  # replace special characters with underscore
+    return re.sub(r'[\\/:*?"<>|]', '_', name)
 
 def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp):
     atlas = Image.open(atlas_path)
@@ -52,8 +83,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp):
 
     if create_gif:
         for animation_name, images in animations.items():
-            animation_dir = os.path.join(output_dir, animation_name)
-            images[0].save(os.path.join(animation_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
+            images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
 
     if create_webp:
         for animation_name, images in animations.items():
@@ -107,5 +137,10 @@ process_button.pack()
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
 author_label.pack(side='bottom')
+
+linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
+link1 = tk.Label(root, text="If you wish to contribute to the project, click here!", fg="blue", cursor="hand2")
+link1.pack(side='bottom')
+link1.bind("<Button-1>", lambda e: contributeLink(linkSourceCode))
 
 root.mainloop()
