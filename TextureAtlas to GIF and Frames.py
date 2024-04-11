@@ -13,7 +13,7 @@ def select_directory(variable):
 def count_png_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
 
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif):
+def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp):
     atlas = Image.open(atlas_path)
     tree = ET.parse(xml_path)
     root = tree.getroot()
@@ -40,7 +40,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif):
 
         frame_image.save(os.path.join(output_dir, f"{name}.png"))
 
-        if create_gif:
+        if create_gif or create_webp:
             animation_name = re.sub(r'\d+$', '', name)
             animations.setdefault(animation_name, []).append(frame_image)
 
@@ -48,7 +48,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif):
         for animation_name, images in animations.items():
             images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif):
+    if create_webp:
+        for animation_name, images in animations.items():
+            images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
+
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp):
     progress_var.set(0)
     total_files = count_png_files(input_dir)
     progress_bar["maximum"] = total_files
@@ -61,7 +65,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif):
             if os.path.isfile(xml_path):
                 sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
                 os.makedirs(sprite_output_dir, exist_ok=True)
-                extract_sprites(os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif)
+                extract_sprites(os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp)
                 progress_var.set(progress_var.get() + 1)
                 tk_root.update_idletasks()
     
@@ -86,7 +90,11 @@ create_gif = tk.BooleanVar()
 gif_checkbox = tk.Checkbutton(root, text="Create GIFs for each animation", variable=create_gif)
 gif_checkbox.pack()
 
-process_button = tk.Button(root, text="DO MAGIC!!", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get()))
+create_webp = tk.BooleanVar()
+webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
+webp_checkbox.pack()
+
+process_button = tk.Button(root, text="DO MAGIC!!", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get()))
 process_button.pack()
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
