@@ -13,6 +13,9 @@ def select_directory(variable):
 def count_png_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
 
+def sanitize_filename(name):
+    return re.sub(r'[\\/:*?"<>|]', '_', name)  # replace special characters with underscore
+
 def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp):
     atlas = Image.open(atlas_path)
     tree = ET.parse(xml_path)
@@ -38,15 +41,19 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp):
         if frame_image.mode != 'RGBA':
             frame_image = frame_image.convert('RGBA')
 
-        frame_image.save(os.path.join(output_dir, f"{name}.png"))
+        folder_name = re.sub(r'\d+$', '', name)
+        sprite_folder = os.path.join(output_dir, folder_name)
+        os.makedirs(sprite_folder, exist_ok=True)
+
+        frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
 
         if create_gif or create_webp:
-            animation_name = re.sub(r'\d+$', '', name)
-            animations.setdefault(animation_name, []).append(frame_image)
+            animations.setdefault(folder_name, []).append(frame_image)
 
     if create_gif:
         for animation_name, images in animations.items():
-            images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
+            animation_dir = os.path.join(output_dir, animation_name)
+            images[0].save(os.path.join(animation_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=1000/24, loop=0)
 
     if create_webp:
         for animation_name, images in animations.items():
@@ -61,18 +68,19 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
         if filename.endswith('.png'):
             xml_filename = filename.rsplit('.', 1)[0] + '.xml'
             xml_path = os.path.join(input_dir, xml_filename)
-            
+
             if os.path.isfile(xml_path):
                 sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
                 os.makedirs(sprite_output_dir, exist_ok=True)
                 extract_sprites(os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp)
                 progress_var.set(progress_var.get() + 1)
                 tk_root.update_idletasks()
-    
+
     messagebox.showinfo("Information","Finished processing all files.")
 
 root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
+root.geometry("640x360")
 
 input_dir = tk.StringVar()
 output_dir = tk.StringVar()
