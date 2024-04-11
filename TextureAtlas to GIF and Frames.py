@@ -26,8 +26,12 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif):
         frameY = int(sprite.get('frameY', 0))
         frameWidth = int(sprite.get('frameWidth', width))
         frameHeight = int(sprite.get('frameHeight', height))
+        rotated = sprite.get('rotated', 'false') == 'true'
 
         sprite_image = atlas.crop((x, y, x + width, y + height))
+        if rotated: 
+            sprite_image = sprite_image.rotate(90, expand=True)
+
         frame_image = Image.new('RGBA', (frameWidth, frameHeight))
         frame_image.paste(sprite_image, (-frameX, -frameY))
 
