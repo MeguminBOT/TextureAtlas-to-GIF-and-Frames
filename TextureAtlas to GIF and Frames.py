@@ -41,10 +41,11 @@ def count_png_files(directory):
 def sanitize_filename(name):
     return re.sub(r'[\\/:*?"<>|]', '_', name)
 
-def select_directory(variable):
+def select_directory(variable, label):
     directory = filedialog.askdirectory()
     if directory:
         variable.set(directory)
+        label.config(text=directory)  # Update the label text
 
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp):
     progress_var.set(0)
@@ -117,24 +118,30 @@ input_dir = tk.StringVar()
 output_dir = tk.StringVar()
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=200, variable=progress_var)
-progress_bar.pack()
+progress_bar.pack(pady=8)
 
-input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir))
-input_button.pack()
+input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir, input_dir_label))
+input_button.pack(pady=4)
 
-output_button = tk.Button(root, text="Select save directory", command=lambda: select_directory(output_dir))
-output_button.pack()
+input_dir_label = tk.Label(root, text="No input directory selected")
+input_dir_label.pack(pady=4)
+
+output_button = tk.Button(root, text="Select save directory", command=lambda: select_directory(output_dir, output_dir_label))
+output_button.pack(pady=4)
+
+output_dir_label = tk.Label(root, text="No output directory selected")
+output_dir_label.pack(pady=4)
 
 create_gif = tk.BooleanVar()
 gif_checkbox = tk.Checkbutton(root, text="Create GIFs for each animation", variable=create_gif)
-gif_checkbox.pack()
+gif_checkbox.pack(pady=4)
 
 create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
-webp_checkbox.pack()
+webp_checkbox.pack(pady=4)
 
 process_button = tk.Button(root, text="DO MAGIC!!", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get()))
-process_button.pack()
+process_button.pack(pady=4)
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
 author_label.pack(side='bottom')
