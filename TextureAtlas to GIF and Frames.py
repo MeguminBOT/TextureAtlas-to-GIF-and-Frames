@@ -22,7 +22,7 @@ def check_for_updates(current_version):
             result = messagebox.askyesno("Update available", "An update is available. Do you want to download it now?")
             if result:
                 print("User chose to download the update.")
-                webbrowser.open('https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases')
+                webbrowser.open('https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest')
                 sys.exit()
             else:
                 print("User chose not to download the update.")
