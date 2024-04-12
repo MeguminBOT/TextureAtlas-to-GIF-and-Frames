@@ -112,7 +112,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 ## Graphical User Interface setup
 root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
-root.geometry("640x360")
+root.geometry("640x400")
 
 input_dir = tk.StringVar()
 output_dir = tk.StringVar()
@@ -122,33 +122,33 @@ progress_bar = ttk.Progressbar(root, length=200, variable=progress_var)
 progress_bar.pack(pady=8)
 
 input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir, input_dir_label))
-input_button.pack(pady=4)
+input_button.pack(pady=2)
 
 input_dir_label = tk.Label(root, text="No input directory selected")
 input_dir_label.pack(pady=4)
 
 output_button = tk.Button(root, text="Select save directory", command=lambda: select_directory(output_dir, output_dir_label))
-output_button.pack(pady=4)
+output_button.pack(pady=2)
 
 output_dir_label = tk.Label(root, text="No output directory selected")
 output_dir_label.pack(pady=4)
 
 create_gif = tk.BooleanVar()
 gif_checkbox = tk.Checkbutton(root, text="Create GIFs for each animation", variable=create_gif)
-gif_checkbox.pack(pady=4)
+gif_checkbox.pack()
 
 create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
-webp_checkbox.pack(pady=4)
+webp_checkbox.pack()
 
 set_framerate = tk.DoubleVar(value=24)
 frame_rate_label = tk.Label(root, text="Frame Rate (fps):")
 frame_rate_label.pack()
 frame_rate_entry = tk.Entry(root, textvariable=set_framerate)
-frame_rate_entry.pack(pady=4)
+frame_rate_entry.pack()
 
 process_button = tk.Button(root, text="DO MAGIC!!", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get()))
-process_button.pack(pady=4)
+process_button.pack(pady=8)
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
 author_label.pack(side='bottom')
