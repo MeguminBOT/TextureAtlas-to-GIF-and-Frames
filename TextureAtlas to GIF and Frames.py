@@ -45,7 +45,7 @@ def select_directory(variable, label):
     directory = filedialog.askdirectory()
     if directory:
         variable.set(directory)
-        label.config(text=directory)  # Update the label text
+        label.config(text=directory)
 
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay):
     progress_var.set(0)
@@ -118,19 +118,18 @@ root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("640x400")
 
-input_dir = tk.StringVar()
-output_dir = tk.StringVar()
-
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=200, variable=progress_var)
 progress_bar.pack(pady=8)
 
+input_dir = tk.StringVar()
 input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir, input_dir_label))
 input_button.pack(pady=2)
 
 input_dir_label = tk.Label(root, text="No input directory selected")
 input_dir_label.pack(pady=4)
 
+output_dir = tk.StringVar()
 output_button = tk.Button(root, text="Select save directory", command=lambda: select_directory(output_dir, output_dir_label))
 output_button.pack(pady=2)
 
