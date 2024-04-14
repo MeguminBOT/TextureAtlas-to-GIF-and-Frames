@@ -33,10 +33,8 @@ If not, then open a terminal window in the same folder as the script and type `p
 1. Open the terminal.
 2. Type `sudo apt install python3.10` and install (if it's not already installed).
 3. Type `sudo apt install python3-pip` and install (if it's not already installed)
-4. Type `pip install pillow` to install PIL. (Use `pip3 install` if pip doesn't work)
-5. Type `pip install requests` to install Requests. (Use `pip3 install` if pip doesn't work)
+4. Type `sudo pip3 install pillow` to install PIL.
+5. Type `sudo pip3 install requests` to install Requests.
 
-
-Open a new terminal in the folder where TextureAtlas to GIF and Frames.py was saved. Run
 You should now be able to run the "TextureAtlas to GIF and Frames.py" file by double clicking it. 
 If not, then open a terminal window in the same folder as the script and type `python3 TextureAtlas to GIF and Frames.py`.
