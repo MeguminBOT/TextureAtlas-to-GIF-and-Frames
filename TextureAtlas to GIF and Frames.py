@@ -39,7 +39,7 @@ def count_png_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
 
 def sanitize_filename(name):
-    return re.sub(r'[\\/:*?"<>|]', '_', name)
+    return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
 
 def select_directory(variable, label):
     directory = filedialog.askdirectory()
@@ -68,50 +68,65 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
 
 ## Extraction logic
 def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay):
-    atlas = Image.open(atlas_path)
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-    animations = {}
+    try:
+        atlas = Image.open(atlas_path)
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        animations = {}
 
-    for sprite in root.findall('SubTexture'):
-        name = sprite.get('name')
-        x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
-        frameX = int(sprite.get('frameX', 0))
-        frameY = int(sprite.get('frameY', 0))
-        frameWidth = int(sprite.get('frameWidth', width))
-        frameHeight = int(sprite.get('frameHeight', height))
-        rotated = sprite.get('rotated', 'false') == 'true'
+        for sprite in root.findall('SubTexture'):
+            name = sprite.get('name')
+            x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
+            frameX = int(sprite.get('frameX', 0))
+            frameY = int(sprite.get('frameY', 0))
+            frameWidth = int(sprite.get('frameWidth', width))
+            frameHeight = int(sprite.get('frameHeight', height))
+            rotated = sprite.get('rotated', 'false') == 'true'
 
-        sprite_image = atlas.crop((x, y, x + width, y + height))
-        if rotated: 
-            sprite_image = sprite_image.rotate(90, expand=True)
+            sprite_image = atlas.crop((x, y, x + width, y + height))
+            if rotated: 
+                sprite_image = sprite_image.rotate(90, expand=True)
 
-        frame_image = Image.new('RGBA', (frameWidth, frameHeight))
-        frame_image.paste(sprite_image, (-frameX, -frameY))
+            frame_image = Image.new('RGBA', (frameWidth, frameHeight))
+            frame_image.paste(sprite_image, (-frameX, -frameY))
 
-        if frame_image.mode != 'RGBA':
-            frame_image = frame_image.convert('RGBA')
+            if frame_image.mode != 'RGBA':
+                frame_image = frame_image.convert('RGBA')
 
-        folder_name = re.sub(r'\d+$', '', name)
-        sprite_folder = os.path.join(output_dir, folder_name)
-        os.makedirs(sprite_folder, exist_ok=True)
+            folder_name = re.sub(r'\d+$', '', name).rstrip()
+            sprite_folder = os.path.join(output_dir, folder_name)
+            os.makedirs(sprite_folder, exist_ok=True)
 
-        frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
+            frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
 
-        if create_gif or create_webp:
-            animations.setdefault(folder_name, []).append(frame_image)
+            if create_gif or create_webp:
+                animations.setdefault(folder_name, []).append(frame_image)
 
-    if create_gif:
-        for animation_name, images in animations.items():
-            durations = [1000//set_framerate] * len(images)
-            durations[-1] = set_loopdelay
-            images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+        if create_gif:
+            for animation_name, images in animations.items():
+                durations = [1000//set_framerate] * len(images)
+                durations[-1] = set_loopdelay
+                images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
-    if create_webp:
-        for animation_name, images in animations.items():
-            durations = [1000//set_framerate] * len(images)
-            durations[-1] = set_loopdelay
-            images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+        if create_webp:
+            for animation_name, images in animations.items():
+                durations = [1000//set_framerate] * len(images)
+                durations[-1] = set_loopdelay
+                images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+    except ET.ParseError:
+        messagebox.showerror("Error", f"Badly formatted XML file:\n{xml_path}")
+        if messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
+            return
+        else:
+            sys.exit()
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        if messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
+            return
+        else:
+            sys.exit()
 
 ## Graphical User Interface setup
 root = tk.Tk()
