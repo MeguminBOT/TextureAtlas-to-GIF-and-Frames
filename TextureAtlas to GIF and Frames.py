@@ -1,7 +1,7 @@
 import os
 import re
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
+from tkinter import filedialog, ttk, messagebox, Toplevel
 from PIL import Image, ImageSequence
 import xml.etree.ElementTree as ET
 import webbrowser
@@ -46,6 +46,51 @@ def select_directory(variable, label):
     if directory:
         variable.set(directory)
         label.config(text=directory)
+        
+        if variable == input_dir:
+            for filename in os.listdir(directory):
+                if filename.endswith('.png'):
+                    listbox_png.insert(tk.END, filename)
+
+            def on_select_png(evt):
+                listbox_xml.delete(0, tk.END)
+
+                png_filename = listbox_png.get(listbox_png.curselection())
+                xml_filename = os.path.splitext(png_filename)[0] + '.xml'
+
+                tree = ET.parse(os.path.join(directory, xml_filename))
+                root = tree.getroot()
+                names = set()
+                for subtexture in root.findall(".//SubTexture"):
+                    name = subtexture.get('name')
+                    name = re.sub(r'\d+$', '', name).rstrip()
+                    names.add(name)
+
+                for name in names:
+                    listbox_xml.insert(tk.END, name)
+
+            listbox_png.bind('<<ListboxSelect>>', on_select_png)
+            listbox_xml.bind('<Double-1>', on_double_click_xml)
+            
+def on_double_click_xml(evt):
+    animation_name = listbox_xml.get(listbox_xml.curselection())
+    new_window = tk.Toplevel()
+
+    tk.Label(new_window, text="FPS for " + animation_name).pack()
+    fps_entry = tk.Entry(new_window)
+    fps_entry.pack()
+
+    tk.Label(new_window, text="Delay for " + animation_name).pack()
+    delay_entry = tk.Entry(new_window)
+    delay_entry.pack()
+
+    def store_input():
+        user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
+        new_window.destroy()
+
+    tk.Button(new_window, text="OK", command=store_input).pack()
+
+user_fps_and_delay = {}
 
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay):
     progress_var.set(0)
@@ -104,14 +149,16 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 
         if create_gif:
             for animation_name, images in animations.items():
-                durations = [1000//set_framerate] * len(images)
-                durations[-1] = set_loopdelay
+                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
+                durations = [1000//fps] * len(images)
+                durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
         if create_webp:
             for animation_name, images in animations.items():
-                durations = [1000//set_framerate] * len(images)
-                durations[-1] = set_loopdelay
+                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
+                durations = [1000//fps] * len(images)
+                durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
     except ET.ParseError:
@@ -136,6 +183,21 @@ root.geometry("640x400")
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=200, variable=progress_var)
 progress_bar.pack(pady=8)
+
+scrollbar_png = tk.Scrollbar(root)
+scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
+
+listbox_png = tk.Listbox(root, exportselection=0, yscrollcommand=scrollbar_png.set)
+listbox_png.pack(side=tk.LEFT, fill=tk.Y)
+
+scrollbar_xml = tk.Scrollbar(root)
+scrollbar_xml.pack(side=tk.LEFT, fill=tk.Y)
+
+listbox_xml = tk.Listbox(root, yscrollcommand=scrollbar_xml.set)
+listbox_xml.pack(side=tk.LEFT, fill=tk.Y)
+
+scrollbar_png.config(command=listbox_png.yview)
+scrollbar_xml.config(command=listbox_xml.yview)
 
 input_dir = tk.StringVar()
 input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir, input_dir_label))
@@ -176,6 +238,8 @@ process_button.pack(pady=8)
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
 author_label.pack(side='bottom')
+
+
 
 ## Source Code
 def contributeLink(url):
