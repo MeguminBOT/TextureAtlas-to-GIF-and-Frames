@@ -28,8 +28,8 @@ def check_for_updates(current_version):
         else:
             print("You are using the latest version of the application.")
     except requests.exceptions.RequestException as err:
-        print ("No internet connection or something went wrong, could not check for updates.")
-        print ("Error details:", err)
+        print("No internet connection or something went wrong, could not check for updates.")
+        print("Error details:", err)
 
 current_version = '1.3.1'
 check_for_updates(current_version)
@@ -48,6 +48,9 @@ def select_directory(variable, label):
         label.config(text=directory)
         
         if variable == input_dir:
+            listbox_png.delete(0, tk.END)
+            listbox_xml.delete(0, tk.END)
+
             for filename in os.listdir(directory):
                 if filename.endswith('.png'):
                     listbox_png.insert(tk.END, filename)
@@ -75,6 +78,7 @@ def select_directory(variable, label):
 def on_double_click_xml(evt):
     animation_name = listbox_xml.get(listbox_xml.curselection())
     new_window = tk.Toplevel()
+    new_window.geometry("360x240")
 
     tk.Label(new_window, text="FPS for " + animation_name).pack()
     fps_entry = tk.Entry(new_window)
@@ -178,36 +182,37 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 ## Graphical User Interface setup
 root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
-root.geometry("640x400")
+root.geometry("900x480")
+root.resizable(False, False)
 
 progress_var = tk.DoubleVar()
-progress_bar = ttk.Progressbar(root, length=200, variable=progress_var)
+progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
 progress_bar.pack(pady=8)
 
 scrollbar_png = tk.Scrollbar(root)
 scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
 
-listbox_png = tk.Listbox(root, exportselection=0, yscrollcommand=scrollbar_png.set)
+listbox_png = tk.Listbox(root, width=30, exportselection=0, yscrollcommand=scrollbar_png.set)
 listbox_png.pack(side=tk.LEFT, fill=tk.Y)
 
 scrollbar_xml = tk.Scrollbar(root)
 scrollbar_xml.pack(side=tk.LEFT, fill=tk.Y)
 
-listbox_xml = tk.Listbox(root, yscrollcommand=scrollbar_xml.set)
+listbox_xml = tk.Listbox(root, width=30, yscrollcommand=scrollbar_xml.set)
 listbox_xml.pack(side=tk.LEFT, fill=tk.Y)
 
 scrollbar_png.config(command=listbox_png.yview)
 scrollbar_xml.config(command=listbox_xml.yview)
 
 input_dir = tk.StringVar()
-input_button = tk.Button(root, text="Select directory with spritesheets", command=lambda: select_directory(input_dir, input_dir_label))
+input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label))
 input_button.pack(pady=2)
 
 input_dir_label = tk.Label(root, text="No input directory selected")
 input_dir_label.pack(pady=4)
 
 output_dir = tk.StringVar()
-output_button = tk.Button(root, text="Select save directory", command=lambda: select_directory(output_dir, output_dir_label))
+output_button = tk.Button(root, text="Select save directory", cursor="hand2", command=lambda: select_directory(output_dir, output_dir_label))
 output_button.pack(pady=2)
 
 output_dir_label = tk.Label(root, text="No output directory selected")
@@ -233,13 +238,11 @@ loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
 loopdelay_entry.pack()
 
-process_button = tk.Button(root, text="Start process", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get()))
+process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get()))
 process_button.pack(pady=8)
 
 author_label = tk.Label(root, text="Tool written by AutisticLulu")
 author_label.pack(side='bottom')
-
-
 
 ## Source Code
 def contributeLink(url):
