@@ -191,6 +191,7 @@ root = tk.Tk()
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("900x480")
 root.resizable(False, False)
+root.iconbitmap("./icon.ico")
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
