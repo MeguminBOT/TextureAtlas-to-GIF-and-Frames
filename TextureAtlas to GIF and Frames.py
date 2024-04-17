@@ -117,6 +117,17 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()  # This will re-raise any exceptions that occurred during the execution of extract_sprites
+            except ET.ParseError as e:
+                messagebox.showerror("Error", f"Something went wrong!!\n{e}")
+                if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
+                    sys.exit()
+            except Exception as e:
+                messagebox.showerror("Error", f"Something went wrong!!\n{str(e)}")
+                if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
+                    sys.exit()
+
             progress_var.set(progress_var.get() + 1)
             tk_root.update_idletasks()
 
@@ -173,18 +184,9 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
     except ET.ParseError:
-        messagebox.showerror("Error", f"Badly formatted XML file:\n{xml_path}")
-        if messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
-            return
-        else:
-            sys.exit()
-
+        raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
     except Exception as e:
-        messagebox.showerror("Error", f"An error occurred: {str(e)}")
-        if messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
-            return
-        else:
-            sys.exit()
+        raise Exception(f"An error occurred: {str(e)}")
 
 ## Graphical User Interface setup
 root = tk.Tk()
