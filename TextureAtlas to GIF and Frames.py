@@ -7,7 +7,6 @@ import xml.etree.ElementTree as ET
 import webbrowser
 import requests
 import sys
-import concurrent.futures
 
 ## Update Checking
 def check_for_updates(current_version):
@@ -102,23 +101,17 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     total_files = count_png_files(input_dir)
     progress_bar["maximum"] = total_files
 
-    max_workers = os.cpu_count() // 2
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
-        for filename in os.listdir(input_dir):
-            if filename.endswith('.png'):
-                xml_filename = filename.rsplit('.', 1)[0] + '.xml'
-                xml_path = os.path.join(input_dir, xml_filename)
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.png'):
+            xml_filename = filename.rsplit('.', 1)[0] + '.xml'
+            xml_path = os.path.join(input_dir, xml_filename)
 
-                if os.path.isfile(xml_path):
-                    sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
-                    os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay)
-                    futures.append(future)
-
-        for future in concurrent.futures.as_completed(futures):
-            progress_var.set(progress_var.get() + 1)
-            tk_root.update_idletasks()
+            if os.path.isfile(xml_path):
+                sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
+                os.makedirs(sprite_output_dir, exist_ok=True)
+                extract_sprites(os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay)
+                progress_var.set(progress_var.get() + 1)
+                tk_root.update_idletasks()
 
     messagebox.showinfo("Information","Finished processing all files.")
 
