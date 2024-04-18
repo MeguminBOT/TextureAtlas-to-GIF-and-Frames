@@ -1,8 +1,8 @@
 import os
 import re
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox, Toplevel
-from PIL import Image, ImageSequence
+from tkinter import filedialog, ttk, messagebox
+from PIL import Image
 import xml.etree.ElementTree as ET
 import webbrowser
 import requests
@@ -122,7 +122,7 @@ def select_directory(variable, label):
             # Bind the double click event of the XML list to the on_double_click_xml function
             listbox_xml.bind('<Double-1>', on_double_click_xml)
 
-            
+
 # This function is called when the user double-clicks on an animation in the XML list
 def on_double_click_xml(evt):
     # Get the name of the selected animation from the XML list
@@ -150,11 +150,19 @@ def on_double_click_xml(evt):
 
     # This function is called when the user clicks the OK button
     def store_input():
-        # Store the user's input in the "user_fps_and_delay" dictionary
-        user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
-        
-        # Close the new window
-        new_window.destroy()
+        try:
+            # Store the user's input in the "user_fps_and_delay" dictionary
+            user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
+
+            # Close the new window
+            new_window.destroy()
+
+        # Show an error message if the user tries to enter a non-integer value.
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            
+            # Raise the new window to the top of the window stack
+            new_window.lift()
 
     # Add an OK button to the new window that calls the store_input function when clicked
     tk.Button(new_window, text="OK", command=store_input).pack()
@@ -304,7 +312,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                 # Get the frames per second (fps) and delay for the current animation from the "user_fps_and_delay" dictionary.
                 # If the "animation_name" does not exist in the dictionary, use the default "set_framerate" and "set_loopdelay" values.
                 fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-                durations = [round(1000/fps)] * len(images)
+                durations = [round(1000/fps)] * len(images) 
                 durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
