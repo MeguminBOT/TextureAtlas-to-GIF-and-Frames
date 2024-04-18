@@ -172,14 +172,14 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
         if create_gif:
             for animation_name, images in animations.items():
                 fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-                durations = [1000//fps] * len(images)
+                durations = [round(1000/fps)] * len(images)
                 durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
         if create_webp:
             for animation_name, images in animations.items():
                 fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-                durations = [1000//fps] * len(images)
+                durations = [round(1000/fps)] * len(images)
                 durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
