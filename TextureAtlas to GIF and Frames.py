@@ -1,8 +1,8 @@
 import os
 import re
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox, Toplevel
-from PIL import Image, ImageSequence
+from tkinter import filedialog, ttk, messagebox
+from PIL import Image
 import xml.etree.ElementTree as ET
 import webbrowser
 import requests
@@ -90,11 +90,14 @@ def on_double_click_xml(evt):
     delay_entry.pack()
 
     def store_input():
-        user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
-        new_window.destroy()
+        try:
+            user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
+            new_window.destroy()
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            new_window.lift()
 
     tk.Button(new_window, text="OK", command=store_input).pack()
-
 user_fps_and_delay = {}
 
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay):
