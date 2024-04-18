@@ -118,7 +118,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
 
         for future in concurrent.futures.as_completed(futures):
             try:
-                future.result()  # This will re-raise any exceptions that occurred during the execution of extract_sprites
+                future.result()
             except ET.ParseError as e:
                 messagebox.showerror("Error", f"Something went wrong!!\n{e}")
                 if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
