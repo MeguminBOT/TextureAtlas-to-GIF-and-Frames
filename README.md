@@ -7,12 +7,12 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 * Provides an option to generate GIF or WebP for each animation. GIFs are prefixed with "_" for easy identification and placed at the top of the frame animation folder.
 * Customization of animation frame rate.
 * Customization of animation loop delay.
+* Override frame rate and loop delay for individual sprites and animations.
 
 ## Not yet implemented
 * Selection of specific sprites for extraction (Currently processes entire folders).
-* Option to override the global frame rate and loop delay settings for individual sprites and animations.
 * Automated deletion of frames after GIF generation.
-* Improved user interface for enhanced usability.
+* Improved user interface for enhanced usability. (Like refactoring the code to use PyQT or something)
 
 ## How to Install
 ### Windows
