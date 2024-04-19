@@ -11,7 +11,8 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 
 ## Not yet implemented
 * Selection of specific sprites for extraction (Currently processes entire folders).
-* Automated deletion of frames after GIF generation.
+* Use width/height instead of frameWidth and frameHeight while still also being able to have GIFs/WebPs properly lined up. (I need help, this is driving me crazy lmao)
+* Option to delete of frames after GIF/WebP generation.
 * Improved user interface for enhanced usability. (Like refactoring the code to use PyQT or something)
 
 ## How to Install
