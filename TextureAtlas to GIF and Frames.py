@@ -175,7 +175,6 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
             sizes = (frame.size for frame in images)
             max_size = tuple(map(max, zip(*sizes)))
             min_size = tuple(map(min, zip(*sizes)))
-            print(max_size)
             if max_size != min_size:
                 for index, frame in enumerate(images):
                     images[index] = Image.new('RGBA', max_size)
