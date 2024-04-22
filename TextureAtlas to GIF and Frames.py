@@ -67,7 +67,7 @@ def select_directory(variable, label):
                 names = set()
                 for subtexture in root.findall(".//SubTexture"):
                     name = subtexture.get('name')
-                    name = re.sub(r'\d+$', '', name).rstrip()
+                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
                     names.add(name)
 
                 for name in names:
@@ -162,8 +162,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 
             if frame_image.mode != 'RGBA':
                 frame_image = frame_image.convert('RGBA')
-
-            folder_name = re.sub(r'\d+$', '', name).rstrip()
+            folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
             sprite_folder = os.path.join(output_dir, folder_name)
             os.makedirs(sprite_folder, exist_ok=True)
 
@@ -171,20 +170,34 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 
             if create_gif or create_webp:
                 animations.setdefault(folder_name, []).append(frame_image)
+                
+        for animation_name, images in animations.items():
+            sizes = (frame.size for frame in images)
+            max_size = tuple(map(max, zip(*sizes)))
+            min_size = tuple(map(min, zip(*sizes)))
+            print(max_size)
+            if max_size != min_size:
+                for index, frame in enumerate(images):
+                    images[index] = Image.new('RGBA', max_size)
+                    images[index].paste(frame)
 
-        if create_gif:
-            for animation_name, images in animations.items():
-                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-                durations = [round(1000/fps)] * len(images)
-                durations[-1] = delay
-                images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
-
-        if create_webp:
-            for animation_name, images in animations.items():
+            if create_webp:
                 fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
                 durations = [round(1000/fps)] * len(images)
                 durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+            if create_gif:
+                quantized = []
+                for frame in images:
+                    channels = frame.split()
+                    alpha = channels[3].point(lambda i: i > 255*0.5 and 255)
+                    channels[3].paste(alpha)
+                    quantized.append(Image.merge('RGBA', channels))
+                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
+                durations = [round(1000/fps)] * len(images)
+                durations[-1] = delay
+                quantized[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=quantized[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
