@@ -193,15 +193,13 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             if create_gif:
-                quantized = []
                 for frame in images:
-                    channels = frame.split()
-                    alpha = channels[3].point(lambda i: i > 255*threshold and 255)
-                    channels[3].paste(alpha)
-                    quantized.append(Image.merge('RGBA', channels))
+                    alpha = frame.getchannel('A')
+                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
                 durations = [round(1000/fps)] * len(images)
                 durations[-1] = delay
-                quantized[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=quantized[1:], disposal=2, optimize=False, duration=durations, loop=0)
+                images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
