@@ -48,7 +48,7 @@ def check_for_updates(current_version):
         print("Error details:", err)
 
 # Set the current version
-current_version = '1.4.1'
+current_version = '1.5.0'
 
 # Call the function to check for updates
 check_for_updates(current_version)
