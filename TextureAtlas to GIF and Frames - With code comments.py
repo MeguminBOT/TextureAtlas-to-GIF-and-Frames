@@ -106,7 +106,7 @@ def select_directory(variable, label):
                     name = subtexture.get('name')
                     
                     # Remove any trailing digits from the name
-                    name = re.sub(r'\d+$', '', name).rstrip()
+                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
                     
                     # Add the name to name list
                     names.add(name)
@@ -125,6 +125,9 @@ def select_directory(variable, label):
 
 # This function is called when the user double-clicks on an animation in the XML list
 def on_double_click_xml(evt):
+    # Get the name of the selected spritesheet from the PNG list
+    spritesheet_name = listbox_png.get(listbox_png.curselection())
+    
     # Get the name of the selected animation from the XML list
     animation_name = listbox_xml.get(listbox_xml.curselection())
    
@@ -137,7 +140,7 @@ def on_double_click_xml(evt):
     # Add a label to the new window with the text "FPS for [animation name]"
     tk.Label(new_window, text="FPS for " + animation_name).pack()
     
-    # Add an entry field to the new window for the user to input the FPS for the selected animation.
+    # Add an entry field to the new window for the user to input the FPS for the selected animation
     fps_entry = tk.Entry(new_window)
     fps_entry.pack()
 
@@ -147,12 +150,17 @@ def on_double_click_xml(evt):
     # Add an entry field to the new window for the user to input the delay for the selected animation
     delay_entry = tk.Entry(new_window)
     delay_entry.pack()
+    
+    # Add an entry field to the new window for the user to input the threshold for handling semi-transparent pixels for the selected animation
+    tk.Label(new_window, text="Threshold for " + animation_name).pack()
+    threshold_entry = tk.Entry(new_window)
+    threshold_entry.pack()
 
     # This function is called when the user clicks the OK button
     def store_input():
         try:
-            # Store the user's input in the "user_fps_and_delay" dictionary
-            user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
+            # Store the user's input in the "user_settings" dictionary
+            user_settings[spritesheet_name + '/' + animation_name] = (int(fps_entry.get()), int(delay_entry.get()), float(threshold_entry.get()))
 
             # Close the new window
             new_window.destroy()
@@ -168,10 +176,10 @@ def on_double_click_xml(evt):
     tk.Button(new_window, text="OK", command=store_input).pack()
 
 # Create an empty dictionary to store the user's input
-user_fps_and_delay = {}
+user_settings = {}
 
 # This function processes a directory of .png and .xml files, creating sprites and optionally .gif and .webp files
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
     # Reset the progress bar
     progress_var.set(0)
     
@@ -206,7 +214,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     os.makedirs(sprite_output_dir, exist_ok=True)
                     
                     # Submit a task to the executor to extract the sprites from the .png file
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold)
                     
                     # Add the Future object to the list of futures
                     futures.append(future)
@@ -244,7 +252,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
 
 ##### Extraction logic #####
 # This function extracts sprites from an atlas and saves them as .png, .gif, and .webp files
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay):
+def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
     try:
         # Open the atlas image
         atlas = Image.open(atlas_path)
@@ -255,6 +263,8 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
         
         # Initialize a dictionary to store animations
         animations = {}
+        
+        spritesheet_name = os.path.split(atlas_path)[1]
 
         # Iterate over all SubTexture elements in the XML file
         for sprite in root.findall('SubTexture'):
@@ -285,7 +295,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                 frame_image = frame_image.convert('RGBA')
 
             # Create a new directory using the animation name to store the frames neatly
-            folder_name = re.sub(r'\d+$', '', name).rstrip()
+            folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
             sprite_folder = os.path.join(output_dir, folder_name)
             os.makedirs(sprite_folder, exist_ok=True)
 
@@ -295,26 +305,35 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
             # If .gif or .webp files should be created, add the frame image to the animations dictionary
             if create_gif or create_webp:
                 animations.setdefault(folder_name, []).append(frame_image)
-
-        # If .gif files should be created, create them for each animation
-        if create_gif:
-            for animation_name, images in animations.items():
-                # Get the frames per second (fps) and delay for the current animation from the "user_fps_and_delay" dictionary.
-                # If the "animation_name" does not exist in the dictionary, use the default "set_framerate" and "set_loopdelay" values.
-                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
+                
+        for animation_name, images in animations.items():
+            # Get the frames per second (fps) and delay for the current animation from the "user_settings" dictionary.
+            # If the "spritesheet_name" and "animation_name" does not exist in the dictionary, use the global settings.
+            fps, delay, threshold = user_settings.get(spritesheet_name + '/' + animation_name, (set_framerate, set_loopdelay, set_threshold))
+            sizes = (frame.size for frame in images)
+            max_size = tuple(map(max, zip(*sizes)))
+            min_size = tuple(map(min, zip(*sizes)))
+            if max_size != min_size:
+                for index, frame in enumerate(images):
+                    images[index] = Image.new('RGBA', max_size)
+                    images[index].paste(frame)
+            
+            # If .webp files should be created   
+            if create_webp:
                 durations = [round(1000/fps)] * len(images)
                 durations[-1] = delay
-                images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
-
-        # If .webp files should be created, create them for each animation
-        if create_webp:
-            for animation_name, images in animations.items():
-                # Get the frames per second (fps) and delay for the current animation from the "user_fps_and_delay" dictionary.
-                # If the "animation_name" does not exist in the dictionary, use the default "set_framerate" and "set_loopdelay" values.
-                fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-                durations = [round(1000/fps)] * len(images) 
-                durations[-1] = delay
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+
+            # If .gif files should be created
+            if create_gif:
+                for frame in images:
+                    alpha = frame.getchannel('A')
+                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
+                    durations = [round(1000/fps)] * len(images)
+                    durations[-1] = delay
+                    images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
     # If there's a problem parsing the XML file, raise a ParseError
     except ET.ParseError:
@@ -408,8 +427,16 @@ loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
 loopdelay_entry.pack()
 
+# Create a variable to hold the alpha threshold. This value is used to determine which pixels are considered transparent when creating the GIFs
+set_threshold = tk.DoubleVar(value=0.5)
+# Create a label and entry field for the alpha threshold
+threshold_label = tk.Label(root, text="Alpha Threshold:")
+threshold_label.pack()
+threshold_entry = tk.Entry(root, textvariable=set_threshold)
+threshold_entry.pack()
+
 # Create a button to start the processing
-process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get()))
+process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(pady=8)
 
 # Create a label to display the author's name
