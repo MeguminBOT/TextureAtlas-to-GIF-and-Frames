@@ -44,7 +44,7 @@ class Ui_MainWindow(object):
         icon = QIcon()
         icon.addFile(u"../icon.ico", QSize(), QIcon.Normal, QIcon.Off)
         MainWindow.setWindowIcon(icon)
-        MainWindow.setWindowOpacity(0.000000000000000)
+        #MainWindow.setWindowOpacity(1.000000000000000)
         MainWindow.setAutoFillBackground(False)
         MainWindow.setStyleSheet(u"")
         MainWindow.setLocale(QLocale(QLocale.English, QLocale.UnitedStates))
@@ -249,12 +249,6 @@ class Ui_MainWindow(object):
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
-        
-        self.addWidget(self.button)
-        
-        # Add a QPushButton to the MainWindow
-        self.button = QPushButton(MainWindow)
-        self.button.setText("Test Button")
 
         self.retranslateUi(MainWindow)
 

@@ -16,7 +16,7 @@ from window import AppWindow
 
 def main():
 
-    app = QApplication()
+    app = QApplication([])
     window = AppWindow()
     window.show()
     app.exec()
