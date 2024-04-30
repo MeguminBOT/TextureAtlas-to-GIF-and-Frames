@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1021</width>
-    <height>484</height>
+    <width>1025</width>
+    <height>544</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,6 +18,18 @@
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1025</width>
+    <height>544</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>1025</width>
+    <height>544</height>
+   </size>
   </property>
   <property name="font">
    <font>
@@ -71,12 +83,27 @@
   <property name="dockNestingEnabled">
    <bool>false</bool>
   </property>
+  <property name="dockOptions">
+   <set>QMainWindow::DockOption::AllowTabbedDocks|QMainWindow::DockOption::AnimatedDocks</set>
+  </property>
   <property name="unifiedTitleAndToolBarOnMac">
    <bool>true</bool>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="enabled">
     <bool>true</bool>
+   </property>
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>1025</width>
+     <height>544</height>
+    </size>
    </property>
    <widget class="QProgressBar" name="progressBar">
     <property name="geometry">
@@ -185,7 +212,7 @@
     <property name="geometry">
      <rect>
       <x>460</x>
-      <y>100</y>
+      <y>110</y>
       <width>551</width>
       <height>51</height>
      </rect>
@@ -269,7 +296,7 @@
     <property name="geometry">
      <rect>
       <x>460</x>
-      <y>160</y>
+      <y>180</y>
       <width>551</width>
       <height>241</height>
      </rect>
@@ -699,7 +726,7 @@
       <x>10</x>
       <y>40</y>
       <width>431</width>
-      <height>411</height>
+      <height>451</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -821,12 +848,38 @@
       <bool>false</bool>
      </property>
     </widget>
+    <widget class="QPushButton" name="edit_ui_button">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>410</y>
+       <width>201</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Frame Editor (Not implemented yet)</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="edit_ui_button_2">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>410</y>
+       <width>201</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>View Sprite (Not implemented yet)</string>
+     </property>
+    </widget>
    </widget>
    <widget class="QPushButton" name="startButton">
     <property name="geometry">
      <rect>
       <x>680</x>
-      <y>420</y>
+      <y>450</y>
       <width>111</width>
       <height>31</height>
      </rect>
@@ -849,6 +902,27 @@
    <zorder>startButton</zorder>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1025</width>
+     <height>33</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>About</string>
+    </property>
+   </widget>
+   <addaction name="menuAbout"/>
+  </widget>
+  <action name="actionFrame_Editor">
+   <property name="text">
+    <string>Frame Editor</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

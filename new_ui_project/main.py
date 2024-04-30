@@ -1,26 +1,23 @@
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QDoubleSpinBox,
-    QGroupBox, QLabel, QLineEdit, QListView,
-    QMainWindow, QProgressBar, QPushButton, QSizePolicy,
-    QSpinBox, QStatusBar, QTabWidget, QWidget)
-import sys
+from PySide6.QtWidgets import QApplication
 
-
-from window import AppWindow
+from app import AppWindow, UpdateWindow
+from update_checker import UpdateChecker
 
 def main():
+    app = QApplication()
+    
+    current_version = '1.4.0'
+    update_checker = UpdateChecker(current_version)
+    update_available = update_checker.check_for_updates()
 
-    app = QApplication([])
+    if update_available:
+        update_window = UpdateWindow(current_version, update_checker.latest_version)
+        update_window.show()
+        update_window.raise_()
+
     window = AppWindow()
     window.show()
     app.exec()
 
 if __name__ == '__main__':
     main()
-    

@@ -1,36 +1,36 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'window.ui'
+## Form generated from reading UI file 'user_interface.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.7.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QDoubleSpinBox,
-    QGroupBox, QLabel, QLineEdit, QListView,
-    QMainWindow, QProgressBar, QPushButton, QSizePolicy,
-    QSpinBox, QStatusBar, QTabWidget, QWidget)
+from PySide6.QtCore import QCoreApplication, QLocale, QMetaObject, QRect, QSize, Qt
+from PySide6.QtGui import QAction, QCursor, QFont, QIcon
+from PySide6.QtWidgets import (
+        QAbstractItemView, QApplication, QCheckBox, 
+        QDoubleSpinBox, QGroupBox, QLabel, 
+        QLineEdit, QListView, QMainWindow, 
+        QMenu, QMenuBar, QProgressBar, 
+        QPushButton, QSizePolicy, QSpinBox, 
+        QStatusBar, QTabWidget, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setWindowModality(Qt.WindowModality.NonModal)
-        MainWindow.resize(1021, 484)
+        MainWindow.resize(1025, 544)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
+        MainWindow.setMinimumSize(QSize(1025, 544))
+        MainWindow.setMaximumSize(QSize(1025, 544))
         font = QFont()
         font.setFamilies([u"Roboto"])
         font.setPointSize(8)
@@ -44,7 +44,7 @@ class Ui_MainWindow(object):
         icon = QIcon()
         icon.addFile(u"../icon.ico", QSize(), QIcon.Normal, QIcon.Off)
         MainWindow.setWindowIcon(icon)
-        #MainWindow.setWindowOpacity(1.000000000000000)
+        MainWindow.setWindowOpacity(1.000000000000000)
         MainWindow.setAutoFillBackground(False)
         MainWindow.setStyleSheet(u"")
         MainWindow.setLocale(QLocale(QLocale.English, QLocale.UnitedStates))
@@ -53,10 +53,16 @@ class Ui_MainWindow(object):
         MainWindow.setDocumentMode(False)
         MainWindow.setTabShape(QTabWidget.TabShape.Rounded)
         MainWindow.setDockNestingEnabled(False)
+        MainWindow.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks|QMainWindow.DockOption.AnimatedDocks)
         MainWindow.setUnifiedTitleAndToolBarOnMac(True)
+        self.actionFrame_Editor = QAction(MainWindow)
+        self.actionFrame_Editor.setObjectName(u"actionFrame_Editor")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.centralwidget.setEnabled(True)
+        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
+        self.centralwidget.setSizePolicy(sizePolicy)
+        self.centralwidget.setMaximumSize(QSize(1025, 544))
         self.progressBar = QProgressBar(self.centralwidget)
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setGeometry(QRect(10, 10, 1001, 23))
@@ -83,7 +89,7 @@ class Ui_MainWindow(object):
         self.input_ui_button.setAutoFillBackground(False)
         self.output_ui_group = QGroupBox(self.centralwidget)
         self.output_ui_group.setObjectName(u"output_ui_group")
-        self.output_ui_group.setGeometry(QRect(460, 100, 551, 51))
+        self.output_ui_group.setGeometry(QRect(460, 110, 551, 51))
         self.output_ui_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.output_ui_group.setFlat(False)
         self.output_ui_location = QLineEdit(self.output_ui_group)
@@ -101,7 +107,7 @@ class Ui_MainWindow(object):
         self.output_ui_button.setFlat(False)
         self.generate_ui_group = QGroupBox(self.centralwidget)
         self.generate_ui_group.setObjectName(u"generate_ui_group")
-        self.generate_ui_group.setGeometry(QRect(460, 160, 551, 241))
+        self.generate_ui_group.setGeometry(QRect(460, 180, 551, 241))
         self.generate_ui_group.setFont(font)
         self.generate_ui_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.generate_ui_group.setFlat(False)
@@ -205,7 +211,7 @@ class Ui_MainWindow(object):
         self.alpha_ui_label_sprite_override.setAlignment(Qt.AlignmentFlag.AlignLeading|Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter)
         self.filelist_ui_group = QGroupBox(self.centralwidget)
         self.filelist_ui_group.setObjectName(u"filelist_ui_group")
-        self.filelist_ui_group.setGeometry(QRect(10, 40, 431, 411))
+        self.filelist_ui_group.setGeometry(QRect(10, 40, 431, 451))
         sizePolicy.setHeightForWidth(self.filelist_ui_group.sizePolicy().hasHeightForWidth())
         self.filelist_ui_group.setSizePolicy(sizePolicy)
         self.filelist_ui_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -236,9 +242,15 @@ class Ui_MainWindow(object):
         self.animationlist_ui_box.setProperty("showDropIndicator", False)
         self.animationlist_ui_box.setModelColumn(0)
         self.animationlist_ui_box.setUniformItemSizes(False)
+        self.edit_ui_button = QPushButton(self.filelist_ui_group)
+        self.edit_ui_button.setObjectName(u"edit_ui_button")
+        self.edit_ui_button.setGeometry(QRect(220, 410, 201, 31))
+        self.edit_ui_button_2 = QPushButton(self.filelist_ui_group)
+        self.edit_ui_button_2.setObjectName(u"edit_ui_button_2")
+        self.edit_ui_button_2.setGeometry(QRect(10, 410, 201, 31))
         self.startButton = QPushButton(self.centralwidget)
         self.startButton.setObjectName(u"startButton")
-        self.startButton.setGeometry(QRect(680, 420, 111, 31))
+        self.startButton.setGeometry(QRect(680, 450, 111, 31))
         MainWindow.setCentralWidget(self.centralwidget)
         self.generate_ui_group.raise_()
         self.progressBar.raise_()
@@ -249,6 +261,14 @@ class Ui_MainWindow(object):
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
+        self.menuBar = QMenuBar(MainWindow)
+        self.menuBar.setObjectName(u"menuBar")
+        self.menuBar.setGeometry(QRect(0, 0, 1025, 33))
+        self.menuAbout = QMenu(self.menuBar)
+        self.menuAbout.setObjectName(u"menuAbout")
+        MainWindow.setMenuBar(self.menuBar)
+
+        self.menuBar.addAction(self.menuAbout.menuAction())
 
         self.retranslateUi(MainWindow)
 
@@ -263,6 +283,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(statustip)
         MainWindow.setStatusTip("")
 #endif // QT_CONFIG(statustip)
+        self.actionFrame_Editor.setText(QCoreApplication.translate("MainWindow", u"Frame Editor", None))
 #if QT_CONFIG(statustip)
         self.progressBar.setStatusTip(QCoreApplication.translate("MainWindow", u"Progress", None))
 #endif // QT_CONFIG(statustip)
@@ -367,6 +388,8 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(statustip)
         self.animationlist_ui_box.setStatusTip(QCoreApplication.translate("MainWindow", u"Spritesheets found in the input folder", None))
 #endif // QT_CONFIG(statustip)
+        self.edit_ui_button.setText(QCoreApplication.translate("MainWindow", u"Frame Editor (Not implemented yet)", None))
+        self.edit_ui_button_2.setText(QCoreApplication.translate("MainWindow", u"View Sprite (Not implemented yet)", None))
 #if QT_CONFIG(statustip)
         self.startButton.setStatusTip(QCoreApplication.translate("MainWindow", u"Execute tasks.", None))
 #endif // QT_CONFIG(statustip)
@@ -374,5 +397,5 @@ class Ui_MainWindow(object):
         self.startButton.setWhatsThis("")
 #endif // QT_CONFIG(whatsthis)
         self.startButton.setText(QCoreApplication.translate("MainWindow", u"Start", None))
+        self.menuAbout.setTitle(QCoreApplication.translate("MainWindow", u"About", None))
     # retranslateUi
-
