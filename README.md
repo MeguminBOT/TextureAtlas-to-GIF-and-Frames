@@ -10,10 +10,11 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 * Override frame rate and loop delay for individual sprites and animations.
 
 ## Not yet implemented
+Feel free to help me implement anything on this list.
+* Transition to the new QT UI inside the "new_ui_project" folder. (I'm malding over python classes, and I'm bit more busy irl lately)
 * Selection of specific sprites for extraction (Currently processes entire folders).
 * Use width/height instead of frameWidth and frameHeight while still also being able to have GIFs/WebPs properly lined up. (I need help, this is driving me crazy lmao)
 * Option to delete of frames after GIF/WebP generation.
-* Improved user interface for enhanced usability. (Like refactoring the code to use PyQT or something)
 
 ## How to Install
 ### Windows
