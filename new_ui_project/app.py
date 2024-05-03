@@ -20,13 +20,19 @@ class AppWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+
+        self.input_dir = None
+        self.user_settings = {}
         
-        self.filehandler = FileHandler(self.input_dir, self.spritelist_ui_box, self.animationlist_ui_box)
+        self.filehandler = FileHandler(self.input_ui_group, self.input_dir, self.spritelist_ui_box, 
+                                       self.animationlist_ui_box, self.user_settings, self.override_settings_ui_group)
+
         self.input_ui_button.clicked.connect(self.filehandler.select_directory)
+        self.override_settings_ui_group.toggled.connect(self.filehandler.on_override_settings_changed)
 
         self.spritelist_ui_box.selectionModel().selectionChanged.connect(self.filehandler.on_select_png)
         self.animationlist_ui_box.selectionModel().selectionChanged.connect(self.filehandler.on_animation_selected)
-        
+
 
 class UpdateWindow(QWidget, Ui_update_window):
     def __init__(self, current_version, latest_version):
