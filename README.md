@@ -12,6 +12,7 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 ## Not yet implemented
 Feel free to help me implement anything on this list.
 * Transition to the new QT UI inside the "new_ui_project" folder. (I'm malding over python classes, and I'm bit more busy irl lately)
+* Implement the icon splitter tool into a sub menu when the new QT UI is fully implemented https://github.com/MeguminBOT/FNF-Icon-Splitter
 * Selection of specific sprites for extraction (Currently processes entire folders).
 * Use width/height instead of frameWidth and frameHeight while still also being able to have GIFs/WebPs properly lined up. (I need help, this is driving me crazy lmao)
 * Option to delete of frames after GIF/WebP generation.
