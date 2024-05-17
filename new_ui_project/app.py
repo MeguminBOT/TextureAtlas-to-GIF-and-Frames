@@ -25,14 +25,16 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         self.user_settings = {}
         
         self.filehandler = FileHandler(self.input_ui_group, self.input_dir, self.spritelist_ui_box, 
-                                       self.animationlist_ui_box, self.user_settings, self.override_settings_ui_group)
+                                       self.animationlist_ui_box, self.user_settings, self.override_settings_ui_group, 
+                                       self.fps_ui_stepper_override, self.delay_ui_stepper_override, self.alpha_ui_stepper_override)
 
-        self.input_ui_button.clicked.connect(self.filehandler.select_directory)
-        self.override_settings_ui_group.toggled.connect(self.filehandler.on_override_settings_changed)
-
+        self.input_ui_button.clicked.connect(self.filehandler.select_directory)   
         self.spritelist_ui_box.selectionModel().selectionChanged.connect(self.filehandler.on_select_png)
         self.animationlist_ui_box.selectionModel().selectionChanged.connect(self.filehandler.on_animation_selected)
-
+        self.fps_ui_stepper_override.valueChanged.connect(self.filehandler.on_override_settings_changed)
+        self.delay_ui_stepper_override.valueChanged.connect(self.filehandler.on_override_settings_changed)
+        self.alpha_ui_stepper_override.valueChanged.connect(self.filehandler.on_override_settings_changed)
+        self.override_settings_ui_group.toggled.connect(self.filehandler.on_override_settings_changed)
 
 class UpdateWindow(QWidget, Ui_update_window):
     def __init__(self, current_version, latest_version):
