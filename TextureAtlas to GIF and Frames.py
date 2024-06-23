@@ -207,7 +207,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             threshold = settings.get('threshold', set_threshold)
             indices = settings.get('indices')
             if indices:
-                indices = [filter(lambda i: ((i < len(images)) & (i >= 0)), indices)]
+                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
                 images = [images[i] for i in indices]
             sizes = [frame.size for frame in images]
             max_size = tuple(map(max, zip(*sizes)))
