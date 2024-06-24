@@ -256,7 +256,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     os.makedirs(sprite_output_dir, exist_ok=True)
                     
                     # Submit a task to the executor to extract the sprites from the .png file
-future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)                    
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)                    
                     # Add the Future object to the list of futures
                     futures.append(future)
 
@@ -397,6 +397,19 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 durations[-1] += delay
                 images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
+            # If frames should not be kept
+            if not keep_frames:
+
+                # Get the folder that stores the frames for the animation
+                frames_folder = os.path.join(output_dir, animation_name)
+
+                # Delete all the files in the folder
+                for i in os.listdir(frames_folder):
+                    os.remove(os.path.join(frames_folder, i))
+
+                # Delete the folder
+                os.rmdir(frames_folder)
+    
     # If there's a problem parsing the XML file, raise a ParseError
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
