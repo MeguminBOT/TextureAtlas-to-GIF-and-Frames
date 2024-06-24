@@ -1,13 +1,14 @@
+import concurrent.futures
 import os
 import re
-import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
-from PIL import Image
-import xml.etree.ElementTree as ET
-import webbrowser
 import requests
 import sys
-import concurrent.futures
+import webbrowser
+import xml.etree.ElementTree as ET
+
+from PIL import Image
+import tkinter as tk
+from tkinter import filedialog, ttk, messagebox
 
 ##### Update Checking #####
 def check_for_updates(current_version):
@@ -48,19 +49,19 @@ def check_for_updates(current_version):
         print("Error details:", err)
 
 # Set the current version
-current_version = '1.5.0'
+current_version = '1.6.0'
 
 # Call the function to check for updates
 check_for_updates(current_version)
 
 ##### File processing #####
-def count_png_files(directory):
-    # Count the number of PNG files in the directory
-    return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
+def count_xml_files(directory):
+    # Count the number of XML files in the directory
+    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
 
 def sanitize_filename(name):
     # Replace any invalid characters in the filename with underscores
-    return re.sub(r'[\/:*?"<>|]', '_', name).rstrip()
+    return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
 
 def select_directory(variable, label):
     # Show a dialog to select a directory
@@ -80,10 +81,10 @@ def select_directory(variable, label):
 
             # For each file in the directory
             for filename in os.listdir(directory):
-                # If the file is a PNG file
-                if filename.endswith('.png'):
-                    # Add the file to the PNG list
-                    listbox_png.insert(tk.END, filename)
+                # If the file is an XML file
+                if filename.endswith('.xml'):
+                    # Add the corresponding PNG file to the PNG list
+                    listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
                 # Clear the XML list
@@ -122,6 +123,8 @@ def select_directory(variable, label):
             # Bind the double click event of the XML list to the on_double_click_xml function
             listbox_xml.bind('<Double-1>', on_double_click_xml)
 
+    return directory
+
 
 # This function is called when the user double-clicks on an animation in the XML list
 def on_double_click_xml(evt):
@@ -156,16 +159,51 @@ def on_double_click_xml(evt):
     threshold_entry = tk.Entry(new_window)
     threshold_entry.pack()
 
+    # Add an entry field to the new window for the user to input the frame indices for the selected animation
+    tk.Label(new_window, text="Indices for " + animation_name).pack()
+    indices_entry = tk.Entry(new_window)
+    indices_entry.pack()
+
     # This function is called when the user clicks the OK button
     def store_input():
+
+        # Create an empty dictionary to store the user's input for the particular animation
+        anim_settings = {}
+        
         try:
-            # Store the user's input in the "user_settings" dictionary
-            user_settings[spritesheet_name + '/' + animation_name] = (int(fps_entry.get()), int(delay_entry.get()), float(threshold_entry.get()))
+            # If the fps entry is not empty
+            if fps_entry.get() != '':
+                
+                # Set the 
+                anim_settings['fps'] = float(fps_entry.get())
+                
+            # If the delay entry is not empty
+            if delay_entry.get() != '':
+                # Set the 
+                anim_settings['delay'] = int(delay_entry.get())
+            # If the threshold entry is not empty
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = float(threshold_entry.get())
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+                
+            # If there is at least one non-empty setting
+            if len(anim_settings) > 0:
+                
+                # Store the user's input in the "user_settings" dictionary
+                user_settings[spritesheet_name + '/' + animation_name] = anim_settings
+
+            # If there are no settings and there are previous settings
+            elif user_settings.get(spritesheet_name + '/' + animation_name):
+                
+                # Remove the settings for the animation
+                user_settings.pop(spritesheet_name + '/' + animation_name)
 
             # Close the new window
             new_window.destroy()
 
-        # Show an error message if the user tries to enter a non-integer value.
+        # Show an error message if the user tries to enter an invalid value.
         except ValueError:
             messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
             
@@ -179,12 +217,16 @@ def on_double_click_xml(evt):
 user_settings = {}
 
 # This function processes a directory of .png and .xml files, creating sprites and optionally .gif and .webp files
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+    # If none of the gif, webp or frames options are set, stop
+    if not (create_gif or create_webp or keep_frames):
+        return
+    
     # Reset the progress bar
     progress_var.set(0)
     
-    # Count the total number of .png files in the input directory
-    total_files = count_png_files(input_dir)
+    # Count the total number of .xml files in the input directory
+    total_files = count_xml_files(input_dir)
     
     # Set the maximum value of the progress bar to the total number of files
     progress_bar["maximum"] = total_files
@@ -214,8 +256,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     os.makedirs(sprite_output_dir, exist_ok=True)
                     
                     # Submit a task to the executor to extract the sprites from the .png file
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold)
-                    
+future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)                    
                     # Add the Future object to the list of futures
                     futures.append(future)
 
@@ -252,7 +293,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
 
 ##### Extraction logic #####
 # This function extracts sprites from an atlas and saves them as .png, .gif, and .webp files
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
+def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     try:
         # Open the atlas image
         atlas = Image.open(atlas_path)
@@ -272,11 +313,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
             name = sprite.get('name')
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             
-            # Get the frame dimensions and rotation status of the sprite
+            # Get the frame dimensions and rotation status of the sprite, ensuring the width and height are at least 1
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = int(sprite.get('frameWidth', width))
-            frameHeight = int(sprite.get('frameHeight', height))
+            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
+            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
             rotated = sprite.get('rotated', 'false') == 'true'
 
             # Crop the sprite image from the atlas using the prcoessed xml files
@@ -307,12 +348,25 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                 animations.setdefault(folder_name, []).append(frame_image)
                 
         for animation_name, images in animations.items():
-            # Get the frames per second (fps) and delay for the current animation from the "user_settings" dictionary.
-            # If the "spritesheet_name" and "animation_name" does not exist in the dictionary, use the global settings.
-            fps, delay, threshold = user_settings.get(spritesheet_name + '/' + animation_name, (set_framerate, set_loopdelay, set_threshold))
-            sizes = (frame.size for frame in images)
+            # Get the settings for the current animation from the "user_settings" dictionary
+            # If the "spritesheet_name" and "animation_name" does not exist in the dictionary, use the global settings
+            settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
+            fps = settings.get('fps', set_framerate)
+            delay = settings.get('delay', set_loopdelay)
+            threshold = settings.get('threshold', set_threshold)
+            indices = settings.get('indices')
+
+            # If there are indices set, replace the image list to store the images of the chosen indices
+            if indices:
+                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
+                images = [images[i] for i in indices]
+
+            # Get the minimum and maximum sizes of the frames
+            sizes = [frame.size for frame in images]
             max_size = tuple(map(max, zip(*sizes)))
             min_size = tuple(map(min, zip(*sizes)))
+
+            # If they are different, expand the frames to the maximum size 
             if max_size != min_size:
                 for index, frame in enumerate(images):
                     images[index] = Image.new('RGBA', max_size)
@@ -320,20 +374,28 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
             
             # If .webp files should be created   
             if create_webp:
+
+                # Set the durations for each frame
                 durations = [round(1000/fps)] * len(images)
-                durations[-1] = delay
+
+                # Add the delay to the final frame
+                durations[-1] += delay
+
+                # Save as .webp
                 images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
 
             # If .gif files should be created
             if create_gif:
+                
+                # Change semi-transparent pixels to be fully opaque or fully transparent based on the threshold
                 for frame in images:
                     alpha = frame.getchannel('A')
                     alpha = alpha.point(lambda i: i > 255*threshold and 255)
                     frame.putalpha(alpha)
-                    durations = [round(1000/fps)] * len(images)
-                    durations[-1] = delay
-                    images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+                durations = [round(1000/fps)] * len(images)
+                durations[-1] += delay
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
     # If there's a problem parsing the XML file, raise a ParseError
     except ET.ParseError:
@@ -381,8 +443,8 @@ scrollbar_xml.config(command=listbox_xml.yview)
 
 # Create a variable to hold the input directory
 input_dir = tk.StringVar()
-# Create a button to select the input directory
-input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label))
+# Create a button to select the input directory and clear the user settings
+input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
 input_button.pack(pady=2)
 
 # Create a label to display the selected input directory
@@ -410,6 +472,12 @@ create_webp = tk.BooleanVar()
 # Create a checkbox to select the webp creation option
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
 webp_checkbox.pack()
+
+# Create a variable to hold the frame creation option
+keep_frames = tk.BooleanVar()
+# Create a checkbox to select the frame creation option
+frame_checkbox = tk.Checkbutton(root, text="Keep individual frames", variable=keep_frames)
+frame_checkbox.pack()
 
 # Create a variable to hold the frame rate
 set_framerate = tk.DoubleVar(value=24)
