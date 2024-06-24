@@ -102,25 +102,41 @@ def on_double_click_xml(evt):
 
     def store_input():
         anim_settings = {}
-
+        
         try:
             if fps_entry.get() != '':
                 anim_settings['fps'] = float(fps_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
+            new_window.lift()
+            return
+        try:
             if delay_entry.get() != '':
                 anim_settings['delay'] = int(delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            new_window.lift()
+            return
+        try:
             if threshold_entry.get() != '':
                 anim_settings['threshold'] = float(threshold_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            new_window.lift()
+            return
+        try:
             if indices_entry.get() != '':
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
                 anim_settings['indices'] = indices
-            if len(anim_settings) > 0:
-                user_settings[spritesheet_name + '/' + animation_name] = anim_settings
-            elif user_settings.get(spritesheet_name + '/' + animation_name):
-                user_settings.pop(spritesheet_name + '/' + animation_name)
-            new_window.destroy()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
             new_window.lift()
+            return
+        if len(anim_settings) > 0:
+            user_settings[spritesheet_name + '/' + animation_name] = anim_settings
+        elif user_settings.get(spritesheet_name + '/' + animation_name):
+            user_settings.pop(spritesheet_name + '/' + animation_name)
+        new_window.destroy()
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 user_settings = {}
