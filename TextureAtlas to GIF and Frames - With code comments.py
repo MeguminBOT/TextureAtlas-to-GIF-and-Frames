@@ -166,7 +166,7 @@ def on_double_click_xml(evt):
 
     # This function is called when the user clicks the OK button
     def store_input():
-
+        
         # Create an empty dictionary to store the user's input for the particular animation
         anim_settings = {}
         
@@ -256,7 +256,8 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     os.makedirs(sprite_output_dir, exist_ok=True)
                     
                     # Submit a task to the executor to extract the sprites from the .png file
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)                    
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+                    
                     # Add the Future object to the list of futures
                     futures.append(future)
 
@@ -382,8 +383,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 durations[-1] += delay
 
                 # Save as .webp
-                images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
-
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             # If .gif files should be created
             if create_gif:
@@ -517,7 +517,7 @@ threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
 # Create a button to start the processing
-process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(pady=8)
 
 # Create a label to display the author's name
