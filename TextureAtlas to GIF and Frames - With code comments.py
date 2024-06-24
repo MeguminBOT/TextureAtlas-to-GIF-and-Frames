@@ -171,44 +171,71 @@ def on_double_click_xml(evt):
         anim_settings = {}
         
         try:
-            # If the fps entry is not empty
+            # Add the fps entry if not empty
             if fps_entry.get() != '':
-                
-                # Set the 
                 anim_settings['fps'] = float(fps_entry.get())
-                
-            # If the delay entry is not empty
-            if delay_entry.get() != '':
-                # Set the 
-                anim_settings['delay'] = int(delay_entry.get())
-            # If the threshold entry is not empty
-            if threshold_entry.get() != '':
-                anim_settings['threshold'] = float(threshold_entry.get())
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                anim_settings['indices'] = indices
-                
-            # If there is at least one non-empty setting
-            if len(anim_settings) > 0:
-                
-                # Store the user's input in the "user_settings" dictionary
-                user_settings[spritesheet_name + '/' + animation_name] = anim_settings
 
-            # If there are no settings and there are previous settings
-            elif user_settings.get(spritesheet_name + '/' + animation_name):
-                
-                # Remove the settings for the animation
-                user_settings.pop(spritesheet_name + '/' + animation_name)
-
-            # Close the new window
-            new_window.destroy()
-
-        # Show an error message if the user tries to enter an invalid value.
+        # If the fps entry is not a valid float, show an error message and exit the function
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
             
             # Raise the new window to the top of the window stack
             new_window.lift()
+            return
+        try:
+            # Add the delay entry if not empty
+            if delay_entry.get() != '':
+                anim_settings['delay'] = int(delay_entry.get())
+                
+        # If the delay entry is not a valid integer, show an error message and exit the function
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            
+            # Raise the new window to the top of the window stack
+            new_window.lift()
+            return
+        try:
+            # Add the threshold entry if not empty
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = float(threshold_entry.get())
+                
+        # If the threshold entry is not a valid float, show an error message and exit the function
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            
+            # Raise the new window to the top of the window stack
+            new_window.lift()
+            return
+        try:
+            # Add the indices entry if not empty
+            if indices_entry.get() != '':
+
+                # Convert the CSV string to an integer list
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+                
+        # If the indices entry cannot be converted, show an error message and exit the function
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            
+            # Raise the new window to the top of the window stack
+            new_window.lift()
+            return
+            
+        # If there is at least one non-empty setting
+        if len(anim_settings) > 0:
+            
+            # Store the user's input in the "user_settings" dictionary
+            user_settings[spritesheet_name + '/' + animation_name] = anim_settings
+            
+        # If there are no settings but there are previous settings for the given animation
+        elif user_settings.get(spritesheet_name + '/' + animation_name):
+            
+            # Remove the settings for the animation
+            user_settings.pop(spritesheet_name + '/' + animation_name)
+        
+        # Close the new window
+        new_window.destroy()
 
     # Add an OK button to the new window that calls the store_input function when clicked
     tk.Button(new_window, text="OK", command=store_input).pack()
