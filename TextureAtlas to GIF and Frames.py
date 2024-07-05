@@ -77,6 +77,23 @@ def select_directory(variable, label):
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
             listbox_xml.bind('<Double-1>', on_double_click_xml)
     return directory
+
+user_settings = {}
+
+def create_settings_window():
+    global settings_window
+    settings_window = tk.Toplevel()
+    settings_window.geometry("400x300")
+    update_settings_window()
+
+def update_settings_window():
+    if settings_window.winfo_exists():
+        for widget in settings_window.winfo_children():
+            widget.destroy()
+
+        tk.Label(settings_window, text="User Settings").pack()
+        for key, value in user_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
             
 def on_double_click_xml(evt):
     spritesheet_name = listbox_png.get(listbox_png.curselection())
@@ -139,7 +156,6 @@ def on_double_click_xml(evt):
         new_window.destroy()
 
     tk.Button(new_window, text="OK", command=store_input).pack()
-user_settings = {}
 
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     if not (create_gif or create_webp or keep_frames):
@@ -327,10 +343,16 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
-process_button.pack(pady=8)
+button_frame = tk.Frame(root)
+button_frame.pack(pady=8)
 
-author_label = tk.Label(root, text="Tool written by AutisticLulu")
+show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
+show_user_settings.pack(side=tk.LEFT, padx=4)
+
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button.pack(side=tk.LEFT, padx=4)
+
+author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
 
 ## Source Code
