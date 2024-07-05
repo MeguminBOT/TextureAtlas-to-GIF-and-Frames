@@ -122,9 +122,28 @@ def select_directory(variable, label):
             
             # Bind the double click event of the XML list to the on_double_click_xml function
             listbox_xml.bind('<Double-1>', on_double_click_xml)
-
     return directory
 
+# Create an empty dictionary to store the user's input
+user_settings = {}
+
+# Creates a window where the user can see what settings they have set for individual animations
+def create_settings_window():
+    global settings_window
+    settings_window = tk.Toplevel()
+    settings_window.geometry("400x300")
+    # Updates the settings window whenever the Show User Settings button is pressed.
+    update_settings_window()
+
+# Updates the settings window with the current user settings.
+def update_settings_window():
+    if settings_window.winfo_exists():
+        for widget in settings_window.winfo_children():
+            widget.destroy()
+
+        tk.Label(settings_window, text="User Settings").pack()
+        for key, value in user_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
 
 # This function is called when the user double-clicks on an animation in the XML list
 def on_double_click_xml(evt):
@@ -239,9 +258,6 @@ def on_double_click_xml(evt):
 
     # Add an OK button to the new window that calls the store_input function when clicked
     tk.Button(new_window, text="OK", command=store_input).pack()
-
-# Create an empty dictionary to store the user's input
-user_settings = {}
 
 # This function processes a directory of .png and .xml files, creating sprites and optionally .gif and .webp files
 def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
@@ -543,12 +559,23 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-# Create a button to start the processing
 process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(pady=8)
 
+# Button frame to hold the buttons.
+button_frame = tk.Frame(root)
+button_frame.pack(pady=8)
+
+# Create a button to show user settings
+show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
+show_user_settings.pack(side=tk.LEFT, padx=4)
+
+# Create a button to start the processing
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button.pack(side=tk.LEFT, padx=4)
+
 # Create a label to display the author's name
-author_label = tk.Label(root, text="Tool written by AutisticLulu")
+author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
 
 # Function to open a URL in a new browser window
@@ -561,7 +588,6 @@ link1 = tk.Label(root, text="If you wish to contribute to the project, click her
 link1.pack(side='bottom')
 # Bind the link to the function to open the URL
 link1.bind("<Button-1>", lambda e: contributeLink(linkSourceCode))
-
 
 ##### Main loop #####
 root.mainloop()
