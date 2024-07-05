@@ -1,13 +1,14 @@
+import concurrent.futures
 import os
 import re
-import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
-from PIL import Image
-import xml.etree.ElementTree as ET
-import webbrowser
 import requests
 import sys
-import concurrent.futures
+import webbrowser
+import xml.etree.ElementTree as ET
+
+from PIL import Image
+import tkinter as tk
+from tkinter import filedialog, ttk, messagebox
 
 ## Update Checking
 def check_for_updates(current_version):
@@ -32,12 +33,12 @@ def check_for_updates(current_version):
         print("No internet connection or something went wrong, could not check for updates.")
         print("Error details:", err)
 
-current_version = '1.5.0'
+current_version = '1.6.0'
 check_for_updates(current_version)
 
 ## File processing
-def count_png_files(directory):
-    return sum(1 for filename in os.listdir(directory) if filename.endswith('.png'))
+def count_xml_files(directory):
+    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
 
 def sanitize_filename(name):
     return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
@@ -53,8 +54,8 @@ def select_directory(variable, label):
             listbox_xml.delete(0, tk.END)
 
             for filename in os.listdir(directory):
-                if filename.endswith('.png'):
-                    listbox_png.insert(tk.END, filename)
+                if filename.endswith('.xml'):
+                    listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
                 listbox_xml.delete(0, tk.END)
@@ -75,6 +76,24 @@ def select_directory(variable, label):
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
             listbox_xml.bind('<Double-1>', on_double_click_xml)
+    return directory
+
+user_settings = {}
+
+def create_settings_window():
+    global settings_window
+    settings_window = tk.Toplevel()
+    settings_window.geometry("400x300")
+    update_settings_window()
+
+def update_settings_window():
+    if settings_window.winfo_exists():
+        for widget in settings_window.winfo_children():
+            widget.destroy()
+
+        tk.Label(settings_window, text="User Settings").pack()
+        for key, value in user_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
             
 def on_double_click_xml(evt):
     spritesheet_name = listbox_png.get(listbox_png.curselection())
@@ -94,25 +113,61 @@ def on_double_click_xml(evt):
     threshold_entry = tk.Entry(new_window)
     threshold_entry.pack()
 
+    tk.Label(new_window, text="Indices for " + animation_name).pack()
+    indices_entry = tk.Entry(new_window)
+    indices_entry.pack()
+
     def store_input():
+        anim_settings = {}
+        
         try:
-            user_settings[spritesheet_name + '/' + animation_name] = (int(fps_entry.get()), int(delay_entry.get()), float(threshold_entry.get()))
-            new_window.destroy()
+            if fps_entry.get() != '':
+                anim_settings['fps'] = float(fps_entry.get())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
             new_window.lift()
+            return
+        try:
+            if delay_entry.get() != '':
+                anim_settings['delay'] = int(delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            new_window.lift()
+            return
+        try:
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = float(threshold_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            new_window.lift()
+            return
+        try:
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            new_window.lift()
+            return
+        if len(anim_settings) > 0:
+            user_settings[spritesheet_name + '/' + animation_name] = anim_settings
+        elif user_settings.get(spritesheet_name + '/' + animation_name):
+            user_settings.pop(spritesheet_name + '/' + animation_name)
+        new_window.destroy()
 
     tk.Button(new_window, text="OK", command=store_input).pack()
-user_settings = {}
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+    if not (create_gif or create_webp or keep_frames):
+        return
     progress_var.set(0)
-    total_files = count_png_files(input_dir)
+    total_files = count_xml_files(input_dir)
     progress_bar["maximum"] = total_files
 
     max_workers = os.cpu_count() // 2
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
+
         for filename in os.listdir(input_dir):
             if filename.endswith('.png'):
                 xml_filename = filename.rsplit('.', 1)[0] + '.xml'
@@ -121,7 +176,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                 if os.path.isfile(xml_path):
                     sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
                     os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -142,7 +197,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     messagebox.showinfo("Information","Finished processing all files.")
 
 ## Extraction logic
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_threshold):
+def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     try:
         atlas = Image.open(atlas_path)
         tree = ET.parse(xml_path)
@@ -155,8 +210,8 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = int(sprite.get('frameWidth', width))
-            frameHeight = int(sprite.get('frameHeight', height))
+            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
+            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
             rotated = sprite.get('rotated', 'false') == 'true'
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
@@ -176,10 +231,17 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 
             if create_gif or create_webp:
                 animations.setdefault(folder_name, []).append(frame_image)
-                
+
         for animation_name, images in animations.items():
-            fps, delay, threshold = user_settings.get(spritesheet_name + '/' + animation_name, (set_framerate, set_loopdelay, set_threshold))
-            sizes = (frame.size for frame in images)
+            settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
+            fps = settings.get('fps', set_framerate)
+            delay = settings.get('delay', set_loopdelay)
+            threshold = settings.get('threshold', set_threshold)
+            indices = settings.get('indices')
+            if indices:
+                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
+                images = [images[i] for i in indices]
+            sizes = [frame.size for frame in images]
             max_size = tuple(map(max, zip(*sizes)))
             min_size = tuple(map(min, zip(*sizes)))
             if max_size != min_size:
@@ -189,8 +251,8 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
 
             if create_webp:
                 durations = [round(1000/fps)] * len(images)
-                durations[-1] = delay
-                images[0].save(os.path.join(output_dir, f"_{animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+                durations[-1] += delay
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             if create_gif:
                 for frame in images:
@@ -198,8 +260,14 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, s
                     alpha = alpha.point(lambda i: i > 255*threshold and 255)
                     frame.putalpha(alpha)
                 durations = [round(1000/fps)] * len(images)
-                durations[-1] = delay
-                images[0].save(os.path.join(output_dir, f"_{animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+                durations[-1] += delay
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+            
+            if not keep_frames:
+                frames_folder = os.path.join(output_dir, animation_name)
+                for i in os.listdir(frames_folder):
+                    os.remove(os.path.join(frames_folder, i))
+                os.rmdir(frames_folder)
 
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
@@ -232,7 +300,7 @@ scrollbar_png.config(command=listbox_png.yview)
 scrollbar_xml.config(command=listbox_xml.yview)
 
 input_dir = tk.StringVar()
-input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label))
+input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
 input_button.pack(pady=2)
 
 input_dir_label = tk.Label(root, text="No input directory selected")
@@ -253,6 +321,10 @@ create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
 webp_checkbox.pack()
 
+keep_frames = tk.BooleanVar()
+frame_checkbox = tk.Checkbutton(root, text="Keep individual frames", variable=keep_frames)
+frame_checkbox.pack()
+
 set_framerate = tk.DoubleVar(value=24)
 frame_rate_label = tk.Label(root, text="Frame Rate (fps):")
 frame_rate_label.pack()
@@ -271,10 +343,16 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
-process_button.pack(pady=8)
+button_frame = tk.Frame(root)
+button_frame.pack(pady=8)
 
-author_label = tk.Label(root, text="Tool written by AutisticLulu")
+show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
+show_user_settings.pack(side=tk.LEFT, padx=4)
+
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button.pack(side=tk.LEFT, padx=4)
+
+author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
 
 ## Source Code
