@@ -4,7 +4,6 @@ import re
 import requests
 import sys
 import webbrowser
-import json
 import xml.etree.ElementTree as ET
 
 from PIL import Image
@@ -38,8 +37,8 @@ current_version = '1.7.0'
 check_for_updates(current_version)
 
 ## File processing
-def count_files(directory, extensions):
-    return sum(1 for filename in os.listdir(directory) if filename.endswith(extensions))
+def count_xml_files(directory):
+    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
 
 def sanitize_filename(name):
     return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
@@ -55,7 +54,7 @@ def select_directory(variable, label):
             listbox_xml.delete(0, tk.END)
 
             for filename in os.listdir(directory):
-                if filename.endswith(('.xml', '.json')):
+                if filename.endswith('.xml'):
                     listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
@@ -63,21 +62,14 @@ def select_directory(variable, label):
 
                 png_filename = listbox_png.get(listbox_png.curselection())
                 xml_filename = os.path.splitext(png_filename)[0] + '.xml'
-                json_filename = os.path.splitext(png_filename)[0] + '.json'
 
-                if os.path.isfile(os.path.join(directory, xml_filename)):
-                    tree = ET.parse(os.path.join(directory, xml_filename))
-                    root = tree.getroot()
-                    names = set()
-                    for subtexture in root.findall(".//SubTexture"):
-                        name = subtexture.get('name')
-                        name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-                        names.add(name)
-
-                elif os.path.isfile(os.path.join(directory, json_filename)):
-                    with open(os.path.join(directory, json_filename), 'r') as file:
-                        data = json.load(file)
-                        names = {sprite['SPRITE']['name'] for sprite in data['ATLAS']['SPRITES']}
+                tree = ET.parse(os.path.join(directory, xml_filename))
+                root = tree.getroot()
+                names = set()
+                for subtexture in root.findall(".//SubTexture"):
+                    name = subtexture.get('name')
+                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+                    names.add(name)
 
                 for name in names:
                     listbox_xml.insert(tk.END, name)
@@ -169,7 +161,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     if not (create_gif or create_webp or keep_frames):
         return
     progress_var.set(0)
-    total_files = count_files(input_dir, ('.xml', '.json'))
+    total_files = count_xml_files(input_dir)
     progress_bar["maximum"] = total_files
 
     if use_all_threads:
@@ -183,19 +175,12 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
         for filename in os.listdir(input_dir):
             if filename.endswith('.png'):
                 xml_filename = filename.rsplit('.', 1)[0] + '.xml'
-                json_filename = filename.rsplit('.', 1)[0] + '.json'
                 xml_path = os.path.join(input_dir, xml_filename)
-                json_path = os.path.join(input_dir, json_filename)
 
                 if os.path.isfile(xml_path):
                     sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
                     os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites_from_xml, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
-                    futures.append(future)
-                elif os.path.isfile(json_path):
-                    sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
-                    os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites_from_json, os.path.join(input_dir, filename), json_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -216,7 +201,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     messagebox.showinfo("Information","Finished processing all files.")
 
 ## Extraction logic
-def extract_sprites_from_xml(atlas_path, xml_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     try:
         atlas = Image.open(atlas_path)
         tree = ET.parse(xml_path)
@@ -305,80 +290,6 @@ def extract_sprites_from_xml(atlas_path, xml_path, output_dir, create_gif, creat
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
     except Exception as e:
         raise Exception(f"An error occurred: {str(e)}")
-
-def extract_sprites_from_json(atlas_path, json_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
-    try:
-        atlas = Image.open(atlas_path)
-        with open(json_path, 'r') as file:
-            data = json.load(file)
-        animations = {}
-        spritesheet_name = os.path.split(atlas_path)[1]
-
-        for sprite in data['ATLAS']['SPRITES']:
-            name = sprite['SPRITE']['name']
-            x, y, width, height = sprite['SPRITE']['x'], sprite['SPRITE']['y'], sprite['SPRITE']['w'], sprite['SPRITE']['h']
-            rotated = sprite['SPRITE'].get('rotated', False)
-
-            sprite_image = atlas.crop((x, y, x + width, y + height))
-            if rotated: 
-                sprite_image = sprite_image.rotate(90, expand=True)
-
-            frame_image = Image.new('RGBA', (width, height))
-            frame_image.paste(sprite_image)
-
-            if frame_image.mode != 'RGBA':
-                frame_image = frame_image.convert('RGBA')
-            folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-            sprite_folder = os.path.join(output_dir, folder_name)
-            os.makedirs(sprite_folder, exist_ok=True)
-
-            frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
-
-            if create_gif or create_webp:
-                animations.setdefault(folder_name, []).append(frame_image)
-
-        process_animations(animations, spritesheet_name, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
-
-    except Exception as e:
-        raise Exception(f"An error occurred: {str(e)}")
-
-def process_animations(animations, spritesheet_name, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
-    for animation_name, images in animations.items():
-        settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
-        fps = settings.get('fps', set_framerate)
-        delay = settings.get('delay', set_loopdelay)
-        threshold = settings.get('threshold', set_threshold)
-        indices = settings.get('indices')
-        if indices:
-            indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
-            images = [images[i] for i in indices]
-        sizes = [frame.size for frame in images]
-        max_size = tuple(map(max, zip(*sizes)))
-        min_size = tuple(map(min, zip(*sizes)))
-        if max_size != min_size:
-            for index, frame in enumerate(images):
-                images[index] = Image.new('RGBA', max_size)
-                images[index].paste(frame)
-
-        if create_webp:
-            durations = [round(1000/fps)] * len(images)
-            durations[-1] += delay
-            images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
-
-        if create_gif:
-            for frame in images:
-                alpha = frame.getchannel('A')
-                alpha = alpha.point(lambda i: i > 255*threshold and 255)
-                frame.putalpha(alpha)
-            durations = [round(1000/fps)] * len(images)
-            durations[-1] += delay
-            images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
-        
-        if not keep_frames:
-            frames_folder = os.path.join(output_dir, animation_name)
-            for i in os.listdir(frames_folder):
-                os.remove(os.path.join(frames_folder, i))
-            os.rmdir(frames_folder)
 
 ## Graphical User Interface setup
 root = tk.Tk()
