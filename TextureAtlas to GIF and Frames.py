@@ -259,13 +259,26 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             if create_gif:
+                # Crop away unneeded pixels from the GIF
+                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
                 for frame in images:
+                    bbox = frame.getbbox()
+                    min_x = min(min_x, bbox[0])
+                    min_y = min(min_y, bbox[1])
+                    max_x = max(max_x, bbox[2])
+                    max_y = max(max_y, bbox[3])
+                width, height = max_x - min_x, max_y - min_y
+                cropped_images = []
+                for frame in images:
+                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                    cropped_images.append(cropped_frame)
+                for frame in cropped_images:
                     alpha = frame.getchannel('A')
                     alpha = alpha.point(lambda i: i > 255*threshold and 255)
                     frame.putalpha(alpha)
-                durations = [round(1000/fps)] * len(images)
+                durations = [round(1000/fps)] * len(cropped_images)
                 durations[-1] += delay
-                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+                cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
             
             if not keep_frames:
                 frames_folder = os.path.join(output_dir, animation_name)
