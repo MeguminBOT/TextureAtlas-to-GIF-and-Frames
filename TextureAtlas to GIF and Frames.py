@@ -164,7 +164,11 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     total_files = count_xml_files(input_dir)
     progress_bar["maximum"] = total_files
 
-    max_workers = os.cpu_count() // 2
+    if use_all_threads:
+        max_workers = os.cpu_count()
+    else:
+        max_workers = os.cpu_count() // 2
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
 
@@ -351,6 +355,10 @@ show_user_settings.pack(side=tk.LEFT, padx=4)
 
 process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(side=tk.LEFT, padx=4)
+
+use_all_threads = tk.BooleanVar()
+max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
+max_threads_checkbox.pack()
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
