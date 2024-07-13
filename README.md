@@ -2,9 +2,14 @@
 
 This tool simplifies the process of extracting frames from sprite sheets, organizing them into individual folders, and optionally creating GIFs/WebPs. It's designed to streamline your workflow by automating tedious tasks.
 
+## Current Spritesheet types supported
+* Sparrow
+* Starling
+
 ## Functionality
 * Extracts and organizes frames from sprite sheets into folders named after respective sprites and animations.
 * Provides an option to generate GIF or WebP for each animation. GIFs and WEBPs are prefixed with the spritesheet name for easy identification.
+* Automatically crops GIFs as much as possible.
 * Customization of animation frame rate.
 * Customization of animation loop delay.
 * Customization of alpha transparency threshold for GIFs.
@@ -16,7 +21,7 @@ Feel free to help me implement anything on this list.
 * Transition to the new QT UI inside the "new_ui_project" folder. (I'm malding over python classes, and I'm bit more busy irl lately)
 * Implement the icon splitter tool into a sub menu when the new QT UI is fully implemented https://github.com/MeguminBOT/FNF-Icon-Splitter
 * Selection of specific sprites for extraction (Currently processes entire folders).
-* Use width/height instead of frameWidth and frameHeight while still also being able to have GIFs/WebPs properly lined up. (I need help, this is driving me crazy lmao)
+* Automatically crop frames using the xml file data.
 
 ## How to Install
 ### Windows
