@@ -34,7 +34,7 @@ def check_for_updates(current_version):
         print("No internet connection or something went wrong, could not check for updates.")
         print("Error details:", err)
 
-current_version = '1.6.0'
+current_version = '1.7.0'
 check_for_updates(current_version)
 
 ## File processing
@@ -172,7 +172,11 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     total_files = count_files(input_dir, ('.xml', '.json'))
     progress_bar["maximum"] = total_files
 
-    max_workers = os.cpu_count() // 2
+    if use_all_threads:
+        max_workers = os.cpu_count()
+    else:
+        max_workers = os.cpu_count() // 2
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
 
@@ -247,7 +251,55 @@ def extract_sprites_from_xml(atlas_path, xml_path, output_dir, create_gif, creat
             if create_gif or create_webp:
                 animations.setdefault(folder_name, []).append(frame_image)
 
-        process_animations(animations, spritesheet_name, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+        for animation_name, images in animations.items():
+            settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
+            fps = settings.get('fps', set_framerate)
+            delay = settings.get('delay', set_loopdelay)
+            threshold = settings.get('threshold', set_threshold)
+            indices = settings.get('indices')
+            if indices:
+                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
+                images = [images[i] for i in indices]
+            sizes = [frame.size for frame in images]
+            max_size = tuple(map(max, zip(*sizes)))
+            min_size = tuple(map(min, zip(*sizes)))
+            if max_size != min_size:
+                for index, frame in enumerate(images):
+                    images[index] = Image.new('RGBA', max_size)
+                    images[index].paste(frame)
+
+            if create_webp:
+                durations = [round(1000/fps)] * len(images)
+                durations[-1] += delay
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+            if create_gif:
+                # Crop away unneeded pixels from the GIF
+                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+                for frame in images:
+                    bbox = frame.getbbox()
+                    min_x = min(min_x, bbox[0])
+                    min_y = min(min_y, bbox[1])
+                    max_x = max(max_x, bbox[2])
+                    max_y = max(max_y, bbox[3])
+                width, height = max_x - min_x, max_y - min_y
+                cropped_images = []
+                for frame in images:
+                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                    cropped_images.append(cropped_frame)
+                for frame in cropped_images:
+                    alpha = frame.getchannel('A')
+                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
+                durations = [round(1000/fps)] * len(cropped_images)
+                durations[-1] += delay
+                cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+            
+            if not keep_frames:
+                frames_folder = os.path.join(output_dir, animation_name)
+                for i in os.listdir(frames_folder):
+                    os.remove(os.path.join(frames_folder, i))
+                os.rmdir(frames_folder)
 
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
@@ -405,6 +457,10 @@ show_user_settings.pack(side=tk.LEFT, padx=4)
 
 process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(side=tk.LEFT, padx=4)
+
+use_all_threads = tk.BooleanVar()
+max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
+max_threads_checkbox.pack()
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
