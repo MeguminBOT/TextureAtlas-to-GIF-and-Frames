@@ -362,11 +362,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             name = sprite.get('name')
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             
-            # Get the frame dimensions and rotation status of the sprite, ensuring the width and height are at least 1
+            # Get the frame dimensions and rotation status of the sprite
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
-            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
+            frameWidth = int(sprite.get('frameWidth', width))
+            frameHeight = int(sprite.get('frameHeight', height))
             rotated = sprite.get('rotated', 'false') == 'true'
 
             # Crop the sprite image from the atlas using the prcoessed xml files
@@ -608,6 +608,11 @@ show_user_settings.pack(side=tk.LEFT, padx=4)
 # Create a button to start the processing
 process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(side=tk.LEFT, padx=4)
+
+# Create a checkbox to select the CPU thread option
+use_all_threads = tk.BooleanVar()
+max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
+max_threads_checkbox.pack()
 
 # Create a label to display the author's name
 author_label = tk.Label(root, text="Project started by AutisticLulu")
