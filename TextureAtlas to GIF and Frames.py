@@ -214,13 +214,18 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
-            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
+            frameWidth = int(sprite.get('frameWidth', width))
+            frameHeight = int(sprite.get('frameHeight', height))
             rotated = sprite.get('rotated', 'false') == 'true'
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
             if rotated: 
                 sprite_image = sprite_image.rotate(90, expand=True)
+                frameWidth = max(height-frameX, frameWidth, 1)
+                frameHeight = max(width-frameY, frameHeight, 1)
+            else:
+                frameWidth = max(width-frameX, frameWidth, 1)
+                frameHeight = max(height-frameY, frameHeight, 1)
 
             frame_image = Image.new('RGBA', (frameWidth, frameHeight))
             frame_image.paste(sprite_image, (-frameX, -frameY))
@@ -259,6 +264,10 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             if create_gif:
+                for frame in images:
+                    alpha = frame.getchannel('A')
+                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
                 # Crop away unneeded pixels from the GIF
                 min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
                 for frame in images:
@@ -272,10 +281,6 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 for frame in images:
                     cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
                     cropped_images.append(cropped_frame)
-                for frame in cropped_images:
-                    alpha = frame.getchannel('A')
-                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
-                    frame.putalpha(alpha)
                 durations = [round(1000/fps)] * len(cropped_images)
                 durations[-1] += delay
                 cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
