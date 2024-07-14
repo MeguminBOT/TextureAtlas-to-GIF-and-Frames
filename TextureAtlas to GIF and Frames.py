@@ -136,7 +136,7 @@ def on_double_click_xml(evt):
             return
         try:
             if threshold_entry.get() != '':
-                anim_settings['threshold'] = float(threshold_entry.get())
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
             messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
             new_window.lift()
@@ -245,7 +245,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
             fps = settings.get('fps', set_framerate)
             delay = settings.get('delay', set_loopdelay)
-            threshold = settings.get('threshold', set_threshold)
+            threshold = settings.get('threshold', min(max(set_threshold,0),1))
             indices = settings.get('indices')
             if indices:
                 indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
@@ -266,9 +266,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             if create_gif:
                 for frame in images:
                     alpha = frame.getchannel('A')
-                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    if (threshold == 1):
+                        alpha = alpha.point(lambda i: i >= 255 and 255)
+                    else:
+                        alpha = alpha.point(lambda i: i > 255*threshold and 255)
                     frame.putalpha(alpha)
-                # Crop away unneeded pixels from the GIF
                 min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
                 for frame in images:
                     bbox = frame.getbbox()
