@@ -165,11 +165,11 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     progress_bar["maximum"] = total_files
 
     if use_all_threads:
-        max_workers = os.cpu_count()
+        cpuThreads = os.cpu_count()
     else:
-        max_workers = os.cpu_count() // 2
+        cpuThreads = os.cpu_count() // 2
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=cpuThreads) as executor:
         futures = []
 
         for filename in os.listdir(input_dir):
