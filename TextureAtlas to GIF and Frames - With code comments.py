@@ -216,8 +216,6 @@ def on_double_click_xml(evt):
         try:
             # Add the threshold entry if not empty, setting it to be between 0 and 1 inclusive
             if threshold_entry.get() != '':
-                if threshold_entry.get() > :
-                    throw ValueError
                 anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
                 
         # If the threshold entry is not a valid float, show an error message and exit the function
