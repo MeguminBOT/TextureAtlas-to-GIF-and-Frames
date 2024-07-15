@@ -289,7 +289,10 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
     except Exception as e:
-        raise Exception(f"An error occurred: {str(e)}")
+        if "'NoneType' object is not subscriptable" in str(e):
+            raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
+        else:
+            raise Exception(f"An error occurred: {str(e)}")
 
 ## Graphical User Interface setup
 root = tk.Tk()
