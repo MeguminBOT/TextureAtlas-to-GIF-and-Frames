@@ -49,7 +49,7 @@ def check_for_updates(current_version):
         print("Error details:", err)
 
 # Set the current version
-current_version = '1.6.0'
+current_version = '1.7.1'
 
 # Call the function to check for updates
 check_for_updates(current_version)
@@ -214,13 +214,13 @@ def on_double_click_xml(evt):
             new_window.lift()
             return
         try:
-            # Add the threshold entry if not empty
+            # Add the threshold entry if not empty, setting it to be between 0 and 1 inclusive
             if threshold_entry.get() != '':
-                anim_settings['threshold'] = float(threshold_entry.get())
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
                 
         # If the threshold entry is not a valid float, show an error message and exit the function
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 to 1 for threshold.")
             
             # Raise the new window to the top of the window stack
             new_window.lift()
@@ -275,10 +275,13 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     progress_bar["maximum"] = total_files
 
     # Determine the maximum number of worker threads to use
-    max_workers = os.cpu_count() // 2
+    if use_all_threads:
+        cpuThreads = os.cpu_count()
+    else:
+        cpuThreads = os.cpu_count() // 2
     
     # Create a ThreadPoolExecutor
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=cpuThreads) as executor:
         futures = []
         # Iterate over all files in the input directory
         for filename in os.listdir(input_dir):
@@ -357,19 +360,24 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             name = sprite.get('name')
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             
-            # Get the frame dimensions and rotation status of the sprite, ensuring the width and height are at least 1
+            # Get the frame dimensions and rotation status of the sprite
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
-            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
+            frameWidth = int(sprite.get('frameWidth', width))
+            frameHeight = int(sprite.get('frameHeight', height))
             rotated = sprite.get('rotated', 'false') == 'true'
 
             # Crop the sprite image from the atlas using the prcoessed xml files
             sprite_image = atlas.crop((x, y, x + width, y + height))
            
-            # If the atlas has rotated frames, rotate the frame counter-clockwise
+            # If the atlas has rotated frames, rotate the frame counter-clockwise; increase the frame dimensions to hold the entire sprite
             if rotated: 
                 sprite_image = sprite_image.rotate(90, expand=True)
+                frameWidth = max(height-frameX, frameWidth, 1)
+                frameHeight = max(width-frameY, frameHeight, 1)
+            else:
+                frameWidth = max(width-frameX, frameWidth, 1)
+                frameHeight = max(height-frameY, frameHeight, 1)
 
             # Create a new image for the frame and paste the sprite image onto it
             frame_image = Image.new('RGBA', (frameWidth, frameHeight))
@@ -397,7 +405,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
             fps = settings.get('fps', set_framerate)
             delay = settings.get('delay', set_loopdelay)
-            threshold = settings.get('threshold', set_threshold)
+            threshold = settings.get('threshold', min(max(set_threshold,0),1))
             indices = settings.get('indices')
 
             # If there are indices set, replace the image list to store the images of the chosen indices
@@ -434,11 +442,36 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 # Change semi-transparent pixels to be fully opaque or fully transparent based on the threshold
                 for frame in images:
                     alpha = frame.getchannel('A')
-                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    if (threshold == 1):
+                        alpha = alpha.point(lambda i: i >= 255 and 255)
+                    else:
+                        alpha = alpha.point(lambda i: i > 255*threshold and 255)
                     frame.putalpha(alpha)
-                durations = [round(1000/fps)] * len(images)
+                    
+                # Find the bounding box of all the frames
+                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+                for frame in images:
+                    bbox = frame.getbbox()
+                    min_x = min(min_x, bbox[0])
+                    min_y = min(min_y, bbox[1])
+                    max_x = max(max_x, bbox[2])
+                    max_y = max(max_y, bbox[3])
+                width, height = max_x - min_x, max_y - min_y
+                
+                # Crop away unneeded pixels from the GIF
+                cropped_images = []
+                for frame in images:
+                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                    cropped_images.append(cropped_frame)
+                    
+                # Set the durations for each frame
+                durations = [round(1000/fps)] * len(cropped_images)
+                
+                # Add the delay to the final frame
                 durations[-1] += delay
-                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+
+                # Save as .gif
+                cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
 
             # If frames should not be kept
             if not keep_frames:
@@ -573,6 +606,11 @@ show_user_settings.pack(side=tk.LEFT, padx=4)
 # Create a button to start the processing
 process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(side=tk.LEFT, padx=4)
+
+# Create a checkbox to select the CPU thread option
+use_all_threads = tk.BooleanVar()
+max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
+max_threads_checkbox.pack()
 
 # Create a label to display the author's name
 author_label = tk.Label(root, text="Project started by AutisticLulu")

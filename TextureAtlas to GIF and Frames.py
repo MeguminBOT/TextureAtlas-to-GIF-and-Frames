@@ -33,7 +33,7 @@ def check_for_updates(current_version):
         print("No internet connection or something went wrong, could not check for updates.")
         print("Error details:", err)
 
-current_version = '1.7.0'
+current_version = '1.7.1'
 check_for_updates(current_version)
 
 ## File processing
@@ -136,9 +136,9 @@ def on_double_click_xml(evt):
             return
         try:
             if threshold_entry.get() != '':
-                anim_settings['threshold'] = float(threshold_entry.get())
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 for threshold.")
             new_window.lift()
             return
         try:
@@ -214,13 +214,18 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
             frameX = int(sprite.get('frameX', 0))
             frameY = int(sprite.get('frameY', 0))
-            frameWidth = max(int(sprite.get('frameWidth', width)), 1)
-            frameHeight = max(int(sprite.get('frameHeight', height)), 1)
+            frameWidth = int(sprite.get('frameWidth', width))
+            frameHeight = int(sprite.get('frameHeight', height))
             rotated = sprite.get('rotated', 'false') == 'true'
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
             if rotated: 
                 sprite_image = sprite_image.rotate(90, expand=True)
+                frameWidth = max(height-frameX, frameWidth, 1)
+                frameHeight = max(width-frameY, frameHeight, 1)
+            else:
+                frameWidth = max(width-frameX, frameWidth, 1)
+                frameHeight = max(height-frameY, frameHeight, 1)
 
             frame_image = Image.new('RGBA', (frameWidth, frameHeight))
             frame_image.paste(sprite_image, (-frameX, -frameY))
@@ -240,7 +245,7 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
             fps = settings.get('fps', set_framerate)
             delay = settings.get('delay', set_loopdelay)
-            threshold = settings.get('threshold', set_threshold)
+            threshold = settings.get('threshold', min(max(set_threshold,0),1))
             indices = settings.get('indices')
             if indices:
                 indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
@@ -259,7 +264,13 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
             if create_gif:
-                # Crop away unneeded pixels from the GIF
+                for frame in images:
+                    alpha = frame.getchannel('A')
+                    if (threshold == 1):
+                        alpha = alpha.point(lambda i: i >= 255 and 255)
+                    else:
+                        alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
                 min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
                 for frame in images:
                     bbox = frame.getbbox()
@@ -272,10 +283,6 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 for frame in images:
                     cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
                     cropped_images.append(cropped_frame)
-                for frame in cropped_images:
-                    alpha = frame.getchannel('A')
-                    alpha = alpha.point(lambda i: i > 255*threshold and 255)
-                    frame.putalpha(alpha)
                 durations = [round(1000/fps)] * len(cropped_images)
                 durations[-1] += delay
                 cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
