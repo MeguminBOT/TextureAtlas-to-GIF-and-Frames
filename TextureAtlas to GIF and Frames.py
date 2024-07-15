@@ -138,7 +138,7 @@ def on_double_click_xml(evt):
             if threshold_entry.get() != '':
                 anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 for threshold.")
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
             new_window.lift()
             return
         try:
