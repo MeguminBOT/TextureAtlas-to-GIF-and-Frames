@@ -222,7 +222,7 @@ def on_double_click_xml(evt):
                 
         # If the threshold entry is not a valid float, show an error message and exit the function
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for threshold.")
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 to 1 for threshold.")
             
             # Raise the new window to the top of the window stack
             new_window.lift()
