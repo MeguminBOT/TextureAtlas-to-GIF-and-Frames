@@ -33,7 +33,6 @@ class AtlasData:
 class AtlasDecoder(json.JSONDecoder):
     def decode(self, s: str):
         data = super().decode(s)
-
         def dict_to_dataclass(cls, d):
             if isinstance(d, list):
                 if cls == List[Sprite]:
