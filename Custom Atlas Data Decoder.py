@@ -45,7 +45,6 @@ class AtlasDecoder(json.JSONDecoder):
                 fields = {f.name: dict_to_dataclass(f.type, d.get(f.name)) for f in cls.__dataclass_fields__.values()}
                 return cls(**fields)
             return d
-        
         return dict_to_dataclass(AtlasData, data)
 
 def parse_atlas_json(file_path: str) -> AtlasData:
