@@ -46,12 +46,9 @@ class Animation:
 class AnimationData:
     AN: Animation
 
-### I'm going to punch someone
 class AnimationDecoder(json.JSONDecoder):
     def decode(self, s: str):
         data = super().decode(s)
-        
-        # Convert peepeepoopoo dictionaries to data classes
         def dict_to_dataclass(cls, d):
             if isinstance(d, list):
                 return [dict_to_dataclass(cls.__args__[0], item) for item in d]
@@ -61,13 +58,11 @@ class AnimationDecoder(json.JSONDecoder):
             return d
         return dict_to_dataclass(AnimationData, data)
 
-# Parse animation data WOHO
 def parse_animation_json(file_path: str) -> AnimationData:
     with open(file_path, 'r') as file:
         json_data = file.read()
     return json.loads(json_data, cls=AnimationDecoder)
 
-# Gotta make sure it returns data properly LMAO
 def print_data(obj, indent=0):
     if isinstance(obj, list):
         for item in obj:
@@ -85,7 +80,6 @@ def print_data(obj, indent=0):
         else:
             print(" " * indent + str(obj))
 
-# EXECUTE THE CODE WOOO
 if __name__ == "__main__":
     animation_data = parse_animation_json('spritemap1anim.json')
     print_data(animation_data)
