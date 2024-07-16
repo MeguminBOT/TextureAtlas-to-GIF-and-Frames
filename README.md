@@ -27,7 +27,7 @@ Feel free to help me implement anything on this list.
 You can find help here: https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation
 
 ## Official Download Sites
-Do NOT download this tool from unofficial sources, I'm not responsible for any damage caused by this app when downloading from any other sites than GameBanana, SourceForge and this GitHub repository.
+Do NOT download this tool from unofficial sources, I'm not responsible for any damage caused by this app when downloading from any other sites than the official pages for the tool on GameBanana, SourceForge and this GitHub repository.
 ### SourceForge
 [![Download TextureAtlas Extractor and GIF Generator](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/textureatlas-to-gif-and-frames/)
 ### GameBanana
