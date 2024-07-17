@@ -3,6 +3,8 @@ import os
 import re
 import requests
 import sys
+import tempfile
+import shutil
 import webbrowser
 import xml.etree.ElementTree as ET
 
@@ -37,11 +39,20 @@ current_version = '1.7.1'
 check_for_updates(current_version)
 
 ## File processing
+user_settings = {}
+xml_dict = {}
+temp_dir = tempfile.mkdtemp()
+
 def count_xml_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
 
 def sanitize_filename(name):
     return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
+
+def clear_filelist():
+    listbox_png.delete(0, tk.END)
+    listbox_xml.delete(0, tk.END)
+    user_settings.clear()
 
 def select_directory(variable, label):
     directory = filedialog.askdirectory()
@@ -50,8 +61,7 @@ def select_directory(variable, label):
         label.config(text=directory)
         
         if variable == input_dir:
-            listbox_png.delete(0, tk.END)
-            listbox_xml.delete(0, tk.END)
+            clear_filelist()
 
             for filename in os.listdir(directory):
                 if filename.endswith('.xml'):
@@ -78,7 +88,50 @@ def select_directory(variable, label):
             listbox_xml.bind('<Double-1>', on_double_click_xml)
     return directory
 
-user_settings = {}
+def select_files_manually(variable, label):
+    global temp_dir
+    xml_files = filedialog.askopenfilenames(filetypes=[("XML files", "*.xml")])
+    png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
+    
+    variable.set(temp_dir)
+    label.config(text=temp_dir)
+    
+    if xml_files and png_files:
+        for file in xml_files:
+            shutil.copy(file, temp_dir)
+            png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
+            if any(png_filename == os.path.basename(png) for png in png_files):
+                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
+                    listbox_png.insert(tk.END, png_filename)
+                    xml_dict[png_filename] = os.path.join(temp_dir, file)
+        
+        for file in png_files:
+            shutil.copy(file, temp_dir)
+
+        listbox_png.unbind('<<ListboxSelect>>')
+        listbox_xml.unbind('<Double-1>')
+
+        def on_select_png(evt):
+            listbox_xml.delete(0, tk.END)
+
+            selected_png = listbox_png.get(listbox_png.curselection())
+            xml_path = xml_dict[selected_png]
+            
+            if os.path.exists(xml_path):
+                tree = ET.parse(xml_path)
+                root = tree.getroot()
+                names = set()
+                for subtexture in root.findall(".//SubTexture"):
+                    name = subtexture.get('name')
+                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+                    names.add(name)
+                
+                for name in names:
+                    listbox_xml.insert(tk.END, name)
+        
+        listbox_png.bind('<<ListboxSelect>>', on_select_png)
+        listbox_xml.bind('<Double-1>', on_double_click_xml)
+    return temp_dir
 
 def create_settings_window():
     global settings_window
@@ -307,9 +360,19 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
 
 ## Graphical User Interface setup
 root = tk.Tk()
+menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("900x480")
 root.resizable(False, False)
+root.config(menu=menubar)
+
+file_menu = tk.Menu(menubar, tearoff=0)
+file_menu.add_command(label="Select directory", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
+file_menu.add_command(label="Select files", command=lambda: select_files_manually(input_dir, input_dir_label))
+file_menu.add_command(label="Clear filelist and user settings", command=lambda: clear_filelist())
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+menubar.add_cascade(label="File", menu=file_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
