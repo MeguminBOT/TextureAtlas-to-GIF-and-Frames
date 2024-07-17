@@ -489,9 +489,18 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
     # If there's a problem parsing the XML file, raise a ParseError
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
-    # If any other exception occurs, re-raise it
+    
+    # If there's a problem, raise an exception.
     except Exception as e:
-        raise Exception(f"An error occurred: {str(e)}")
+        # If the exception is due to a NoneType object not being subscriptable, raise a custom exception
+        # This most likely occurs when the XML file frame dimensions data doesn't match the spritesheet dimensions
+        if "'NoneType' object is not subscriptable" in str(e):
+            raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
+        else:
+            # If any other exception occurs, re-raise it
+            raise Exception(f"An error occurred: {str(e)}")
+        
+    
 
 
 ##### Graphical User Interface setup #####
@@ -592,6 +601,7 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
+# Create a button that starts the tasks
 process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
 process_button.pack(pady=8)
 
