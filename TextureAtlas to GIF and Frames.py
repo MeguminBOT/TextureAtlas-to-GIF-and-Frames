@@ -274,6 +274,8 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
                 for frame in images:
                     bbox = frame.getbbox()
+                    if bbox is None:
+                        continue
                     min_x = min(min_x, bbox[0])
                     min_y = min(min_y, bbox[1])
                     max_x = max(max_x, bbox[2])
@@ -296,7 +298,9 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
     except ET.ParseError:
         raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
     except Exception as e:
-        if "'NoneType' object is not subscriptable" in str(e):
+        if "Coordinate '" in str(e) and "' is less than '" in str(e):
+            raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
+        elif "'NoneType' object is not subscriptable" in str(e):
             raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
         else:
             raise Exception(f"An error occurred: {str(e)}")
