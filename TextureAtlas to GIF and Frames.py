@@ -164,7 +164,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     total_files = count_xml_files(input_dir)
     progress_bar["maximum"] = total_files
 
-    if use_all_threads:
+    if use_all_threads.get():
         cpuThreads = os.cpu_count()
     else:
         cpuThreads = os.cpu_count() // 2

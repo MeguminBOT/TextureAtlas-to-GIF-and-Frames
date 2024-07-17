@@ -275,7 +275,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     progress_bar["maximum"] = total_files
 
     # Determine the maximum number of worker threads to use
-    if use_all_threads:
+    if use_all_threads.get():
         cpuThreads = os.cpu_count()
     else:
         cpuThreads = os.cpu_count() // 2
