@@ -357,6 +357,11 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
             raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
         else:
             raise Exception(f"An error occurred: {str(e)}")
+        
+def on_closing():
+    if temp_dir and os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    root.destroy()
 
 ## Graphical User Interface setup
 root = tk.Tk()
@@ -364,6 +369,7 @@ menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("900x480")
 root.resizable(False, False)
+root.protocol("WM_DELETE_WINDOW", on_closing)
 root.config(menu=menubar)
 
 file_menu = tk.Menu(menubar, tearoff=0)
