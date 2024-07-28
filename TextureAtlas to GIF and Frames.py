@@ -64,25 +64,21 @@ def select_directory(variable, label):
             clear_filelist()
 
             for filename in os.listdir(directory):
-                if filename.endswith('.xml'):
+                if filename.endswith('.xml') or filename.endswith('.txt'):
                     listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
                 listbox_xml.delete(0, tk.END)
 
                 png_filename = listbox_png.get(listbox_png.curselection())
-                xml_filename = os.path.splitext(png_filename)[0] + '.xml'
+                base_filename = os.path.splitext(png_filename)[0]
+                xml_filename = base_filename + '.xml'
+                txt_filename = base_filename + '.txt'
 
-                tree = ET.parse(os.path.join(directory, xml_filename))
-                root = tree.getroot()
-                names = set()
-                for subtexture in root.findall(".//SubTexture"):
-                    name = subtexture.get('name')
-                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-                    names.add(name)
-
-                for name in names:
-                    listbox_xml.insert(tk.END, name)
+                if os.path.isfile(os.path.join(directory, xml_filename)):
+                    parse_xml(directory, xml_filename)
+                elif os.path.isfile(os.path.join(directory, txt_filename)):
+                    parse_txt(directory, txt_filename)
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
             listbox_xml.bind('<Double-1>', on_double_click_xml)
@@ -90,7 +86,8 @@ def select_directory(variable, label):
 
 def select_files_manually(variable, label):
     global temp_dir
-    xml_files = filedialog.askopenfilenames(filetypes=[("XML files", "*.xml")])
+    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
+    xml_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
     png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
     
     variable.set(temp_dir)
@@ -103,7 +100,7 @@ def select_files_manually(variable, label):
             if any(png_filename == os.path.basename(png) for png in png_files):
                 if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
                     listbox_png.insert(tk.END, png_filename)
-                    xml_dict[png_filename] = os.path.join(temp_dir, file)
+                    xml_dict[png_filename] = os.path.join(temp_dir, os.path.basename(file))
         
         for file in png_files:
             shutil.copy(file, temp_dir)
@@ -132,6 +129,39 @@ def select_files_manually(variable, label):
         listbox_png.bind('<<ListboxSelect>>', on_select_png)
         listbox_xml.bind('<Double-1>', on_double_click_xml)
     return temp_dir
+
+def parse_xml(directory, xml_filename):
+    tree = ET.parse(os.path.join(directory, xml_filename))
+    root = tree.getroot()
+    names = set()
+    for subtexture in root.findall(".//SubTexture"):
+        name = subtexture.get('name')
+        name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+        names.add(name)
+
+    for name in names:
+        listbox_xml.insert(tk.END, name)
+
+def parse_txt(directory, txt_filename):
+    names = set()
+    with open(os.path.join(directory, txt_filename), 'r') as file:
+        for line in file:
+            parts = line.split(' = ')[0]
+            name = re.sub(r'\d{1,4}(?:\.png)?$', '', parts).rstrip()
+            names.add(name)
+
+    for name in names:
+        listbox_xml.insert(tk.END, name)
+
+def parse_plain_text_atlas(file_path):
+    sprites = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            parts = line.split(' = ')
+            name = parts[0].strip()
+            x, y, width, height = map(int, parts[1].split())
+            sprites.append({'name': name, 'x': x, 'y': y, 'width': width, 'height': height})
+    return sprites
 
 def create_settings_window():
     global settings_window
@@ -227,13 +257,14 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
 
         for filename in os.listdir(input_dir):
             if filename.endswith('.png'):
-                xml_filename = filename.rsplit('.', 1)[0] + '.xml'
-                xml_path = os.path.join(input_dir, xml_filename)
+                base_filename = filename.rsplit('.', 1)[0]
+                xml_path = os.path.join(input_dir, base_filename + '.xml')
+                txt_path = os.path.join(input_dir, base_filename + '.txt')
 
-                if os.path.isfile(xml_path):
-                    sprite_output_dir = os.path.join(output_dir, filename.rsplit('.', 1)[0])
+                if os.path.isfile(xml_path) or os.path.isfile(txt_path):
+                    sprite_output_dir = os.path.join(output_dir, base_filename)
                     os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -254,25 +285,43 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     messagebox.showinfo("Information","Finished processing all files.")
 
 ## Extraction logic
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     try:
         atlas = Image.open(atlas_path)
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        if metadata_path.endswith('.xml'):
+            tree = ET.parse(metadata_path)
+            root = tree.getroot()
+            sprites = [
+                {
+                    'name': sprite.get('name'),
+                    'x': int(sprite.get('x')),
+                    'y': int(sprite.get('y')),
+                    'width': int(sprite.get('width')),
+                    'height': int(sprite.get('height')),
+                    'frameX': int(sprite.get('frameX', 0)),
+                    'frameY': int(sprite.get('frameY', 0)),
+                    'frameWidth': int(sprite.get('frameWidth', sprite.get('width'))),
+                    'frameHeight': int(sprite.get('frameHeight', sprite.get('height'))),
+                    'rotated': sprite.get('rotated', 'false') == 'true'
+                } for sprite in root.findall('SubTexture')
+            ]
+        else:
+            sprites = parse_plain_text_atlas(metadata_path)
+
         animations = {}
         spritesheet_name = os.path.split(atlas_path)[1]
 
-        for sprite in root.findall('SubTexture'):
-            name = sprite.get('name')
-            x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
-            frameX = int(sprite.get('frameX', 0))
-            frameY = int(sprite.get('frameY', 0))
-            frameWidth = int(sprite.get('frameWidth', width))
-            frameHeight = int(sprite.get('frameHeight', height))
-            rotated = sprite.get('rotated', 'false') == 'true'
+        for sprite in sprites:
+            name = sprite['name']
+            x, y, width, height = sprite['x'], sprite['y'], sprite['width'], sprite['height']
+            frameX = sprite.get('frameX', 0)
+            frameY = sprite.get('frameY', 0)
+            frameWidth = sprite.get('frameWidth', width)
+            frameHeight = sprite.get('frameHeight', height)
+            rotated = sprite.get('rotated', False)
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
-            if rotated: 
+            if rotated:
                 sprite_image = sprite_image.rotate(90, expand=True)
                 frameWidth = max(height-frameX, frameWidth, 1)
                 frameHeight = max(width-frameY, frameHeight, 1)
@@ -349,12 +398,12 @@ def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, k
                 os.rmdir(frames_folder)
 
     except ET.ParseError:
-        raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
+        raise ET.ParseError(f"Badly formatted XML file:\n{metadata_path}")
     except Exception as e:
         if "Coordinate '" in str(e) and "' is less than '" in str(e):
-            raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
         elif "'NoneType' object is not subscriptable" in str(e):
-            raise Exception(f"XML frame dimension data doesn't match the spritesheet dimensions.\n{xml_path}")
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
         else:
             raise Exception(f"An error occurred: {str(e)}")
         
