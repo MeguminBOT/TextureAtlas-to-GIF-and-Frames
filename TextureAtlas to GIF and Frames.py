@@ -1,14 +1,16 @@
+import concurrent.futures
 import os
 import re
-import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
-from PIL import Image
-import xml.etree.ElementTree as ET
-import webbrowser
 import requests
 import sys
-import concurrent.futures
-from pathlib import Path
+import tempfile
+import shutil
+import webbrowser
+import xml.etree.ElementTree as ET
+
+from PIL import Image
+import tkinter as tk
+from tkinter import filedialog, ttk, messagebox
 
 ## Update Checking
 def check_for_updates(current_version):
@@ -33,10 +35,25 @@ def check_for_updates(current_version):
         print("No internet connection or something went wrong, could not check for updates.")
         print("Error details:", err)
 
-current_version = '1.4.1'
+current_version = '1.7.1'
 check_for_updates(current_version)
 
 ## File processing
+user_settings = {}
+xml_dict = {}
+temp_dir = tempfile.mkdtemp()
+
+def count_xml_files(directory):
+    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
+
+def sanitize_filename(name):
+    return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
+
+def clear_filelist():
+    listbox_png.delete(0, tk.END)
+    listbox_xml.delete(0, tk.END)
+    user_settings.clear()
+
 def select_directory(variable, label):
     directory = filedialog.askdirectory()
     if directory:
@@ -44,34 +61,125 @@ def select_directory(variable, label):
         label.config(text=directory)
         
         if variable == input_dir:
-            listbox_png.delete(0, tk.END)
-            listbox_xml.delete(0, tk.END)
+            clear_filelist()
 
             for filename in os.listdir(directory):
-                if filename.endswith('.png'):
-                    listbox_png.insert(tk.END, filename)
+                if filename.endswith('.xml') or filename.endswith('.txt'):
+                    listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
                 listbox_xml.delete(0, tk.END)
 
                 png_filename = listbox_png.get(listbox_png.curselection())
-                xml_filename = os.path.splitext(png_filename)[0] + '.xml'
+                base_filename = os.path.splitext(png_filename)[0]
+                xml_filename = base_filename + '.xml'
+                txt_filename = base_filename + '.txt'
 
-                tree = ET.parse(os.path.join(directory, xml_filename))
+                if os.path.isfile(os.path.join(directory, xml_filename)):
+                    parse_xml(directory, xml_filename)
+                elif os.path.isfile(os.path.join(directory, txt_filename)):
+                    parse_txt(directory, txt_filename)
+
+            listbox_png.bind('<<ListboxSelect>>', on_select_png)
+            listbox_xml.bind('<Double-1>', on_double_click_xml)
+    return directory
+
+def select_files_manually(variable, label):
+    global temp_dir
+    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
+    xml_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
+    png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
+    
+    variable.set(temp_dir)
+    label.config(text=temp_dir)
+    
+    if xml_files and png_files:
+        for file in xml_files:
+            shutil.copy(file, temp_dir)
+            png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
+            if any(png_filename == os.path.basename(png) for png in png_files):
+                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
+                    listbox_png.insert(tk.END, png_filename)
+                    xml_dict[png_filename] = os.path.join(temp_dir, os.path.basename(file))
+        
+        for file in png_files:
+            shutil.copy(file, temp_dir)
+
+        listbox_png.unbind('<<ListboxSelect>>')
+        listbox_xml.unbind('<Double-1>')
+
+        def on_select_png(evt):
+            listbox_xml.delete(0, tk.END)
+
+            selected_png = listbox_png.get(listbox_png.curselection())
+            xml_path = xml_dict[selected_png]
+            
+            if os.path.exists(xml_path):
+                tree = ET.parse(xml_path)
                 root = tree.getroot()
                 names = set()
                 for subtexture in root.findall(".//SubTexture"):
                     name = subtexture.get('name')
-                    name = re.sub(r'\d+$', '', name).rstrip()
+                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
                     names.add(name)
-
+                
                 for name in names:
                     listbox_xml.insert(tk.END, name)
+        
+        listbox_png.bind('<<ListboxSelect>>', on_select_png)
+        listbox_xml.bind('<Double-1>', on_double_click_xml)
+    return temp_dir
 
-            listbox_png.bind('<<ListboxSelect>>', on_select_png)
-            listbox_xml.bind('<Double-1>', on_double_click_xml)
+def parse_xml(directory, xml_filename):
+    tree = ET.parse(os.path.join(directory, xml_filename))
+    root = tree.getroot()
+    names = set()
+    for subtexture in root.findall(".//SubTexture"):
+        name = subtexture.get('name')
+        name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+        names.add(name)
+
+    for name in names:
+        listbox_xml.insert(tk.END, name)
+
+def parse_txt(directory, txt_filename):
+    names = set()
+    with open(os.path.join(directory, txt_filename), 'r') as file:
+        for line in file:
+            parts = line.split(' = ')[0]
+            name = re.sub(r'\d{1,4}(?:\.png)?$', '', parts).rstrip()
+            names.add(name)
+
+    for name in names:
+        listbox_xml.insert(tk.END, name)
+
+def parse_plain_text_atlas(file_path):
+    sprites = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            parts = line.split(' = ')
+            name = parts[0].strip()
+            x, y, width, height = map(int, parts[1].split())
+            sprites.append({'name': name, 'x': x, 'y': y, 'width': width, 'height': height})
+    return sprites
+
+def create_settings_window():
+    global settings_window
+    settings_window = tk.Toplevel()
+    settings_window.geometry("400x300")
+    update_settings_window()
+
+def update_settings_window():
+    if settings_window.winfo_exists():
+        for widget in settings_window.winfo_children():
+            widget.destroy()
+
+        tk.Label(settings_window, text="User Settings").pack()
+        for key, value in user_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
             
 def on_double_click_xml(evt):
+    spritesheet_name = listbox_png.get(listbox_png.curselection())
     animation_name = listbox_xml.get(listbox_xml.curselection())
     new_window = tk.Toplevel()
     new_window.geometry("360x240")
@@ -84,33 +192,80 @@ def on_double_click_xml(evt):
     delay_entry = tk.Entry(new_window)
     delay_entry.pack()
 
+    tk.Label(new_window, text="Threshold for " + animation_name).pack()
+    threshold_entry = tk.Entry(new_window)
+    threshold_entry.pack()
+
+    tk.Label(new_window, text="Indices for " + animation_name).pack()
+    indices_entry = tk.Entry(new_window)
+    indices_entry.pack()
+
     def store_input():
+        anim_settings = {}
+        
         try:
-            user_fps_and_delay[animation_name] = (int(fps_entry.get()), int(delay_entry.get()))
-            new_window.destroy()
+            if fps_entry.get() != '':
+                anim_settings['fps'] = float(fps_entry.get())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for FPS and delay.")
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
             new_window.lift()
+            return
+        try:
+            if delay_entry.get() != '':
+                anim_settings['delay'] = int(delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            new_window.lift()
+            return
+        try:
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
+            new_window.lift()
+            return
+        try:
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            new_window.lift()
+            return
+        if len(anim_settings) > 0:
+            user_settings[spritesheet_name + '/' + animation_name] = anim_settings
+        elif user_settings.get(spritesheet_name + '/' + animation_name):
+            user_settings.pop(spritesheet_name + '/' + animation_name)
+        new_window.destroy()
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-user_fps_and_delay = {}
-
-def count_png_files(directory):
-    return len(list(Path(directory).glob('*.png')))
-
-def process_files(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay):
-    input_dir = Path(input_dir)
-    output_dir = Path(output_dir)
-
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+    if not (create_gif or create_webp or keep_frames):
+        return
     progress_var.set(0)
-    png_files = list(input_dir.glob('*.png'))
-    total_files = len(png_files)
+    total_files = count_xml_files(input_dir)
     progress_bar["maximum"] = total_files
 
-    max_workers = os.cpu_count() // 2
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [submit_task(executor, png_file, output_dir, create_gif, create_webp, set_framerate, set_loopdelay) for png_file in png_files]
+    if use_all_threads.get():
+        cpuThreads = os.cpu_count()
+    else:
+        cpuThreads = os.cpu_count() // 2
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=cpuThreads) as executor:
+        futures = []
+
+        for filename in os.listdir(input_dir):
+            if filename.endswith('.png'):
+                base_filename = filename.rsplit('.', 1)[0]
+                xml_path = os.path.join(input_dir, base_filename + '.xml')
+                txt_path = os.path.join(input_dir, base_filename + '.txt')
+
+                if os.path.isfile(xml_path) or os.path.isfile(txt_path):
+                    sprite_output_dir = os.path.join(output_dir, base_filename)
+                    os.makedirs(sprite_output_dir, exist_ok=True)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+                    futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
             try:
@@ -137,69 +292,149 @@ def submit_task(executor, png_file, output_dir, create_gif, create_webp, set_fra
         return executor.submit(extract_sprites, str(png_file), str(xml_file), str(sprite_output_dir), create_gif, create_webp, set_framerate, set_loopdelay)
 
 ## Extraction logic
-def process_sprite(sprite, atlas, output_dir):
-    name = sprite.get('name')
-    x, y, width, height = map(int, (sprite.get(attr) for attr in ('x', 'y', 'width', 'height')))
-    frameX = int(sprite.get('frameX', 0))
-    frameY = int(sprite.get('frameY', 0))
-    frameWidth = int(sprite.get('frameWidth', width))
-    frameHeight = int(sprite.get('frameHeight', height))
-    rotated = sprite.get('rotated', 'false') == 'true'
-
-    sprite_image = atlas.crop((x, y, x + width, y + height))
-    if rotated: 
-        sprite_image = sprite_image.rotate(90, expand=True)
-
-    frame_image = Image.new('RGBA', (frameWidth, frameHeight))
-    frame_image.paste(sprite_image, (-frameX, -frameY))
-
-    if frame_image.mode != 'RGBA':
-        frame_image = frame_image.convert('RGBA')
-
-    folder_name = re.sub(r'\d+$', '', name).rstrip()
-    sprite_folder = os.path.join(output_dir, folder_name)
-    os.makedirs(sprite_folder, exist_ok=True)
-
-    frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
-
-    return folder_name, frame_image
-
-def create_animation(animation_name, images, output_dir, file_extension, set_framerate, set_loopdelay):
-    fps, delay = user_fps_and_delay.get(animation_name, (set_framerate, set_loopdelay))
-    durations = [round(1000/fps)] * len(images)
-    durations[-1] = delay
-    images[0].save(os.path.join(output_dir, f"_{animation_name}.{file_extension}"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
-
-def extract_sprites(atlas_path, xml_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
     try:
-        with Image.open(atlas_path) as atlas:
-            tree = ET.parse(xml_path)
+        atlas = Image.open(atlas_path)
+        if metadata_path.endswith('.xml'):
+            tree = ET.parse(metadata_path)
             root = tree.getroot()
-            animations = {}
+            sprites = [
+                {
+                    'name': sprite.get('name'),
+                    'x': int(sprite.get('x')),
+                    'y': int(sprite.get('y')),
+                    'width': int(sprite.get('width')),
+                    'height': int(sprite.get('height')),
+                    'frameX': int(sprite.get('frameX', 0)),
+                    'frameY': int(sprite.get('frameY', 0)),
+                    'frameWidth': int(sprite.get('frameWidth', sprite.get('width'))),
+                    'frameHeight': int(sprite.get('frameHeight', sprite.get('height'))),
+                    'rotated': sprite.get('rotated', 'false') == 'true'
+                } for sprite in root.findall('SubTexture')
+            ]
+        else:
+            sprites = parse_plain_text_atlas(metadata_path)
 
-            for sprite in root.findall('SubTexture'):
-                folder_name, frame_image = process_sprite(sprite, atlas, output_dir)
-                if create_gif or create_webp:
-                    animations.setdefault(folder_name, []).append(frame_image)
+        animations = {}
+        spritesheet_name = os.path.split(atlas_path)[1]
 
-            if create_gif:
-                for animation_name, images in animations.items():
-                    create_animation(animation_name, images, output_dir, 'gif', set_framerate, set_loopdelay)
+        for sprite in sprites:
+            name = sprite['name']
+            x, y, width, height = sprite['x'], sprite['y'], sprite['width'], sprite['height']
+            frameX = sprite.get('frameX', 0)
+            frameY = sprite.get('frameY', 0)
+            frameWidth = sprite.get('frameWidth', width)
+            frameHeight = sprite.get('frameHeight', height)
+            rotated = sprite.get('rotated', False)
+
+            sprite_image = atlas.crop((x, y, x + width, y + height))
+            if rotated:
+                sprite_image = sprite_image.rotate(90, expand=True)
+                frameWidth = max(height-frameX, frameWidth, 1)
+                frameHeight = max(width-frameY, frameHeight, 1)
+            else:
+                frameWidth = max(width-frameX, frameWidth, 1)
+                frameHeight = max(height-frameY, frameHeight, 1)
+
+            frame_image = Image.new('RGBA', (frameWidth, frameHeight))
+            frame_image.paste(sprite_image, (-frameX, -frameY))
+
+            if frame_image.mode != 'RGBA':
+                frame_image = frame_image.convert('RGBA')
+            folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+            sprite_folder = os.path.join(output_dir, folder_name)
+            os.makedirs(sprite_folder, exist_ok=True)
+
+            frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
+
+            if create_gif or create_webp:
+                animations.setdefault(folder_name, []).append(frame_image)
+
+        for animation_name, images in animations.items():
+            settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
+            fps = settings.get('fps', set_framerate)
+            delay = settings.get('delay', set_loopdelay)
+            threshold = settings.get('threshold', min(max(set_threshold,0),1))
+            indices = settings.get('indices')
+            if indices:
+                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
+                images = [images[i] for i in indices]
+            sizes = [frame.size for frame in images]
+            max_size = tuple(map(max, zip(*sizes)))
+            min_size = tuple(map(min, zip(*sizes)))
+            if max_size != min_size:
+                for index, frame in enumerate(images):
+                    images[index] = Image.new('RGBA', max_size)
+                    images[index].paste(frame)
 
             if create_webp:
-                for animation_name, images in animations.items():
-                    create_animation(animation_name, images, output_dir, 'webp', set_framerate, set_loopdelay)
+                durations = [round(1000/fps)] * len(images)
+                durations[-1] += delay
+                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+            if create_gif:
+                for frame in images:
+                    alpha = frame.getchannel('A')
+                    if (threshold == 1):
+                        alpha = alpha.point(lambda i: i >= 255 and 255)
+                    else:
+                        alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                    frame.putalpha(alpha)
+                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+                for frame in images:
+                    bbox = frame.getbbox()
+                    if bbox is None:
+                        continue
+                    min_x = min(min_x, bbox[0])
+                    min_y = min(min_y, bbox[1])
+                    max_x = max(max_x, bbox[2])
+                    max_y = max(max_y, bbox[3])
+                width, height = max_x - min_x, max_y - min_y
+                cropped_images = []
+                for frame in images:
+                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                    cropped_images.append(cropped_frame)
+                durations = [round(1000/fps)] * len(cropped_images)
+                durations[-1] += delay
+                cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0)
+            
+            if not keep_frames:
+                frames_folder = os.path.join(output_dir, animation_name)
+                for i in os.listdir(frames_folder):
+                    os.remove(os.path.join(frames_folder, i))
+                os.rmdir(frames_folder)
 
     except ET.ParseError:
-        raise ET.ParseError(f"Badly formatted XML file:\n{xml_path}")
+        raise ET.ParseError(f"Badly formatted XML file:\n{metadata_path}")
     except Exception as e:
-        raise Exception(f"An error occurred: {str(e)}")
+        if "Coordinate '" in str(e) and "' is less than '" in str(e):
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
+        elif "'NoneType' object is not subscriptable" in str(e):
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
+        else:
+            raise Exception(f"An error occurred: {str(e)}")
+        
+def on_closing():
+    if temp_dir and os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    root.destroy()
 
 ## Graphical User Interface setup
 root = tk.Tk()
+menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("900x480")
 root.resizable(False, False)
+root.protocol("WM_DELETE_WINDOW", on_closing)
+root.config(menu=menubar)
+
+file_menu = tk.Menu(menubar, tearoff=0)
+file_menu.add_command(label="Select directory", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
+file_menu.add_command(label="Select files", command=lambda: select_files_manually(input_dir, input_dir_label))
+file_menu.add_command(label="Clear filelist and user settings", command=lambda: clear_filelist())
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+menubar.add_cascade(label="File", menu=file_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
@@ -221,7 +456,7 @@ scrollbar_png.config(command=listbox_png.yview)
 scrollbar_xml.config(command=listbox_xml.yview)
 
 input_dir = tk.StringVar()
-input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label))
+input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
 input_button.pack(pady=2)
 
 input_dir_label = tk.Label(root, text="No input directory selected")
@@ -242,6 +477,10 @@ create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
 webp_checkbox.pack()
 
+keep_frames = tk.BooleanVar()
+frame_checkbox = tk.Checkbutton(root, text="Keep individual frames", variable=keep_frames)
+frame_checkbox.pack()
+
 set_framerate = tk.DoubleVar(value=24)
 frame_rate_label = tk.Label(root, text="Frame Rate (fps):")
 frame_rate_label.pack()
@@ -254,10 +493,26 @@ loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
 loopdelay_entry.pack()
 
-process_button = tk.Button(root, text="Start process", cursor="hand2", command=lambda: process_files(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get()))
-process_button.pack(pady=8)
+set_threshold = tk.DoubleVar(value=0.5)
+threshold_label = tk.Label(root, text="Alpha Threshold:")
+threshold_label.pack()
+threshold_entry = tk.Entry(root, textvariable=set_threshold)
+threshold_entry.pack()
 
-author_label = tk.Label(root, text="Tool written by AutisticLulu")
+button_frame = tk.Frame(root)
+button_frame.pack(pady=8)
+
+show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
+show_user_settings.pack(side=tk.LEFT, padx=4)
+
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button.pack(side=tk.LEFT, padx=4)
+
+use_all_threads = tk.BooleanVar()
+max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
+max_threads_checkbox.pack()
+
+author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
 
 ## Source Code
