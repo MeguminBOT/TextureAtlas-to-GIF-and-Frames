@@ -7,6 +7,7 @@ import tempfile
 import shutil
 import webbrowser
 import xml.etree.ElementTree as ET
+import json
 
 from PIL import Image
 import tkinter as tk
@@ -42,6 +43,7 @@ check_for_updates(current_version)
 user_settings = {}
 xml_dict = {}
 temp_dir = tempfile.mkdtemp()
+fnf_char_json_directory = ""
 
 def count_xml_files(directory):
     return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
@@ -407,6 +409,29 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
         else:
             raise Exception(f"An error occurred: {str(e)}")
         
+def load_fnf_char_json_settings(fnf_char_json_directory):
+    global user_settings
+    for filename in os.listdir(fnf_char_json_directory):
+        if filename.endswith('.json'):
+            with open(os.path.join(fnf_char_json_directory, filename), 'r') as file:
+                data = json.load(file)
+                image_base = os.path.splitext(os.path.basename(data.get("image", "")))[0]
+                png_filename = image_base + '.png'
+                
+                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
+                    listbox_png.insert(tk.END, png_filename)
+                    xml_dict[png_filename] = os.path.join(fnf_char_json_directory, image_base + '.xml')
+                
+                for anim in data.get("animations", []):
+                    anim_name = anim.get("name", "")
+                    fps = anim.get("fps", 0)
+                    user_settings[png_filename + '/' + anim_name] = {'fps': fps}
+
+def select_fnf_char_json_directory():
+    fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character JSON Directory")
+    if fnf_char_json_directory:
+        load_fnf_char_json_settings(fnf_char_json_directory)
+        
 def on_closing():
     if temp_dir and os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
@@ -428,6 +453,10 @@ file_menu.add_command(label="Clear filelist and user settings", command=lambda: 
 file_menu.add_separator()
 file_menu.add_command(label="Exit", command=root.quit)
 menubar.add_cascade(label="File", menu=file_menu)
+
+import_menu = tk.Menu(menubar, tearoff=0)
+import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: select_fnf_char_json_directory())
+menubar.add_cascade(label="Import", menu=import_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
