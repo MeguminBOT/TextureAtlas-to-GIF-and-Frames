@@ -5,6 +5,7 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 ## Current Spritesheet types supported
 * Sparrow
 * Starling
+* Packer TXT
 
 ## Functionality
 * Extracts and organizes frames from sprite sheets into folders named after respective sprites and animations.
@@ -15,12 +16,12 @@ This tool simplifies the process of extracting frames from sprite sheets, organi
 * Customization of alpha transparency threshold for GIFs.
 * Override settings above and indices for individual sprites and animations.
 * Option to delete frames after GIF/WebP generation.
+* (Friday Night Funkin' sprites only) Import Characters JSON files to automatically set the correct fps for every character animation.
 
 ## Not yet implemented
 Feel free to help me implement anything on this list.
 * Transition to the new QT UI inside the "new_ui_project" folder. (I'm malding over python classes, and I'm bit more busy irl lately)
 * Implement the icon splitter tool into a sub menu when the new QT UI is fully implemented https://github.com/MeguminBOT/FNF-Icon-Splitter
-* Selection of specific sprites for extraction (Currently processes entire folders).
 * Automatically crop frames using the xml file data.
 
 ## How to Install
