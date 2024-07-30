@@ -204,7 +204,6 @@ def on_double_click_xml(evt):
 
     def store_input():
         anim_settings = {}
-        
         try:
             if fps_entry.get() != '':
                 anim_settings['fps'] = float(fps_entry.get())
@@ -400,16 +399,17 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                 os.rmdir(frames_folder)
 
     except ET.ParseError:
-        raise ET.ParseError(f"Badly formatted XML file:\n{metadata_path}")
+        raise ET.ParseError(f"Badly formatted XML file:\n\n{metadata_path}")
     except Exception as e:
         if "Coordinate '" in str(e) and "' is less than '" in str(e):
-            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n\nError: {str(e)}\n\nFile: {metadata_path}")
         elif "'NoneType' object is not subscriptable" in str(e):
-            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n{metadata_path}")
+            raise Exception(f"XML or TXT frame dimension data doesn't match the spritesheet dimensions.\n\nError: {str(e)}\n\nFile: {metadata_path}")
         else:
-            raise Exception(f"An error occurred: {str(e)}")
-        
-def load_fnf_char_json_settings(fnf_char_json_directory):
+            raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
+
+## FNF specific stuff
+def fnf_load_char_json_settings(fnf_char_json_directory):
     global user_settings
     for filename in os.listdir(fnf_char_json_directory):
         if filename.endswith('.json'):
@@ -427,11 +427,91 @@ def load_fnf_char_json_settings(fnf_char_json_directory):
                     fps = anim.get("fps", 0)
                     user_settings[png_filename + '/' + anim_name] = {'fps': fps}
 
-def select_fnf_char_json_directory():
+def fnf_select_char_json_directory():
     fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character JSON Directory")
     if fnf_char_json_directory:
-        load_fnf_char_json_settings(fnf_char_json_directory)
-        
+        fnf_load_char_json_settings(fnf_char_json_directory)
+        # print("User settings populated:", user_settings)
+
+## Help Menu
+def create_scrollable_help_window():
+    help_text = (
+        "_________________________________________ Main Window _________________________________________\n\n"
+        "Double clicking an animation entry will open up a window where you can override the global fps/loop/alpha settings and customize indices used for that animation.\n\n"
+        "Select Directory with Spritesheets:\nOpens a file dialog for you to choose a folder containing the spritesheets you want to process.\n\n"
+        "Select Save Directory:\nOpens a file dialog for you to specify where the application should save the exported frames or GIF/WebP files.\n\n"
+        "Create GIFs for Each Animation:\nWhen enabled, generates animated .GIF files for each animation found in the spritesheet data.\n\n"
+        "Create WebPs for Each Animation:\nWhen enabled, generates animated .WebP files for each animation found in the spritesheet data.\n\n"
+        "Keep Individual Frames:\nWhen checked, saves each individual frame from the animations in the spritesheet.\n\n"
+        "Frame Rate (fps):\nDefines the playback speed of the animated image in frames per second.\n\n"
+        "Loop Delay (ms):\nSets the delay time, in milliseconds, before the animation loops again.\n\n"
+        "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold retain their original opacity.\n\n"
+        "Show User Settings:\nOpens a window displaying a list of animations with settings that override the global configuration.\n\n"
+        "Start Process:\nBegins the tasks you have selected for processing.\n\n"
+        "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
+        "_________________________________________ Menubar: File _________________________________________\n\n"
+        "Select Directory:\nOpens a file dialog for you to choose a folder containing the spritesheets you want to process.\n\n"
+        "Select Files:\nOpens a file dialog for you to manually choose spritesheet .XML/TXT and .PNG files.\n\n"
+        "Clear Filelist and User settings:\nRemoves all entries from the list and clears the settings.\n\n"
+        "Exit:\nExits the application\n\n"
+        "_________________________________________ Menubar: Import _________________________________________\n\n"
+        "(FNF) Import FPS from character json:\nOpens a file dialog for you to choose the folder containing the json files of your characters to automatically set the correct fps values of each animation.\nFPS values are added to the User Settings.\n\n"
+        "*NOT YET IMPLEMENTED* (FNF) Set idle loop delay to 0:\nSets all animations containing the phrase 'idle' to have no delay before looping. Usually recommended.\n\n"
+    )
+
+    help_window = tk.Toplevel()
+    help_window.geometry("800x600")
+    help_window.title("Help")
+
+    main_frame = ttk.Frame(help_window)
+    main_frame.pack(fill=tk.BOTH, expand=1)
+
+    canvas = tk.Canvas(main_frame)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+
+    scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+    scrollable_frame = ttk.Frame(canvas)
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    help_label = tk.Label(scrollable_frame, text=help_text, justify="left", padx=10, pady=10, wraplength=780)
+    help_label.pack()
+    
+def create_scrollable_fnf_help_window():
+    fnf_help_text = (
+        "Use the import fps button to get the correct framerate from the character json files. (Make sure you select spritesheet directory first)\n\n"
+        "Loop delay:\n"
+        "For anything that doesn't need to smoothly loop like sing poses for characters, 250 ms is recommended (150 ms minimum)\n"
+        "Idle animations usually looks best with 0"
+    )
+
+    fnf_help_window = tk.Toplevel()
+    fnf_help_window.geometry("800x600")
+    fnf_help_window.title("Help (FNF Sprites)")
+
+    fnf_main_frame = ttk.Frame(fnf_help_window)
+    fnf_main_frame.pack(fill=tk.BOTH, expand=1)
+
+    fnf_canvas = tk.Canvas(fnf_main_frame)
+    fnf_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+
+    fnf_scrollbar = ttk.Scrollbar(fnf_main_frame, orient=tk.VERTICAL, command=fnf_canvas.yview)
+    fnf_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    fnf_canvas.configure(yscrollcommand=fnf_scrollbar.set)
+    fnf_canvas.bind('<Configure>', lambda e: fnf_canvas.configure(scrollregion=fnf_canvas.bbox("all")))
+
+    fnf_scrollable_frame = ttk.Frame(fnf_canvas)
+    fnf_canvas.create_window((0, 0), window=fnf_scrollable_frame, anchor="nw")
+
+    fnf_help_label = tk.Label(fnf_scrollable_frame, text=fnf_help_text, justify="left", padx=10, pady=10, wraplength=780)
+    fnf_help_label.pack()
+
+## Remove temp dir on exit
 def on_closing():
     if temp_dir and os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
@@ -451,12 +531,18 @@ file_menu.add_command(label="Select directory", command=lambda: select_directory
 file_menu.add_command(label="Select files", command=lambda: select_files_manually(input_dir, input_dir_label))
 file_menu.add_command(label="Clear filelist and user settings", command=lambda: clear_filelist())
 file_menu.add_separator()
-file_menu.add_command(label="Exit", command=root.quit)
+file_menu.add_command(label="Exit", command=on_closing)
 menubar.add_cascade(label="File", menu=file_menu)
 
 import_menu = tk.Menu(menubar, tearoff=0)
-import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: select_fnf_char_json_directory())
+import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: fnf_select_char_json_directory())
 menubar.add_cascade(label="Import", menu=import_menu)
+
+help_menu = tk.Menu(menubar, tearoff=0)
+help_menu.add_command(label="Manual", command=lambda: create_scrollable_help_window())
+help_menu.add_separator()
+help_menu.add_command(label="FNF: GIF/WebP settings advice", command=lambda: create_scrollable_fnf_help_window())
+menubar.add_cascade(label="Help", menu=help_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
@@ -509,7 +595,7 @@ frame_rate_label.pack()
 frame_rate_entry = tk.Entry(root, textvariable=set_framerate)
 frame_rate_entry.pack()
 
-set_loopdelay = tk.DoubleVar(value=0)
+set_loopdelay = tk.DoubleVar(value=250)
 loopdelay_label = tk.Label(root, text="Loop Delay (ms):")
 loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
