@@ -342,9 +342,12 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
 
             if create_gif or create_webp:
-                animations.setdefault(folder_name, []).append(frame_image)
+                animations.setdefault(folder_name, []).append((name, frame_image))
 
-        for animation_name, images in animations.items():
+        for animation_name, image_tuples in animations.items():
+            image_tuples.sort(key=lambda x: x[0])
+            images = [img[1] for img in image_tuples]
+
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
             fps = settings.get('fps', set_framerate)
             delay = settings.get('delay', set_loopdelay)
@@ -358,8 +361,9 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             min_size = tuple(map(min, zip(*sizes)))
             if max_size != min_size:
                 for index, frame in enumerate(images):
-                    images[index] = Image.new('RGBA', max_size)
-                    images[index].paste(frame)
+                    new_frame = Image.new('RGBA', max_size)
+                    new_frame.paste(frame)
+                    images[index] = new_frame
 
             if create_webp:
                 durations = [round(1000/fps)] * len(images)
