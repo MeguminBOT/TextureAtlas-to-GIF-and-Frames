@@ -567,6 +567,12 @@ def on_closing():
 
 ## Graphical User Interface setup
 root = tk.Tk()
+
+script_dir = os.path.dirname(__file__)
+icon_path = os.path.join(script_dir, 'assets', 'icon.png')
+icon = tk.PhotoImage(file=icon_path)
+root.iconphoto(True, icon)
+
 menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
 root.geometry("900x480")
