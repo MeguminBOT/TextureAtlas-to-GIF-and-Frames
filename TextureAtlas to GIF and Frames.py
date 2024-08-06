@@ -88,6 +88,7 @@ def select_directory(variable, label):
                     parse_txt(directory, txt_filename)
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
+            listbox_png.bind('<Double-1>', on_double_click_png)
             listbox_xml.bind('<Double-1>', on_double_click_xml)
     return directory
 
@@ -184,6 +185,118 @@ def update_settings_window():
         tk.Label(settings_window, text="User Settings").pack()
         for key, value in user_settings.items():
             tk.Label(settings_window, text=f"{key}: {value}").pack()
+        for key, value in spritesheet_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
+            
+def on_double_click_png(evt):
+    spritesheet_name = listbox_png.get(listbox_png.curselection())
+    new_window = tk.Toplevel()
+    new_window.geometry("360x360")
+
+    tk.Label(new_window, text="Keep frame indices for " + spritesheet_name).pack()
+    frames_entry = tk.Entry(new_window)
+    frames_entry.pack()
+
+    tk.Label(new_window, text="FPS for " + spritesheet_name).pack()
+    fps_entry = tk.Entry(new_window)
+    fps_entry.pack()
+
+    tk.Label(new_window, text="Delay for " + spritesheet_name).pack()
+    delay_entry = tk.Entry(new_window)
+    delay_entry.pack()
+
+    tk.Label(new_window, text="Min period for " + spritesheet_name).pack()
+    period_entry = tk.Entry(new_window)
+    period_entry.pack()
+
+    tk.Label(new_window, text="Threshold for " + spritesheet_name).pack()
+    threshold_entry = tk.Entry(new_window)
+    threshold_entry.pack()
+
+    tk.Label(new_window, text="Indices for " + spritesheet_name).pack()
+    indices_entry = tk.Entry(new_window)
+    indices_entry.pack()
+
+    tk.Label(new_window, text="Scale for " + spritesheet_name).pack()
+    scale_entry = tk.Entry(new_window)
+    scale_entry.pack()
+
+    def store_input():
+        anim_settings = {}
+        try:
+            if frames_entry.get() != '':
+                if frames_entry.get() != ',':
+                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+                    for entry in keep_frames:
+                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
+                            raise ValueError
+                anim_settings['frames'] = frames_entry.get()
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
+            new_window.lift()
+            return
+        try:
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            new_window.lift()
+            return
+        try:
+            if fps_entry.get() != '':
+                anim_settings['fps'] = float(fps_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
+            new_window.lift()
+            return
+        try:
+            if delay_entry.get() != '':
+                anim_settings['delay'] = int(delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            new_window.lift()
+            return
+        try:
+            if period_entry.get() != '':
+                anim_settings['period'] = int(period_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for period.")
+            new_window.lift()
+            return
+        try:
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
+            new_window.lift()
+            return
+        try:
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            new_window.lift()
+            return
+        try:
+            if scale_entry.get() != '':
+                scale = int(scale_entry.get())
+                anim_settings['scale'] = scale
+                if scale_entry.get() == 0:
+                    raise ValueError
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            new_window.lift()
+            return
+        if len(anim_settings) > 0:
+            spritesheet_settings[spritesheet_name] = anim_settings
+        elif user_settings.get(spritesheet_name):
+            spritesheet_settings.pop(spritesheet_name)
+        new_window.destroy()
+
+    tk.Button(new_window, text="OK", command=store_input).pack()
+
             
 def on_double_click_xml(evt):
     spritesheet_name = listbox_png.get(listbox_png.curselection())
@@ -324,7 +437,15 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                 if os.path.isfile(xml_path) or os.path.isfile(txt_path):
                     sprite_output_dir = os.path.join(output_dir, base_filename)
                     os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_minperiod, set_threshold, adv_delay, hq_colors, set_scale)
+                    settings = spritesheet_settings.get(filename, {})
+                    fps = settings.get('fps', set_framerate)
+                    delay = settings.get('delay', set_loopdelay)
+                    period = settings.get('period', set_minperiod)
+                    frames = settings.get('frames', keep_frames)
+                    threshold = settings.get('threshold', set_threshold)
+                    scale = settings.get('scale', set_scale)
+                    indices = settings.get('indices')
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, frames, fps, delay, period, threshold, indices, adv_delay, hq_colors, scale)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -361,7 +482,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_minperiod, set_threshold, adv_delay, hq_colors, set_scale):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_minperiod, set_threshold, set_indices, adv_delay, hq_colors, set_scale):
     frames_generated = 0
     anims_generated = 0
     sprites_failed = 0
@@ -424,12 +545,16 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             scale = settings.get('scale', set_scale)
             image_tuples.sort(key=lambda x: x[0])
 
-            indices = settings.get('indices')
+            indices = settings.get('indices', set_indices)
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
-            kept_frames = settings.get('frames', keep_frames)
-            kept_frames = [ele for ele in kept_frames.split(',')]
+
+            if len(image_tuples) == 1:
+                kept_frames = '0'
+            else:
+                kept_frames = settings.get('frames', keep_frames)
+                kept_frames = [ele for ele in kept_frames.split(',')]
 
             kept_frame_indices = set()
             for entry in kept_frames:
@@ -465,6 +590,9 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                     cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
                     cropped_frame_image.save(frame_filename)
                     frames_generated += 1
+
+            if len(image_tuples) == 1:
+                continue
                     
             if create_gif or create_webp:
                 fps = settings.get('fps', set_framerate)
