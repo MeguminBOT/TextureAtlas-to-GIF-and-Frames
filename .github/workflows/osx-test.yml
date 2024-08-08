@@ -26,7 +26,6 @@ jobs:
         nuitka --standalone --assume-yes-for-downloads --deployment \
         --follow-imports --enable-plugin=tk-inter --clang \
         --include-data-dir=assets=assets \
-        --include-data-files='license/LICENSE.txt=LICENSE.txt' \
         --macos-app-name="TextureAtlas to GIF and Frames" \
         --macos-app-icon=assets/icon.icns \
         --company-name="AutisticLulu" \
