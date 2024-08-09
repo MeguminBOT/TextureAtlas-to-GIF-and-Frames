@@ -1,3 +1,4 @@
+
 import concurrent.futures
 import json
 import numpy
@@ -193,10 +194,6 @@ def on_double_click_png(evt):
     new_window = tk.Toplevel()
     new_window.geometry("360x360")
 
-    tk.Label(new_window, text="Keep frame indices for " + spritesheet_name).pack()
-    frames_entry = tk.Entry(new_window)
-    frames_entry.pack()
-
     tk.Label(new_window, text="FPS for " + spritesheet_name).pack()
     fps_entry = tk.Entry(new_window)
     fps_entry.pack()
@@ -220,6 +217,10 @@ def on_double_click_png(evt):
     tk.Label(new_window, text="Indices for " + spritesheet_name).pack()
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
+
+    tk.Label(new_window, text="Keep frame indices for " + spritesheet_name).pack()
+    frames_entry = tk.Entry(new_window)
+    frames_entry.pack()
 
     def store_input():
         anim_settings = {}
@@ -296,10 +297,6 @@ def on_double_click_xml(evt):
     new_window = tk.Toplevel()
     new_window.geometry("360x360")
 
-    tk.Label(new_window, text="Keep frame indices for " + animation_name).pack()
-    frames_entry = tk.Entry(new_window)
-    frames_entry.pack()
-
     tk.Label(new_window, text="FPS for " + animation_name).pack()
     fps_entry = tk.Entry(new_window)
     fps_entry.pack()
@@ -323,6 +320,10 @@ def on_double_click_xml(evt):
     tk.Label(new_window, text="Indices for " + animation_name).pack()
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
+
+    tk.Label(new_window, text="Keep frame indices for " + animation_name).pack()
+    frames_entry = tk.Entry(new_window)
+    frames_entry.pack()
 
     def store_input():
         anim_settings = {}
