@@ -209,6 +209,10 @@ def on_double_click_png(evt):
     period_entry = tk.Entry(new_window)
     period_entry.pack()
 
+    tk.Label(new_window, text="Scale for " + spritesheet_name).pack()
+    scale_entry = tk.Entry(new_window)
+    scale_entry.pack()
+
     tk.Label(new_window, text="Threshold for " + spritesheet_name).pack()
     threshold_entry = tk.Entry(new_window)
     threshold_entry.pack()
@@ -217,32 +221,8 @@ def on_double_click_png(evt):
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
 
-    tk.Label(new_window, text="Scale for " + spritesheet_name).pack()
-    scale_entry = tk.Entry(new_window)
-    scale_entry.pack()
-
     def store_input():
         anim_settings = {}
-        try:
-            if frames_entry.get() != '':
-                if frames_entry.get() != ',':
-                    keep_frames = [ele for ele in frames_entry.get().split(',')]
-                    for entry in keep_frames:
-                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
-                            raise ValueError
-                anim_settings['frames'] = frames_entry.get()
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
-            new_window.lift()
-            return
-        try:
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                anim_settings['indices'] = indices
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
-            new_window.lift()
-            return
         try:
             if fps_entry.get() != '':
                 anim_settings['fps'] = float(fps_entry.get())
@@ -265,6 +245,16 @@ def on_double_click_png(evt):
             new_window.lift()
             return
         try:
+            if scale_entry.get() != '':
+                if scale_entry.get() == 0:
+                    raise ValueError
+                scale = int(scale_entry.get())
+                anim_settings['scale'] = scale
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            new_window.lift()
+            return
+        try:
             if threshold_entry.get() != '':
                 anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
@@ -280,13 +270,15 @@ def on_double_click_png(evt):
             new_window.lift()
             return
         try:
-            if scale_entry.get() != '':
-                scale = int(scale_entry.get())
-                anim_settings['scale'] = scale
-                if scale_entry.get() == 0:
-                    raise ValueError
+            if frames_entry.get() != '':
+                if frames_entry.get() != ',':
+                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+                    for entry in keep_frames:
+                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
+                            raise ValueError
+                anim_settings['frames'] = frames_entry.get()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
             new_window.lift()
             return
         if len(anim_settings) > 0:
@@ -320,6 +312,10 @@ def on_double_click_xml(evt):
     period_entry = tk.Entry(new_window)
     period_entry.pack()
 
+    tk.Label(new_window, text="Scale for " + animation_name).pack()
+    scale_entry = tk.Entry(new_window)
+    scale_entry.pack()
+
     tk.Label(new_window, text="Threshold for " + animation_name).pack()
     threshold_entry = tk.Entry(new_window)
     threshold_entry.pack()
@@ -328,32 +324,8 @@ def on_double_click_xml(evt):
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
 
-    tk.Label(new_window, text="Scale for " + animation_name).pack()
-    scale_entry = tk.Entry(new_window)
-    scale_entry.pack()
-
     def store_input():
         anim_settings = {}
-        try:
-            if frames_entry.get() != '':
-                if frames_entry.get() != ',':
-                    keep_frames = [ele for ele in frames_entry.get().split(',')]
-                    for entry in keep_frames:
-                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
-                            raise ValueError
-                anim_settings['frames'] = frames_entry.get()
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
-            new_window.lift()
-            return
-        try:
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                anim_settings['indices'] = indices
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
-            new_window.lift()
-            return
         try:
             if fps_entry.get() != '':
                 anim_settings['fps'] = float(fps_entry.get())
@@ -376,6 +348,16 @@ def on_double_click_xml(evt):
             new_window.lift()
             return
         try:
+            if scale_entry.get() != '':
+                if scale_entry.get() == 0:
+                    raise ValueError
+                scale = int(scale_entry.get())
+                anim_settings['scale'] = scale
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            new_window.lift()
+            return
+        try:
             if threshold_entry.get() != '':
                 anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
@@ -391,13 +373,15 @@ def on_double_click_xml(evt):
             new_window.lift()
             return
         try:
-            if scale_entry.get() != '':
-                scale = int(scale_entry.get())
-                anim_settings['scale'] = scale
-                if scale_entry.get() == 0:
-                    raise ValueError
+            if frames_entry.get() != '':
+                if frames_entry.get() != ',':
+                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+                    for entry in keep_frames:
+                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
+                            raise ValueError
+                anim_settings['frames'] = frames_entry.get()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
             new_window.lift()
             return
         if len(anim_settings) > 0:
@@ -408,7 +392,7 @@ def on_double_click_xml(evt):
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_minperiod, set_threshold, adv_delay, hq_colors, set_scale):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, adv_delay, hq_colors):
     
     total_frames_generated = 0
     total_anims_generated = 0
@@ -445,7 +429,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     threshold = settings.get('threshold', set_threshold)
                     scale = settings.get('scale', set_scale)
                     indices = settings.get('indices')
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, frames, fps, delay, period, threshold, indices, adv_delay, hq_colors, scale)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, adv_delay, hq_colors)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -482,7 +466,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_minperiod, set_threshold, set_indices, adv_delay, hq_colors, set_scale):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, adv_delay, hq_colors):
     frames_generated = 0
     anims_generated = 0
     sprites_failed = 0
@@ -695,13 +679,12 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
 
 def scale_image(img, size):
-    if size == 1:
+    if size < 0:
+        img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if abs(size) == 1:
         return img
-    elif size < 0:
-        return img.transpose(Image.Transpose.FLIP_LEFT_RIGHT).resize((img.width * abs(size), img.height * abs(size)), Image.NEAREST)
     else:
-        return img.resize((img.width * size, img.height * size), Image.NEAREST)
-    self
+        return img.resize((img.width * abs(size), img.height * abs(size)), Image.NEAREST)
 
 
 ## FNF specific stuff
@@ -739,14 +722,15 @@ def create_scrollable_help_window():
         "Select Save Directory:\nOpens a file dialog for you to specify where the application should save the exported frames or GIF/WebP files.\n\n"
         "Create GIFs for Each Animation:\nWhen enabled, generates animated .GIF files for each animation found in the spritesheet data.\n\n"
         "Create WebPs for Each Animation:\nWhen enabled, generates animated .WebP files for each animation found in the spritesheet data.\n\n"
-        "Keep Individual Frames:\nSelect the frames to save by typing a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
-        "Advanced Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
-        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
         "Frame Rate (fps):\nDefines the playback speed of the animated image in frames per second.\n\n"
         "Loop Delay (ms):\nSets the minimum delay time, in milliseconds, before the animation loops again.\n\n"
         "Minimum Period (ms):\nSets the minimum duration, in milliseconds, before the animation loops again.\n\n"
-        "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
         "Scale:\nResizes frames and animations using nearest-neighbor interpolation to preserve pixels. Negative numbers flip the sprites horizontally.\n\n"
+        "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
+        "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of integers.\n\n"
+        "Keep Individual Frames:\nSelect the frames to save by typing a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
+        "Advanced Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
+        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
         "Show User Settings:\nOpens a window displaying a list of animations with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
         "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
@@ -895,20 +879,6 @@ create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
 webp_checkbox.pack()
 
-keep_frames = tk.StringVar(value='0--1')
-keepframes_label = tk.Label(root, text="Keep individual frames")
-keepframes_label.pack()
-keepframes_entry = tk.Entry(root, textvariable=keep_frames)
-keepframes_entry.pack()
-
-advanced_delay = tk.BooleanVar()
-advdelay_checkbox = tk.Checkbutton(root, text="Advanced delay", variable=advanced_delay)
-advdelay_checkbox.pack()
-
-better_colors = tk.BooleanVar()
-hqcolors_checkbox = tk.Checkbutton(root, text="Higher color quality", variable=better_colors)
-hqcolors_checkbox.pack()
-
 set_framerate = tk.DoubleVar(value=24)
 frame_rate_label = tk.Label(root, text="Frame Rate (fps):")
 frame_rate_label.pack()
@@ -927,17 +897,31 @@ minperiod_label.pack()
 minperiod_entry = tk.Entry(root, textvariable=set_minperiod)
 minperiod_entry.pack()
 
+set_scale = tk.DoubleVar(value=1)
+scale_label = tk.Label(root, text="Scale:")
+scale_label.pack()
+scale_entry = tk.Entry(root, textvariable=set_scale)
+scale_entry.pack()
+
 set_threshold = tk.DoubleVar(value=0.5)
 threshold_label = tk.Label(root, text="Alpha Threshold:")
 threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-set_scale = tk.DoubleVar(value=1)
-scale_label = tk.Label(root, text="Scale:")
-scale_label.pack()
-scale_entry = tk.Entry(root, textvariable=set_scale)
-scale_entry.pack()
+keep_frames = tk.StringVar(value='0--1')
+keepframes_label = tk.Label(root, text="Keep individual frames:")
+keepframes_label.pack()
+keepframes_entry = tk.Entry(root, textvariable=keep_frames)
+keepframes_entry.pack()
+
+advanced_delay = tk.BooleanVar()
+advdelay_checkbox = tk.Checkbutton(root, text="Advanced delay", variable=advanced_delay)
+advdelay_checkbox.pack()
+
+better_colors = tk.BooleanVar()
+hqcolors_checkbox = tk.Checkbutton(root, text="Higher color quality", variable=better_colors)
+hqcolors_checkbox.pack()
 
 button_frame = tk.Frame(root)
 button_frame.pack(pady=8)
@@ -945,7 +929,7 @@ button_frame.pack(pady=8)
 show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
 show_user_settings.pack(side=tk.LEFT, padx=4)
 
-process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_threshold.get(), advanced_delay.get(), better_colors.get(), set_scale.get()))
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), advanced_delay.get(), better_colors.get()))
 process_button.pack(side=tk.LEFT, padx=4)
 
 use_all_threads = tk.BooleanVar()
