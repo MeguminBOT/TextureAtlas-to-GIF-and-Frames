@@ -393,7 +393,7 @@ def on_double_click_xml(evt):
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, adv_delay, hq_colors):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, var_delay, hq_colors):
     
     total_frames_generated = 0
     total_anims_generated = 0
@@ -430,7 +430,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     threshold = settings.get('threshold', set_threshold)
                     scale = settings.get('scale', set_scale)
                     indices = settings.get('indices')
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, adv_delay, hq_colors)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, var_delay, hq_colors)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -467,12 +467,13 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, adv_delay, hq_colors):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, var_delay, hq_colors):
     frames_generated = 0
     anims_generated = 0
     sprites_failed = 0
     try:
         atlas = Image.open(atlas_path)
+
         if metadata_path.endswith('.xml'):
             tree = ET.parse(metadata_path)
             root = tree.getroot()
@@ -494,6 +495,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             sprites = parse_plain_text_atlas(metadata_path)
 
         animations = {}
+        quant_frames = {}
         spritesheet_name = os.path.split(atlas_path)[1]
 
         for sprite in sprites:
@@ -506,6 +508,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             rotated = sprite.get('rotated', False)
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
+
             if rotated:
                 sprite_image = sprite_image.rotate(90, expand=True)
                 frameWidth = max(height-frameX, frameWidth, 1)
@@ -520,10 +523,8 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             if frame_image.mode != 'RGBA':
                 frame_image = frame_image.convert('RGBA')
             folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-            sprite_folder = os.path.join(output_dir, folder_name)
-            os.makedirs(sprite_folder, exist_ok=True)
 
-            animations.setdefault(folder_name, []).append((name, frame_image))
+            animations.setdefault(folder_name, []).append((name, frame_image, (x, y, width, height, frameX, frameY)))
 
         for animation_name, image_tuples in animations.items():
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
@@ -531,11 +532,18 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             image_tuples.sort(key=lambda x: x[0])
 
             indices = settings.get('indices', set_indices)
+
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
 
-            if len(image_tuples) == 1:
+            single_frame = True
+            for i in image_tuples:
+                if i[2] != image_tuples[0][2]:
+                    single_frame = False
+                    break
+
+            if single_frame:
                 kept_frames = '0'
             else:
                 kept_frames = settings.get('frames', keep_frames)
@@ -563,21 +571,29 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                         for i in frame_range:
                             kept_frame_indices.add(i)
 
-            frames_folder = os.path.join(output_dir, animation_name)
-
-            for index, frame in enumerate(image_tuples):
-                frame_filename = os.path.join(frames_folder, image_tuples[index][0] + '.png')
-                if index in kept_frame_indices:
-                    frame_image = image_tuples[index][1]
-                    bbox = frame_image.getbbox()
-                    if bbox is None:
-                        continue
-                    cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
-                    cropped_frame_image.save(frame_filename)
-                    frames_generated += 1
-
-            if len(image_tuples) == 1:
+            if single_frame:
+                frame_filename = os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.png")
+                frame_image = image_tuples[0][1]
+                bbox = frame_image.getbbox()
+                if bbox is None:
+                    continue
+                cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
+                cropped_frame_image.save(frame_filename)
+                frames_generated += 1
                 continue
+            else:
+                frames_folder = os.path.join(output_dir, animation_name)
+                for index, frame in enumerate(image_tuples):
+                    frame_filename = os.path.join(frames_folder, image_tuples[index][0] + '.png')
+                    if index in kept_frame_indices:
+                        frame_image = image_tuples[index][1]
+                        bbox = frame_image.getbbox()
+                        if bbox is None:
+                            continue
+                        cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
+                        os.makedirs(frames_folder, exist_ok=True)
+                        cropped_frame_image.save(frame_filename)
+                        frames_generated += 1
                     
             if create_gif or create_webp:
                 fps = settings.get('fps', set_framerate)
@@ -596,7 +612,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
 
                 if create_webp:
                     durations = []
-                    if adv_delay:
+                    if var_delay:
                         for index in range(len(images)):
                             durations.append(round((index+1)*1000/fps) - round(index*1000/fps))
                     else:
@@ -616,6 +632,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                             alpha = alpha.point(lambda i: i > 255*threshold and 255)
                         frame.putalpha(alpha)
                     min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+
                     for index, frame in enumerate(images):
                         bbox = frame.getbbox()
                         if bbox is None:
@@ -627,20 +644,28 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
     
                         if not hq_colors:
                             continue
-                    
-                        with WandImg.from_array(numpy.array(frame)) as wand_frame:
-                            wand_frame.background_color = Color('None')
-                            wand_frame.alpha_channel = 'background'
-                            wand_frame.trim(background_color='None')
-                            wand_frame.quantize(number_colors=256, dither=False)
-                            wand_frame.coalesce()
-                            fd, temp_filename = tempfile.mkstemp(suffix='.gif')
-                            wand_frame.save(filename=temp_filename)
-                            with Image.open(temp_filename) as quant_frame:
-                                images[index] = quant_frame
-                                quant_frame.load()
-                            os.close(fd)
-                            os.remove(temp_filename)
+
+                        if image_tuples[index][2] in quant_frames:
+                            images[index] = quant_frames[image_tuples[index][2]]
+                            if images[index].size != max_size:
+                                new_frame = Image.new('RGBA', max_size)
+                                new_frame.paste(frame)
+                                images[index] = new_frame
+                        else:
+                            with WandImg.from_array(numpy.array(frame)) as wand_frame:
+                                wand_frame.background_color = Color('None')
+                                wand_frame.alpha_channel = 'background'
+                                wand_frame.trim(background_color='None')
+                                wand_frame.quantize(number_colors=256, dither=False)
+                                wand_frame.coalesce()
+                                fd, temp_filename = tempfile.mkstemp(suffix='.gif')
+                                wand_frame.save(filename=temp_filename)
+                                with Image.open(temp_filename) as quant_frame:
+                                    images[index] = quant_frame
+                                    quant_frame.load()
+                                    quant_frames[image_tuples[index][2]] = quant_frame
+                                os.close(fd)
+                                os.remove(temp_filename)
                         
                     width, height = max_x - min_x, max_y - min_y
                     cropped_images = []
@@ -648,7 +673,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                         cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
                         cropped_images.append(scale_image(cropped_frame, scale))
                     durations = []
-                    if adv_delay:
+                    if var_delay:
                         for index in range(len(images)):
                             durations.append(round((index+1)*1000/fps, -1) - round(index*1000/fps, -1))
                     else:
@@ -686,8 +711,7 @@ def scale_image(img, size):
         return img
     else:
         return img.resize((img.width * abs(size), img.height * abs(size)), Image.NEAREST)
-
-
+    
 ## FNF specific stuff
 def fnf_load_char_json_settings(fnf_char_json_directory):
     global user_settings
@@ -730,7 +754,7 @@ def create_scrollable_help_window():
         "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
         "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of integers.\n\n"
         "Keep Individual Frames:\nSelect the frames to save by typing a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
-        "Advanced Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
+        "Variable Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
         "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
         "Show User Settings:\nOpens a window displaying a list of animations with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
@@ -916,9 +940,9 @@ keepframes_label.pack()
 keepframes_entry = tk.Entry(root, textvariable=keep_frames)
 keepframes_entry.pack()
 
-advanced_delay = tk.BooleanVar()
-advdelay_checkbox = tk.Checkbutton(root, text="Advanced delay", variable=advanced_delay)
-advdelay_checkbox.pack()
+variable_delay = tk.BooleanVar()
+vardelay_checkbox = tk.Checkbutton(root, text="Variable delay", variable=variable_delay)
+vardelay_checkbox.pack()
 
 better_colors = tk.BooleanVar()
 hqcolors_checkbox = tk.Checkbutton(root, text="Higher color quality", variable=better_colors)
@@ -930,7 +954,7 @@ button_frame.pack(pady=8)
 show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
 show_user_settings.pack(side=tk.LEFT, padx=4)
 
-process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), advanced_delay.get(), better_colors.get()))
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), variable_delay.get(), better_colors.get()))
 process_button.pack(side=tk.LEFT, padx=4)
 
 use_all_threads = tk.BooleanVar()
