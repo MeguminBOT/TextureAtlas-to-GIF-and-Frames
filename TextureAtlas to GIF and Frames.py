@@ -573,6 +573,8 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
 
             if single_frame:
                 frame_filename = os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.png")
+                if len(image_tuples) == 0:
+                    continue
                 frame_image = image_tuples[0][1]
                 bbox = frame_image.getbbox()
                 if bbox is None:
@@ -645,8 +647,8 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                         if not hq_colors:
                             continue
 
-                        if image_tuples[index][2] in quant_frames:
-                            images[index] = quant_frames[image_tuples[index][2]]
+                        if image_tuples[index][2] + (threshold,) in quant_frames:
+                            images[index] = quant_frames[image_tuples[index][2] + (threshold,)]
                             if images[index].size != max_size:
                                 new_frame = Image.new('RGBA', max_size)
                                 new_frame.paste(frame)
@@ -663,7 +665,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                                 with Image.open(temp_filename) as quant_frame:
                                     images[index] = quant_frame
                                     quant_frame.load()
-                                    quant_frames[image_tuples[index][2]] = quant_frame
+                                    quant_frames[image_tuples[index][2] + (threshold,)] = quant_frame
                                 os.close(fd)
                                 os.remove(temp_filename)
                         
