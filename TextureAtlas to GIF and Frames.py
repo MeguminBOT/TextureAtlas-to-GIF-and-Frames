@@ -756,11 +756,8 @@ def create_scrollable_help_window():
         "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
         "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of non-negative integers.\n\n"
         "Keep Individual Frames:\nSelect the frames of the animation to save by typing a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
-        "Variable Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
-        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
         "Show User Settings:\nOpens a window displaying a list of animations and spritesheets with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
-        "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
         "_________________________________________ Menubar: File _________________________________________\n\n"
         "Select Directory:\nOpens a file dialog for you to choose a folder containing the spritesheets you want to process.\n\n"
         "Select Files:\nOpens a file dialog for you to manually choose spritesheet .XML/TXT and .PNG files.\n\n"
@@ -769,6 +766,10 @@ def create_scrollable_help_window():
         "_________________________________________ Menubar: Import _________________________________________\n\n"
         "(FNF) Import FPS from character json:\nOpens a file dialog for you to choose the folder containing the json files of your characters to automatically set the correct fps values of each animation.\nFPS values are added to the User Settings.\n\n"
         "*NOT YET IMPLEMENTED* (FNF) Set idle loop delay to 0:\nSets all animations containing the phrase 'idle' to have no delay before looping. Usually recommended.\n\n"
+        "_________________________________________ Menubar: Advanced _________________________________________\n\n"
+        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
+        "Variable Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
+        "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
     )
 
     help_window = tk.Toplevel()
@@ -842,7 +843,7 @@ root.iconphoto(True, icon)
 
 menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
-root.geometry("900x600")
+root.geometry("900x540")
 root.resizable(False, False)
 root.protocol("WM_DELETE_WINDOW", on_closing)
 root.config(menu=menubar)
@@ -864,6 +865,16 @@ help_menu.add_command(label="Manual", command=lambda: create_scrollable_help_win
 help_menu.add_separator()
 help_menu.add_command(label="FNF: GIF/WebP settings advice", command=lambda: create_scrollable_fnf_help_window())
 menubar.add_cascade(label="Help", menu=help_menu)
+
+better_colors = tk.BooleanVar()
+variable_delay = tk.BooleanVar()
+use_all_threads = tk.BooleanVar()
+
+advanced_menu = tk.Menu(menubar, tearoff=0)
+advanced_menu.add_checkbutton(label="Higher color quality", variable=better_colors)
+advanced_menu.add_checkbutton(label="Variable delay", variable=variable_delay)
+advanced_menu.add_checkbutton(label="Use all CPU threads", variable=use_all_threads)
+menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
@@ -942,14 +953,6 @@ keepframes_label.pack()
 keepframes_entry = tk.Entry(root, textvariable=keep_frames)
 keepframes_entry.pack()
 
-variable_delay = tk.BooleanVar()
-vardelay_checkbox = tk.Checkbutton(root, text="Variable delay", variable=variable_delay)
-vardelay_checkbox.pack()
-
-better_colors = tk.BooleanVar()
-hqcolors_checkbox = tk.Checkbutton(root, text="Higher color quality", variable=better_colors)
-hqcolors_checkbox.pack()
-
 button_frame = tk.Frame(root)
 button_frame.pack(pady=8)
 
@@ -959,9 +962,6 @@ show_user_settings.pack(side=tk.LEFT, padx=4)
 process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), variable_delay.get(), better_colors.get()))
 process_button.pack(side=tk.LEFT, padx=4)
 
-use_all_threads = tk.BooleanVar()
-max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
-max_threads_checkbox.pack()
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
