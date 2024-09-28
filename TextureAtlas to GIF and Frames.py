@@ -952,7 +952,7 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-keep_frames = tk.StringVar(value='0--1')
+keep_frames = tk.StringVar(value='all')
 keepframes_label = tk.Label(root, text="Keep individual frames:")
 keepframes_label.pack()
 keepframes_entry = tk.Entry(root, textvariable=keep_frames)
