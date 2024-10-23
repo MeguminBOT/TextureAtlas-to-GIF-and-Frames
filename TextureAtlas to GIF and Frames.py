@@ -1,19 +1,22 @@
+
 import concurrent.futures
+import json
 import os
 import re
-import requests
+import shutil
 import sys
 import tempfile
-import shutil
+import time
+import tkinter as tk
 import webbrowser
 import xml.etree.ElementTree as ET
-import json
-import time
-
-from PIL import Image
-import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
+import numpy
+import requests
+from PIL import Image
+from wand.color import Color
+from wand.image import Image as WandImg
 ## Update Checking
 def check_for_updates(current_version):
     try:
@@ -42,12 +45,13 @@ check_for_updates(current_version)
 
 ## File processing
 user_settings = {}
+spritesheet_settings = {}
 xml_dict = {}
 temp_dir = tempfile.mkdtemp()
 fnf_char_json_directory = ""
 
-def count_xml_files(directory):
-    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml'))
+def count_spritesheets(directory):
+    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml') or filename.endswith('.txt'))
 
 def sanitize_filename(name):
     return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
@@ -84,6 +88,7 @@ def select_directory(variable, label):
                     parse_txt(directory, txt_filename)
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
+            listbox_png.bind('<Double-1>', on_double_click_png)
             listbox_xml.bind('<Double-1>', on_double_click_xml)
     return directory
 
@@ -180,28 +185,41 @@ def update_settings_window():
         tk.Label(settings_window, text="User Settings").pack()
         for key, value in user_settings.items():
             tk.Label(settings_window, text=f"{key}: {value}").pack()
+        for key, value in spritesheet_settings.items():
+            tk.Label(settings_window, text=f"{key}: {value}").pack()
             
-def on_double_click_xml(evt):
+def on_double_click_png(evt):
     spritesheet_name = listbox_png.get(listbox_png.curselection())
-    animation_name = listbox_xml.get(listbox_xml.curselection())
     new_window = tk.Toplevel()
-    new_window.geometry("360x240")
+    new_window.geometry("360x360")
 
-    tk.Label(new_window, text="FPS for " + animation_name).pack()
+    tk.Label(new_window, text="FPS for " + spritesheet_name).pack()
     fps_entry = tk.Entry(new_window)
     fps_entry.pack()
 
-    tk.Label(new_window, text="Delay for " + animation_name).pack()
+    tk.Label(new_window, text="Delay for " + spritesheet_name).pack()
     delay_entry = tk.Entry(new_window)
     delay_entry.pack()
 
-    tk.Label(new_window, text="Threshold for " + animation_name).pack()
+    tk.Label(new_window, text="Min period for " + spritesheet_name).pack()
+    period_entry = tk.Entry(new_window)
+    period_entry.pack()
+
+    tk.Label(new_window, text="Scale for " + spritesheet_name).pack()
+    scale_entry = tk.Entry(new_window)
+    scale_entry.pack()
+
+    tk.Label(new_window, text="Threshold for " + spritesheet_name).pack()
     threshold_entry = tk.Entry(new_window)
     threshold_entry.pack()
 
-    tk.Label(new_window, text="Indices for " + animation_name).pack()
+    tk.Label(new_window, text="Indices for " + spritesheet_name).pack()
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
+
+    tk.Label(new_window, text="Keep frames for " + spritesheet_name).pack()
+    frames_entry = tk.Entry(new_window)
+    frames_entry.pack()
 
     def store_input():
         anim_settings = {}
@@ -220,6 +238,23 @@ def on_double_click_xml(evt):
             new_window.lift()
             return
         try:
+            if period_entry.get() != '':
+                anim_settings['period'] = int(period_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for period.")
+            new_window.lift()
+            return
+        try:
+            if scale_entry.get() != '':
+                if scale_entry.get() == 0:
+                    raise ValueError
+                scale = int(scale_entry.get())
+                anim_settings['scale'] = scale
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            new_window.lift()
+            return
+        try:
             if threshold_entry.get() != '':
                 anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
         except ValueError:
@@ -234,6 +269,121 @@ def on_double_click_xml(evt):
             messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
             new_window.lift()
             return
+        try
+            if frames_entry.get() != '':
+                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
+                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+                    for entry in keep_frames:
+                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
+                            raise ValueError
+                anim_settings['frames'] = frames_entry.get().lower()
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
+            new_window.lift()
+            return
+        if len(anim_settings) > 0:
+            spritesheet_settings[spritesheet_name] = anim_settings
+        elif user_settings.get(spritesheet_name):
+            spritesheet_settings.pop(spritesheet_name)
+        new_window.destroy()
+
+    tk.Button(new_window, text="OK", command=store_input).pack()
+
+            
+def on_double_click_xml(evt):
+    spritesheet_name = listbox_png.get(listbox_png.curselection())
+    animation_name = listbox_xml.get(listbox_xml.curselection())
+    new_window = tk.Toplevel()
+    new_window.geometry("360x360")
+
+    tk.Label(new_window, text="FPS for " + animation_name).pack()
+    fps_entry = tk.Entry(new_window)
+    fps_entry.pack()
+
+    tk.Label(new_window, text="Delay for " + animation_name).pack()
+    delay_entry = tk.Entry(new_window)
+    delay_entry.pack()
+
+    tk.Label(new_window, text="Min period for " + animation_name).pack()
+    period_entry = tk.Entry(new_window)
+    period_entry.pack()
+
+    tk.Label(new_window, text="Scale for " + animation_name).pack()
+    scale_entry = tk.Entry(new_window)
+    scale_entry.pack()
+
+    tk.Label(new_window, text="Threshold for " + animation_name).pack()
+    threshold_entry = tk.Entry(new_window)
+    threshold_entry.pack()
+
+    tk.Label(new_window, text="Indices for " + animation_name).pack()
+    indices_entry = tk.Entry(new_window)
+    indices_entry.pack()
+
+    tk.Label(new_window, text="Keep frames for " + animation_name).pack()
+    frames_entry = tk.Entry(new_window)
+    frames_entry.pack()
+
+    def store_input():
+        anim_settings = {}
+        try:
+            if fps_entry.get() != '':
+                anim_settings['fps'] = float(fps_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
+            new_window.lift()
+            return
+        try:
+            if delay_entry.get() != '':
+                anim_settings['delay'] = int(delay_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
+            new_window.lift()
+            return
+        try:
+            if period_entry.get() != '':
+                anim_settings['period'] = int(period_entry.get())
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid integer for period.")
+            new_window.lift()
+            return
+        try:
+            if scale_entry.get() != '':
+                if scale_entry.get() == 0:
+                    raise ValueError
+                scale = int(scale_entry.get())
+                anim_settings['scale'] = scale
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            new_window.lift()
+            return
+        try:
+            if threshold_entry.get() != '':
+                anim_settings['threshold'] = min(max(float(threshold_entry.get()),0),1)
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
+            new_window.lift()
+            return
+        try:
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                anim_settings['indices'] = indices
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
+            new_window.lift()
+            return
+        try:
+            if frames_entry.get() != '':
+                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
+                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+                    for entry in keep_frames:
+                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
+                            raise ValueError
+                anim_settings['frames'] = frames_entry.get().lower()
+        except ValueError:
+            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
+            new_window.lift()
+            return
         if len(anim_settings) > 0:
             user_settings[spritesheet_name + '/' + animation_name] = anim_settings
         elif user_settings.get(spritesheet_name + '/' + animation_name):
@@ -242,17 +392,14 @@ def on_double_click_xml(evt):
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
-    if not (create_gif or create_webp or keep_frames):
-        messagebox.showinfo("Information", "Nothing to process.\nPlease select tasks.")
-        return
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, var_delay, hq_colors):
     
     total_frames_generated = 0
-    total_gifs_generated = 0
+    total_anims_generated = 0
     total_sprites_failed = 0
 
     progress_var.set(0)
-    total_files = count_xml_files(input_dir)
+    total_files = count_spritesheets(input_dir)
     progress_bar["maximum"] = total_files
 
     if use_all_threads.get():
@@ -274,14 +421,22 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                 if os.path.isfile(xml_path) or os.path.isfile(txt_path):
                     sprite_output_dir = os.path.join(output_dir, base_filename)
                     os.makedirs(sprite_output_dir, exist_ok=True)
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold)
+                    settings = spritesheet_settings.get(filename, {})
+                    fps = settings.get('fps', set_framerate)
+                    delay = settings.get('delay', set_loopdelay)
+                    period = settings.get('period', set_minperiod)
+                    frames = settings.get('frames', keep_frames)
+                    threshold = settings.get('threshold', set_threshold)
+                    scale = settings.get('scale', set_scale)
+                    indices = settings.get('indices')
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, var_delay, hq_colors)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
             try:
                 result = future.result()
                 total_frames_generated += result['frames_generated']
-                total_gifs_generated += result['gifs_generated']
+                total_anims_generated += result['anims_generated']
                 total_sprites_failed += result['sprites_failed']
             except ET.ParseError as e:
                 total_sprites_failed += 1
@@ -305,18 +460,19 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
         "Information",
         f"Finished processing all files.\n\n"
         f"Frames Generated: {total_frames_generated}\n"
-        f"GIFs Generated: {total_gifs_generated}\n"
+        f"Animations Generated: {total_anims_generated}\n"
         f"Sprites Failed: {total_sprites_failed}\n\n"
         f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, keep_frames, set_framerate, set_loopdelay, set_threshold):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, var_delay, hq_colors):
     frames_generated = 0
-    gifs_generated = 0
+    anims_generated = 0
     sprites_failed = 0
     try:
         atlas = Image.open(atlas_path)
+
         if metadata_path.endswith('.xml'):
             tree = ET.parse(metadata_path)
             root = tree.getroot()
@@ -338,6 +494,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             sprites = parse_plain_text_atlas(metadata_path)
 
         animations = {}
+        quant_frames = {}
         spritesheet_name = os.path.split(atlas_path)[1]
 
         for sprite in sprites:
@@ -350,6 +507,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             rotated = sprite.get('rotated', False)
 
             sprite_image = atlas.crop((x, y, x + width, y + height))
+
             if rotated:
                 sprite_image = sprite_image.rotate(90, expand=True)
                 frameWidth = max(height-frameX, frameWidth, 1)
@@ -364,78 +522,182 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             if frame_image.mode != 'RGBA':
                 frame_image = frame_image.convert('RGBA')
             folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-            sprite_folder = os.path.join(output_dir, folder_name)
-            os.makedirs(sprite_folder, exist_ok=True)
 
-            frame_image.save(os.path.join(sprite_folder, f"{name}.png"))
-            if keep_frames:
-                frames_generated += 1
-
-            if create_gif or create_webp:
-                animations.setdefault(folder_name, []).append((name, frame_image))
+            animations.setdefault(folder_name, []).append((name, frame_image, (x, y, width, height, frameX, frameY)))
 
         for animation_name, image_tuples in animations.items():
-            image_tuples.sort(key=lambda x: x[0])
-            images = [img[1] for img in image_tuples]
-
             settings = user_settings.get(spritesheet_name + '/' + animation_name, {})
-            fps = settings.get('fps', set_framerate)
-            delay = settings.get('delay', set_loopdelay)
-            threshold = settings.get('threshold', min(max(set_threshold,0),1))
-            indices = settings.get('indices')
+            scale = settings.get('scale', set_scale)
+            image_tuples.sort(key=lambda x: x[0])
+
+            indices = settings.get('indices', set_indices)
+
             if indices:
-                indices = list(filter(lambda i: ((i < len(images)) & (i >= 0)), indices))
-                images = [images[i] for i in indices]
-            sizes = [frame.size for frame in images]
-            max_size = tuple(map(max, zip(*sizes)))
-            min_size = tuple(map(min, zip(*sizes)))
-            if max_size != min_size:
-                for index, frame in enumerate(images):
-                    new_frame = Image.new('RGBA', max_size)
-                    new_frame.paste(frame)
-                    images[index] = new_frame
+                indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
+                image_tuples = [image_tuples[i] for i in indices]
 
-            if create_webp:
-                durations = [round(1000/fps)] * len(images)
-                durations[-1] += delay
-                images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+            single_frame = True
+            for i in image_tuples:
+                if i[2] != image_tuples[0][2]:
+                    single_frame = False
+                    break
 
-            if create_gif:
-                for frame in images:
-                    alpha = frame.getchannel('A')
-                    if (threshold == 1):
-                        alpha = alpha.point(lambda i: i >= 255 and 255)
-                    else:
-                        alpha = alpha.point(lambda i: i > 255*threshold and 255)
-                    frame.putalpha(alpha)
-                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
-                for frame in images:
-                    bbox = frame.getbbox()
-                    if bbox is None:
-                        continue
-                    min_x = min(min_x, bbox[0])
-                    min_y = min(min_y, bbox[1])
-                    max_x = max(max_x, bbox[2])
-                    max_y = max(max_y, bbox[3])
-                width, height = max_x - min_x, max_y - min_y
-                cropped_images = []
-                for frame in images:
-                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
-                    cropped_images.append(cropped_frame)
-                durations = [round(1000/fps)] * len(cropped_images)
-                durations[-1] += delay
-                cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0, comment=f'GIF generated by: TextureAtlas to GIF and Frames v{current_version}')
-                gifs_generated += 1
+            if single_frame:
+                kept_frames = '0'
+            else:
+                kept_frames = settings.get('frames', keep_frames)
+                if kept_frames == 'all':
+                    kept_frames = '0--1'
+                elif kept_frames == 'first':
+                    kept_frames = '0'
+                elif kept_frames == 'last':
+                    kept_frames = '-1'
+                elif re.fullmatch(r'first, ?last', kept_frames):
+                    kept_frames = '0,-1'
+                elif kept_frames == 'none':
+                    kept_frames = ''
+                kept_frames = [ele for ele in kept_frames.split(',')]
 
-            if not keep_frames:
+            kept_frame_indices = set()
+            for entry in kept_frames:
+                try:
+                    frame_index = int(entry)
+                    if frame_index < 0:
+                       frame_index += len(image_tuples)
+                    if frame_index >= 0 and frame_index < len(image_tuples):
+                       kept_frame_indices.add(frame_index)
+                except ValueError:
+                    if entry != '':
+                        start_frame = int(re.match(r'-?\d+', entry).group())
+                        if start_frame < 0:
+                           start_frame += len(image_tuples)
+                        end_frame = int(re.search(r'(?<=-)-?\d+$', entry).group())
+                        if end_frame < 0:
+                           end_frame += len(image_tuples)
+                        if (start_frame < 0 and end_frame < 0) or (start_frame >= len(image_tuples) and end_frame >= len(image_tuples)):
+                            continue
+                        frame_range = range(max(start_frame,0),min(end_frame+1,len(image_tuples)))
+                        for i in frame_range:
+                            kept_frame_indices.add(i)
+
+            if single_frame:
+                frame_filename = os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.png")
+                if len(image_tuples) == 0:
+                    continue
+                frame_image = image_tuples[0][1]
+                bbox = frame_image.getbbox()
+                if bbox is None:
+                    continue
+                cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
+                cropped_frame_image.save(frame_filename)
+                frames_generated += 1
+                continue
+            else:
                 frames_folder = os.path.join(output_dir, animation_name)
-                for i in os.listdir(frames_folder):
-                    os.remove(os.path.join(frames_folder, i))
-                os.rmdir(frames_folder)
+                for index, frame in enumerate(image_tuples):
+                    frame_filename = os.path.join(frames_folder, image_tuples[index][0] + '.png')
+                    if index in kept_frame_indices:
+                        frame_image = image_tuples[index][1]
+                        bbox = frame_image.getbbox()
+                        if bbox is None:
+                            continue
+                        cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
+                        os.makedirs(frames_folder, exist_ok=True)
+                        cropped_frame_image.save(frame_filename)
+                        frames_generated += 1
+                    
+            if create_gif or create_webp:
+                fps = settings.get('fps', set_framerate)
+                delay = settings.get('delay', set_loopdelay)
+                period = settings.get('period', set_minperiod)
+                threshold = settings.get('threshold', min(max(set_threshold,0),1))
+                images = [img[1] for img in image_tuples]
+                sizes = [frame.size for frame in images]
+                max_size = tuple(map(max, zip(*sizes)))
+                min_size = tuple(map(min, zip(*sizes)))
+                if max_size != min_size:
+                    for index, frame in enumerate(images):
+                        new_frame = Image.new('RGBA', max_size)
+                        new_frame.paste(frame)
+                        images[index] = new_frame
+
+                if create_webp:
+                    durations = []
+                    if var_delay:
+                        for index in range(len(images)):
+                            durations.append(round((index+1)*1000/fps) - round(index*1000/fps))
+                    else:
+                        durations = [round(1000/fps)] * len(images)
+                    durations[-1] += delay
+                    durations[-1] += max(period - sum(durations), 0)
+                    scaled_images = list(map(lambda x: scale_image(x, scale), images))
+
+                    scaled_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+
+                if create_gif:
+                    for frame in images:
+                        alpha = frame.getchannel('A')
+                        if (threshold == 1):
+                            alpha = alpha.point(lambda i: i >= 255 and 255)
+                        else:
+                            alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                        frame.putalpha(alpha)
+                    min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+
+                    for index, frame in enumerate(images):
+                        bbox = frame.getbbox()
+                        if bbox is None:
+                            continue
+                        min_x = min(min_x, bbox[0])
+                        min_y = min(min_y, bbox[1])
+                        max_x = max(max_x, bbox[2])
+                        max_y = max(max_y, bbox[3])
+    
+                        if not hq_colors:
+                            continue
+
+                        if image_tuples[index][2] + (threshold,) in quant_frames:
+                            images[index] = quant_frames[image_tuples[index][2] + (threshold,)]
+                            if images[index].size != max_size:
+                                new_frame = Image.new('RGBA', max_size)
+                                new_frame.paste(frame)
+                                images[index] = new_frame
+                        else:
+                            with WandImg.from_array(numpy.array(frame)) as wand_frame:
+                                wand_frame.background_color = Color('None')
+                                wand_frame.alpha_channel = 'background'
+                                wand_frame.trim(background_color='None')
+                                wand_frame.quantize(number_colors=256, dither=False)
+                                wand_frame.coalesce()
+                                fd, temp_filename = tempfile.mkstemp(suffix='.gif')
+                                wand_frame.save(filename=temp_filename)
+                                with Image.open(temp_filename) as quant_frame:
+                                    images[index] = quant_frame
+                                    quant_frame.load()
+                                    quant_frames[image_tuples[index][2] + (threshold,)] = quant_frame
+                                os.close(fd)
+                                os.remove(temp_filename)
+                        
+                    width, height = max_x - min_x, max_y - min_y
+                    cropped_images = []
+                    for frame in images:
+                        cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                        cropped_images.append(scale_image(cropped_frame, scale))
+                    durations = []
+                    if var_delay:
+                        for index in range(len(images)):
+                            durations.append(round((index+1)*1000/fps, -1) - round(index*1000/fps, -1))
+                    else:
+                        durations = [round(1000/fps, -1)] * len(cropped_images)
+                    durations[-1] += delay
+                    durations[-1] += max(round(period, -1) - sum(durations), 0)
+                    cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0, comment=f'GIF generated by: TextureAtlas to GIF and Frames v{current_version}')
+
+                anims_generated += 1
 
         return {
             'frames_generated': frames_generated,
-            'gifs_generated': gifs_generated,
+            'anims_generated': anims_generated,
             'sprites_failed': sprites_failed
         }
 
@@ -453,6 +715,14 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             sprites_failed += 1
             raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
 
+def scale_image(img, size):
+    if size < 0:
+        img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if abs(size) == 1:
+        return img
+    else:
+        return img.resize((img.width * abs(size), img.height * abs(size)), Image.NEAREST)
+    
 ## FNF specific stuff
 def fnf_load_char_json_settings(fnf_char_json_directory):
     global user_settings
@@ -482,18 +752,21 @@ def fnf_select_char_json_directory():
 def create_scrollable_help_window():
     help_text = (
         "_________________________________________ Main Window _________________________________________\n\n"
-        "Double clicking an animation entry will open up a window where you can override the global fps/loop/alpha settings and customize indices used for that animation.\n\n"
+        "Double clicking a spritesheet entry will open up a window where you can override the global fps/loop/alpha settings and customize indices used for all the animations in that spritesheet.\n\n"
+        "Double clicking an animation entry will open up a window where you can override the global and spritesheets' fps/loop/alpha settings and customize indices used for that animation.\n\n"
         "Select Directory with Spritesheets:\nOpens a file dialog for you to choose a folder containing the spritesheets you want to process.\n\n"
         "Select Save Directory:\nOpens a file dialog for you to specify where the application should save the exported frames or GIF/WebP files.\n\n"
         "Create GIFs for Each Animation:\nWhen enabled, generates animated .GIF files for each animation found in the spritesheet data.\n\n"
         "Create WebPs for Each Animation:\nWhen enabled, generates animated .WebP files for each animation found in the spritesheet data.\n\n"
-        "Keep Individual Frames:\nWhen checked, saves each individual frame from the animations in the spritesheet.\n\n"
         "Frame Rate (fps):\nDefines the playback speed of the animated image in frames per second.\n\n"
-        "Loop Delay (ms):\nSets the delay time, in milliseconds, before the animation loops again.\n\n"
-        "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold retain their original opacity.\n\n"
-        "Show User Settings:\nOpens a window displaying a list of animations with settings that override the global configuration.\n\n"
+        "Loop Delay (ms):\nSets the minimum delay time, in milliseconds, before the animation loops again.\n\n"
+        "Minimum Period (ms):\nSets the minimum duration, in milliseconds, before the animation loops again.\n\n"
+        "Scale:\nResizes frames and animations using nearest-neighbor interpolation to preserve pixels. Negative numbers flip the sprites horizontally.\n\n"
+        "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
+        "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of non-negative integers.\n\n"
+        "Keep Individual Frames:\nSelect the frames of the animation to save by typing 'all', 'first', 'last', 'none', or a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
+        "Show User Settings:\nOpens a window displaying a list of animations and spritesheets with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
-        "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
         "_________________________________________ Menubar: File _________________________________________\n\n"
         "Select Directory:\nOpens a file dialog for you to choose a folder containing the spritesheets you want to process.\n\n"
         "Select Files:\nOpens a file dialog for you to manually choose spritesheet .XML/TXT and .PNG files.\n\n"
@@ -502,6 +775,10 @@ def create_scrollable_help_window():
         "_________________________________________ Menubar: Import _________________________________________\n\n"
         "(FNF) Import FPS from character json:\nOpens a file dialog for you to choose the folder containing the json files of your characters to automatically set the correct fps values of each animation.\nFPS values are added to the User Settings.\n\n"
         "*NOT YET IMPLEMENTED* (FNF) Set idle loop delay to 0:\nSets all animations containing the phrase 'idle' to have no delay before looping. Usually recommended.\n\n"
+        "_________________________________________ Menubar: Advanced _________________________________________\n\n"
+        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
+        "Variable Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
+        "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
     )
 
     help_window = tk.Toplevel()
@@ -575,7 +852,7 @@ root.iconphoto(True, icon)
 
 menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
-root.geometry("900x480")
+root.geometry("900x540")
 root.resizable(False, False)
 root.protocol("WM_DELETE_WINDOW", on_closing)
 root.config(menu=menubar)
@@ -597,6 +874,16 @@ help_menu.add_command(label="Manual", command=lambda: create_scrollable_help_win
 help_menu.add_separator()
 help_menu.add_command(label="FNF: GIF/WebP settings advice", command=lambda: create_scrollable_fnf_help_window())
 menubar.add_cascade(label="Help", menu=help_menu)
+
+better_colors = tk.BooleanVar()
+variable_delay = tk.BooleanVar()
+use_all_threads = tk.BooleanVar()
+
+advanced_menu = tk.Menu(menubar, tearoff=0)
+advanced_menu.add_checkbutton(label="Higher color quality", variable=better_colors)
+advanced_menu.add_checkbutton(label="Variable delay", variable=variable_delay)
+advanced_menu.add_checkbutton(label="Use all CPU threads", variable=use_all_threads)
+menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
 progress_var = tk.DoubleVar()
 progress_bar = ttk.Progressbar(root, length=865, variable=progress_var)
@@ -639,10 +926,6 @@ create_webp = tk.BooleanVar()
 webp_checkbox = tk.Checkbutton(root, text="Create WebPs for each animation", variable=create_webp)
 webp_checkbox.pack()
 
-keep_frames = tk.BooleanVar()
-frame_checkbox = tk.Checkbutton(root, text="Keep individual frames", variable=keep_frames)
-frame_checkbox.pack()
-
 set_framerate = tk.DoubleVar(value=24)
 frame_rate_label = tk.Label(root, text="Frame Rate (fps):")
 frame_rate_label.pack()
@@ -655,11 +938,29 @@ loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
 loopdelay_entry.pack()
 
+set_minperiod = tk.DoubleVar(value=500)
+minperiod_label = tk.Label(root, text="Minimum Period (ms):")
+minperiod_label.pack()
+minperiod_entry = tk.Entry(root, textvariable=set_minperiod)
+minperiod_entry.pack()
+
+set_scale = tk.DoubleVar(value=1)
+scale_label = tk.Label(root, text="Scale:")
+scale_label.pack()
+scale_entry = tk.Entry(root, textvariable=set_scale)
+scale_entry.pack()
+
 set_threshold = tk.DoubleVar(value=0.5)
 threshold_label = tk.Label(root, text="Alpha Threshold:")
 threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
+
+keep_frames = tk.StringVar(value='all')
+keepframes_label = tk.Label(root, text="Keep individual frames:")
+keepframes_label.pack()
+keepframes_entry = tk.Entry(root, textvariable=keep_frames)
+keepframes_entry.pack()
 
 button_frame = tk.Frame(root)
 button_frame.pack(pady=8)
@@ -667,12 +968,9 @@ button_frame.pack(pady=8)
 show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
 show_user_settings.pack(side=tk.LEFT, padx=4)
 
-process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), keep_frames.get(), set_framerate.get(), set_loopdelay.get(), set_threshold.get()))
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), variable_delay.get(), better_colors.get()))
 process_button.pack(side=tk.LEFT, padx=4)
 
-use_all_threads = tk.BooleanVar()
-max_threads_checkbox = tk.Checkbutton(root, text="Use all CPU threads", variable=use_all_threads)
-max_threads_checkbox.pack()
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
