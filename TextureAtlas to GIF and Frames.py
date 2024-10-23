@@ -1,23 +1,22 @@
 
 import concurrent.futures
 import json
-import numpy
 import os
 import re
-import requests
 import shutil
 import sys
 import tempfile
 import time
+import tkinter as tk
 import webbrowser
 import xml.etree.ElementTree as ET
+from tkinter import filedialog, ttk, messagebox
 
+import numpy
+import requests
 from PIL import Image
 from wand.color import Color
 from wand.image import Image as WandImg
-import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
-
 ## Update Checking
 def check_for_updates(current_version):
     try:
@@ -218,7 +217,7 @@ def on_double_click_png(evt):
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
 
-    tk.Label(new_window, text="Keep frame indices for " + spritesheet_name).pack()
+    tk.Label(new_window, text="Keep frames for " + spritesheet_name).pack()
     frames_entry = tk.Entry(new_window)
     frames_entry.pack()
 
@@ -270,16 +269,16 @@ def on_double_click_png(evt):
             messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
             new_window.lift()
             return
-        try:
+        try
             if frames_entry.get() != '':
-                if frames_entry.get() != ',':
+                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
                     keep_frames = [ele for ele in frames_entry.get().split(',')]
                     for entry in keep_frames:
                         if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
                             raise ValueError
-                anim_settings['frames'] = frames_entry.get()
+                anim_settings['frames'] = frames_entry.get().lower()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
+            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
             new_window.lift()
             return
         if len(anim_settings) > 0:
@@ -321,7 +320,7 @@ def on_double_click_xml(evt):
     indices_entry = tk.Entry(new_window)
     indices_entry.pack()
 
-    tk.Label(new_window, text="Keep frame indices for " + animation_name).pack()
+    tk.Label(new_window, text="Keep frames for " + animation_name).pack()
     frames_entry = tk.Entry(new_window)
     frames_entry.pack()
 
@@ -375,14 +374,14 @@ def on_double_click_xml(evt):
             return
         try:
             if frames_entry.get() != '':
-                if frames_entry.get() != ',':
+                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
                     keep_frames = [ele for ele in frames_entry.get().split(',')]
                     for entry in keep_frames:
                         if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
                             raise ValueError
-                anim_settings['frames'] = frames_entry.get()
+                anim_settings['frames'] = frames_entry.get().lower()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers or integer ranges for keep frame indices.")
+            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
             new_window.lift()
             return
         if len(anim_settings) > 0:
@@ -547,6 +546,16 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                 kept_frames = '0'
             else:
                 kept_frames = settings.get('frames', keep_frames)
+                if kept_frames == 'all':
+                    kept_frames = '0--1'
+                elif kept_frames == 'first':
+                    kept_frames = '0'
+                elif kept_frames == 'last':
+                    kept_frames = '-1'
+                elif re.fullmatch(r'first, ?last', kept_frames):
+                    kept_frames = '0,-1'
+                elif kept_frames == 'none':
+                    kept_frames = ''
                 kept_frames = [ele for ele in kept_frames.split(',')]
 
             kept_frame_indices = set()
@@ -755,7 +764,7 @@ def create_scrollable_help_window():
         "Scale:\nResizes frames and animations using nearest-neighbor interpolation to preserve pixels. Negative numbers flip the sprites horizontally.\n\n"
         "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
         "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of non-negative integers.\n\n"
-        "Keep Individual Frames:\nSelect the frames of the animation to save by typing a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
+        "Keep Individual Frames:\nSelect the frames of the animation to save by typing 'all', 'first', 'last', 'none', or a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
         "Show User Settings:\nOpens a window displaying a list of animations and spritesheets with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
         "_________________________________________ Menubar: File _________________________________________\n\n"
@@ -947,7 +956,7 @@ threshold_label.pack()
 threshold_entry = tk.Entry(root, textvariable=set_threshold)
 threshold_entry.pack()
 
-keep_frames = tk.StringVar(value='0--1')
+keep_frames = tk.StringVar(value='all')
 keepframes_label = tk.Label(root, text="Keep individual frames:")
 keepframes_label.pack()
 keepframes_entry = tk.Entry(root, textvariable=keep_frames)
