@@ -9,14 +9,15 @@ import tempfile
 import time
 import tkinter as tk
 import webbrowser
-import xml.etree.ElementTree as ET
-from tkinter import filedialog, ttk, messagebox
-
 import numpy
 import requests
+import xml.etree.ElementTree as ET
+
+from tkinter import filedialog, ttk, messagebox
 from PIL import Image
 from wand.color import Color
 from wand.image import Image as WandImg
+
 ## Update Checking
 def check_for_updates(current_version):
     try:
@@ -269,7 +270,7 @@ def on_double_click_png(evt):
             messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
             new_window.lift()
             return
-        try
+        try:
             if frames_entry.get() != '':
                 if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
                     keep_frames = [ele for ele in frames_entry.get().split(',')]
