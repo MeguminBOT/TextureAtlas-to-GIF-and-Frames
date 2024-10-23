@@ -249,10 +249,10 @@ def on_double_click_png(evt):
             if scale_entry.get() != '':
                 if scale_entry.get() == 0:
                     raise ValueError
-                scale = int(scale_entry.get())
+                scale = float(scale_entry.get())
                 anim_settings['scale'] = scale
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            messagebox.showerror("Invalid input", "Please enter a valid float for scale.")
             new_window.lift()
             return
         try:
@@ -352,10 +352,10 @@ def on_double_click_xml(evt):
             if scale_entry.get() != '':
                 if scale_entry.get() == 0:
                     raise ValueError
-                scale = int(scale_entry.get())
+                scale = float(scale_entry.get())
                 anim_settings['scale'] = scale
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a non-zero integer for scale.")
+            messagebox.showerror("Invalid input", "Please enter a valid float for scale.")
             new_window.lift()
             return
         try:
@@ -722,8 +722,13 @@ def scale_image(img, size):
     if abs(size) == 1:
         return img
     else:
-        return img.resize((img.width * abs(size), img.height * abs(size)), Image.NEAREST)
-    
+        new_width_float = img.width * abs(size)
+        new_height_float = img.height * abs(size)
+
+        new_width = round(new_width_float)
+        new_height = round(new_height_float)
+        return img.resize((new_width, new_height), Image.NEAREST)
+
 ## FNF specific stuff
 def fnf_load_char_json_settings(fnf_char_json_directory):
     global user_settings
