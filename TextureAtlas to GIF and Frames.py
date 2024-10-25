@@ -1,11 +1,12 @@
 
 import os
 import sys
+import platform
 
-# Add the path where the DLLs are located at runtime
-dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
-os.environ['PATH'] = dll_path + os.pathsep + os.environ['PATH']
-os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
+if platform.system() == "Windows":
+    dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
+    os.environ['PATH'] = dll_path + os.pathsep + os.environ['PATH']
+    os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
 
 import concurrent.futures
 import json
