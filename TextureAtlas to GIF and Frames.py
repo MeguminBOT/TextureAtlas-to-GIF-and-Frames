@@ -47,7 +47,7 @@ def check_for_updates(current_version):
         print("No internet connection or something went wrong, could not check for updates.")
         print("Error details:", err)
 
-current_version = '1.8.1'
+current_version = '1.9.0'
 check_for_updates(current_version)
 
 ## File processing
