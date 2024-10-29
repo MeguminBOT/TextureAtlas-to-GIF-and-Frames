@@ -291,7 +291,7 @@ def on_double_click_png(evt):
             return
         if len(anim_settings) > 0:
             spritesheet_settings[spritesheet_name] = anim_settings
-        elif user_settings.get(spritesheet_name):
+        elif spritesheet_settings.get(spritesheet_name):
             spritesheet_settings.pop(spritesheet_name)
         new_window.destroy()
 
