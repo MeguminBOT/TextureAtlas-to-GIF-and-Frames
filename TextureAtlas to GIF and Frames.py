@@ -1,12 +1,33 @@
-
 import os
 import sys
 import platform
+import subprocess
 
-if platform.system() == "Windows":
-    dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
-    os.environ['PATH'] = dll_path + os.pathsep + os.environ['PATH']
-    os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
+def check_imagemagick_in_path():
+    try:
+        subprocess.run(["magick", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+if check_imagemagick_in_path():
+    print("Using the user's existing ImageMagick")
+else:
+    if platform.system() == "Windows":
+        dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
+        os.environ['PATH'] = dll_path + os.pathsep + os.environ['PATH']
+        os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
+        print("Using bundled ImageMagick.")
+
+        if check_imagemagick_in_path():
+            print("Bundled ImageMagick is working as intended.")
+        else:
+            print("Bundled ImageMagick is not working as intended.")
+    else:
+        if platform.system() == "Windows":
+            print("Bundled ImageMagick failed and no ImageMagick install was detected on the system.")
+        else:
+            print("No ImageMagick install was detected on the system.")
 
 import concurrent.futures
 import json
