@@ -972,7 +972,7 @@ loopdelay_label.pack()
 loopdelay_entry = tk.Entry(root, textvariable=set_loopdelay)
 loopdelay_entry.pack()
 
-set_minperiod = tk.DoubleVar(value=500)
+set_minperiod = tk.DoubleVar(value=0)
 minperiod_label = tk.Label(root, text="Minimum Period (ms):")
 minperiod_label.pack()
 minperiod_entry = tk.Entry(root, textvariable=set_minperiod)
