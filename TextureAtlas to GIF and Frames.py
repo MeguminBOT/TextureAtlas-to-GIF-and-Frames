@@ -810,7 +810,7 @@ def create_scrollable_help_window():
         "(FNF) Import FPS from character json:\nOpens a file dialog for you to choose the folder containing the json files of your characters to automatically set the correct fps values of each animation.\nFPS values are added to the User Settings.\n\n"
         "*NOT YET IMPLEMENTED* (FNF) Set idle loop delay to 0:\nSets all animations containing the phrase 'idle' to have no delay before looping. Usually recommended.\n\n"
         "_________________________________________ Menubar: Advanced _________________________________________\n\n"
-        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors.\n\n"
+        "Higher Color Quality (GIFs only):\nWhen enabled, use Wand to achieve better colors. May increase processing time.\n\n"
         "Variable Delay:\nWhen enabled, vary the delays of each frame slightly to more accurately reach the desired fps.\n\n"
         "Use All CPU Threads:\nWhen checked, the application utilizes all available CPU threads. When unchecked, it uses only half of the available CPU threads.\n\n"
     )
