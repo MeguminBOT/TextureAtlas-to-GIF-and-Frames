@@ -421,7 +421,7 @@ def on_double_click_xml(evt):
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, var_delay, hq_colors):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_pngs, var_delay, hq_colors):
     
     total_frames_generated = 0
     total_anims_generated = 0
@@ -458,7 +458,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     threshold = settings.get('threshold', set_threshold)
                     scale = settings.get('scale', set_scale)
                     indices = settings.get('indices')
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, var_delay, hq_colors)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_pngs, var_delay, hq_colors)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -495,7 +495,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, var_delay, hq_colors):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors):
     frames_generated = 0
     anims_generated = 0
     sprites_failed = 0
@@ -617,8 +617,9 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                 bbox = frame_image.getbbox()
                 if bbox is None:
                     continue
-                cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
-                cropped_frame_image.save(frame_filename)
+                if bbox:
+                    final_frame_image = scale_image(frame_image.crop(bbox), scale)
+                final_frame_image.save(frame_filename)
                 frames_generated += 1
                 continue
             else:
@@ -630,9 +631,12 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                         bbox = frame_image.getbbox()
                         if bbox is None:
                             continue
-                        cropped_frame_image = scale_image(frame_image.crop(bbox), scale)
+                        if crop_pngs and bbox:
+                            final_frame_image = scale_image(frame_image.crop(bbox), scale)
+                        else:
+                            final_frame_image = scale_image(frame_image, scale)
                         os.makedirs(frames_folder, exist_ok=True)
-                        cropped_frame_image.save(frame_filename)
+                        final_frame_image.save(frame_filename)
                         frames_generated += 1
                     
             if create_gif or create_webp:
@@ -799,6 +803,7 @@ def create_scrollable_help_window():
         "Alpha Threshold (GIFs only):\nThis setting adjusts the level of transparency applied to pixels in GIF images.\nThe threshold value determines the cutoff point for transparency.\nPixels with an alpha value below this threshold become fully transparent, while those above the threshold become fully opaque.\n\n"
         "Indices (not available in global settings):\nSelect the frame indices to use in the animation by typing a comma-separated list of non-negative integers.\n\n"
         "Keep Individual Frames:\nSelect the frames of the animation to save by typing 'all', 'first', 'last', 'none', or a comma-separated list of integers or integer ranges. Negative numbers count from the final frame.\n\n"
+        "Crop Individual Frames:\nCrops every extracted png frame. (This doesn't affect GIFs,  WebP's or single frame animations)\n\n"
         "Show User Settings:\nOpens a window displaying a list of animations and spritesheets with settings that override the global configuration.\n\n"
         "Start Process:\nBegins the tasks you have selected for processing.\n\n"
         "_________________________________________ Menubar: File _________________________________________\n\n"
@@ -886,7 +891,7 @@ root.iconphoto(True, icon)
 
 menubar = tk.Menu(root)
 root.title("TextureAtlas to GIF and Frames")
-root.geometry("900x540")
+root.geometry("900x560")
 root.resizable(False, False)
 root.protocol("WM_DELETE_WINDOW", on_closing)
 root.config(menu=menubar)
@@ -994,7 +999,11 @@ keep_frames = tk.StringVar(value='all')
 keepframes_label = tk.Label(root, text="Keep individual frames:")
 keepframes_label.pack()
 keepframes_entry = tk.Entry(root, textvariable=keep_frames)
-keepframes_entry.pack()
+keepframes_entry.pack(pady=2)
+
+crop_pngs = tk.BooleanVar()
+crop_pngs_checkbox = tk.Checkbutton(root, text="Crop individual frames", variable=crop_pngs)
+crop_pngs_checkbox.pack(pady=1)
 
 button_frame = tk.Frame(root)
 button_frame.pack(pady=8)
@@ -1002,9 +1011,8 @@ button_frame.pack(pady=8)
 show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
 show_user_settings.pack(side=tk.LEFT, padx=4)
 
-process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), variable_delay.get(), better_colors.get()))
-process_button.pack(side=tk.LEFT, padx=4)
-
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), crop_pngs.get(), variable_delay.get(), better_colors.get()))
+process_button.pack(side=tk.LEFT, padx=2)
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
 author_label.pack(side='bottom')
