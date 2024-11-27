@@ -870,7 +870,7 @@ def create_scrollable_fnf_help_window():
     fnf_help_text = (
         "Use the import fps button to get the correct framerate from the character json files. (Make sure you select spritesheet directory first)\n\n"
         "Loop delay:\n"
-        "For anything that doesn't need to smoothly loop like sing poses for characters, 250 ms is recommended (150 ms minimum)\n"
+        "For anything that doesn't need to smoothly loop like sing poses for characters, 250 ms is recommended (100 ms minimum)\n"
         "Idle animations usually looks best with 0"
         "Idle animations usually looks best with 0, some do look better with 150-250ms."
         "If unsure about the loop delay, start by leaving it at default, start processing, then inspect the generated gifs.\n"
