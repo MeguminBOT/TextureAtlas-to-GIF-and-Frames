@@ -196,18 +196,34 @@ def create_settings_window():
     global settings_window
     settings_window = tk.Toplevel()
     settings_window.geometry("400x300")
-    update_settings_window()
 
-def update_settings_window():
-    if settings_window.winfo_exists():
-        for widget in settings_window.winfo_children():
-            widget.destroy()
+    settings_canvas = tk.Canvas(settings_window)
+    settings_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    
+    settings_scrollbar = tk.Scrollbar(settings_window, orient=tk.VERTICAL, command=settings_canvas.yview)
+    settings_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    settings_canvas.config(yscrollcommand=settings_scrollbar.set)
+    
+    settings_frame = tk.Frame(settings_canvas)
+    settings_canvas.create_window((0, 0), window=settings_frame, anchor=tk.NW)
+    update_settings_window(settings_frame, settings_canvas)
+    settings_frame.update_idletasks()
+    settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
 
-        tk.Label(settings_window, text="User Settings").pack()
-        for key, value in user_settings.items():
-            tk.Label(settings_window, text=f"{key}: {value}").pack()
-        for key, value in spritesheet_settings.items():
-            tk.Label(settings_window, text=f"{key}: {value}").pack()
+def update_settings_window(settings_frame, settings_canvas):
+    for widget in settings_frame.winfo_children():
+        widget.destroy()
+
+    tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
+    for key, value in user_settings.items():
+        tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+
+    tk.Label(settings_frame, text="Spritesheet Settings").pack(pady=10)
+    for key, value in spritesheet_settings.items():
+        tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+
+    settings_frame.update_idletasks()
+    settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
 
 indices_trans = str.maketrans('','','[] ')
             
