@@ -750,6 +750,9 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                                     quant_frames[image_tuples[index][2] + (threshold,)] = quant_frame
                                 os.close(fd)
                                 os.remove(temp_filename)
+
+                    if min_x > max_x:
+                        continue
                         
                     width, height = max_x - min_x, max_y - min_y
                     cropped_images = []
