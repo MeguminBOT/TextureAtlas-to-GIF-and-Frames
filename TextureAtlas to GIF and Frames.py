@@ -235,43 +235,43 @@ def on_double_click_png(evt):
     tk.Label(new_window, text="FPS for " + spritesheet_name).pack()
     fps_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        fps_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('fps')))
+        fps_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('fps', '')))
     fps_entry.pack()
 
     tk.Label(new_window, text="Delay for " + spritesheet_name).pack()
     delay_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        delay_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('delay')))
+        delay_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('delay', '')))
     delay_entry.pack()
 
     tk.Label(new_window, text="Min period for " + spritesheet_name).pack()
     period_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        period_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('period')))
+        period_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('period', '')))
     period_entry.pack()
 
     tk.Label(new_window, text="Scale for " + spritesheet_name).pack()
     scale_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        scale_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('scale')))
+        scale_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('scale', '')))
     scale_entry.pack()
 
     tk.Label(new_window, text="Threshold for " + spritesheet_name).pack()
     threshold_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        threshold_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('threshold')))
+        threshold_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('threshold', '')))
     threshold_entry.pack()
 
     tk.Label(new_window, text="Indices for " + spritesheet_name).pack()
     indices_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        indices_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('indices')).translate(indices_trans))
+        indices_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('indices', '')).translate(indices_trans))
     indices_entry.pack()
 
     tk.Label(new_window, text="Keep frames for " + spritesheet_name).pack()
     frames_entry = tk.Entry(new_window)
     if spritesheet_name in spritesheet_settings:
-        frames_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('frames')))
+        frames_entry.insert(0, str(spritesheet_settings[spritesheet_name].get('frames', '')))
     frames_entry.pack()
 
     def store_input():
@@ -299,7 +299,7 @@ def on_double_click_png(evt):
             return
         try:
             if scale_entry.get() != '':
-                if scale_entry.get() == 0:
+                if float(scale_entry.get()) == 0:
                     raise ValueError
                 scale = float(scale_entry.get())
                 anim_settings['scale'] = scale
@@ -353,43 +353,43 @@ def on_double_click_xml(evt):
     tk.Label(new_window, text="FPS for " + animation_name).pack()
     fps_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        fps_entry.insert(0, str(user_settings[full_anim_name].get('fps')))
+        fps_entry.insert(0, str(user_settings[full_anim_name].get('fps', '')))
     fps_entry.pack()
 
     tk.Label(new_window, text="Delay for " + animation_name).pack()
     delay_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        delay_entry.insert(0, str(user_settings[full_anim_name].get('delay')))
+        delay_entry.insert(0, str(user_settings[full_anim_name].get('delay', '')))
     delay_entry.pack()
 
     tk.Label(new_window, text="Min period for " + animation_name).pack()
     period_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        period_entry.insert(0, str(user_settings[full_anim_name].get('period')))
+        period_entry.insert(0, str(user_settings[full_anim_name].get('period', '')))
     period_entry.pack()
 
     tk.Label(new_window, text="Scale for " + animation_name).pack()
     scale_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        scale_entry.insert(0, str(user_settings[full_anim_name].get('scale')))
+        scale_entry.insert(0, str(user_settings[full_anim_name].get('scale', '')))
     scale_entry.pack()
 
     tk.Label(new_window, text="Threshold for " + animation_name).pack()
     threshold_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        threshold_entry.insert(0, str(user_settings[full_anim_name].get('threshold')))
+        threshold_entry.insert(0, str(user_settings[full_anim_name].get('threshold', '')))
     threshold_entry.pack()
 
     tk.Label(new_window, text="Indices for " + animation_name).pack()
     indices_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        indices_entry.insert(0, str(user_settings[full_anim_name].get('indices')).translate(indices_trans))
+        indices_entry.insert(0, str(user_settings[full_anim_name].get('indices', '')).translate(indices_trans))
     indices_entry.pack()
 
     tk.Label(new_window, text="Keep frames for " + animation_name).pack()
     frames_entry = tk.Entry(new_window)
     if full_anim_name in user_settings:
-        frames_entry.insert(0, str(user_settings[full_anim_name].get('frames')))
+        frames_entry.insert(0, str(user_settings[full_anim_name].get('frames', '')))
     frames_entry.pack()
 
     def store_input():
@@ -417,7 +417,7 @@ def on_double_click_xml(evt):
             return
         try:
             if scale_entry.get() != '':
-                if scale_entry.get() == 0:
+                if float(scale_entry.get()) == 0:
                     raise ValueError
                 scale = float(scale_entry.get())
                 anim_settings['scale'] = scale
