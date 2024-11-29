@@ -2,29 +2,9 @@ import os
 import sys
 import platform
 import shutil
-
-def check_imagemagick_in_path():
-    return shutil.which("magick") is not None
-
-def configure_bundled_imagemagick():
-    dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
-    os.environ['PATH'] = dll_path + os.pathsep + os.environ.get('PATH', '')
-    os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
-    print("Using bundled ImageMagick.")
-
-if check_imagemagick_in_path():
-    print("Using the user's existing ImageMagick.")
-else:
-    if platform.system() == "Windows":
-        print("System ImageMagick not found. Attempting to configure bundled version.")
-        configure_bundled_imagemagick()
-    else:
-        print("No ImageMagick install detected on the system.")
-
 import concurrent.futures
 import json
 import re
-import shutil
 import tempfile
 import time
 import tkinter as tk
@@ -32,37 +12,34 @@ import webbrowser
 import numpy
 import requests
 import xml.etree.ElementTree as ET
-
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image
 from wand.color import Color
 from wand.image import Image as WandImg
 
+## Import our own modules
+from xml_parser import parse_xml 
+from txt_parser import parse_txt, parse_plain_text_atlas
+
+from dependencies_checker import check_imagemagick, configure_imagemagick
+from update_checker import check_for_updates
+from utilities import count_spritesheets, sanitize_filename
+from fnf_utilities import fnf_load_char_json_settings, fnf_select_char_json_directory
+
+
 ## Update Checking
-def check_for_updates(current_version):
-    try:
-        response = requests.get('https://raw.githubusercontent.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/main/latestVersion.txt')
-        latest_version = response.text.strip()
-
-        if latest_version > current_version:
-            root = tk.Tk()
-            root.withdraw()
-            result = messagebox.askyesno("Update available", "An update is available. Do you want to download it now?")
-            if result:
-                print("User chose to download the update.")
-                webbrowser.open('https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest')
-                sys.exit()
-            else:
-                print("User chose not to download the update.")
-            root.destroy()
-        else:
-            print("You are using the latest version of the application.")
-    except requests.exceptions.RequestException as err:
-        print("No internet connection or something went wrong, could not check for updates.")
-        print("Error details:", err)
-
 current_version = '1.9.0'
 check_for_updates(current_version)
+
+## Check for ImageMagick Install
+if check_imagemagick():
+    print("Using the user's existing ImageMagick.")
+else:
+    if platform.system() == "Windows":
+        print("System ImageMagick not found. Attempting to configure bundled version.")
+        configure_imagemagick()
+    else:
+        print("No ImageMagick install detected on the system.")
 
 ## File processing
 user_settings = {}
@@ -70,12 +47,6 @@ spritesheet_settings = {}
 xml_dict = {}
 temp_dir = tempfile.mkdtemp()
 fnf_char_json_directory = ""
-
-def count_spritesheets(directory):
-    return sum(1 for filename in os.listdir(directory) if filename.endswith('.xml') or filename.endswith('.txt'))
-
-def sanitize_filename(name):
-    return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
 
 def clear_filelist():
     listbox_png.delete(0, tk.END)
@@ -104,9 +75,9 @@ def select_directory(variable, label):
                 txt_filename = base_filename + '.txt'
 
                 if os.path.isfile(os.path.join(directory, xml_filename)):
-                    parse_xml(directory, xml_filename)
+                    parse_xml(directory, xml_filename, listbox_xml)
                 elif os.path.isfile(os.path.join(directory, txt_filename)):
-                    parse_txt(directory, txt_filename)
+                    parse_txt(directory, txt_filename, listbox_xml)
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
             listbox_png.bind('<Double-1>', on_double_click_png)
@@ -158,39 +129,6 @@ def select_files_manually(variable, label):
         listbox_png.bind('<<ListboxSelect>>', on_select_png)
         listbox_xml.bind('<Double-1>', on_double_click_xml)
     return temp_dir
-
-def parse_xml(directory, xml_filename):
-    tree = ET.parse(os.path.join(directory, xml_filename))
-    root = tree.getroot()
-    names = set()
-    for subtexture in root.findall(".//SubTexture"):
-        name = subtexture.get('name')
-        name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-        names.add(name)
-
-    for name in names:
-        listbox_xml.insert(tk.END, name)
-
-def parse_txt(directory, txt_filename):
-    names = set()
-    with open(os.path.join(directory, txt_filename), 'r') as file:
-        for line in file:
-            parts = line.split(' = ')[0]
-            name = re.sub(r'\d{1,4}(?:\.png)?$', '', parts).rstrip()
-            names.add(name)
-
-    for name in names:
-        listbox_xml.insert(tk.END, name)
-
-def parse_plain_text_atlas(file_path):
-    sprites = []
-    with open(file_path, 'r') as file:
-        for line in file:
-            parts = line.split(' = ')
-            name = parts[0].strip()
-            x, y, width, height = map(int, parts[1].split())
-            sprites.append({'name': name, 'x': x, 'y': y, 'width': width, 'height': height})
-    return sprites
 
 def create_settings_window():
     global settings_window
@@ -804,30 +742,7 @@ def scale_image(img, size):
         new_height = round(new_height_float)
         return img.resize((new_width, new_height), Image.NEAREST)
 
-## FNF specific stuff
-def fnf_load_char_json_settings(fnf_char_json_directory):
-    global user_settings
-    for filename in os.listdir(fnf_char_json_directory):
-        if filename.endswith('.json'):
-            with open(os.path.join(fnf_char_json_directory, filename), 'r') as file:
-                data = json.load(file)
-                image_base = os.path.splitext(os.path.basename(data.get("image", "")))[0]
-                png_filename = image_base + '.png'
-                
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
-                    xml_dict[png_filename] = os.path.join(fnf_char_json_directory, image_base + '.xml')
-                
-                for anim in data.get("animations", []):
-                    anim_name = anim.get("name", "")
-                    fps = anim.get("fps", 0)
-                    user_settings[png_filename + '/' + anim_name] = {'fps': fps}
 
-def fnf_select_char_json_directory():
-    fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character JSON Directory")
-    if fnf_char_json_directory:
-        fnf_load_char_json_settings(fnf_char_json_directory)
-        # print("User settings populated:", user_settings)
 
 ## Help Menu
 def create_scrollable_help_window():
@@ -948,7 +863,7 @@ file_menu.add_command(label="Exit", command=on_closing)
 menubar.add_cascade(label="File", menu=file_menu)
 
 import_menu = tk.Menu(menubar, tearoff=0)
-import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: fnf_select_char_json_directory())
+import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: fnf_select_char_json_directory(user_settings, xml_dict, listbox_png, listbox_xml))
 menubar.add_cascade(label="Import", menu=import_menu)
 
 help_menu = tk.Menu(menubar, tearoff=0)
