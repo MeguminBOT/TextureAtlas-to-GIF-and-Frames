@@ -1,3 +1,6 @@
 testsprite/
 output/
 App/
+experimental features/
+testsprite(errors)/
+__pycache__/
