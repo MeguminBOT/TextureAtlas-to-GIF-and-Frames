@@ -3,14 +3,12 @@ import sys
 import platform
 import shutil
 import concurrent.futures
-import json
 import re
 import tempfile
 import time
 import tkinter as tk
 import webbrowser
 import numpy
-import requests
 import xml.etree.ElementTree as ET
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image
