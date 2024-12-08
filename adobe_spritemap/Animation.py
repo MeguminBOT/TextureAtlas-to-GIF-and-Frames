@@ -42,21 +42,24 @@ class Animation:
             animation_json, self.sprite_atlas, canvas_size
         )
         
-    def render_to_png_sequence(self, output_dir, symbol_name=None):
+    def render_to_png_sequence(self, output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-        symbol_length = self.symbols.length(symbol_name)
-        for frame_idx in trange(symbol_length, unit="fr", desc="Rendering PNG frames"):
-            try:
-                frame = self.symbols.render_symbol(symbol_name, frame_idx)
+        for symbol_name in self.symbols.timelines.keys():
+            symbol_output_dir = os.path.join(output_dir, symbol_name)
+            os.makedirs(symbol_output_dir, exist_ok=True)
+            symbol_length = self.symbols.length(symbol_name)
+            for frame_idx in trange(symbol_length, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
+                try:
+                    frame = self.symbols.render_symbol(symbol_name, frame_idx)
 
-                if frame is None:
-                    print(f"Frame {frame_idx} is empty!")
-                    continue
+                    if frame is None:
+                        print(f"Frame {frame_idx} is empty!")
+                        continue
 
-                # Save the frame
-                frame_file = os.path.join(output_dir, f"frame_{frame_idx:04d}.png")
-                frame.save(frame_file, format="PNG")
-                print(f"Saved frame {frame_idx} to {frame_file}")
-            except Exception as e:
-                print(f"Error rendering frame {frame_idx}: {e}")
+                    # Save the frame
+                    frame_file = os.path.join(symbol_output_dir, f"frame_{frame_idx:04d}.png")
+                    frame.save(frame_file, format="PNG")
+                    print(f"Saved frame {frame_idx} to {frame_file}")
+                except Exception as e:
+                    print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
