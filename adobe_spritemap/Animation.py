@@ -7,6 +7,7 @@ Will be edited to fit TextureAtlas to GIF and Frames functionality.
 
 import json
 import os
+import re
 
 from PIL import Image
 
@@ -19,6 +20,11 @@ try:
 except ImportError:
     trange = range
 
+
+# Temporary function to sanitize filenames, will be replaced with the one in the utilities.py later on
+def sanitize_filename(name):
+    """Sanitize the symbol name to be a valid filename."""
+    return re.sub(r'[\\/*?:"<>|]', "_", name)
 
 class Animation:
     """Render a texture atlas animation (or one particular symbol)."""
@@ -41,12 +47,16 @@ class Animation:
         self.symbols = Symbols(
             animation_json, self.sprite_atlas, canvas_size
         )
-        
+
     def render_to_png_sequence(self, output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
         for symbol_name in self.symbols.timelines.keys():
-            symbol_output_dir = os.path.join(output_dir, symbol_name)
+            if symbol_name is None:
+                continue  # Skip None keys
+
+            sanitized_symbol_name = sanitize_filename(symbol_name)
+            symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
             os.makedirs(symbol_output_dir, exist_ok=True)
             symbol_length = self.symbols.length(symbol_name)
             for frame_idx in trange(symbol_length, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
@@ -58,7 +68,7 @@ class Animation:
                         continue
 
                     # Save the frame
-                    frame_file = os.path.join(symbol_output_dir, f"frame_{frame_idx:04d}.png")
+                    frame_file = os.path.join(symbol_output_dir, f"{sanitized_symbol_name}_{frame_idx:04d}.png")
                     frame.save(frame_file, format="PNG")
                     print(f"Saved frame {frame_idx} to {frame_file}")
                 except Exception as e:
