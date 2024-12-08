@@ -10,8 +10,8 @@ import numpy as np
 from PIL import Image, ImageChops
 
 # Import our local modules
-import TransformMatrix
-import ColorEffect
+from TransformMatrix import TransformMatrix
+from ColorEffect import ColorEffect
 
 
 class Symbols:

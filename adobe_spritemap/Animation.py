@@ -11,8 +11,8 @@ import os
 from PIL import Image
 
 # Import our local modules
-import SpriteAtlas
-import Symbols
+from SpriteAtlas import SpriteAtlas
+from Symbols import Symbols
 
 try:
     from tqdm import trange
@@ -60,42 +60,3 @@ class Animation:
                 print(f"Saved frame {frame_idx} to {frame_file}")
             except Exception as e:
                 print(f"Error rendering frame {frame_idx}: {e}")
-
-    def render_to_gif(self, output_file, symbol_name=None):
-        symbol_length = self.symbols.length(symbol_name)
-        frames = []
-        frame_duration=41
-
-        for frame_idx in trange(symbol_length, unit="fr", desc="Rendering GIF frames"):
-            try:
-                frame = self.symbols.render_symbol(symbol_name, frame_idx)
-
-                if frame is None:
-                    print(f"Frame {frame_idx} is empty!")
-                    continue
-
-                # Ensure frame is in RGBA mode
-                if frame.mode != "RGBA":
-                    frame = frame.convert("RGBA")
-
-                # Set transparent background
-                transparent_frame = Image.new("RGBA", frame.size)
-                transparent_frame.paste(frame, mask=frame)
-                frames.append(transparent_frame)
-            except Exception as e:
-                print(f"Error rendering frame {frame_idx}: {e}")
-
-        if frames:
-            # Save the frames as an animated GIF
-            frames[0].save(
-                output_file,
-                save_all=True,
-                append_images=frames[1:],  # Subsequent frames
-                duration=frame_duration,  # Frame duration in milliseconds
-                loop=0,  # Loop infinitely
-                transparency=0,  # Set the first palette index as transparent
-                disposal=2,  # Clear frame to transparent before drawing the next
-            )
-            print(f"GIF saved to {output_file}")
-        else:
-            print("No frames were rendered. GIF was not created.")

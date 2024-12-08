@@ -5,7 +5,7 @@ from tkinter import filedialog
 
 ## FNF specific stuff
 def fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict, listbox_png, listbox_xml):
-
+    
     for filename in os.listdir(fnf_char_json_directory):
         if filename.endswith('.json'):
             with open(os.path.join(fnf_char_json_directory, filename), 'r') as file:
