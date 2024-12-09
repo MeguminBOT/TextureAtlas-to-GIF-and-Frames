@@ -48,19 +48,17 @@ class Animation:
             animation_json, self.sprite_atlas, canvas_size
         )
 
-    def render_to_png_sequence(self, output_dir):
+    def render_to_png_sequence(self, output_dir, export_all=False):
         os.makedirs(output_dir, exist_ok=True)
 
         for symbol_name in self.symbols.timelines.keys():
             if symbol_name is None:
-                continue  # Skip None keys
+                continue
 
             sanitized_symbol_name = sanitize_filename(symbol_name)
-            symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
-            os.makedirs(symbol_output_dir, exist_ok=True)
             symbol_length = self.symbols.length(symbol_name)
             images = []
-    
+
             for frame_idx in trange(symbol_length, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
                 try:
                     frame = self.symbols.render_symbol(symbol_name, frame_idx)
@@ -74,6 +72,13 @@ class Animation:
                     print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
 
             if images:
+                if not export_all and len(images) == 1:
+                    print(f"Skipping symbol {symbol_name} with only one frame.")
+                    continue
+
+                symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
+                os.makedirs(symbol_output_dir, exist_ok=True)
+
                 sizes = [frame.size for _, frame in images]
                 max_size = tuple(map(max, zip(*sizes)))
                 min_size = tuple(map(min, zip(*sizes)))
