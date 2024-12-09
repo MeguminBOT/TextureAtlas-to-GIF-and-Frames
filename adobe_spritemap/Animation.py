@@ -59,6 +59,8 @@ class Animation:
             symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
             os.makedirs(symbol_output_dir, exist_ok=True)
             symbol_length = self.symbols.length(symbol_name)
+            images = []
+    
             for frame_idx in trange(symbol_length, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
                 try:
                     frame = self.symbols.render_symbol(symbol_name, frame_idx)
@@ -67,9 +69,39 @@ class Animation:
                         print(f"Frame {frame_idx} is empty!")
                         continue
 
-                    # Save the frame
+                    images.append((frame_idx, frame))
+                except Exception as e:
+                    print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
+
+            if images:
+                sizes = [frame.size for _, frame in images]
+                max_size = tuple(map(max, zip(*sizes)))
+                min_size = tuple(map(min, zip(*sizes)))
+                if max_size != min_size:
+                    for index, (frame_idx, frame) in enumerate(images):
+                        new_frame = Image.new('RGBA', max_size)
+                        offset = ((max_size[0] - frame.size[0]) // 2, (max_size[1] - frame.size[1]) // 2)
+                        new_frame.paste(frame, offset)
+                        images[index] = (frame_idx, new_frame)
+
+                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+                for _, frame in images:
+                    bbox = frame.getbbox()
+                    if bbox:
+                        min_x = min(min_x, bbox[0])
+                        min_y = min(min_y, bbox[1])
+                        max_x = max(max_x, bbox[2])
+                        max_y = max(max_y, bbox[3])
+
+                if min_x > max_x:
+                    continue
+
+                cropped_images = []
+                for frame_idx, frame in images:
+                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                    cropped_images.append((frame_idx, cropped_frame))
+
+                for frame_idx, frame in cropped_images:
                     frame_file = os.path.join(symbol_output_dir, f"{sanitized_symbol_name}_{frame_idx:04d}.png")
                     frame.save(frame_file, format="PNG")
                     print(f"Saved frame {frame_idx} to {frame_file}")
-                except Exception as e:
-                    print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
