@@ -8,6 +8,7 @@ Will be edited to fit TextureAtlas to GIF and Frames functionality.
 import json
 import os
 import re
+import psutil
 
 from PIL import Image
 
@@ -48,7 +49,8 @@ class Animation:
             animation_json, self.sprite_atlas, canvas_size
         )
 
-    def render_to_png_sequence(self, output_dir, export_all):
+
+    def render_to_png_sequence(self, output_dir, export_all, initial_batch_size=24, memory_threshold=0.5):
         os.makedirs(output_dir, exist_ok=True)
 
         for symbol_name in self.symbols.timelines.keys():
@@ -57,56 +59,67 @@ class Animation:
 
             sanitized_symbol_name = sanitize_filename(symbol_name)
             symbol_length = self.symbols.length(symbol_name)
-            images = []
+            batch_size = initial_batch_size
 
-            for frame_idx in trange(symbol_length, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
-                try:
-                    frame = self.symbols.render_symbol(symbol_name, frame_idx)
+            for batch_start in range(0, symbol_length, batch_size):
+                images = []
+                batch_end = min(batch_start + batch_size, symbol_length)
 
-                    if frame is None:
-                        print(f"Frame {frame_idx} is empty!")
+                for frame_idx in trange(batch_start, batch_end, unit="fr", desc=f"Rendering PNG frames for {symbol_name}"):
+                    try:
+                        frame = self.symbols.render_symbol(symbol_name, frame_idx)
+
+                        if frame is None:
+                            print(f"Frame {frame_idx} is empty!")
+                            continue
+
+                        images.append((frame_idx, frame))
+                    except Exception as e:
+                        print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
+
+                if images:
+                    if not export_all and len(images) == 1:
+                        print(f"Skipping symbol {symbol_name} with only one frame.")
                         continue
 
-                    images.append((frame_idx, frame))
-                except Exception as e:
-                    print(f"Error rendering frame {frame_idx} for symbol {symbol_name}: {e}")
+                    symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
+                    os.makedirs(symbol_output_dir, exist_ok=True)
 
-            if images:
-                if not export_all and len(images) == 1:
-                    print(f"Skipping symbol {symbol_name} with only one frame.")
-                    continue
+                    sizes = [frame.size for _, frame in images]
+                    max_size = tuple(map(max, zip(*sizes)))
+                    min_size = tuple(map(min, zip(*sizes)))
+                    if max_size != min_size:
+                        for index, (frame_idx, frame) in enumerate(images):
+                            new_frame = Image.new('RGBA', max_size)
+                            offset = ((max_size[0] - frame.size[0]) // 2, (max_size[1] - frame.size[1]) // 2)
+                            new_frame.paste(frame, offset)
+                            images[index] = (frame_idx, new_frame)
 
-                symbol_output_dir = os.path.join(output_dir, sanitized_symbol_name)
-                os.makedirs(symbol_output_dir, exist_ok=True)
+                    min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+                    for _, frame in images:
+                        bbox = frame.getbbox()
+                        if bbox:
+                            min_x = min(min_x, bbox[0])
+                            min_y = min(min_y, bbox[1])
+                            max_x = max(max_x, bbox[2])
+                            max_y = max(max_y, bbox[3])
 
-                sizes = [frame.size for _, frame in images]
-                max_size = tuple(map(max, zip(*sizes)))
-                min_size = tuple(map(min, zip(*sizes)))
-                if max_size != min_size:
-                    for index, (frame_idx, frame) in enumerate(images):
-                        new_frame = Image.new('RGBA', max_size)
-                        offset = ((max_size[0] - frame.size[0]) // 2, (max_size[1] - frame.size[1]) // 2)
-                        new_frame.paste(frame, offset)
-                        images[index] = (frame_idx, new_frame)
+                    if min_x > max_x:
+                        continue
 
-                min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
-                for _, frame in images:
-                    bbox = frame.getbbox()
-                    if bbox:
-                        min_x = min(min_x, bbox[0])
-                        min_y = min(min_y, bbox[1])
-                        max_x = max(max_x, bbox[2])
-                        max_y = max(max_y, bbox[3])
+                    cropped_images = []
+                    for frame_idx, frame in images:
+                        cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
+                        cropped_images.append((frame_idx, cropped_frame))
 
-                if min_x > max_x:
-                    continue
+                    for frame_idx, frame in cropped_images:
+                        frame_file = os.path.join(symbol_output_dir, f"{sanitized_symbol_name}_{frame_idx:04d}.png")
+                        frame.save(frame_file, format="PNG")
+                        print(f"Saved frame {frame_idx} to {frame_file}")
 
-                cropped_images = []
-                for frame_idx, frame in images:
-                    cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
-                    cropped_images.append((frame_idx, cropped_frame))
-
-                for frame_idx, frame in cropped_images:
-                    frame_file = os.path.join(symbol_output_dir, f"{sanitized_symbol_name}_{frame_idx:04d}.png")
-                    frame.save(frame_file, format="PNG")
-                    print(f"Saved frame {frame_idx} to {frame_file}")
+                # Adjust batch size based on memory usage
+                memory_usage = psutil.virtual_memory().percent / 100
+                if memory_usage > memory_threshold:
+                    batch_size = max(1, batch_size // 2)
+                else:
+                    batch_size = min(initial_batch_size, batch_size * 2)
