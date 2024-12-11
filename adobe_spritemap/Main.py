@@ -13,9 +13,10 @@ def extract_sprites():
     output_dir = output_dir_entry.get().replace("\\", "/")
     canvas_size = (int(canvas_width_entry.get()), int(canvas_height_entry.get()))
     resample = RESAMPLE_FILTERS[resample_var.get()]
+    export_all = export_all_var.get()
     
     anim = Animation(animation_dir, canvas_size, resample)
-    anim.render_to_png_sequence(output_dir=output_dir)
+    anim.render_to_png_sequence(output_dir=output_dir, export_all=export_all)
 
 if __name__ == "__main__":
     RESAMPLE_FILTERS = {
@@ -53,5 +54,8 @@ if __name__ == "__main__":
     resample_menu.grid(row=4, column=1, padx=10, pady=5, sticky='w')
 
     tk.Button(root, text="Extract Spritemap", command=extract_sprites).grid(row=5, column=0, columnspan=3, pady=20)
+    export_all_var = tk.BooleanVar(value=False)
+    export_all_checkbox = tk.Checkbutton(root, text="Include single frame symbols", variable=export_all_var)
+    export_all_checkbox.grid(row=5, column=0, columnspan=3, pady=5)
 
     root.mainloop()

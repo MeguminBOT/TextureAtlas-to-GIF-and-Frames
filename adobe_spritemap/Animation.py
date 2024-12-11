@@ -48,7 +48,7 @@ class Animation:
             animation_json, self.sprite_atlas, canvas_size
         )
 
-    def render_to_png_sequence(self, output_dir, export_all=False):
+    def render_to_png_sequence(self, output_dir, export_all):
         os.makedirs(output_dir, exist_ok=True)
 
         for symbol_name in self.symbols.timelines.keys():
