@@ -15,11 +15,11 @@ from PIL import Image
 from wand.color import Color
 from wand.image import Image as WandImg
 
-import adobe_spritemap.Animation as AdobeAnimation
-import adobe_spritemap.ColorEffect as AdobeColorEffect
-import adobe_spritemap.SpriteAtlas as AdobeSpriteMap
-import adobe_spritemap.Symbols as AdobeSymbols
-import adobe_spritemap.TransformMatrix as AdobeMatrix
+# import adobe_spritemap.Animation as AdobeAnimation
+# import adobe_spritemap.ColorEffect as AdobeColorEffect
+# import adobe_spritemap.SpriteAtlas as AdobeSpriteMap
+# import adobe_spritemap.Symbols as AdobeSymbols
+# import adobe_spritemap.TransformMatrix as AdobeMatrix
 
 ## Import our own modules
 from xml_parser import parse_xml 
@@ -402,7 +402,7 @@ def on_double_click_xml(evt):
 
     tk.Button(new_window, text="OK", command=store_input).pack()
 
-def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_pngs, var_delay, hq_colors):
+def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_pngs, var_delay, hq_colors, remove_duplicates):
     
     total_frames_generated = 0
     total_anims_generated = 0
@@ -439,7 +439,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
                     threshold = settings.get('threshold', set_threshold)
                     scale = settings.get('scale', set_scale)
                     indices = settings.get('indices')
-                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_pngs, var_delay, hq_colors)
+                    future = executor.submit(extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_pngs, var_delay, hq_colors, remove_duplicates)
                     futures.append(future)
 
         for future in concurrent.futures.as_completed(futures):
@@ -476,7 +476,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     )
 
 ## Extraction logic
-def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors):
+def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, remove_duplicates):
     frames_generated = 0
     anims_generated = 0
     sprites_failed = 0
@@ -545,6 +545,19 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
+
+            if remove_duplicates:
+                unique_frames = []
+                durations = []
+                for i, frame in enumerate(image_tuples):
+                    if i == 0 or frame[2] != image_tuples[i-1][2]:
+                        unique_frames.append(frame)
+                        durations.append(1)
+                    else:
+                        durations[-1] += 1
+                image_tuples = unique_frames
+            else:
+                durations = [1] * len(image_tuples)
 
             single_frame = True
             for i in image_tuples:
@@ -636,17 +649,17 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                         images[index] = new_frame
 
                 if create_webp:
-                    durations = []
+                    webp_durations = []
                     if var_delay:
                         for index in range(len(images)):
-                            durations.append(round((index+1)*1000/fps) - round(index*1000/fps))
+                            webp_durations.append(round((index+1)*1000/fps) - round(index*1000/fps))
                     else:
-                        durations = [round(1000/fps)] * len(images)
-                    durations[-1] += delay
-                    durations[-1] += max(period - sum(durations), 0)
+                        webp_durations = [round(1000/fps) * durations[i] for i in range(len(images))]
+                    webp_durations[-1] += delay
+                    webp_durations[-1] += max(period - sum(webp_durations), 0)
                     scaled_images = list(map(lambda x: scale_image(x, scale), images))
 
-                    scaled_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+                    scaled_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=webp_durations, loop=0, lossless=True)
 
                 if create_gif:
                     for frame in images:
@@ -701,15 +714,15 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
                     for frame in images:
                         cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
                         cropped_images.append(scale_image(cropped_frame, scale))
-                    durations = []
+                    gif_durations = []
                     if var_delay:
                         for index in range(len(images)):
-                            durations.append(round((index+1)*1000/fps, -1) - round(index*1000/fps, -1))
+                            gif_durations.append(round((index+1)*1000/fps, -1) - round(index*1000/fps, -1))
                     else:
-                        durations = [round(1000/fps, -1)] * len(cropped_images)
-                    durations[-1] += delay
-                    durations[-1] += max(round(period, -1) - sum(durations), 0)
-                    cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0, comment=f'GIF generated by: TextureAtlas to GIF and Frames v{current_version}')
+                        gif_durations = [round(1000/fps, -1) * durations[i] for i in range(len(cropped_images))]
+                    gif_durations[-1] += delay
+                    gif_durations[-1] += max(round(period, -1) - sum(gif_durations), 0)
+                    cropped_images[0].save(os.path.join(output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=gif_durations, loop=0, comment=f'GIF generated by: TextureAtlas to GIF and Frames v{current_version}')
 
                 anims_generated += 1
 
@@ -879,11 +892,13 @@ menubar.add_cascade(label="Help", menu=help_menu)
 better_colors = tk.BooleanVar()
 variable_delay = tk.BooleanVar()
 use_all_threads = tk.BooleanVar()
+remove_duplicates = tk.BooleanVar()
 
 advanced_menu = tk.Menu(menubar, tearoff=0)
 advanced_menu.add_checkbutton(label="Higher color quality", variable=better_colors)
 advanced_menu.add_checkbutton(label="Variable delay", variable=variable_delay)
 advanced_menu.add_checkbutton(label="Use all CPU threads", variable=use_all_threads)
+advanced_menu.add_checkbutton(label="Remove duplicate frames", variable=remove_duplicates)
 menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
 progress_var = tk.DoubleVar()
@@ -973,7 +988,7 @@ button_frame.pack(pady=8)
 show_user_settings = tk.Button(button_frame, text="Show User Settings", command=create_settings_window)
 show_user_settings.pack(side=tk.LEFT, padx=4)
 
-process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), crop_pngs.get(), variable_delay.get(), better_colors.get()))
+process_button = tk.Button(button_frame, text="Start process", cursor="hand2", command=lambda: process_directory(input_dir.get(), output_dir.get(), progress_var, root, create_gif.get(), create_webp.get(), set_framerate.get(), set_loopdelay.get(), set_minperiod.get(), set_scale.get(), set_threshold.get(), keep_frames.get(), crop_pngs.get(), variable_delay.get(), better_colors.get(), remove_duplicates.get()))
 process_button.pack(side=tk.LEFT, padx=2)
 
 author_label = tk.Label(root, text="Project started by AutisticLulu")
