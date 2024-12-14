@@ -13,7 +13,7 @@ from functools import lru_cache
 from PIL import Image
 
 # Import our local modules
-import TransformMatrix
+from TransformMatrix import TransformMatrix
 
 
 class SpriteAtlas:
