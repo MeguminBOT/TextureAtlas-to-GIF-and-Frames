@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 ## FNF specific stuff
-def fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict, listbox_png, listbox_xml):
+def fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict, listbox_png, listbox_data):
 
     for filename in os.listdir(fnf_char_json_directory):
         if filename.endswith('.json'):
@@ -22,8 +22,8 @@ def fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict
                     fps = anim.get("fps", 0)
                     user_settings[png_filename + '/' + anim_name] = {'fps': fps}
 
-def fnf_select_char_json_directory(user_settings, xml_dict, listbox_png, listbox_xml):
+def fnf_select_char_json_directory(user_settings, xml_dict, listbox_png, listbox_data):
     fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character JSON Directory")
     if fnf_char_json_directory:
-        fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict, listbox_png, listbox_xml)
+        fnf_load_char_json_settings(fnf_char_json_directory, user_settings, xml_dict, listbox_png, listbox_data)
         print("User settings populated:", user_settings)

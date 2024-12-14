@@ -18,14 +18,13 @@ from wand.color import Color
 from wand.image import Image as WandImg
 
 ## Import our own modules
-from xml_parser import parse_xml 
-from txt_parser import parse_txt, parse_plain_text_atlas
-
 from dependencies_checker import check_imagemagick, configure_imagemagick
 from update_checker import check_for_updates
-from utilities import count_spritesheets, sanitize_filename
 from fnf_utilities import fnf_load_char_json_settings, fnf_select_char_json_directory
 
+from xml_parser import XmlParser 
+from txt_parser import TxtParser
+from utilities import Utilities
 
 ## Update Checking
 current_version = '1.9.0'
@@ -44,13 +43,13 @@ else:
 ## File processing
 user_settings = {}
 spritesheet_settings = {}
-xml_dict = {}
+data_dict = {}
 temp_dir = tempfile.mkdtemp()
 fnf_char_json_directory = ""
 
 def clear_filelist():
     listbox_png.delete(0, tk.END)
-    listbox_xml.delete(0, tk.END)
+    listbox_data.delete(0, tk.END)
     user_settings.clear()
 
 def select_directory(variable, label):
@@ -58,7 +57,7 @@ def select_directory(variable, label):
     if directory:
         variable.set(directory)
         label.config(text=directory)
-        
+
         if variable == input_dir:
             clear_filelist()
 
@@ -67,7 +66,7 @@ def select_directory(variable, label):
                     listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
 
             def on_select_png(evt):
-                listbox_xml.delete(0, tk.END)
+                listbox_data.delete(0, tk.END)
 
                 png_filename = listbox_png.get(listbox_png.curselection())
                 base_filename = os.path.splitext(png_filename)[0]
@@ -75,59 +74,56 @@ def select_directory(variable, label):
                 txt_filename = base_filename + '.txt'
 
                 if os.path.isfile(os.path.join(directory, xml_filename)):
-                    parse_xml(directory, xml_filename, listbox_xml)
+                    xml_parser = XmlParser(directory, xml_filename, listbox_data)
+                    xml_parser.get_data()
                 elif os.path.isfile(os.path.join(directory, txt_filename)):
-                    parse_txt(directory, txt_filename, listbox_xml)
+                    txt_parser = TxtParser(directory, txt_filename, listbox_data)
+                    txt_parser.get_data()
 
             listbox_png.bind('<<ListboxSelect>>', on_select_png)
             listbox_png.bind('<Double-1>', on_double_click_png)
-            listbox_xml.bind('<Double-1>', on_double_click_xml)
+            listbox_data.bind('<Double-1>', on_double_click_xml)
     return directory
 
 def select_files_manually(variable, label):
-    global temp_dir
-    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
-    xml_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
+    data_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
     png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
-    
+
     variable.set(temp_dir)
     label.config(text=temp_dir)
-    
-    if xml_files and png_files:
-        for file in xml_files:
+
+    if data_files and png_files:
+        for file in data_files:
             shutil.copy(file, temp_dir)
             png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
             if any(png_filename == os.path.basename(png) for png in png_files):
                 if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
                     listbox_png.insert(tk.END, png_filename)
-                    xml_dict[png_filename] = os.path.join(temp_dir, os.path.basename(file))
-        
+                    data_dict[png_filename] = os.path.basename(file)
+
         for file in png_files:
             shutil.copy(file, temp_dir)
 
         listbox_png.unbind('<<ListboxSelect>>')
-        listbox_xml.unbind('<Double-1>')
+        listbox_data.unbind('<Double-1>')
 
         def on_select_png(evt):
-            listbox_xml.delete(0, tk.END)
+            listbox_data.delete(0, tk.END)
 
             selected_png = listbox_png.get(listbox_png.curselection())
-            xml_path = xml_dict[selected_png]
-            
-            if os.path.exists(xml_path):
-                tree = ET.parse(xml_path)
-                root = tree.getroot()
-                names = set()
-                for subtexture in root.findall(".//SubTexture"):
-                    name = subtexture.get('name')
-                    name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
-                    names.add(name)
-                
-                for name in names:
-                    listbox_xml.insert(tk.END, name)
-        
+            data_filename = data_dict[selected_png]
+            data_path = os.path.join(temp_dir, data_filename)
+
+            if os.path.exists(data_path):
+                if data_path.endswith('.xml'):
+                    xml_parser = XmlParser(temp_dir, data_filename, listbox_data)
+                    xml_parser.get_data()
+                elif data_path.endswith('.txt'):
+                    txt_parser = TxtParser(temp_dir, data_filename, listbox_data)
+                    txt_parser.get_data()
+
         listbox_png.bind('<<ListboxSelect>>', on_select_png)
-        listbox_xml.bind('<Double-1>', on_double_click_xml)
+        listbox_data.bind('<Double-1>', on_double_click_xml)
     return temp_dir
 
 def create_settings_window():
@@ -283,7 +279,7 @@ def on_double_click_png(evt):
             
 def on_double_click_xml(evt):
     spritesheet_name = listbox_png.get(listbox_png.curselection())
-    animation_name = listbox_xml.get(listbox_xml.curselection())
+    animation_name = listbox_data.get(listbox_data.curselection())
     full_anim_name = spritesheet_name + '/' + animation_name
     new_window = tk.Toplevel()
     new_window.geometry("360x360")
@@ -405,7 +401,7 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
     total_sprites_failed = 0
 
     progress_var.set(0)
-    total_files = count_spritesheets(input_dir)
+    total_files = Utilities.count_spritesheets(input_dir)
     progress_bar["maximum"] = total_files
 
     if use_all_threads.get():
@@ -471,7 +467,6 @@ def process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, 
         f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
     )
 
-## Extraction logic
 def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors):
     frames_generated = 0
     anims_generated = 0
@@ -480,24 +475,11 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
         atlas = Image.open(atlas_path)
 
         if metadata_path.endswith('.xml'):
-            tree = ET.parse(metadata_path)
-            root = tree.getroot()
-            sprites = [
-                {
-                    'name': sprite.get('name'),
-                    'x': int(sprite.get('x')),
-                    'y': int(sprite.get('y')),
-                    'width': int(sprite.get('width')),
-                    'height': int(sprite.get('height')),
-                    'frameX': int(sprite.get('frameX', 0)),
-                    'frameY': int(sprite.get('frameY', 0)),
-                    'frameWidth': int(sprite.get('frameWidth', sprite.get('width'))),
-                    'frameHeight': int(sprite.get('frameHeight', sprite.get('height'))),
-                    'rotated': sprite.get('rotated', 'false') == 'true'
-                } for sprite in root.findall('SubTexture')
-            ]
-        else:
-            sprites = parse_plain_text_atlas(metadata_path)
+            print(f"Parsing XML metadata: {metadata_path}")
+            sprites = XmlParser.parse_xml_data(metadata_path)
+        elif metadata_path.endswith('.txt'):
+            print(f"Parsing TXT metadata: {metadata_path}")
+            sprites = TxtParser.parse_txt_packer(metadata_path)
 
         animations = {}
         quant_frames = {}
@@ -512,6 +494,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
             frameHeight = sprite.get('frameHeight', height)
             rotated = sprite.get('rotated', False)
 
+            print(f"Processing sprite: {name}")
             sprite_image = atlas.crop((x, y, x + width, y + height))
 
             if rotated:
@@ -527,7 +510,7 @@ def extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_we
 
             if frame_image.mode != 'RGBA':
                 frame_image = frame_image.convert('RGBA')
-            folder_name = re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+            folder_name = Utilities.strip_trailing_digits(name)
 
             animations.setdefault(folder_name, []).append((name, frame_image, (x, y, width, height, frameX, frameY)))
 
@@ -863,7 +846,7 @@ file_menu.add_command(label="Exit", command=on_closing)
 menubar.add_cascade(label="File", menu=file_menu)
 
 import_menu = tk.Menu(menubar, tearoff=0)
-import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: fnf_select_char_json_directory(user_settings, xml_dict, listbox_png, listbox_xml))
+import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: fnf_select_char_json_directory(user_settings, data_dict, listbox_png, listbox_data))
 menubar.add_cascade(label="Import", menu=import_menu)
 
 help_menu = tk.Menu(menubar, tearoff=0)
@@ -895,11 +878,11 @@ listbox_png.pack(side=tk.LEFT, fill=tk.Y)
 scrollbar_xml = tk.Scrollbar(root)
 scrollbar_xml.pack(side=tk.LEFT, fill=tk.Y)
 
-listbox_xml = tk.Listbox(root, width=30, yscrollcommand=scrollbar_xml.set)
-listbox_xml.pack(side=tk.LEFT, fill=tk.Y)
+listbox_data = tk.Listbox(root, width=30, yscrollcommand=scrollbar_xml.set)
+listbox_data.pack(side=tk.LEFT, fill=tk.Y)
 
 scrollbar_png.config(command=listbox_png.yview)
-scrollbar_xml.config(command=listbox_xml.yview)
+scrollbar_xml.config(command=listbox_data.yview)
 
 input_dir = tk.StringVar()
 input_button = tk.Button(root, text="Select directory with spritesheets", cursor="hand2", command=lambda: select_directory(input_dir, input_dir_label) and user_settings.clear())
