@@ -5,6 +5,22 @@ from txt_parser import TxtParser
 from xml_parser import XmlParser
 
 class AtlasProcessor:
+    """
+    A class to process texture atlases and their metadata.
+    Attributes:
+        atlas_path (str): The file path to the texture atlas image.
+        metadata_path (str): The file path to the metadata file.
+        atlas (PIL.Image.Image): The opened texture atlas image.
+        sprites (list): The parsed sprite data from the metadata file.
+    Methods:
+        __init__(atlas_path, metadata_path):
+            Initializes the AtlasProcessor with the given atlas and metadata paths.
+        open_atlas_and_parse_metadata():
+            Opens the texture atlas image and parses the metadata file.
+            Returns:
+                tuple: A tuple containing the opened atlas image and the parsed sprite data.
+    """
+
     def __init__(self, atlas_path, metadata_path):
         self.atlas_path = atlas_path
         self.metadata_path = metadata_path

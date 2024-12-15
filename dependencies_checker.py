@@ -4,6 +4,17 @@ import sys
 import platform
 
 class DependenciesChecker:
+    """
+    A class to check and configure dependencies.
+    Methods:
+        check_imagemagick():
+            Checks if ImageMagick is installed on the system.
+        configure_imagemagick():
+            Configures the environment to use a bundled version of ImageMagick.
+        check_and_configure_imagemagick():
+            Checks if ImageMagick is installed and configures it if not found.
+    """
+
     @staticmethod
     def check_imagemagick():
         return shutil.which("magick") is not None

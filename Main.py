@@ -16,6 +16,39 @@ from extractor import Extractor
 from help_window import HelpWindow
 
 class TextureAtlasExtractorApp:
+    """
+    A GUI application for extracting textures from a texture atlas and converting them to GIF and WebP formats.
+    Attributes:
+        root (tk.Tk): The root window of the application.
+        user_settings (dict): A dictionary to store user settings.
+        spritesheet_settings (dict): A dictionary to store spritesheet settings.
+        data_dict (dict): A dictionary to store data related to the spritesheets.
+        temp_dir (str): A temporary directory for storing files.
+        fnf_char_json_directory (str): Directory for FNF character JSON files.
+        current_version (str): The current version of the application.
+        quant_frames (dict): A dictionary to store quantized frames.
+        fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
+    Methods:
+        setup_gui(): Sets up the GUI components of the application.
+        setup_menus(): Sets up the menu bar and its items.
+        setup_widgets(): Sets up the widgets in the main window.
+        contributeLink(linkSourceCode): Opens the source code link in a web browser.
+        check_version(): Checks for updates to the application.
+        check_dependencies(): Checks and configures dependencies.
+        clear_filelist(): Clears the file list and user settings.
+        select_directory(variable, label): Opens a directory selection dialog and updates the label.
+        select_files_manually(variable, label): Opens a file selection dialog and updates the label.
+        create_settings_window(): Creates a window to display user and spritesheet settings.
+        update_settings_window(settings_frame, settings_canvas): Updates the settings window with current settings.
+        on_select_png(evt): Handles the event when a PNG file is selected from the listbox.
+        on_double_click_png(evt): Handles the event when a PNG file is double-clicked in the listbox.
+        on_double_click_xml(evt): Handles the event when an XML file is double-clicked in the listbox.
+        create_animation_settings_window(window, name, settings_dict): Creates a window to edit animation settings.
+        store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the animation settings window.
+        on_closing(): Handles the event when the application is closing.
+        start_process(): Starts the process of extracting textures and converting them to GIF and WebP formats.
+    """
+
     def __init__(self, root):
         self.root = root
         self.user_settings = {}

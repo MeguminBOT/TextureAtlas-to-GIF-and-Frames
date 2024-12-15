@@ -14,6 +14,22 @@ from exception_handler import ExceptionHandler
 from utilities import Utilities
 
 class Extractor:
+    """
+    A class to extract sprites from a directory of spritesheets and their corresponding metadata files.
+    Attributes:
+        progress_bar (tkinter.Progressbar): The progress bar to update during processing.
+        current_version (str): The current version of the extractor.
+        quant_frames (dict): A dictionary to store quantized frames.
+        spritesheet_settings (dict): A dictionary to store settings for each spritesheet.
+        user_settings (dict): A dictionary to store user settings.
+        use_all_threads (tk.BooleanVar): A boolean variable to determine if all CPU threads should be used.
+    Methods:
+        process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_pngs, var_delay, hq_colors):
+            Processes the given directory of spritesheets and metadata files, extracting sprites and generating animations.
+        extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, current_version):
+            Extracts sprites from a given atlas and metadata file, and processes the animations.
+    """
+
     def __init__(self, progress_bar, current_version):
         self.quant_frames = {}
         self.spritesheet_settings = {}

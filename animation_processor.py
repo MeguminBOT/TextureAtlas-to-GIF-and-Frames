@@ -7,6 +7,39 @@ from wand.color import Color
 import numpy
 
 class AnimationProcessor:
+    """
+    A class to process animations from a texture atlas and save them as individual frames or animations (GIF/WebP).
+    Attributes:
+        animations (dict): A dictionary containing animation names and their corresponding image tuples.
+        atlas_path (str): The path to the texture atlas.
+        output_dir (str): The directory where the output frames and animations will be saved.
+        create_gif (bool): Flag to indicate whether to create GIF animations.
+        create_webp (bool): Flag to indicate whether to create WebP animations.
+        set_framerate (int): The framerate for the animations.
+        set_loopdelay (int): The delay between loops for the animations.
+        set_minperiod (int): The minimum period for the animations.
+        set_scale (float): The scale factor for the images.
+        set_threshold (float): The threshold for transparency in GIFs.
+        set_indices (list): The indices of frames to be used.
+        keep_frames (str): The frames to keep ('all', 'first', 'last', 'none', or a range).
+        crop_pngs (bool): Flag to indicate whether to crop PNG images.
+        var_delay (bool): Flag to indicate whether to use variable delay between frames.
+        hq_colors (bool): Flag to indicate whether to use high-quality colors.
+        user_settings (dict): User-defined settings for specific animations.
+        quant_frames (dict): A dictionary to store quantized frames.
+        current_version (str): The current version of the processor.
+    Methods:
+        process_animations(): Processes the animations and saves the frames and animations.
+        is_single_frame(image_tuples): Checks if the animation consists of a single frame.
+        get_kept_frames(settings, keep_frames, single_frame): Determines which frames to keep based on settings.
+        get_kept_frame_indices(kept_frames, image_tuples): Gets the indices of the frames to keep.
+        save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale): Saves the individual frames.
+        save_animations(image_tuples, spritesheet_name, animation_name, settings, current_version): Saves the animations as GIF or WebP.
+        save_webp(images, spritesheet_name, animation_name, fps, delay, period): Saves the animation as a WebP file.
+        save_gif(images, spritesheet_name, animation_name, fps, delay, period, threshold, max_size, image_tuples, current_version): Saves the animation as a GIF file.
+        scale_image(img, size): Scales the image by the given size factor.
+    """
+
     def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
