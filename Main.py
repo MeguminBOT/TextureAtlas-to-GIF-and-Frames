@@ -23,7 +23,7 @@ class TextureAtlasExtractorApp:
         self.data_dict = {}
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
-        self.current_version = '1.9.0'
+        self.current_version = '1.9.2'
         self.quant_frames = {}
         self.fnf_utilities = FnfUtilities()
 
