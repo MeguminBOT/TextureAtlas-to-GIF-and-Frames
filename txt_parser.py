@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 
-import utilities as Utilities
+from utilities import Utilities
 
 class TxtParser:
     """
