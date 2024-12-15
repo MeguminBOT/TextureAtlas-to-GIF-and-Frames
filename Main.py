@@ -393,7 +393,7 @@ class TextureAtlasExtractorApp:
         self.root.destroy()
         
     def start_process(self):
-        extractor = Extractor(self.progress_bar)
+        extractor = Extractor(self.progress_bar, self.current_version)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),

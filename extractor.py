@@ -14,12 +14,13 @@ from exception_handler import ExceptionHandler
 from utilities import Utilities
 
 class Extractor:
-    def __init__(self, progress_bar):
+    def __init__(self, progress_bar, current_version):
         self.quant_frames = {}
         self.spritesheet_settings = {}
         self.user_settings = {}
         self.use_all_threads = tk.BooleanVar()
         self.progress_bar = progress_bar
+        self.current_version = current_version
 
     def process_directory(self, input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_pngs, var_delay, hq_colors):
         total_frames_generated = 0
@@ -57,7 +58,7 @@ class Extractor:
                         threshold = settings.get('threshold', set_threshold)
                         scale = settings.get('scale', set_scale)
                         indices = settings.get('indices')
-                        future = executor.submit(self.extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_pngs, var_delay, hq_colors, self.user_settings, self.quant_frames)
+                        future = executor.submit(self.extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_pngs, var_delay, hq_colors, self.user_settings, self.quant_frames, self.current_version)
                         futures.append(future)
 
             for future in concurrent.futures.as_completed(futures):
@@ -93,7 +94,7 @@ class Extractor:
             f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
         )
 
-    def extract_sprites(self, atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames):
+    def extract_sprites(self, atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, current_version):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
@@ -101,7 +102,7 @@ class Extractor:
             atlas_processor = AtlasProcessor(atlas_path, metadata_path)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
-            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, '1.9.0')
+            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, current_version)
             frames_generated, anims_generated = animation_processor.process_animations()
             return {
                 'frames_generated': frames_generated,
