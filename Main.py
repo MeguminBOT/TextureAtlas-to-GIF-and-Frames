@@ -295,19 +295,23 @@ class TextureAtlasExtractorApp:
             txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
             txt_parser.get_data()
 
-    def on_double_click_png(self, evt):
-        spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
-        new_window = tk.Toplevel()
-        new_window.geometry("360x360")
+    def on_double_click_png(self, index):
+        spritesheet_name = index.data()
+        new_window = QWidget()
+        new_window.setGeometry(100, 100, 360, 360)
         self.create_animation_settings_window(new_window, spritesheet_name, self.spritesheet_settings)
+        new_window.show()
 
-    def on_double_click_xml(self, evt):
-        spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
-        animation_name = self.listbox_data.get(self.listbox_data.curselection())
-        full_anim_name = spritesheet_name + '/' + animation_name
-        new_window = tk.Toplevel()
-        new_window.geometry("360x360")
-        self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
+    def on_double_click_xml(self, index):
+        animation_name = index.data()
+        selected_indexes = self.listbox_png.selectionModel().selectedIndexes()
+        if selected_indexes:
+            spritesheet_name = selected_indexes[0].data()
+            full_anim_name = spritesheet_name + '/' + animation_name
+            new_window = QWidget()
+            new_window.setGeometry(100, 100, 360, 360)
+            self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
+            new_window.show()
 
     def create_animation_settings_window(self, window, name, settings_dict):
         layout = QFormLayout(window)
