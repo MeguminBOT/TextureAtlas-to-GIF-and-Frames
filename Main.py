@@ -5,6 +5,9 @@ import tempfile
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
+from PySide6.QtWidgets import QMessageBox, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, QListView, QCheckBox, QDoubleSpinBox, QSpinBox, QFrame, QPushButton, QScrollArea, QFormLayout, QDialog
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 # Import our own modules
 from dependencies_checker import DependenciesChecker
@@ -14,6 +17,7 @@ from xml_parser import XmlParser
 from txt_parser import TxtParser
 from extractor import Extractor
 from help_window import HelpWindow
+from user_interface import Ui_MainWindow
 
 class TextureAtlasExtractorApp:
     """
@@ -59,6 +63,7 @@ class TextureAtlasExtractorApp:
         self.current_version = '1.9.2'
         self.quant_frames = {}
         self.fnf_utilities = FnfUtilities()
+        self.qt = Ui_MainWindow()
 
         self.setup_gui()
         self.check_version()
@@ -105,38 +110,27 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
     def setup_widgets(self):
-        self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
-        self.progress_bar.pack(pady=8)
+        self.progress_bar = self.qt.progressBar
+        self.progress_bar.setValue(0)
 
-        self.scrollbar_png = tk.Scrollbar(self.root)
-        self.scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
+        self.listbox_png = self.qt.ui_listview_sprites()
+        self.listbox_data = self.qt.ui_listview_animations()
 
-        self.listbox_png = tk.Listbox(self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
-        self.listbox_png.pack(side=tk.LEFT, fill=tk.Y)
+        self.input_dir = ""
+        self.input_dir_label = self.qt.ui_input_field
+        self.input_button = self.qt.ui_button_select_directory
+        self.input_button.clicked.connect(lambda: self.select_directory("input") and self.user_settings.clear())
 
-        self.scrollbar_xml = tk.Scrollbar(self.root)
-        self.scrollbar_xml.pack(side=tk.LEFT, fill=tk.Y)
+        self.output_dir = ""
+        self.output_dir_label = self.qt.ui_output_field
+        self.output_button = self.qt.ui_button_save_directory
+        self.output_button.clicked.connect(lambda: self.select_directory("output"))
+        
+        self.listbox_png_model = QStandardItemModel(self.listbox_png)
+        self.listbox_png.setModel(self.listbox_png_model)
 
-        self.listbox_data = tk.Listbox(self.root, width=30, yscrollcommand=self.scrollbar_xml.set)
-        self.listbox_data.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.scrollbar_png.config(command=self.listbox_png.yview)
-        self.scrollbar_xml.config(command=self.listbox_data.yview)
-
-        self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
-        self.input_button.pack(pady=2)
-
-        self.input_dir_label = tk.Label(self.root, text="No input directory selected")
-        self.input_dir_label.pack(pady=4)
-
-        self.output_dir = tk.StringVar()
-        self.output_button = tk.Button(self.root, text="Select save directory", cursor="hand2", command=lambda: self.select_directory(self.output_dir, self.output_dir_label))
-        self.output_button.pack(pady=2)
-
-        self.output_dir_label = tk.Label(self.root, text="No output directory selected")
-        self.output_dir_label.pack(pady=4)
+        self.listbox_data_model = QStandardItemModel(self.listbox_data)
+        self.listbox_data.setModel(self.listbox_data_model)
 
         self.create_gif = tk.BooleanVar()
         self.gif_checkbox = tk.Checkbutton(self.root, text="Create GIFs for each animation", variable=self.create_gif)
@@ -213,71 +207,76 @@ class TextureAtlasExtractorApp:
         DependenciesChecker.check_and_configure_imagemagick()
 
     def clear_filelist(self):
-        self.listbox_png.delete(0, tk.END)
-        self.listbox_data.delete(0, tk.END)
+        self.listbox_png_model.clear()
+        self.listbox_data_model.clear()
         self.user_settings.clear()
 
-    def select_directory(self, variable, label):
-        directory = filedialog.askdirectory()
+    def select_directory(self, dir_type):
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if directory:
-            variable.set(directory)
-            label.config(text=directory)
-            if variable == self.input_dir:
+            if dir_type == "input":
+                self.input_dir = directory
+                self.input_dir_label.setText(directory)
                 self.clear_filelist()
                 for filename in os.listdir(directory):
                     if filename.endswith('.xml') or filename.endswith('.txt'):
-                        self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
-                self.listbox_png.bind('<<ListboxSelect>>', self.on_select_png)
-                self.listbox_png.bind('<Double-1>', self.on_double_click_png)
-                self.listbox_data.bind('<Double-1>', self.on_double_click_xml)
+                        self.listbox_png_model.appendRow(QStandardItem(os.path.splitext(filename)[0] + '.png'))
+                self.listbox_png.selectionModel().selectionChanged.connect(self.on_select_png)
+                self.listbox_png.doubleClicked.connect(self.on_double_click_png)
+                self.listbox_data.doubleClicked.connect(self.on_double_click_xml)
+            elif dir_type == "output":
+                self.output_dir = directory
+                self.output_dir_label.setText(directory)
         return directory
 
     def select_files_manually(self, variable, label):
-        data_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
-        png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
-        variable.set(self.temp_dir)
-        label.config(text=self.temp_dir)
+        data_files, _ = QFileDialog.getOpenFileNames(self, "Select XML and TXT files", "", "XML and TXT files (*.xml *.txt)")
+        png_files, _ = QFileDialog.getOpenFileNames(self, "Select PNG files", "", "PNG files (*.png)")
+        variable = self.temp_dir
+        label.setText(self.temp_dir)
         if data_files and png_files:
             for file in data_files:
                 shutil.copy(file, self.temp_dir)
                 png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
                 if any(png_filename == os.path.basename(png) for png in png_files):
-                    if png_filename not in [self.listbox_png.get(idx) for idx in range(self.listbox_png.size())]:
-                        self.listbox_png.insert(tk.END, png_filename)
+                    if png_filename not in [self.listbox_png_model.item(idx).text() for idx in range(self.listbox_png_model.rowCount())]:
+                        self.listbox_png_model.appendRow(QStandardItem(png_filename))
                         self.data_dict[png_filename] = os.path.basename(file)
             for file in png_files:
                 shutil.copy(file, self.temp_dir)
-            self.listbox_png.unbind('<<ListboxSelect>>')
-            self.listbox_data.unbind('<Double-1>')
-            self.listbox_png.bind('<<ListboxSelect>>', self.on_select_png)
-            self.listbox_data.bind('<Double-1>', self.on_double_click_xml)
+            self.listbox_png.selectionModel().selectionChanged.connect(self.on_select_png)
+            self.listbox_data.doubleClicked.connect(self.on_double_click_xml)
         return self.temp_dir
 
     def create_settings_window(self):
-        self.settings_window = tk.Toplevel()
-        self.settings_window.geometry("400x300")
-        settings_canvas = tk.Canvas(self.settings_window)
-        settings_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        settings_scrollbar = tk.Scrollbar(self.settings_window, orient=tk.VERTICAL, command=settings_canvas.yview)
-        settings_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        settings_canvas.config(yscrollcommand=settings_scrollbar.set)
-        settings_frame = tk.Frame(settings_canvas)
-        settings_canvas.create_window((0, 0), window=settings_frame, anchor=tk.NW)
-        self.update_settings_window(settings_frame, settings_canvas)
-        settings_frame.update_idletasks()
-        settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
+            self.settings_window = QDialog(self)
+            self.settings_window.setWindowTitle("Settings")
+            self.settings_window.setGeometry(100, 100, 400, 300)
 
-    def update_settings_window(self, settings_frame, settings_canvas):
-        for widget in settings_frame.winfo_children():
-            widget.destroy()
-        tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
-        for key, value in self.user_settings.items():
-            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
-        tk.Label(settings_frame, text="Spritesheet Settings").pack(pady=10)
-        for key, value in self.spritesheet_settings.items():
-            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
-        settings_frame.update_idletasks()
-        settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
+            scroll_area = QScrollArea(self.settings_window)
+            scroll_area.setWidgetResizable(True)
+
+            settings_frame = QFrame(scroll_area)
+            settings_layout = QVBoxLayout(settings_frame)
+
+            self.update_settings_window(settings_layout)
+
+            scroll_area.setWidget(settings_frame)
+
+            layout = QVBoxLayout(self.settings_window)
+            layout.addWidget(scroll_area)
+            self.settings_window.setLayout(layout)
+
+            self.settings_window.exec()
+
+    def update_settings_window(self, layout):
+            layout.addWidget(QLabel("Animation Settings"))
+            for key, value in self.user_settings.items():
+                layout.addWidget(QLabel(f"{key}: {value}"))
+
+            layout.addWidget(QLabel("Spritesheet Settings"))
+            for key, value in self.spritesheet_settings.items():
+                layout.addWidget(QLabel(f"{key}: {value}"))
         
     def on_select_png(self, evt):
         self.listbox_data.delete(0, tk.END)
@@ -311,114 +310,113 @@ class TextureAtlasExtractorApp:
         self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
 
     def create_animation_settings_window(self, window, name, settings_dict):
-        tk.Label(window, text="FPS for " + name).pack()
-        fps_entry = tk.Entry(window)
+        layout = QFormLayout(window)
+
+        fps_entry = QLineEdit()
         if name in settings_dict:
-            fps_entry.insert(0, str(settings_dict[name].get('fps', '')))
-        fps_entry.pack()
-        
-        tk.Label(window, text="Delay for " + name).pack()
-        delay_entry = tk.Entry(window)
+            fps_entry.setText(str(settings_dict[name].get('fps', '')))
+        layout.addRow(f"FPS for {name}", fps_entry)
+
+        delay_entry = QLineEdit()
         if name in settings_dict:
-            delay_entry.insert(0, str(settings_dict[name].get('delay', '')))
-        delay_entry.pack()
-        
-        tk.Label(window, text="Min period for " + name).pack()
-        period_entry = tk.Entry(window)
+            delay_entry.setText(str(settings_dict[name].get('delay', '')))
+        layout.addRow(f"Delay for {name}", delay_entry)
+
+        period_entry = QLineEdit()
         if name in settings_dict:
-            period_entry.insert(0, str(settings_dict[name].get('period', '')))
-        period_entry.pack()
-        
-        tk.Label(window, text="Scale for " + name).pack()
-        scale_entry = tk.Entry(window)
+            period_entry.setText(str(settings_dict[name].get('period', '')))
+        layout.addRow(f"Min period for {name}", period_entry)
+
+        scale_entry = QLineEdit()
         if name in settings_dict:
-            scale_entry.insert(0, str(settings_dict[name].get('scale', '')))
-        scale_entry.pack()
-        
-        tk.Label(window, text="Threshold for " + name).pack()
-        threshold_entry = tk.Entry(window)
+            scale_entry.setText(str(settings_dict[name].get('scale', '')))
+        layout.addRow(f"Scale for {name}", scale_entry)
+
+        threshold_entry = QLineEdit()
         if name in settings_dict:
-            threshold_entry.insert(0, str(settings_dict[name].get('threshold', '')))
-        threshold_entry.pack()
-        
-        tk.Label(window, text="Indices for " + name).pack()
-        indices_entry = tk.Entry(window)
+            threshold_entry.setText(str(settings_dict[name].get('threshold', '')))
+        layout.addRow(f"Threshold for {name}", threshold_entry)
+
+        indices_entry = QLineEdit()
         if name in settings_dict:
-            indices_entry.insert(0, str(settings_dict[name].get('indices', '')).translate(str.maketrans('','','[] ')))
-        indices_entry.pack()
-        
-        tk.Label(window, text="Keep frames for " + name).pack()
-        frames_entry = tk.Entry(window)
+            indices_entry.setText(str(settings_dict[name].get('indices', '')).translate(str.maketrans('', '', '[] ')))
+        layout.addRow(f"Indices for {name}", indices_entry)
+
+        frames_entry = QLineEdit()
         if name in settings_dict:
-            frames_entry.insert(0, str(settings_dict[name].get('frames', '')))
-        frames_entry.pack()
-        
-        tk.Button(window, text="OK", command=lambda: self.store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry)).pack()
+            frames_entry.setText(str(settings_dict[name].get('frames', '')))
+        layout.addRow(f"Keep frames for {name}", frames_entry)
+
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(lambda: self.store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry))
+        layout.addWidget(ok_button)
+
+        window.setLayout(layout)
 
     def store_input(self, window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         anim_settings = {}
         try:
-            if fps_entry.get() != '':
-                anim_settings['fps'] = float(fps_entry.get())
+            if fps_entry.text() != '':
+                anim_settings['fps'] = float(fps_entry.text())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a valid float for FPS.")
+            window.raise_()
             return
         try:
-            if delay_entry.get() != '':
-                anim_settings['delay'] = int(delay_entry.get())
+            if delay_entry.text() != '':
+                anim_settings['delay'] = int(delay_entry.text())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a valid integer for delay.")
+            window.raise_()
             return
         try:
-            if period_entry.get() != '':
-                anim_settings['period'] = int(period_entry.get())
+            if period_entry.text() != '':
+                anim_settings['period'] = int(period_entry.text())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for period.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a valid integer for period.")
+            window.raise_()
             return
         try:
-            if scale_entry.get() != '':
-                if float(scale_entry.get()) == 0:
+            if scale_entry.text() != '':
+                if float(scale_entry.text()) == 0:
                     raise ValueError
-                anim_settings['scale'] = float(scale_entry.get())
+                anim_settings['scale'] = float(scale_entry.text())
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for scale.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a valid float for scale.")
+            window.raise_()
             return
         try:
-            if threshold_entry.get() != '':
-                anim_settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
+            if threshold_entry.text() != '':
+                anim_settings['threshold'] = min(max(float(threshold_entry.text()), 0), 1)
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
+            window.raise_()
             return
         try:
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
+            if indices_entry.text() != '':
+                indices = [int(ele) for ele in indices_entry.text().split(',')]
                 anim_settings['indices'] = indices
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a comma-separated list of integers for indices.")
+            window.raise_()
             return
         try:
-            if frames_entry.get() != '':
-                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
-                    keep_frames = [ele for ele in frames_entry.get().split(',')]
+            if frames_entry.text() != '':
+                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.text().lower()):
+                    keep_frames = [ele for ele in frames_entry.text().split(',')]
                     for entry in keep_frames:
                         if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
                             raise ValueError
-                anim_settings['frames'] = frames_entry.get().lower()
+                anim_settings['frames'] = frames_entry.text().lower()
         except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
-            window.lift()
+            QMessageBox.critical(self, "Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
+            window.raise_()
             return
         if len(anim_settings) > 0:
             settings_dict[name] = anim_settings
         elif settings_dict.get(name):
             settings_dict.pop(name)
-        window.destroy()
+        window.close()
         
     def on_closing(self):
         if self.temp_dir and os.path.exists(self.temp_dir):
@@ -430,7 +428,7 @@ class TextureAtlasExtractorApp:
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
-            self.progress_var,
+            self.progress_bar,
             self.root,
             self.create_gif.get(),
             self.create_webp.get(),
