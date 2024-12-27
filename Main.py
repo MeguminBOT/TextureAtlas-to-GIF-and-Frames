@@ -66,7 +66,7 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
-        self.root.geometry("900x560")
+        self.root.geometry("900x600")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -96,10 +96,8 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="Help", menu=help_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
-        self.better_colors = tk.BooleanVar()
         self.variable_delay = tk.BooleanVar()
         self.use_all_threads = tk.BooleanVar()
-        advanced_menu.add_checkbutton(label="Higher color quality", variable=self.better_colors)
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
         advanced_menu.add_checkbutton(label="Use all CPU threads", variable=self.use_all_threads)
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
@@ -182,9 +180,11 @@ class TextureAtlasExtractorApp:
         self.keepframes_entry = tk.Entry(self.root, textvariable=self.keep_frames)
         self.keepframes_entry.pack(pady=2)
 
-        self.crop_pngs = tk.BooleanVar()
-        self.crop_pngs_checkbox = tk.Checkbutton(self.root, text="Crop individual frames", variable=self.crop_pngs)
-        self.crop_pngs_checkbox.pack(pady=1)
+        self.crop_option = tk.StringVar(value="Animation based")
+        self.crop_label = tk.Label(self.root, text="PNG Cropping Method")
+        self.crop_label.pack()
+        self.crop_menu = tk.OptionMenu(self.root, self.crop_option, "None", "Frame based", "Animation based")
+        self.crop_menu.pack(pady=1)
 
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
@@ -440,9 +440,8 @@ class TextureAtlasExtractorApp:
             self.set_scale.get(),
             self.set_threshold.get(),
             self.keep_frames.get(),
-            self.crop_pngs.get(),
+            self.crop_option.get(),
             self.variable_delay.get(),
-            self.better_colors.get()
         )
 
 if __name__ == "__main__":

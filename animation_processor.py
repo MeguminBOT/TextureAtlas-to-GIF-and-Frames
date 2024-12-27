@@ -22,9 +22,8 @@ class AnimationProcessor:
         set_threshold (float): The threshold for transparency in GIFs.
         set_indices (list): The indices of frames to be used.
         keep_frames (str): The frames to keep ('all', 'first', 'last', 'none', or a range).
-        crop_pngs (bool): Flag to indicate whether to crop PNG images.
+        crop_option (str): The cropping type to use for PNG images.
         var_delay (bool): Flag to indicate whether to use variable delay between frames.
-        hq_colors (bool): Flag to indicate whether to use high-quality colors.
         user_settings (dict): User-defined settings for specific animations.
         quant_frames (dict): A dictionary to store quantized frames.
         current_version (str): The current version of the processor.
@@ -40,7 +39,7 @@ class AnimationProcessor:
         scale_image(img, size): Scales the image by the given size factor.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_pngs, var_delay, hq_colors, user_settings, quant_frames, current_version):
+    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, user_settings, quant_frames, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
@@ -53,9 +52,8 @@ class AnimationProcessor:
         self.set_threshold = set_threshold
         self.set_indices = set_indices
         self.keep_frames = keep_frames
-        self.crop_pngs = crop_pngs
+        self.crop_option = crop_option
         self.var_delay = var_delay
-        self.hq_colors = hq_colors
         self.user_settings = user_settings
         self.quant_frames = quant_frames
         self.current_version = current_version
@@ -131,30 +129,41 @@ class AnimationProcessor:
         frames_generated = 0
         if len(image_tuples) == 0:
             return frames_generated
-        if len(image_tuples) == 1:
-            frame_filename = os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.png")
-            frame_image = image_tuples[0][1]
-            bbox = frame_image.getbbox()
-            if bbox:
-                final_frame_image = self.scale_image(frame_image.crop(bbox), scale)
-                final_frame_image.save(frame_filename)
-                frames_generated += 1
-        else:
-            frames_folder = os.path.join(self.output_dir, animation_name)
+
+        frames_folder = os.path.join(self.output_dir, animation_name)
+        os.makedirs(frames_folder, exist_ok=True)
+
+        if self.crop_option == "Animation based":
+            min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
             for index, frame in enumerate(image_tuples):
-                frame_filename = os.path.join(frames_folder, image_tuples[index][0] + '.png')
                 if index in kept_frame_indices:
-                    frame_image = image_tuples[index][1]
-                    bbox = frame_image.getbbox()
+                    bbox = frame[1].getbbox()
                     if bbox:
-                        if self.crop_pngs and bbox:
-                            final_frame_image = self.scale_image(frame_image.crop(bbox), scale)
-                        else:
-                            final_frame_image = self.scale_image(frame_image, scale)
-                        os.makedirs(frames_folder, exist_ok=True)
-                        final_frame_image.save(frame_filename)
-                        frames_generated += 1
-                        print(f"Saved frame: {frame_filename}")
+                        min_x = min(min_x, bbox[0])
+                        min_y = min(min_y, bbox[1])
+                        max_x = max(max_x, bbox[2])
+                        max_y = max(max_y, bbox[3])
+
+            if min_x > max_x:
+                return frames_generated
+
+        for index, frame in enumerate(image_tuples):
+            if index in kept_frame_indices:
+                frame_filename = os.path.join(frames_folder, frame[0] + '.png')
+                frame_image = frame[1]
+                bbox = frame_image.getbbox()
+                if bbox:
+                    if self.crop_option == "Frame based":
+                        cropped_frame = frame_image.crop(bbox)
+                        final_frame_image = self.scale_image(cropped_frame, scale)
+                    elif self.crop_option == "Animation based":
+                        cropped_frame = frame_image.crop((min_x, min_y, max_x, max_y))
+                        final_frame_image = self.scale_image(cropped_frame, scale)
+                    else:
+                        final_frame_image = self.scale_image(frame_image, scale)
+                    final_frame_image.save(frame_filename)
+                    frames_generated += 1
+                    print(f"Saved frame: {frame_filename}")
         return frames_generated
 
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings, current_version):
@@ -211,8 +220,7 @@ class AnimationProcessor:
             min_y = min(min_y, bbox[1])
             max_x = max(max_x, bbox[2])
             max_y = max(max_y, bbox[3])
-            if not self.hq_colors:
-                continue
+
             if image_tuples[index][2] + (threshold,) in self.quant_frames:
                 images[index] = self.quant_frames[image_tuples[index][2] + (threshold,)]
                 if images[index].size != max_size:
