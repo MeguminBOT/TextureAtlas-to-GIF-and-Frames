@@ -94,14 +94,14 @@ class Extractor:
                     if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
                         sys.exit()
 
-                progress_var.set(progress_var.get() + 1)
-                tk_root.update_idletasks()
+                tk_root.after(0, progress_var.set, progress_var.get() + 1)
+                tk_root.after(0, tk_root.update_idletasks)
 
         end_time = time.time()
         duration = end_time - start_time
         minutes, seconds = divmod(duration, 60)
 
-        messagebox.showinfo(
+        tk_root.after(0, messagebox.showinfo,
             "Information",
             f"Finished processing all files.\n\n"
             f"Frames Generated: {total_frames_generated}\n"

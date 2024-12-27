@@ -2,6 +2,7 @@ import os
 import shutil
 import re
 import tempfile
+import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
@@ -426,6 +427,10 @@ class TextureAtlasExtractorApp:
         self.root.destroy()
         
     def start_process(self):
+        process_thread = threading.Thread(target=self.run_extractor)
+        process_thread.start()
+        
+    def run_extractor(self):
         extractor = Extractor(self.progress_bar, self.current_version)
         extractor.process_directory(
             self.input_dir.get(),
