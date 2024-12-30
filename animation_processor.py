@@ -39,20 +39,13 @@ class AnimationProcessor:
         scale_image(img, size): Scales the image by the given size factor.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, user_settings, quant_frames, current_version):
+    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, extraction_config, var_delay, user_settings, quant_frames, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
         self.create_gif = create_gif
         self.create_webp = create_webp
-        self.set_framerate = set_framerate
-        self.set_loopdelay = set_loopdelay
-        self.set_minperiod = set_minperiod
-        self.set_scale = set_scale
-        self.set_threshold = set_threshold
-        self.set_indices = set_indices
-        self.keep_frames = keep_frames
-        self.crop_option = crop_option
+        self.extraction_config = extraction_config
         self.var_delay = var_delay
         self.user_settings = user_settings
         self.quant_frames = quant_frames
@@ -65,14 +58,14 @@ class AnimationProcessor:
         for animation_name, image_tuples in self.animations.items():
             print(f"Processing animation: {animation_name}")
             settings = self.user_settings.get(spritesheet_name + '/' + animation_name, {})
-            scale = settings.get('scale', self.set_scale)
+            scale = settings.get('scale', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'scale'))
             image_tuples.sort(key=lambda x: x[0])
-            indices = settings.get('indices', self.set_indices)
+            indices = settings.get('indices', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'indices'))
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
             single_frame = self.is_single_frame(image_tuples)
-            kept_frames = self.get_kept_frames(settings, self.keep_frames, single_frame)
+            kept_frames = self.get_kept_frames(settings, self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'frames'), single_frame)
             kept_frame_indices = self.get_kept_frame_indices(kept_frames, image_tuples)
             frames_generated += self.save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale)
             if self.create_gif or self.create_webp:
@@ -89,6 +82,8 @@ class AnimationProcessor:
         if single_frame:
             return '0'
         kept_frames = settings.get('frames', keep_frames)
+        if kept_frames is None:
+            kept_frames = ''
         if kept_frames == 'all':
             kept_frames = '0--1'
         elif kept_frames == 'first':
@@ -111,18 +106,17 @@ class AnimationProcessor:
                 if frame_index >= 0 and frame_index < len(image_tuples):
                     kept_frame_indices.add(frame_index)
             except ValueError:
-                if entry != '':
-                    start_frame = int(re.match(r'-?\d+', entry).group())
-                    if start_frame < 0:
-                        start_frame += len(image_tuples)
-                    end_frame = int(re.search(r'(?<=-)-?\d+$', entry).group())
-                    if end_frame < 0:
-                        end_frame += len(image_tuples)
-                    if (start_frame < 0 and end_frame < 0) or (start_frame >= len(image_tuples) and end_frame >= len(image_tuples)):
-                        continue
-                    frame_range = range(max(start_frame,0),min(end_frame+1,len(image_tuples)))
-                    for i in frame_range:
-                        kept_frame_indices.add(i)
+                if entry:
+                    match = re.match(r'(-?\d+)-(-?\d+)', entry)
+                    if match:
+                        start_frame, end_frame = map(int, match.groups())
+                        if start_frame < 0:
+                            start_frame += len(image_tuples)
+                        if end_frame < 0:
+                            end_frame += len(image_tuples)
+                        if start_frame < end_frame:
+                            frame_range = range(max(start_frame, 0), min(end_frame + 1, len(image_tuples)))
+                            kept_frame_indices.update(frame_range)
         return kept_frame_indices
 
     def save_frames(self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale):
@@ -133,7 +127,8 @@ class AnimationProcessor:
         frames_folder = os.path.join(self.output_dir, animation_name)
         os.makedirs(frames_folder, exist_ok=True)
 
-        if self.crop_option == "Animation based":
+        crop_option = self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'crop_option')
+        if crop_option == "Animation based":
             min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
             for index, frame in enumerate(image_tuples):
                 if index in kept_frame_indices:
@@ -153,10 +148,10 @@ class AnimationProcessor:
                 frame_image = frame[1]
                 bbox = frame_image.getbbox()
                 if bbox:
-                    if self.crop_option == "Frame based":
+                    if crop_option == "Frame based":
                         cropped_frame = frame_image.crop(bbox)
                         final_frame_image = self.scale_image(cropped_frame, scale)
-                    elif self.crop_option == "Animation based":
+                    elif crop_option == "Animation based":
                         cropped_frame = frame_image.crop((min_x, min_y, max_x, max_y))
                         final_frame_image = self.scale_image(cropped_frame, scale)
                     else:
@@ -168,10 +163,10 @@ class AnimationProcessor:
 
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings, current_version):
         anims_generated = 0
-        fps = settings.get('fps', self.set_framerate)
-        delay = settings.get('delay', self.set_loopdelay)
-        period = settings.get('period', self.set_minperiod)
-        threshold = settings.get('threshold', min(max(self.set_threshold,0),1))
+        fps = settings.get('fps', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'fps'))
+        delay = settings.get('delay', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'delay'))
+        period = settings.get('period', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'period'))
+        threshold = settings.get('threshold', self.extraction_config.get_animation_setting(spritesheet_name, animation_name, 'threshold'))
         images = [img[1] for img in image_tuples]
         sizes = [frame.size for frame in images]
         max_size = tuple(map(max, zip(*sizes)))
@@ -195,21 +190,22 @@ class AnimationProcessor:
         durations = []
         if self.var_delay:
             for index in range(len(images)):
-                durations.append(round((index+1)*1000/fps) - round(index*1000/fps))
+                durations.append(round((index + 1) * 1000 / fps) - round(index * 1000 / fps))
         else:
-            durations = [round(1000/fps)] * len(images)
+            durations = [round(1000 / fps)] * len(images)
         durations[-1] += delay
         durations[-1] += max(period - sum(durations), 0)
-        scaled_images = list(map(lambda x: self.scale_image(x, self.set_scale), images))
+        scale = self.extraction_config.get_global_setting('scale')
+        scaled_images = list(map(lambda x: self.scale_image(x, scale), images))
         scaled_images[0].save(os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
     def save_gif(self, images, spritesheet_name, animation_name, fps, delay, period, threshold, max_size, image_tuples, current_version):
         for frame in images:
             alpha = frame.getchannel('A')
-            if (threshold == 1):
+            if threshold == 1:
                 alpha = alpha.point(lambda i: i >= 255 and 255)
             else:
-                alpha = alpha.point(lambda i: i > 255*threshold and 255)
+                alpha = alpha.point(lambda i: i > 255 * threshold and 255)
             frame.putalpha(alpha)
         min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
         for index, frame in enumerate(images):
@@ -249,13 +245,13 @@ class AnimationProcessor:
         cropped_images = []
         for frame in images:
             cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
-            cropped_images.append(self.scale_image(cropped_frame, self.set_scale))
+            cropped_images.append(self.scale_image(cropped_frame, self.extraction_config.get_global_setting('scale')))
         durations = []
         if self.var_delay:
             for index in range(len(images)):
-                durations.append(round((index+1)*1000/fps, -1) - round(index*1000/fps, -1))
+                durations.append(round((index + 1) * 1000 / fps, -1) - round(index * 1000 / fps, -1))
         else:
-            durations = [round(1000/fps, -1)] * len(cropped_images)
+            durations = [round(1000 / fps, -1)] * len(cropped_images)
         durations[-1] += delay
         durations[-1] += max(round(period, -1) - sum(durations), 0)
         cropped_images[0].save(os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.gif"), save_all=True, append_images=cropped_images[1:], disposal=2, optimize=False, duration=durations, loop=0, comment=f'GIF generated by: TextureAtlas to GIF and Frames v{current_version}')

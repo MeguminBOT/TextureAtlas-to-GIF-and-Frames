@@ -10,3 +10,4 @@ class ExceptionHandler:
         else:
             sprites_failed += 1
             raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
+

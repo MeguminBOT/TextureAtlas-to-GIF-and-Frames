@@ -14,7 +14,9 @@ from fnf_utilities import FnfUtilities
 from xml_parser import XmlParser 
 from txt_parser import TxtParser
 from extractor import Extractor
+from extraction_config import ExtractionConfig
 from help_window import HelpWindow
+
 
 class TextureAtlasExtractorApp:
     """
@@ -52,14 +54,13 @@ class TextureAtlasExtractorApp:
 
     def __init__(self, root):
         self.root = root
-        self.user_settings = {}
-        self.spritesheet_settings = {}
+        self.extraction_config = ExtractionConfig()
         self.data_dict = {}
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
         self.current_version = '1.9.2'
         self.quant_frames = {}
-        self.fnf_utilities = FnfUtilities()
+        self.fnf_utilities = FnfUtilities(self.extraction_config)
 
         self.setup_gui()
         self.check_version()
@@ -79,7 +80,7 @@ class TextureAtlasExtractorApp:
 
     def setup_menus(self):
         file_menu = tk.Menu(self.menubar, tearoff=0)
-        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.extraction_config.clear())
         file_menu.add_command(label="Select files", command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label))
         file_menu.add_command(label="Clear filelist and user settings", command=self.clear_filelist)
         file_menu.add_separator()
@@ -87,7 +88,7 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         import_menu = tk.Menu(self.menubar, tearoff=0)
-        import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: self.fnf_utilities.fnf_select_char_json_directory(self.user_settings, self.data_dict, self.listbox_png, self.listbox_data))
+        import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: self.fnf_utilities.fnf_select_char_json_directory(self.extraction_config, self.data_dict, self.listbox_png, self.listbox_data))
         self.menubar.add_cascade(label="Import", menu=import_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
@@ -124,7 +125,7 @@ class TextureAtlasExtractorApp:
         self.scrollbar_xml.config(command=self.listbox_data.yview)
 
         self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.extraction_config.clear())
         self.input_button.pack(pady=2)
 
         self.input_dir_label = tk.Label(self.root, text="No input directory selected")
@@ -145,43 +146,43 @@ class TextureAtlasExtractorApp:
         self.webp_checkbox = tk.Checkbutton(self.root, text="Create WebPs for each animation", variable=self.create_webp)
         self.webp_checkbox.pack()
 
-        self.set_framerate = tk.DoubleVar(value=24)
+        self.set_framerate = tk.DoubleVar(value=self.extraction_config.get_global_setting('fps'))
         self.frame_rate_label = tk.Label(self.root, text="Frame Rate (fps):")
         self.frame_rate_label.pack()
         self.frame_rate_entry = tk.Entry(self.root, textvariable=self.set_framerate)
         self.frame_rate_entry.pack()
 
-        self.set_loopdelay = tk.DoubleVar(value=250)
+        self.set_loopdelay = tk.DoubleVar(value=self.extraction_config.get_global_setting('delay'))
         self.loopdelay_label = tk.Label(self.root, text="Loop Delay (ms):")
         self.loopdelay_label.pack()
         self.loopdelay_entry = tk.Entry(self.root, textvariable=self.set_loopdelay)
         self.loopdelay_entry.pack()
 
-        self.set_minperiod = tk.DoubleVar(value=0)
+        self.set_minperiod = tk.DoubleVar(value=self.extraction_config.get_global_setting('period'))
         self.minperiod_label = tk.Label(self.root, text="Minimum Period (ms):")
         self.minperiod_label.pack()
         self.minperiod_entry = tk.Entry(self.root, textvariable=self.set_minperiod)
         self.minperiod_entry.pack()
 
-        self.set_scale = tk.DoubleVar(value=1)
+        self.set_scale = tk.DoubleVar(value=self.extraction_config.get_global_setting('scale'))
         self.scale_label = tk.Label(self.root, text="Scale:")
         self.scale_label.pack()
         self.scale_entry = tk.Entry(self.root, textvariable=self.set_scale)
         self.scale_entry.pack()
 
-        self.set_threshold = tk.DoubleVar(value=0.5)
+        self.set_threshold = tk.DoubleVar(value=self.extraction_config.get_global_setting('threshold'))
         self.threshold_label = tk.Label(self.root, text="Alpha Threshold:")
         self.threshold_label.pack()
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
         self.threshold_entry.pack()
 
-        self.keep_frames = tk.StringVar(value='all')
+        self.keep_frames = tk.StringVar(value=self.extraction_config.get_global_setting('frames'))
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
         self.keepframes_label.pack()
         self.keepframes_entry = tk.Entry(self.root, textvariable=self.keep_frames)
         self.keepframes_entry.pack(pady=2)
 
-        self.crop_option = tk.StringVar(value="Animation based")
+        self.crop_option = tk.StringVar(value=self.extraction_config.get_global_setting('crop_option'))
         self.crop_label = tk.Label(self.root, text="PNG Cropping Method")
         self.crop_label.pack()
         self.crop_menu = tk.OptionMenu(self.root, self.crop_option, "None", "Frame based", "Animation based")
@@ -216,7 +217,9 @@ class TextureAtlasExtractorApp:
     def clear_filelist(self):
         self.listbox_png.delete(0, tk.END)
         self.listbox_data.delete(0, tk.END)
-        self.user_settings.clear()
+        self.extraction_config.global_settings.clear()
+        self.extraction_config.animation_settings.clear()
+        self.extraction_config.spritesheet_settings.clear()
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
@@ -271,15 +274,15 @@ class TextureAtlasExtractorApp:
     def update_settings_window(self, settings_frame, settings_canvas):
         for widget in settings_frame.winfo_children():
             widget.destroy()
-        tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
-        for key, value in self.user_settings.items():
-            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
         tk.Label(settings_frame, text="Spritesheet Settings").pack(pady=10)
-        for key, value in self.spritesheet_settings.items():
+        for key, value in self.extraction_config.spritesheet_settings.items():
+            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+        tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
+        for key, value in self.extraction_config.animation_settings.items():
             tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
         settings_frame.update_idletasks()
         settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
-        
+
     def on_select_png(self, evt):
         self.listbox_data.delete(0, tk.END)
 
@@ -301,7 +304,7 @@ class TextureAtlasExtractorApp:
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
-        self.create_animation_settings_window(new_window, spritesheet_name, self.spritesheet_settings)
+        self.create_animation_settings_window(new_window, spritesheet_name, self.extraction_config.spritesheet_settings)
 
     def on_double_click_xml(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
@@ -309,7 +312,7 @@ class TextureAtlasExtractorApp:
         full_anim_name = spritesheet_name + '/' + animation_name
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
-        self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
+        self.create_animation_settings_window(new_window, full_anim_name, self.extraction_config.animation_settings)
 
     def create_animation_settings_window(self, window, name, settings_dict):
         tk.Label(window, text="FPS for " + name).pack()
@@ -422,31 +425,29 @@ class TextureAtlasExtractorApp:
         window.destroy()
         
     def on_closing(self):
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-        self.root.destroy()
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            if self.temp_dir and os.path.exists(self.temp_dir):
+                shutil.rmtree(self.temp_dir)
+                self.root.destroy()
         
     def start_process(self):
         process_thread = threading.Thread(target=self.run_extractor)
         process_thread.start()
         
     def run_extractor(self):
-        extractor = Extractor(self.progress_bar, self.current_version)
+        input_dir = self.input_dir.get()
+        output_dir = self.output_dir.get()
+        if not input_dir or not output_dir:
+            messagebox.showerror("Error", "Please select both input and output directories.")
+            return
+
+        create_gif = self.create_gif.get()
+        create_webp = self.create_webp.get()
+        var_delay = self.variable_delay.get()
+
+        extractor = Extractor(self.progress_bar, self.current_version, self.extraction_config)
         extractor.process_directory(
-            self.input_dir.get(),
-            self.output_dir.get(),
-            self.progress_var,
-            self.root,
-            self.create_gif.get(),
-            self.create_webp.get(),
-            self.set_framerate.get(),
-            self.set_loopdelay.get(),
-            self.set_minperiod.get(),
-            self.set_scale.get(),
-            self.set_threshold.get(),
-            self.keep_frames.get(),
-            self.crop_option.get(),
-            self.variable_delay.get(),
+            input_dir, output_dir, self.progress_var, self.root, create_gif, create_webp, var_delay
         )
 
 if __name__ == "__main__":
