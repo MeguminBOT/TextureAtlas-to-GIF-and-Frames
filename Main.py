@@ -57,7 +57,7 @@ class TextureAtlasExtractorApp:
         self.data_dict = {}
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
-        self.current_version = '1.9.2'
+        self.current_version = '1.9.3'
         self.quant_frames = {}
         self.fnf_utilities = FnfUtilities()
 
@@ -79,7 +79,7 @@ class TextureAtlasExtractorApp:
 
     def setup_menus(self):
         file_menu = tk.Menu(self.menubar, tearoff=0)
-        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear() and self.spritesheet_settings.clear())
         file_menu.add_command(label="Select files", command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label))
         file_menu.add_command(label="Clear filelist and user settings", command=self.clear_filelist)
         file_menu.add_separator()
@@ -217,6 +217,7 @@ class TextureAtlasExtractorApp:
         self.listbox_png.delete(0, tk.END)
         self.listbox_data.delete(0, tk.END)
         self.user_settings.clear()
+        self.spritesheet_settings.clear()
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
@@ -431,7 +432,7 @@ class TextureAtlasExtractorApp:
         process_thread.start()
         
     def run_extractor(self):
-        extractor = Extractor(self.progress_bar, self.current_version)
+        extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
