@@ -431,7 +431,7 @@ class TextureAtlasExtractorApp:
         process_thread.start()
         
     def run_extractor(self):
-        extractor = Extractor(self.progress_bar, self.current_version)
+        extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
