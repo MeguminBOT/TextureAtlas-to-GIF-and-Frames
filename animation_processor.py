@@ -234,7 +234,7 @@ class AnimationProcessor:
                     wand_frame.alpha_channel = 'background'
                     wand_frame.trim(background_color='None')
                     if wand_frame.colors > 256:
-                        wand_frame.quantize(number_colors=256, dither=False)
+                        wand_frame.quantize(number_colors=256, colorspace_type='undefined', dither=False)
                     wand_frame.coalesce()
                     fd, temp_filename = tempfile.mkstemp(suffix='.gif')
                     wand_frame.save(filename=temp_filename)
