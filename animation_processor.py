@@ -24,6 +24,7 @@ class AnimationProcessor:
         keep_frames (str): The frames to keep ('all', 'first', 'last', 'none', or a range).
         crop_option (str): The cropping type to use for PNG images.
         var_delay (bool): Flag to indicate whether to use variable delay between frames.
+        fnf_idle_loop (bool): *FNF* Flag to indicate whether to set 'loop delay' to 0 for idle animations.
         user_settings (dict): User-defined settings for specific animations.
         quant_frames (dict): A dictionary to store quantized frames.
         current_version (str): The current version of the processor.
@@ -39,7 +40,7 @@ class AnimationProcessor:
         scale_image(img, size): Scales the image by the given size factor.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, user_settings, current_version):
+    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, fnf_idle_loop, user_settings, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
@@ -54,6 +55,7 @@ class AnimationProcessor:
         self.keep_frames = keep_frames
         self.crop_option = crop_option
         self.var_delay = var_delay
+        self.fnf_idle_loop = fnf_idle_loop
         self.user_settings = user_settings
         self.quant_frames = {}
         self.current_version = current_version
@@ -74,6 +76,8 @@ class AnimationProcessor:
             single_frame = self.is_single_frame(image_tuples)
             kept_frames = self.get_kept_frames(settings, self.keep_frames, single_frame)
             kept_frame_indices = self.get_kept_frame_indices(kept_frames, image_tuples)
+            if self.fnf_idle_loop and "idle" in animation_name.lower():
+                settings['delay'] = 0
             frames_generated += self.save_frames(image_tuples, kept_frame_indices, animation_name, scale)
             if self.create_gif or self.create_webp:
                 anims_generated += self.save_animations(image_tuples, spritesheet_name, animation_name, settings, self.current_version)

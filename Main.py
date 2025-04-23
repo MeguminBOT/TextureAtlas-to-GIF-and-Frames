@@ -99,8 +99,10 @@ class TextureAtlasExtractorApp:
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
         self.variable_delay = tk.BooleanVar()
         self.use_all_threads = tk.BooleanVar()
+        self.fnf_idle_loop = tk.BooleanVar()
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
         advanced_menu.add_checkbutton(label="Use all CPU threads", variable=self.use_all_threads)
+        advanced_menu.add_checkbutton(label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop)
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
     def setup_widgets(self):
@@ -429,7 +431,7 @@ class TextureAtlasExtractorApp:
     def start_process(self):
         process_thread = threading.Thread(target=self.run_extractor)
         process_thread.start()
-        
+
     def run_extractor(self):
         extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
         extractor.process_directory(
@@ -447,6 +449,7 @@ class TextureAtlasExtractorApp:
             self.keep_frames.get(),
             self.crop_option.get(),
             self.variable_delay.get(),
+            self.fnf_idle_loop.get()
         )
 
 if __name__ == "__main__":
