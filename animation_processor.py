@@ -105,11 +105,20 @@ class AnimationProcessor:
         kept_frame_indices = set()
         for entry in kept_frames:
             try:
-                frame_index = int(entry)
-                if frame_index < 0:
-                    frame_index += len(image_tuples)
-                if frame_index >= 0 and frame_index < len(image_tuples):
-                    kept_frame_indices.add(frame_index)
+                if '--' in entry:
+                    start_frame, end_frame = map(int, entry.split('--'))
+                    if start_frame < 0:
+                        start_frame += len(image_tuples)
+                    if end_frame < 0:
+                        end_frame += len(image_tuples)
+                    frame_range = range(max(start_frame, 0), min(end_frame + 1, len(image_tuples)))
+                    kept_frame_indices.update(frame_range)
+                else:
+                    frame_index = int(entry)
+                    if frame_index < 0:
+                        frame_index += len(image_tuples)
+                    if 0 <= frame_index < len(image_tuples):
+                        kept_frame_indices.add(frame_index)
             except ValueError:
                 if entry != '':
                     start_frame = int(re.match(r'-?\d+', entry).group())
@@ -120,9 +129,8 @@ class AnimationProcessor:
                         end_frame += len(image_tuples)
                     if (start_frame < 0 and end_frame < 0) or (start_frame >= len(image_tuples) and end_frame >= len(image_tuples)):
                         continue
-                    frame_range = range(max(start_frame,0),min(end_frame+1,len(image_tuples)))
-                    for i in frame_range:
-                        kept_frame_indices.add(i)
+                    frame_range = range(max(start_frame, 0), min(end_frame + 1, len(image_tuples)))
+                    kept_frame_indices.update(frame_range)
         return kept_frame_indices
 
     def save_frames(self, image_tuples, kept_frame_indices, animation_name, scale):
