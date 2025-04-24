@@ -67,7 +67,7 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
-        self.root.geometry("900x600")
+        self.root.geometry("900x640")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -191,6 +191,12 @@ class TextureAtlasExtractorApp:
 
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
+        
+        self.prefix_label = tk.Label(self.root, text="Filename prefix:")
+        self.prefix_label.pack()
+        self.prefix = tk.StringVar(value="")
+        self.prefix_entry = tk.Entry(self.root, textvariable=self.prefix)
+        self.prefix_entry.pack()
 
         self.show_user_settings = tk.Button(self.button_frame, text="Show User Settings", command=self.create_settings_window)
         self.show_user_settings.pack(side=tk.LEFT, padx=4)
@@ -434,6 +440,11 @@ class TextureAtlasExtractorApp:
 
     def run_extractor(self):
         extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
+        prefix = self.prefix.get()
+        if any(char in prefix for char in r'\/:*?"<>|'):
+            messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
+            return
+
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
@@ -448,6 +459,7 @@ class TextureAtlasExtractorApp:
             self.set_threshold.get(),
             self.keep_frames.get(),
             self.crop_option.get(),
+            self.prefix.get(),
             self.variable_delay.get(),
             self.fnf_idle_loop.get()
         )
