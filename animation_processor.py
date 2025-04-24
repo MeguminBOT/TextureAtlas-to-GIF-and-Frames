@@ -93,18 +93,18 @@ class AnimationProcessor:
 
     def get_kept_frames(self, settings, keep_frames, single_frame):
         if single_frame:
-            return '0'
+            return ['0']
         kept_frames = settings.get('frames', keep_frames)
         if kept_frames == 'all':
-            kept_frames = '0--1'
+            return [f"{i}" for i in range(len(self.animations))]
         elif kept_frames == 'first':
-            kept_frames = '0'
+            return ['0']
         elif kept_frames == 'last':
-            kept_frames = '-1'
+            return ['-1']
         elif re.fullmatch(r'first, ?last', kept_frames):
-            kept_frames = '0,-1'
+            return ['0', '-1']
         elif kept_frames == 'none':
-            kept_frames = ''
+            return []
         return [ele for ele in kept_frames.split(',')]
 
     def get_kept_frame_indices(self, kept_frames, image_tuples):
