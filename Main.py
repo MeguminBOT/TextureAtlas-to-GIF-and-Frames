@@ -67,7 +67,7 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
-        self.root.geometry("900x640")
+        self.root.geometry("900x680")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -189,14 +189,23 @@ class TextureAtlasExtractorApp:
         self.crop_menu = tk.OptionMenu(self.root, self.crop_option, "None", "Frame based", "Animation based")
         self.crop_menu.pack(pady=1)
 
-        self.button_frame = tk.Frame(self.root)
-        self.button_frame.pack(pady=8)
-        
         self.prefix_label = tk.Label(self.root, text="Filename prefix:")
         self.prefix_label.pack()
         self.prefix = tk.StringVar(value="")
         self.prefix_entry = tk.Entry(self.root, textvariable=self.prefix)
         self.prefix_entry.pack()
+        
+        self.filename_format = tk.StringVar(value="Standardized")
+        self.filename_format_label = tk.Label(self.root, text="Filename Format:")
+        self.filename_format_label.pack()
+        self.filename_format_menu = tk.OptionMenu(self.root, self.filename_format, "Standardized", "No Spaces", "No Special Characters")
+        self.filename_format_menu.pack(pady=1)
+        # "Standardized" example: "GodsentGaslit - Catnap - Idle"
+        # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
+        # "No Special Characters" example: "GodsentGaslitCatnapIdle"
+        
+        self.button_frame = tk.Frame(self.root)
+        self.button_frame.pack(pady=8)
 
         self.show_user_settings = tk.Button(self.button_frame, text="Show User Settings", command=self.create_settings_window)
         self.show_user_settings.pack(side=tk.LEFT, padx=4)
@@ -460,6 +469,7 @@ class TextureAtlasExtractorApp:
             self.keep_frames.get(),
             self.crop_option.get(),
             self.prefix.get(),
+            self.filename_format.get(),
             self.variable_delay.get(),
             self.fnf_idle_loop.get()
         )

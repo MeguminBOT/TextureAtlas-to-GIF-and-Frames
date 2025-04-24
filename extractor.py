@@ -37,7 +37,7 @@ class Extractor:
         self.progress_bar = progress_bar
         self.current_version = current_version
 
-    def process_directory(self, input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, prefix, var_delay, fnf_idle_loop):
+    def process_directory(self, input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop):
         total_frames_generated = 0
         total_anims_generated = 0
         total_sprites_failed = 0
@@ -73,7 +73,7 @@ class Extractor:
                         threshold = settings.get('threshold', set_threshold)
                         scale = settings.get('scale', set_scale)
                         indices = settings.get('indices')
-                        future = executor.submit(self.extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_option, prefix, var_delay, fnf_idle_loop, self.user_settings, self.current_version)
+                        future = executor.submit(self.extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, self.user_settings, self.current_version)
                         futures.append(future)
 
             for future in concurrent.futures.as_completed(futures):
@@ -109,7 +109,7 @@ class Extractor:
             f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
         )
 
-    def extract_sprites(self, atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, var_delay, fnf_idle_loop, user_settings, current_version):
+    def extract_sprites(self, atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
@@ -117,7 +117,7 @@ class Extractor:
             atlas_processor = AtlasProcessor(atlas_path, metadata_path)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
-            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, var_delay, fnf_idle_loop, user_settings, current_version)
+            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version)
             frames_generated, anims_generated = animation_processor.process_animations()
             return {
                 'frames_generated': frames_generated,
