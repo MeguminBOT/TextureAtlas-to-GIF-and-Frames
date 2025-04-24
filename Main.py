@@ -19,6 +19,7 @@ from help_window import HelpWindow
 class TextureAtlasExtractorApp:
     """
     A GUI application for extracting textures from a texture atlas and converting them to GIF and WebP formats.
+
     Attributes:
         root (tk.Tk): The root window of the application.
         user_settings (dict): A dictionary to store user settings.
@@ -29,6 +30,7 @@ class TextureAtlasExtractorApp:
         current_version (str): The current version of the application.
         quant_frames (dict): A dictionary to store quantized frames.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
+
     Methods:
         setup_gui(): Sets up the GUI components of the application.
         setup_menus(): Sets up the menu bar and its items.
@@ -47,7 +49,8 @@ class TextureAtlasExtractorApp:
         create_animation_settings_window(window, name, settings_dict): Creates a window to edit animation settings.
         store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the animation settings window.
         on_closing(): Handles the event when the application is closing.
-        start_process(): Starts the process of extracting textures and converting them to GIF and WebP formats.
+        start_process(): Prepares and starts the processing thread.
+        run_extractor(): Starts the extracting process textures and converting them to GIF and WebP formats. 
     """
 
     def __init__(self, root):

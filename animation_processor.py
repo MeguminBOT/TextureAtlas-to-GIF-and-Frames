@@ -9,6 +9,7 @@ import numpy
 class AnimationProcessor:
     """
     A class to process animations from a texture atlas and save them as individual frames or animations (GIF/WebP).
+
     Attributes:
         animations (dict): A dictionary containing animation names and their corresponding image tuples.
         atlas_path (str): The path to the texture atlas.
@@ -23,11 +24,14 @@ class AnimationProcessor:
         set_indices (list): The indices of frames to be used.
         keep_frames (str): The frames to keep ('all', 'first', 'last', 'none', or a range).
         crop_option (str): The cropping type to use for PNG images.
+        prefix (str): The prefix to use for output filenames.
+        filename_format (str): The format for output filenames ('Standardized', 'No Spaces', 'No Special Characters').
         var_delay (bool): Flag to indicate whether to use variable delay between frames.
         fnf_idle_loop (bool): *FNF* Flag to indicate whether to set 'loop delay' to 0 for idle animations.
         user_settings (dict): User-defined settings for specific animations.
         quant_frames (dict): A dictionary to store quantized frames.
-        current_version (str): The current version of the processor.
+        current_version (str): The current version of the application.
+
     Methods:
         process_animations(): Processes the animations and saves the frames and animations.
         is_single_frame(image_tuples): Checks if the animation consists of a single frame.
@@ -35,9 +39,10 @@ class AnimationProcessor:
         get_kept_frame_indices(kept_frames, image_tuples): Gets the indices of the frames to keep.
         save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale): Saves the individual frames.
         save_animations(image_tuples, spritesheet_name, animation_name, settings, current_version): Saves the animations as GIF or WebP.
-        save_webp(images, spritesheet_name, animation_name, fps, delay, period): Saves the animation as a WebP file.
-        save_gif(images, spritesheet_name, animation_name, fps, delay, period, threshold, max_size, image_tuples, current_version): Saves the animation as a GIF file.
+        save_webp(images, spritesheet_name, animation_name, fps, delay, period, scale): Saves the animation as a WebP file.
+        save_gif(images, spritesheet_name, animation_name, fps, delay, period, scale, threshold, max_size, image_tuples, current_version): Saves the animation as a GIF file.
         scale_image(img, size): Scales the image by the given size factor.
+        format_filename(prefix, sprite_name, animation_name, filename_format): Formats the filename based on the given parameters.
     """
 
     def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version):

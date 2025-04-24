@@ -16,16 +16,19 @@ from utilities import Utilities
 class Extractor:
     """
     A class to extract sprites from a directory of spritesheets and their corresponding metadata files.
+
     Attributes:
         progress_bar (tkinter.Progressbar): The progress bar to update during processing.
         current_version (str): The current version of the extractor.
         spritesheet_settings (dict): A dictionary to store settings for each spritesheet.
         user_settings (dict): A dictionary to store user settings.
         use_all_threads (tk.BooleanVar): A boolean variable to determine if all CPU threads should be used.
+        fnf_idle_loop (tk.BooleanVar): A boolean variable to determine if idle animations should have a loop delay of 0.
+
     Methods:
-        process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, var_delay, fnf_idle_loop):
+        process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop):
             Processes the given directory of spritesheets and metadata files, extracting sprites and generating animations.
-        extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, fnf_idle_loop, user_settings, quant_frames, current_version):
+        extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version):
             Extracts sprites from a given atlas and metadata file, and processes the animations.
     """
 
