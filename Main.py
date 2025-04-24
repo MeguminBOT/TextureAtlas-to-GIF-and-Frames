@@ -129,7 +129,7 @@ class TextureAtlasExtractorApp:
         self.scrollbar_xml.config(command=self.listbox_data.yview)
 
         self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear() and self.spritesheet_settings.clear())
         self.input_button.pack(pady=2)
 
         self.input_dir_label = tk.Label(self.root, text="No input directory selected")
@@ -237,6 +237,7 @@ class TextureAtlasExtractorApp:
         self.listbox_png.delete(0, tk.END)
         self.listbox_data.delete(0, tk.END)
         self.user_settings.clear()
+        self.spritesheet_settings.clear()
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
