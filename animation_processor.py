@@ -34,7 +34,7 @@ class AnimationProcessor:
 
     Methods:
         process_animations(): Processes the animations and saves the frames and animations.
-        is_single_frame(image_tuples): Checks if the animation consists of a single frame.
+        is_single_frame(image_tuples): Checks if the animation consists of a single frame (or repeats of the same frame).
         get_kept_frames(settings, keep_frames, single_frame): Determines which frames to keep based on settings.
         get_kept_frame_indices(kept_frames, image_tuples): Gets the indices of the frames to keep.
         save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale): Saves the individual frames.
@@ -86,14 +86,17 @@ class AnimationProcessor:
             if self.fnf_idle_loop and "idle" in animation_name.lower():
                 settings['delay'] = 0
             frames_generated += self.save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale)
-            if self.create_gif or self.create_webp:
+            if not single_frame and (self.create_gif or self.create_webp):
                 anims_generated += self.save_animations(image_tuples, spritesheet_name, animation_name, settings, self.current_version)
         return frames_generated, anims_generated
 
     def is_single_frame(self, image_tuples):
         for i in image_tuples:
             if i[2] != image_tuples[0][2]:
-                return False
+                for i in image_tuples:
+                    if i[1] != image_tuples[0][1]:
+                        return False
+                return True
         return True
 
     def get_kept_frames(self, settings, keep_frames, single_frame):
