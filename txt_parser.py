@@ -10,15 +10,15 @@ class TxtParser:
     Currently only supports TXT files in the TextPacker format.
 
     Attributes:
-    - directory: The directory where the TXT file is located.
-    - txt_filename: The name of the TXT file to parse.
-    - listbox_data: The Tkinter listbox to populate with extracted names.
+        directory: The directory where the TXT file is located.
+        txt_filename: The name of the TXT file to parse.
+        listbox_data: The Tkinter listbox to populate with extracted names.
 
     Methods:
-    - get_data(): Parses the TXT file and populates the listbox with names.
-    - extract_names(): Extracts names from each line of the TXT file.
-    - get_names(names): Populates the listbox with the given names.
-    - parse_txt_packer(file_path): Static method to parse TXT data from a file and return sprite information.
+        get_data(): Parses the TXT file and populates the listbox with names.
+        extract_names(): Extracts names from each line of the TXT file.
+        get_names(names): Populates the listbox with the given names.
+        parse_txt_packer(file_path): Static method to parse TXT data from a file and return sprite information.
     """
 
     def __init__(self, directory, txt_filename, listbox_data):

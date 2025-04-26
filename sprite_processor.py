@@ -1,5 +1,4 @@
 from PIL import Image
-from wand.image import Image as WandImg
 
 # Import our own modules
 from utilities import Utilities
