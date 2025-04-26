@@ -1,6 +1,5 @@
 import os
 import shutil
-import re
 import tempfile
 import threading
 import tkinter as tk
@@ -10,6 +9,7 @@ from tkinter import filedialog, ttk, messagebox
 # Import our own modules
 from dependencies_checker import DependenciesChecker
 from update_checker import UpdateChecker
+from settings_manager import SettingsManager
 from fnf_utilities import FnfUtilities
 from xml_parser import XmlParser 
 from txt_parser import TxtParser
@@ -22,14 +22,17 @@ class TextureAtlasExtractorApp:
 
     Attributes:
         root (tk.Tk): The root window of the application.
-        user_settings (dict): A dictionary to store user settings.
-        spritesheet_settings (dict): A dictionary to store spritesheet settings.
+        settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
         data_dict (dict): A dictionary to store data related to the spritesheets.
         temp_dir (str): A temporary directory for storing files.
         fnf_char_json_directory (str): Directory for FNF character JSON files.
         current_version (str): The current version of the application.
         quant_frames (dict): A dictionary to store quantized frames.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
+        progress_var (tk.DoubleVar): A variable to track progress for the progress bar.
+        variable_delay (tk.BooleanVar): A flag to enable or disable variable delay between frames.
+        use_all_threads (tk.BooleanVar): A flag to enable or disable the use of all CPU threads.
+        fnf_idle_loop (tk.BooleanVar): A flag to set loop delay to 0 for idle animations in FNF.
 
     Methods:
         setup_gui(): Sets up the GUI components of the application.
@@ -38,25 +41,24 @@ class TextureAtlasExtractorApp:
         contributeLink(linkSourceCode): Opens the source code link in a web browser.
         check_version(): Checks for updates to the application.
         check_dependencies(): Checks and configures dependencies.
-        clear_filelist(): Clears the file list and user settings.
+        clear_filelist(): Clears the file list and resets animation and spritesheet settings.
         select_directory(variable, label): Opens a directory selection dialog and updates the label.
         select_files_manually(variable, label): Opens a file selection dialog and updates the label.
-        create_settings_window(): Creates a window to display user and spritesheet settings.
+        create_settings_window(): Creates a window to display animation and spritesheet settings.
         update_settings_window(settings_frame, settings_canvas): Updates the settings window with current settings.
-        on_select_png(evt): Handles the event when a PNG file is selected from the listbox.
-        on_double_click_png(evt): Handles the event when a PNG file is double-clicked in the listbox.
-        on_double_click_xml(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_animation_settings_window(window, name, settings_dict): Creates a window to edit animation settings.
-        store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the animation settings window.
+        on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
+        on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
+        on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
+        create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
+        store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
         on_closing(): Handles the event when the application is closing.
         start_process(): Prepares and starts the processing thread.
-        run_extractor(): Starts the extracting process textures and converting them to GIF and WebP formats. 
+        run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
     """
 
     def __init__(self, root):
         self.root = root
-        self.user_settings = {}
-        self.spritesheet_settings = {}
+        self.settings_manager = SettingsManager()
         self.data_dict = {}
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
@@ -129,7 +131,11 @@ class TextureAtlasExtractorApp:
         self.scrollbar_xml.config(command=self.listbox_data.yview)
 
         self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear() and self.spritesheet_settings.clear())
+        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2",
+            command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
+            and self.settings_manager.animation_settings.clear()
+            and self.settings_manager.spritesheet_settings.clear()
+        )
         self.input_button.pack(pady=2)
 
         self.input_dir_label = tk.Label(self.root, text="No input directory selected")
@@ -236,8 +242,8 @@ class TextureAtlasExtractorApp:
     def clear_filelist(self):
         self.listbox_png.delete(0, tk.END)
         self.listbox_data.delete(0, tk.END)
-        self.user_settings.clear()
-        self.spritesheet_settings.clear()
+        self.settings_manager.animation_settings.clear()  # Clear animation-specific settings
+        self.settings_manager.spritesheet_settings.clear()  # Clear spritesheet-specific settings
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
@@ -249,9 +255,9 @@ class TextureAtlasExtractorApp:
                 for filename in os.listdir(directory):
                     if filename.endswith('.xml') or filename.endswith('.txt'):
                         self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
-                self.listbox_png.bind('<<ListboxSelect>>', self.on_select_png)
-                self.listbox_png.bind('<Double-1>', self.on_double_click_png)
-                self.listbox_data.bind('<Double-1>', self.on_double_click_xml)
+                self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
+                self.listbox_png.bind('<Double-1>', self.on_double_click_spritesheet)
+                self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
         return directory
 
     def select_files_manually(self, variable, label):
@@ -271,8 +277,8 @@ class TextureAtlasExtractorApp:
                 shutil.copy(file, self.temp_dir)
             self.listbox_png.unbind('<<ListboxSelect>>')
             self.listbox_data.unbind('<Double-1>')
-            self.listbox_png.bind('<<ListboxSelect>>', self.on_select_png)
-            self.listbox_data.bind('<Double-1>', self.on_double_click_xml)
+            self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
+            self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
         return self.temp_dir
 
     def create_settings_window(self):
@@ -292,16 +298,19 @@ class TextureAtlasExtractorApp:
     def update_settings_window(self, settings_frame, settings_canvas):
         for widget in settings_frame.winfo_children():
             widget.destroy()
+
         tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
-        for key, value in self.user_settings.items():
+        for key, value in self.settings_manager.animation_settings.items():
             tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+
         tk.Label(settings_frame, text="Spritesheet Settings").pack(pady=10)
-        for key, value in self.spritesheet_settings.items():
+        for key, value in self.settings_manager.spritesheet_settings.items():
             tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+
         settings_frame.update_idletasks()
         settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
         
-    def on_select_png(self, evt):
+    def on_select_spritesheet(self, evt):
         self.listbox_data.delete(0, tk.END)
 
         png_filename = self.listbox_png.get(self.listbox_png.curselection())
@@ -318,128 +327,107 @@ class TextureAtlasExtractorApp:
             txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
             txt_parser.get_data()
 
-    def on_double_click_png(self, evt):
+    def on_double_click_spritesheet(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
-        self.create_animation_settings_window(new_window, spritesheet_name, self.spritesheet_settings)
+        self.create_override_settings_window(new_window, spritesheet_name, "spritesheet")
 
-    def on_double_click_xml(self, evt):
+    def on_double_click_animation(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
         animation_name = self.listbox_data.get(self.listbox_data.curselection())
         full_anim_name = spritesheet_name + '/' + animation_name
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
-        self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
+        self.create_override_settings_window(new_window, full_anim_name, "animation")
 
-    def create_animation_settings_window(self, window, name, settings_dict):
+    def create_override_settings_window(self, window, name, settings_type):
+        settings_map = {
+            "animation": self.settings_manager.animation_settings,
+            "spritesheet": self.settings_manager.spritesheet_settings,
+        }
+        settings = settings_map.get(settings_type, {}).get(name, {})
+
         tk.Label(window, text="FPS for " + name).pack()
         fps_entry = tk.Entry(window)
-        if name in settings_dict:
-            fps_entry.insert(0, str(settings_dict[name].get('fps', '')))
+        if settings:
+            fps_entry.insert(0, str(settings.get('fps', '')))
         fps_entry.pack()
-        
+
         tk.Label(window, text="Delay for " + name).pack()
         delay_entry = tk.Entry(window)
-        if name in settings_dict:
-            delay_entry.insert(0, str(settings_dict[name].get('delay', '')))
+        if settings:
+            delay_entry.insert(0, str(settings.get('delay', '')))
         delay_entry.pack()
-        
+
         tk.Label(window, text="Min period for " + name).pack()
         period_entry = tk.Entry(window)
-        if name in settings_dict:
-            period_entry.insert(0, str(settings_dict[name].get('period', '')))
+        if settings:
+            period_entry.insert(0, str(settings.get('period', '')))
         period_entry.pack()
-        
+
         tk.Label(window, text="Scale for " + name).pack()
         scale_entry = tk.Entry(window)
-        if name in settings_dict:
-            scale_entry.insert(0, str(settings_dict[name].get('scale', '')))
+        if settings:
+            scale_entry.insert(0, str(settings.get('scale', '')))
         scale_entry.pack()
-        
+
         tk.Label(window, text="Threshold for " + name).pack()
         threshold_entry = tk.Entry(window)
-        if name in settings_dict:
-            threshold_entry.insert(0, str(settings_dict[name].get('threshold', '')))
+        if settings:
+            threshold_entry.insert(0, str(settings.get('threshold', '')))
         threshold_entry.pack()
-        
+
         tk.Label(window, text="Indices for " + name).pack()
         indices_entry = tk.Entry(window)
-        if name in settings_dict:
-            indices_entry.insert(0, str(settings_dict[name].get('indices', '')).translate(str.maketrans('','','[] ')))
+        if settings:
+            indices_entry.insert(0, str(settings.get('indices', '')).translate(str.maketrans('', '', '[] ')))
         indices_entry.pack()
-        
+
         tk.Label(window, text="Keep frames for " + name).pack()
         frames_entry = tk.Entry(window)
-        if name in settings_dict:
-            frames_entry.insert(0, str(settings_dict[name].get('frames', '')))
+        if settings:
+            frames_entry.insert(0, str(settings.get('frames', '')))
         frames_entry.pack()
-        
-        tk.Button(window, text="OK", command=lambda: self.store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry)).pack()
 
-    def store_input(self, window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
-        anim_settings = {}
+        tk.Button(window, text="OK", command=lambda: self.store_input(
+            window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
+        )).pack()
+
+    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+        settings = {}
         try:
             if fps_entry.get() != '':
-                anim_settings['fps'] = float(fps_entry.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for FPS.")
-            window.lift()
-            return
-        try:
+                settings['fps'] = float(fps_entry.get())
             if delay_entry.get() != '':
-                anim_settings['delay'] = int(delay_entry.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for delay.")
-            window.lift()
-            return
-        try:
+                settings['delay'] = int(delay_entry.get())
             if period_entry.get() != '':
-                anim_settings['period'] = int(period_entry.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid integer for period.")
-            window.lift()
-            return
-        try:
+                settings['period'] = int(period_entry.get())
             if scale_entry.get() != '':
                 if float(scale_entry.get()) == 0:
                     raise ValueError
-                anim_settings['scale'] = float(scale_entry.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float for scale.")
-            window.lift()
-            return
-        try:
+                settings['scale'] = float(scale_entry.get())
             if threshold_entry.get() != '':
-                anim_settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a valid float between 0 and 1 inclusive for threshold.")
-            window.lift()
-            return
-        try:
+                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
             if indices_entry.get() != '':
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
-                anim_settings['indices'] = indices
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a comma-separated list of integers for indices.")
-            window.lift()
-            return
-        try:
+                settings['indices'] = indices
             if frames_entry.get() != '':
-                if not re.fullmatch(r',|all|first|last|first, ?last|none', frames_entry.get().lower()):
-                    keep_frames = [ele for ele in frames_entry.get().split(',')]
-                    for entry in keep_frames:
-                        if not re.fullmatch(r'-?\d+(--?\d+)?', entry):
-                            raise ValueError
-                anim_settings['frames'] = frames_entry.get().lower()
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter a keyword or a comma-separated list of integers or integer ranges for keep frames.")
+                settings['frames'] = frames_entry.get().lower()
+        except ValueError as e:
+            messagebox.showerror("Invalid input", f"Error: {str(e)}")
             window.lift()
             return
-        if len(anim_settings) > 0:
-            settings_dict[name] = anim_settings
-        elif settings_dict.get(name):
-            settings_dict.pop(name)
+
+        settings_method_map = {
+            "animation": self.settings_manager.set_animation_settings,
+            "spritesheet": self.settings_manager.set_spritesheet_settings,
+        }
+
+        settings_method = settings_method_map.get(settings_type)
+        if settings_method:
+            settings_method(name, **settings)
+
         window.destroy()
         
     def on_closing(self):
@@ -448,34 +436,36 @@ class TextureAtlasExtractorApp:
         self.root.destroy()
         
     def start_process(self):
+        self.settings_manager.set_global_settings(
+            create_gif=self.create_gif.get(),
+            create_webp=self.create_webp.get(),
+            framerate=self.set_framerate.get(),
+            loop_delay=self.set_loopdelay.get(),
+            min_period=self.set_minperiod.get(),
+            scale=self.set_scale.get(),
+            threshold=self.set_threshold.get(),
+            keep_frames=self.keep_frames.get(),
+            crop_option=self.crop_option.get(),
+            prefix=self.prefix.get(),
+            filename_format=self.filename_format.get(),
+            variable_delay=self.variable_delay.get(),
+            fnf_idle_loop=self.fnf_idle_loop.get(),
+        )
+
+        if any(char in self.settings_manager.global_settings["prefix"] for char in r'\/:*?"<>|'):
+            messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
+            return
+
         process_thread = threading.Thread(target=self.run_extractor)
         process_thread.start()
 
     def run_extractor(self):
-        extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
-        prefix = self.prefix.get()
-        if any(char in prefix for char in r'\/:*?"<>|'):
-            messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
-            return
-
+        extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
             self.progress_var,
             self.root,
-            self.create_gif.get(),
-            self.create_webp.get(),
-            self.set_framerate.get(),
-            self.set_loopdelay.get(),
-            self.set_minperiod.get(),
-            self.set_scale.get(),
-            self.set_threshold.get(),
-            self.keep_frames.get(),
-            self.crop_option.get(),
-            self.prefix.get(),
-            self.filename_format.get(),
-            self.variable_delay.get(),
-            self.fnf_idle_loop.get()
         )
 
 if __name__ == "__main__":
