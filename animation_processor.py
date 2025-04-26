@@ -1,5 +1,4 @@
 from PIL import Image
-import functools
 import os
 import re
 import tempfile
@@ -40,7 +39,7 @@ class AnimationProcessor:
         scale_image(img, size): Scales the image by the given size factor.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, user_settings, current_version):
+    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, var_delay, user_settings, quant_frames, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
@@ -56,7 +55,7 @@ class AnimationProcessor:
         self.crop_option = crop_option
         self.var_delay = var_delay
         self.user_settings = user_settings
-        self.quant_frames = {}
+        self.quant_frames = quant_frames
         self.current_version = current_version
 
     def process_animations(self):
@@ -75,18 +74,15 @@ class AnimationProcessor:
             single_frame = self.is_single_frame(image_tuples)
             kept_frames = self.get_kept_frames(settings, self.keep_frames, single_frame)
             kept_frame_indices = self.get_kept_frame_indices(kept_frames, image_tuples)
-            frames_generated += self.save_frames(image_tuples, kept_frame_indices, animation_name, scale)
-            if not single_frame and (self.create_gif or self.create_webp):
+            frames_generated += self.save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale)
+            if self.create_gif or self.create_webp:
                 anims_generated += self.save_animations(image_tuples, spritesheet_name, animation_name, settings, self.current_version)
         return frames_generated, anims_generated
 
     def is_single_frame(self, image_tuples):
         for i in image_tuples:
             if i[2] != image_tuples[0][2]:
-                for i in image_tuples:
-                    if i[1] != image_tuples[0][1]:
-                        return False
-                return True
+                return False
         return True
 
     def get_kept_frames(self, settings, keep_frames, single_frame):
@@ -129,7 +125,7 @@ class AnimationProcessor:
                         kept_frame_indices.add(i)
         return kept_frame_indices
 
-    def save_frames(self, image_tuples, kept_frame_indices, animation_name, scale):
+    def save_frames(self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale):
         frames_generated = 0
         if len(image_tuples) == 0:
             return frames_generated
@@ -175,7 +171,6 @@ class AnimationProcessor:
         fps = settings.get('fps', self.set_framerate)
         delay = settings.get('delay', self.set_loopdelay)
         period = settings.get('period', self.set_minperiod)
-        scale = settings.get('scale', self.set_scale)
         threshold = settings.get('threshold', min(max(self.set_threshold,0),1))
         images = [img[1] for img in image_tuples]
         sizes = [frame.size for frame in images]
@@ -188,15 +183,15 @@ class AnimationProcessor:
                 images[index] = new_frame
 
         if self.create_webp:
-            self.save_webp(images, spritesheet_name, animation_name, fps, delay, period, scale)
+            self.save_webp(images, spritesheet_name, animation_name, fps, delay, period)
             print(f"Saved WEBP animation: {os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f' {animation_name}.webp')}")
         if self.create_gif:
-            self.save_gif(images, spritesheet_name, animation_name, fps, delay, period, scale, threshold, max_size, image_tuples, current_version)
+            self.save_gif(images, spritesheet_name, animation_name, fps, delay, period, threshold, max_size, image_tuples, current_version)
             print(f"Saved GIF animation: {os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f' {animation_name}.gif')}")
         anims_generated += 1
         return anims_generated
 
-    def save_webp(self, images, spritesheet_name, animation_name, fps, delay, period, scale):
+    def save_webp(self, images, spritesheet_name, animation_name, fps, delay, period):
         durations = []
         if self.var_delay:
             for index in range(len(images)):
@@ -205,10 +200,10 @@ class AnimationProcessor:
             durations = [round(1000/fps)] * len(images)
         durations[-1] += delay
         durations[-1] += max(period - sum(durations), 0)
-        scaled_images = list(map(lambda x: self.scale_image(x, scale), images))
-        scaled_images[0].save(os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=scaled_images[1:], disposal=2, duration=durations, loop=0, lossless=True)
+        scaled_images = list(map(lambda x: self.scale_image(x, self.set_scale), images))
+        scaled_images[0].save(os.path.join(self.output_dir, os.path.splitext(spritesheet_name)[0] + f" {animation_name}.webp"), save_all=True, append_images=images[1:], disposal=2, duration=durations, loop=0, lossless=True)
 
-    def save_gif(self, images, spritesheet_name, animation_name, fps, delay, period, scale, threshold, max_size, image_tuples, current_version):
+    def save_gif(self, images, spritesheet_name, animation_name, fps, delay, period, threshold, max_size, image_tuples, current_version):
         for frame in images:
             alpha = frame.getchannel('A')
             if (threshold == 1):
@@ -237,9 +232,8 @@ class AnimationProcessor:
                     wand_frame.background_color = Color('None')
                     wand_frame.alpha_channel = 'background'
                     wand_frame.trim(background_color='None')
-                    print(wand_frame.colors)
                     if wand_frame.colors > 256:
-                        wand_frame.quantize(number_colors=256, colorspace_type='undefined', dither=False)
+                        wand_frame.quantize(number_colors=256, dither=False)
                     wand_frame.coalesce()
                     fd, temp_filename = tempfile.mkstemp(suffix='.gif')
                     wand_frame.save(filename=temp_filename)
@@ -255,7 +249,7 @@ class AnimationProcessor:
         cropped_images = []
         for frame in images:
             cropped_frame = frame.crop((min_x, min_y, max_x, max_y))
-            cropped_images.append(self.scale_image(cropped_frame, scale))
+            cropped_images.append(self.scale_image(cropped_frame, self.set_scale))
         durations = []
         if self.var_delay:
             for index in range(len(images)):
