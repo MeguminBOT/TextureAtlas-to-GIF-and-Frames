@@ -19,6 +19,7 @@ from help_window import HelpWindow
 class TextureAtlasExtractorApp:
     """
     A GUI application for extracting textures from a texture atlas and converting them to GIF and WebP formats.
+
     Attributes:
         root (tk.Tk): The root window of the application.
         user_settings (dict): A dictionary to store user settings.
@@ -29,6 +30,7 @@ class TextureAtlasExtractorApp:
         current_version (str): The current version of the application.
         quant_frames (dict): A dictionary to store quantized frames.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
+
     Methods:
         setup_gui(): Sets up the GUI components of the application.
         setup_menus(): Sets up the menu bar and its items.
@@ -47,7 +49,8 @@ class TextureAtlasExtractorApp:
         create_animation_settings_window(window, name, settings_dict): Creates a window to edit animation settings.
         store_input(window, name, settings_dict, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the animation settings window.
         on_closing(): Handles the event when the application is closing.
-        start_process(): Starts the process of extracting textures and converting them to GIF and WebP formats.
+        start_process(): Prepares and starts the processing thread.
+        run_extractor(): Starts the extracting process textures and converting them to GIF and WebP formats. 
     """
 
     def __init__(self, root):
@@ -57,7 +60,7 @@ class TextureAtlasExtractorApp:
         self.data_dict = {}
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
-        self.current_version = '1.9.2'
+        self.current_version = '1.9.3'
         self.quant_frames = {}
         self.fnf_utilities = FnfUtilities()
 
@@ -67,7 +70,7 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
-        self.root.geometry("900x600")
+        self.root.geometry("900x680")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -99,8 +102,10 @@ class TextureAtlasExtractorApp:
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
         self.variable_delay = tk.BooleanVar()
         self.use_all_threads = tk.BooleanVar()
+        self.fnf_idle_loop = tk.BooleanVar()
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
         advanced_menu.add_checkbutton(label="Use all CPU threads", variable=self.use_all_threads)
+        advanced_menu.add_checkbutton(label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop)
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
     def setup_widgets(self):
@@ -124,7 +129,7 @@ class TextureAtlasExtractorApp:
         self.scrollbar_xml.config(command=self.listbox_data.yview)
 
         self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear() and self.spritesheet_settings.clear())
         self.input_button.pack(pady=2)
 
         self.input_dir_label = tk.Label(self.root, text="No input directory selected")
@@ -187,6 +192,21 @@ class TextureAtlasExtractorApp:
         self.crop_menu = tk.OptionMenu(self.root, self.crop_option, "None", "Frame based", "Animation based")
         self.crop_menu.pack(pady=1)
 
+        self.prefix_label = tk.Label(self.root, text="Filename prefix:")
+        self.prefix_label.pack()
+        self.prefix = tk.StringVar(value="")
+        self.prefix_entry = tk.Entry(self.root, textvariable=self.prefix)
+        self.prefix_entry.pack()
+        
+        self.filename_format = tk.StringVar(value="Standardized")
+        self.filename_format_label = tk.Label(self.root, text="Filename Format:")
+        self.filename_format_label.pack()
+        self.filename_format_menu = tk.OptionMenu(self.root, self.filename_format, "Standardized", "No Spaces", "No Special Characters")
+        self.filename_format_menu.pack(pady=1)
+        # "Standardized" example: "GodsentGaslit - Catnap - Idle"
+        # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
+        # "No Special Characters" example: "GodsentGaslitCatnapIdle"
+        
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
 
@@ -217,6 +237,7 @@ class TextureAtlasExtractorApp:
         self.listbox_png.delete(0, tk.END)
         self.listbox_data.delete(0, tk.END)
         self.user_settings.clear()
+        self.spritesheet_settings.clear()
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
@@ -429,9 +450,14 @@ class TextureAtlasExtractorApp:
     def start_process(self):
         process_thread = threading.Thread(target=self.run_extractor)
         process_thread.start()
-        
+
     def run_extractor(self):
-        extractor = Extractor(self.progress_bar, self.current_version)
+        extractor = Extractor(self.progress_bar, self.current_version, self.spritesheet_settings, self.user_settings)
+        prefix = self.prefix.get()
+        if any(char in prefix for char in r'\/:*?"<>|'):
+            messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
+            return
+
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
@@ -446,7 +472,10 @@ class TextureAtlasExtractorApp:
             self.set_threshold.get(),
             self.keep_frames.get(),
             self.crop_option.get(),
+            self.prefix.get(),
+            self.filename_format.get(),
             self.variable_delay.get(),
+            self.fnf_idle_loop.get()
         )
 
 if __name__ == "__main__":

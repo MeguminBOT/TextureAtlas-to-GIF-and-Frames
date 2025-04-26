@@ -1,12 +1,14 @@
 from PIL import Image
 from wand.image import Image as WandImg
 
+# Import our own modules
 from txt_parser import TxtParser
 from xml_parser import XmlParser
 
 class AtlasProcessor:
     """
     A class to process texture atlases and their metadata.
+
     Attributes:
         atlas_path (str): The file path to the texture atlas image.
         metadata_path (str): The file path to the metadata file.

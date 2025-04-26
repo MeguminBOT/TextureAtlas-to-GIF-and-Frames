@@ -1,6 +1,7 @@
 from PIL import Image
 from wand.image import Image as WandImg
 
+# Import our own modules
 from utilities import Utilities
 
 class SpriteProcessor:
@@ -44,6 +45,7 @@ class SpriteProcessor:
             rotated = sprite.get('rotated', False)
 
             print(f"Processing sprite: {name}")
+            
             sprite_image = self.atlas.crop((x, y, x + width, y + height))
             if rotated:
                 sprite_image = sprite_image.rotate(90, expand=True)
@@ -57,6 +59,7 @@ class SpriteProcessor:
             frame_image.paste(sprite_image, (-frameX, -frameY))
             if frame_image.mode != 'RGBA':
                 frame_image = frame_image.convert('RGBA')
+
             folder_name = Utilities.strip_trailing_digits(name)
             animations.setdefault(folder_name, []).append((name, frame_image, (x, y, width, height, frameX, frameY)))
         return animations

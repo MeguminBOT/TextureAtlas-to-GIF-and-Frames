@@ -6,9 +6,10 @@ class Utilities:
     A utility class providing static methods for common tasks.
 
     Methods:
-    - count_spritesheets(directory): Count the number of spritesheet data files in a directory.
-    - clean_invalid_chars(name): Replace invalid filename characters (\\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
-    - strip_trailing_digits(name): Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
+        count_spritesheets(directory): Count the number of spritesheet data files in a directory.
+        clean_invalid_chars(name): Replace invalid filename characters (\\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
+        strip_trailing_digits(name): Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
+        format_filename(prefix, sprite_name, animation_name, filename_format): Formats the filename based on the given parameters.
     """
 
     @staticmethod
@@ -22,3 +23,13 @@ class Utilities:
     @staticmethod
     def strip_trailing_digits(name):
         return re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+    
+    @staticmethod
+    def format_filename(prefix, sprite_name, animation_name, filename_format):
+        sprite_name = os.path.splitext(sprite_name)[0]
+        base_name = f"{prefix} - {sprite_name} - {animation_name}" if prefix else f"{sprite_name} - {animation_name}"
+        if filename_format == "No Spaces":
+            return base_name.replace(" ", "")
+        elif filename_format == "No Special Characters":
+            return base_name.replace(" ", "").replace("-", "").replace("_", "")
+        return base_name
