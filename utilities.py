@@ -1,5 +1,6 @@
-import re
 import os
+import re
+from string import Template
 
 class Utilities:
     """
@@ -10,6 +11,7 @@ class Utilities:
         clean_invalid_chars(name): Replace invalid filename characters (\\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
         strip_trailing_digits(name): Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
         format_filename(prefix, sprite_name, animation_name, filename_format): Formats the filename based on the given parameters.
+        find_and_replace(string, rules): #TODO
     """
 
     @staticmethod
@@ -34,7 +36,7 @@ class Utilities:
             elif filename_format == "No Special Characters":
                 return base_name.replace(" ", "").replace("-", "").replace("_", "")
         else:
-            base_name = eval(f"f'{filename_format}'")
+            base_name = Template(filename_format).safe_substitute(sprite=sprite_name, anim=animation_name)
         return base_name
     
     @staticmethod
