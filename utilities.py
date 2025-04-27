@@ -43,7 +43,7 @@ class Utilities:
     def find_and_replace(string, rules):
         for rule in rules:
             if rule["regex"]:
-                string = string.replace(rule["find"], rule["replace"])
-            else:
                 string = re.sub(rule["find"], rule["replace"], string)
+            else:
+                string = string.replace(rule["find"], rule["replace"])
         return string
