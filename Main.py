@@ -62,6 +62,7 @@ class TextureAtlasExtractorApp:
         self.fnf_char_json_directory = ""
         self.current_version = '1.9.3'
         self.quant_frames = {}
+        self.replace_rules = [{"find":"A","replace":"B","regex":False},{"find":"C","replace":"D","regex":True}]
         self.fnf_utilities = FnfUtilities()
 
         self.setup_gui()
@@ -183,8 +184,9 @@ class TextureAtlasExtractorApp:
         self.keep_frames = tk.StringVar(value='all')
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
         self.keepframes_label.pack()
-        self.keepframes_entry = tk.Entry(self.root, textvariable=self.keep_frames)
-        self.keepframes_entry.pack(pady=2)
+        self.keepframes_menu = ttk.Combobox(self.root, textvariable=self.keep_frames)
+        self.keepframes_menu['values'] = ("all", "none", "first", "last", "first, last")
+        self.keepframes_menu.pack(pady=2)
 
         self.crop_option = tk.StringVar(value="Animation based")
         self.crop_label = tk.Label(self.root, text="PNG Cropping Method")
@@ -201,11 +203,15 @@ class TextureAtlasExtractorApp:
         self.filename_format = tk.StringVar(value="Standardized")
         self.filename_format_label = tk.Label(self.root, text="Filename Format:")
         self.filename_format_label.pack()
-        self.filename_format_menu = tk.OptionMenu(self.root, self.filename_format, "Standardized", "No Spaces", "No Special Characters")
+        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
+        self.filename_format_menu['values'] = ("Standardized", "No Spaces", "No Special Characters")
         self.filename_format_menu.pack(pady=1)
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
+
+        self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
+        self.replace_button.pack(pady=2)
         
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
@@ -331,6 +337,47 @@ class TextureAtlasExtractorApp:
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
         self.create_animation_settings_window(new_window, full_anim_name, self.user_settings)
+
+    def create_find_and_replace_window(self):
+        self.replace_window = tk.Toplevel()
+        print(self.replace_rules)
+        tk.Label(self.replace_window, text="Find and replace").pack()
+        add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
+        add_button.pack()
+        self.rules_frame = tk.Frame(self.replace_window)
+        for rule in self.replace_rules:
+            self.add_replace_rule(rule)
+        self.rules_frame.pack()
+        ok_button = tk.Button(self.replace_window, text='OK', command=lambda: self.store_replace_rules())
+        ok_button.pack()
+
+    def add_replace_rule(self, rule):
+        frame = tk.Frame(self.rules_frame)
+        frame['borderwidth'] = 2
+        frame['relief'] = 'sunken'
+        find_entry = tk.Entry(frame)
+        find_entry.insert(0, rule["find"])
+        find_entry.pack()
+        replace_entry = tk.Entry(frame)
+        replace_entry.insert(0, rule["replace"])
+        replace_entry.pack()
+        regex_checkbox = ttk.Checkbutton(frame, text="Regular expression")
+        regex_checkbox.pack()
+        delete_rule_button = tk.Button(frame, text="Delete", command=lambda: frame.destroy())
+        delete_rule_button.pack()
+        regex_checkbox.invoke()
+        if not rule["regex"]:
+            regex_checkbox.invoke()
+        frame.pack(pady=2)
+        self.rules_frame.update()
+        return frame
+
+    def store_replace_rules(self):
+        self.replace_rules = []
+        for rule in self.rules_frame.winfo_children():
+            rule_settings = rule.winfo_children()
+            self.replace_rules.append({"find":rule_settings[0].get(),"replace":rule_settings[1].get(),"regex": "selected" in rule_settings[2].state()})
+        self.replace_window.destroy()
 
     def create_animation_settings_window(self, window, name, settings_dict):
         tk.Label(window, text="FPS for " + name).pack()
@@ -474,6 +521,7 @@ class TextureAtlasExtractorApp:
             self.crop_option.get(),
             self.prefix.get(),
             self.filename_format.get(),
+            self.replace_rules,
             self.variable_delay.get(),
             self.fnf_idle_loop.get()
         )

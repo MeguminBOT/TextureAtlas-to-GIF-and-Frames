@@ -47,7 +47,7 @@ class AnimationProcessor:
         scale_image(img, size): Scales the image by the given size factor.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version):
+    def __init__(self, animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, replace_rules, var_delay, fnf_idle_loop, user_settings, current_version):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
@@ -63,6 +63,7 @@ class AnimationProcessor:
         self.crop_option = crop_option
         self.prefix = prefix or ""
         self.filename_format = filename_format
+        self.replace_rules = replace_rules
         self.var_delay = var_delay
         self.fnf_idle_loop = fnf_idle_loop
         self.user_settings = user_settings
@@ -188,7 +189,7 @@ class AnimationProcessor:
 
         for index, frame in enumerate(image_tuples):
             if index in kept_frame_indices:
-                formatted_frame_name = Utilities.format_filename(self.prefix, spritesheet_name, frame[0], self.filename_format)
+                formatted_frame_name = Utilities.find_and_replace(Utilities.format_filename(self.prefix, spritesheet_name, frame[0], self.filename_format), self.replace_rules)
                 frame_filename = os.path.join(frames_folder, f"{formatted_frame_name}.png")
                 frame_image = frame[1]
 
@@ -250,7 +251,7 @@ class AnimationProcessor:
 
         scaled_images = list(map(lambda x: self.scale_image(x, scale), images))
 
-        formatted_webp_name = Utilities.format_filename(self.prefix, spritesheet_name, animation_name, self.filename_format)
+        formatted_webp_name = Utilities.find_and_replace(Utilities.format_filename(self.prefix, spritesheet_name, animation_name, self.filename_format), self.replace_rules)
         webp_filename = os.path.join(self.output_dir, f"{formatted_webp_name}.webp")
         scaled_images[0].save(
             webp_filename, 
@@ -325,7 +326,7 @@ class AnimationProcessor:
         durations[-1] += delay
         durations[-1] += max(round(period, -1) - sum(durations), 0)
 
-        formatted_gif_name = Utilities.format_filename(self.prefix, spritesheet_name, animation_name, self.filename_format)
+        formatted_gif_name = Utilities.find_and_replace(Utilities.format_filename(self.prefix, spritesheet_name, animation_name, self.filename_format), self.replace_rules)
         gif_filename = os.path.join(self.output_dir, f"{formatted_gif_name}.gif")
 
         cropped_images[0].save(
