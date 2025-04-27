@@ -11,15 +11,15 @@ class XmlParser:
     Currently only supports XML files in the Starling/Sparrow format.
 
     Attributes:
-    - directory: The directory where the XML file is located.
-    - xml_filename: The name of the XML file to parse.
-    - listbox_data: The Tkinter listbox to populate with extracted names.
+        directory: The directory where the XML file is located.
+        xml_filename: The name of the XML file to parse.
+        listbox_data: The Tkinter listbox to populate with extracted names.S
 
     Methods:
-    - get_data(): Parses the XML file and populates the listbox with names.
-    - extract_names(xml_root): Extracts names from the XML root element.
-    - get_names(names): Populates the listbox with the given names.
-    - parse_xml_data(file_path): Static method to parse XML data from a file and return sprite information.
+        get_data(): Parses the XML file and populates the listbox with names.
+        extract_names(xml_root): Extracts names from the XML root element.
+        get_names(names): Populates the listbox with the given names.
+        parse_xml_data(file_path): Static method to parse XML data from a file and return sprite information.
     """
 
     def __init__(self, directory, xml_filename, listbox_data):

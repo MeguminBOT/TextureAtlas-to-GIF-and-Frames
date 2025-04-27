@@ -14,9 +14,8 @@ class AtlasProcessor:
         metadata_path (str): The file path to the metadata file.
         atlas (PIL.Image.Image): The opened texture atlas image.
         sprites (list): The parsed sprite data from the metadata file.
+
     Methods:
-        __init__(atlas_path, metadata_path):
-            Initializes the AtlasProcessor with the given atlas and metadata paths.
         open_atlas_and_parse_metadata():
             Opens the texture atlas image and parses the metadata file.
             Returns:

@@ -20,27 +20,25 @@ class Extractor:
     Attributes:
         progress_bar (tkinter.Progressbar): The progress bar to update during processing.
         current_version (str): The current version of the extractor.
-        spritesheet_settings (dict): A dictionary to store settings for each spritesheet.
-        user_settings (dict): A dictionary to store user settings.
-        use_all_threads (tk.BooleanVar): A boolean variable to determine if all CPU threads should be used.
-        fnf_idle_loop (tk.BooleanVar): A boolean variable to determine if idle animations should have a loop delay of 0.
+        settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
+        use_all_threads (tk.BooleanVar): A flag to determine if all CPU threads should be used.
+        fnf_idle_loop (tk.BooleanVar): A flag to determine if idle animations should have a loop delay of 0.
 
     Methods:
-        process_directory(input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop):
+        process_directory(input_dir, output_dir, progress_var, tk_root):
             Processes the given directory of spritesheets and metadata files, extracting sprites and generating animations.
-        extract_sprites(atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, var_delay, fnf_idle_loop, user_settings, current_version):
+        extract_sprites(atlas_path, metadata_path, output_dir, settings):
             Extracts sprites from a given atlas and metadata file, and processes the animations.
     """
 
-    def __init__(self, progress_bar, current_version, spritesheet_settings, user_settings):
-        self.spritesheet_settings = spritesheet_settings
-        self.user_settings = user_settings
+    def __init__(self, progress_bar, current_version, settings_manager):
+        self.settings_manager = settings_manager
         self.use_all_threads = tk.BooleanVar()
         self.fnf_idle_loop = tk.BooleanVar()
         self.progress_bar = progress_bar
         self.current_version = current_version
 
-    def process_directory(self, input_dir, output_dir, progress_var, tk_root, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, keep_frames, crop_option, prefix, filename_format, replace_rules, var_delay, fnf_idle_loop):
+    def process_directory(self, input_dir, output_dir, progress_var, tk_root):
         total_frames_generated = 0
         total_anims_generated = 0
         total_sprites_failed = 0
@@ -49,14 +47,10 @@ class Extractor:
         total_files = Utilities.count_spritesheets(input_dir)
         self.progress_bar["maximum"] = total_files
 
-        if self.use_all_threads.get():
-            cpuThreads = os.cpu_count()
-        else:
-            cpuThreads = os.cpu_count() // 2
-
+        cpu_threads = os.cpu_count() if self.use_all_threads.get() else os.cpu_count() // 2
         start_time = time.time()
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=cpuThreads) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
             futures = []
 
             for filename in os.listdir(input_dir):
@@ -68,15 +62,16 @@ class Extractor:
                     if os.path.isfile(xml_path) or os.path.isfile(txt_path):
                         sprite_output_dir = os.path.join(output_dir, base_filename)
                         os.makedirs(sprite_output_dir, exist_ok=True)
-                        settings = self.spritesheet_settings.get(filename, {})
-                        fps = settings.get('fps', set_framerate)
-                        delay = settings.get('delay', set_loopdelay)
-                        period = settings.get('period', set_minperiod)
-                        frames = settings.get('frames', keep_frames)
-                        threshold = settings.get('threshold', set_threshold)
-                        scale = settings.get('scale', set_scale)
-                        indices = settings.get('indices')
-                        future = executor.submit(self.extract_sprites, os.path.join(input_dir, filename), xml_path if os.path.isfile(xml_path) else txt_path, sprite_output_dir, create_gif, create_webp, fps, delay, period, scale, threshold, indices, frames, crop_option, prefix, filename_format, replace_rules, var_delay, fnf_idle_loop, self.user_settings, self.current_version)
+
+                        settings = self.settings_manager.get_settings(filename)
+
+                        future = executor.submit(
+                            self.extract_sprites,
+                            os.path.join(input_dir, filename),
+                            xml_path if os.path.isfile(xml_path) else txt_path,
+                            sprite_output_dir,
+                            settings,
+                        )
                         futures.append(future)
 
             for future in concurrent.futures.as_completed(futures):
@@ -85,19 +80,12 @@ class Extractor:
                     total_frames_generated += result['frames_generated']
                     total_anims_generated += result['anims_generated']
                     total_sprites_failed += result['sprites_failed']
-                except ET.ParseError as e:
-                    total_sprites_failed += 1
-                    messagebox.showerror("Error", f"Something went wrong!!\n{e}")
-                    if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
-                        sys.exit()
+
                 except Exception as e:
                     total_sprites_failed += 1
                     messagebox.showerror("Error", f"Something went wrong!!\n{str(e)}")
                     if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
                         sys.exit()
-
-                tk_root.after(0, progress_var.set, progress_var.get() + 1)
-                tk_root.after(0, tk_root.update_idletasks)
 
         end_time = time.time()
         duration = end_time - start_time
@@ -112,23 +100,26 @@ class Extractor:
             f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
         )
 
-    def extract_sprites(self, atlas_path, metadata_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, replace_rules, var_delay, fnf_idle_loop, user_settings, current_version):
+    def extract_sprites(self, atlas_path, metadata_path, output_dir, settings):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
+
         try:
             atlas_processor = AtlasProcessor(atlas_path, metadata_path)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
-            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, create_gif, create_webp, set_framerate, set_loopdelay, set_minperiod, set_scale, set_threshold, set_indices, keep_frames, crop_option, prefix, filename_format, replace_rules, var_delay, fnf_idle_loop, user_settings, current_version)
+            animation_processor = AnimationProcessor(animations, atlas_path, output_dir, self.settings_manager, self.current_version)
             frames_generated, anims_generated = animation_processor.process_animations()
             return {
                 'frames_generated': frames_generated,
                 'anims_generated': anims_generated,
                 'sprites_failed': sprites_failed
             }
+
         except ET.ParseError:
             sprites_failed += 1
             raise ET.ParseError(f"Badly formatted XML file:\n\n{metadata_path}")
+
         except Exception as e:
             ExceptionHandler.handle_exception(e, metadata_path, sprites_failed)
