@@ -249,6 +249,8 @@ class AnimationProcessor:
             settings.get('filename_format', 'Standardized'))
         
         formatted_webp_name = Utilities.find_and_replace(formatted_webp_name, settings.get('replace_rules', []))
+        
+        webp_filename = os.path.join(self.output_dir, f"{formatted_webp_name}.webp")
 
         scaled_images[0].save(
             webp_filename, 
