@@ -28,7 +28,6 @@ class TextureAtlasExtractorApp:
         temp_dir (str): A temporary directory for storing files.
         fnf_char_json_directory (str): Directory for FNF character JSON files.
         current_version (str): The current version of the application.
-        quant_frames (dict): A dictionary to store quantized frames.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
 
     Methods:
@@ -61,7 +60,6 @@ class TextureAtlasExtractorApp:
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
         self.current_version = '1.9.3'
-        self.quant_frames = {}
         self.replace_rules = [{"find":"A","replace":"B","regex":False},{"find":"C","replace":"D","regex":True}]
         self.fnf_utilities = FnfUtilities()
 
