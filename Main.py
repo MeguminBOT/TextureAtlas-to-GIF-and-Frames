@@ -189,8 +189,9 @@ class TextureAtlasExtractorApp:
         self.keep_frames = tk.StringVar(value='all')
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
         self.keepframes_label.pack()
-        self.keepframes_entry = tk.Entry(self.root, textvariable=self.keep_frames)
-        self.keepframes_entry.pack(pady=2)
+        self.keepframes_menu = ttk.Combobox(self.root, textvariable=self.keep_frames)
+        self.keepframes_menu['values'] = ("all", "none", "first", "last", "first, last")
+        self.keepframes_menu.pack(pady=2)
 
         self.crop_option = tk.StringVar(value="Animation based")
         self.crop_label = tk.Label(self.root, text="PNG Cropping Method")
@@ -207,7 +208,8 @@ class TextureAtlasExtractorApp:
         self.filename_format = tk.StringVar(value="Standardized")
         self.filename_format_label = tk.Label(self.root, text="Filename Format:")
         self.filename_format_label.pack()
-        self.filename_format_menu = tk.OptionMenu(self.root, self.filename_format, "Standardized", "No Spaces", "No Special Characters")
+        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
+        self.filename_format_menu['values'] = ("Standardized", "No Spaces", "No Special Characters")
         self.filename_format_menu.pack(pady=1)
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
