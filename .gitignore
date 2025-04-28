@@ -4,3 +4,5 @@ App/
 experimental features/
 testsprite(errors)/
 __pycache__/
+.vs/
+env/
