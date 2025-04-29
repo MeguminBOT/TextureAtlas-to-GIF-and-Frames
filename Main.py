@@ -8,6 +8,7 @@ from tkinter import filedialog, ttk, messagebox
 
 # Import our own modules
 from dependencies_checker import DependenciesChecker
+DependenciesChecker.check_and_configure_imagemagick()
 from update_checker import UpdateChecker
 from settings_manager import SettingsManager
 from fnf_utilities import FnfUtilities
@@ -68,7 +69,6 @@ class TextureAtlasExtractorApp:
 
         self.setup_gui()
         self.check_version()
-        self.check_dependencies()
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
