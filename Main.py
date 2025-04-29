@@ -84,7 +84,10 @@ class TextureAtlasExtractorApp:
 
     def setup_menus(self):
         file_menu = tk.Menu(self.menubar, tearoff=0)
-        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) and self.user_settings.clear())
+        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
+            and self.settings_manager.animation_settings.clear()
+            and self.settings_manager.spritesheet_settings.clear()
+        )
         file_menu.add_command(label="Select files", command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label))
         file_menu.add_command(label="Clear filelist and user settings", command=self.clear_filelist)
         file_menu.add_separator()
@@ -92,7 +95,7 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         import_menu = tk.Menu(self.menubar, tearoff=0)
-        import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: self.fnf_utilities.fnf_select_char_json_directory(self.user_settings, self.data_dict, self.listbox_png, self.listbox_data))
+        import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: self.fnf_utilities.fnf_select_char_json_directory(self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data))
         self.menubar.add_cascade(label="Import", menu=import_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
