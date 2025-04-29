@@ -148,13 +148,16 @@ class TextureAtlasExtractorApp:
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
         self.output_dir_label.pack(pady=4)
 
-        self.create_gif = tk.BooleanVar()
-        self.gif_checkbox = tk.Checkbutton(self.root, text="Create GIFs for each animation", variable=self.create_gif)
-        self.gif_checkbox.pack()
-
-        self.create_webp = tk.BooleanVar()
-        self.webp_checkbox = tk.Checkbutton(self.root, text="Create WebPs for each animation", variable=self.create_webp)
-        self.webp_checkbox.pack()
+        self.animation_format = tk.StringVar(value="None")
+        self.animation_format_label = tk.Label(self.root, text="Animation Format:")
+        self.animation_format_label.pack()
+        self.animation_format_combobox = ttk.Combobox(
+            self.root,
+            textvariable=self.animation_format,
+            values=["None", "GIF", "WebP", "APNG"],
+            state="readonly"
+        )
+        self.animation_format_combobox.pack()
 
         self.set_framerate = tk.DoubleVar(value=24)
         self.frame_rate_label = tk.Label(self.root, text="Frame Rate (fps):")
@@ -439,8 +442,7 @@ class TextureAtlasExtractorApp:
         
     def start_process(self):
         self.settings_manager.set_global_settings(
-            create_gif=self.create_gif.get(),
-            create_webp=self.create_webp.get(),
+            animation_format=self.animation_format.get(),
             framerate=self.set_framerate.get(),
             loop_delay=self.set_loopdelay.get(),
             min_period=self.set_minperiod.get(),
