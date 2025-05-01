@@ -192,11 +192,11 @@ class TextureAtlasExtractorApp:
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
         self.threshold_entry.pack()
 
-        self.keep_frames = tk.StringVar(value='all')
+        self.keep_frames = tk.StringVar(value='All')
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
         self.keepframes_label.pack()
         self.keepframes_menu = ttk.Combobox(self.root, textvariable=self.keep_frames)
-        self.keepframes_menu['values'] = ("all", "none", "first", "last", "first, last")
+        self.keepframes_menu['values'] = ("None", "All", "No duplicates", "First", "Last", "First, Last")
         self.keepframes_menu.pack(pady=2)
 
         self.crop_option = tk.StringVar(value="Animation based")

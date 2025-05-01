@@ -70,7 +70,7 @@ class AnimationProcessor:
                 image_tuples = [image_tuples[i] for i in indices]
             single_frame = self.is_single_frame(image_tuples)
 
-            kept_frames = self.get_kept_frames(settings, single_frame)
+            kept_frames = self.get_kept_frames(settings, single_frame, image_tuples)
             kept_frame_indices = self.get_kept_frame_indices(kept_frames, image_tuples)
 
             if settings.get('fnf_idle_loop', False) and "idle" in animation_name.lower():
@@ -92,60 +92,55 @@ class AnimationProcessor:
                 return True
         return True
 
-    def get_kept_frames(self, settings, single_frame):
+    def get_kept_frames(self, settings, single_frame, image_tuples):
         if single_frame:
             return ['0']
-        kept_frames = settings.get('frames', 'all')
-        if kept_frames == 'all':
-            return [f"{i}" for i in range(len(self.animations))]
-        elif kept_frames == 'first':
+
+        kept_frames = settings.get('keep_frames', 'All')
+        if kept_frames == 'All':
+            return [str(i) for i in range(len(image_tuples))]
+        elif kept_frames == 'First':
             return ['0']
-        elif kept_frames == 'last':
+        elif kept_frames == 'Last':
             return ['-1']
-        elif re.fullmatch(r'first, ?last', kept_frames):
+        elif kept_frames == 'First, Last':
             return ['0', '-1']
-        elif kept_frames == 'none':
+        elif kept_frames == 'None':
             return []
-        return [ele for ele in kept_frames.split(',')]
+        elif kept_frames == 'No duplicates':
+            unique_frames = []
+            unique_indices = []
+            for i, frame in enumerate(image_tuples):
+                if frame[1] not in unique_frames:
+                    unique_frames.append(frame[1])
+                    unique_indices.append(str(i))
+            return unique_indices
+        else:
+            return kept_frames.split(',')
 
     def get_kept_frame_indices(self, kept_frames, image_tuples):
         kept_frame_indices = set()
+        
         for entry in kept_frames:
-            try:
-                if '--' in entry:
-                    start_frame, end_frame = map(int, entry.split('--'))
-
-                    if start_frame < 0:
-                        start_frame += len(image_tuples)
-                    if end_frame < 0:
-                        end_frame += len(image_tuples)
-
-                    frame_range = range(max(start_frame, 0), min(end_frame + 1, len(image_tuples)))
-                    kept_frame_indices.update(frame_range)
-                else:
+            if '-' in entry:
+                try:
+                    start, end = map(int, entry.split('-'))
+                    if start < 0:
+                        start += len(image_tuples)
+                    if end < 0:
+                        end += len(image_tuples)
+                    kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+                except ValueError:
+                    continue
+            else:
+                try:
                     frame_index = int(entry)
-
                     if frame_index < 0:
                         frame_index += len(image_tuples)
                     if 0 <= frame_index < len(image_tuples):
                         kept_frame_indices.add(frame_index)
-
-            except ValueError:
-                if entry != '':
-                    start_frame = int(re.match(r'-?\d+', entry).group())
-                    if start_frame < 0:
-                        start_frame += len(image_tuples)
-
-                    end_frame = int(re.search(r'(?<=-)-?\d+$', entry).group())
-                    if end_frame < 0:
-                        end_frame += len(image_tuples)
-
-                    if (start_frame < 0 and end_frame < 0) or (start_frame >= len(image_tuples) and end_frame >= len(image_tuples)):
-                        continue
-
-                    frame_range = range(max(start_frame, 0), min(end_frame + 1, len(image_tuples)))
-                    kept_frame_indices.update(frame_range)
-
+                except ValueError:
+                    continue
         return kept_frame_indices
 
     def save_frames(self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings):
