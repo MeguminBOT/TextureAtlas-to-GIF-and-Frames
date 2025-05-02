@@ -201,7 +201,8 @@ class AnimationProcessor:
                     settings.get('prefix', ''),
                     spritesheet_name,
                     frame[0],
-                    settings.get('filename_format', 'Standardized')
+                    settings.get('filename_format', 'Standardized'),
+                    settings.get('replace_rules')
                 )
                 frame_filename = os.path.join(frames_folder, f"{formatted_frame_name}.png")
                 frame_image = frame[1]
@@ -293,7 +294,8 @@ class AnimationProcessor:
             settings.get('prefix', ''),
             spritesheet_name,
             animation_name,
-            settings.get('filename_format', 'Standardized')
+            settings.get('filename_format', 'Standardized'),
+            settings.get('replace_rules')
         )
         webp_filename = os.path.join(self.output_dir, f"{formatted_webp_name}.webp")
 
@@ -378,7 +380,8 @@ class AnimationProcessor:
             settings.get('prefix', ''), 
             spritesheet_name, 
             animation_name, 
-            settings.get('filename_format', 'Standardized')
+            settings.get('filename_format', 'Standardized'),
+            settings.get('replace_rules')
         )
         gif_filename = os.path.join(self.output_dir, f"{formatted_gif_name}.gif")
 
@@ -431,7 +434,8 @@ class AnimationProcessor:
             settings.get('prefix', ''),
             spritesheet_name,
             animation_name,
-            settings.get('filename_format', 'Standardized')
+            settings.get('filename_format', 'Standardized'),
+            settings.get('replace_rules')
         )
         apng_filename = os.path.join(self.output_dir, f"{formatted_apng_name}.png")
         

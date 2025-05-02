@@ -225,6 +225,9 @@ class TextureAtlasExtractorApp:
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
+
+        self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
+        self.replace_button.pack(pady=2)
         
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
@@ -354,6 +357,47 @@ class TextureAtlasExtractorApp:
         new_window.geometry("360x360")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
 
+    def create_find_and_replace_window(self):
+        self.replace_window = tk.Toplevel()
+        print(self.replace_rules)
+        tk.Label(self.replace_window, text="Find and replace").pack()
+        add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
+        add_button.pack()
+        self.rules_frame = tk.Frame(self.replace_window)
+        for rule in self.replace_rules:
+            self.add_replace_rule(rule)
+        self.rules_frame.pack()
+        ok_button = tk.Button(self.replace_window, text='OK', command=lambda: self.store_replace_rules())
+        ok_button.pack()
+
+    def add_replace_rule(self, rule):
+        frame = tk.Frame(self.rules_frame)
+        frame['borderwidth'] = 2
+        frame['relief'] = 'sunken'
+        find_entry = tk.Entry(frame)
+        find_entry.insert(0, rule["find"])
+        find_entry.pack()
+        replace_entry = tk.Entry(frame)
+        replace_entry.insert(0, rule["replace"])
+        replace_entry.pack()
+        regex_checkbox = ttk.Checkbutton(frame, text="Regular expression")
+        regex_checkbox.pack()
+        delete_rule_button = tk.Button(frame, text="Delete", command=lambda: frame.destroy())
+        delete_rule_button.pack()
+        regex_checkbox.invoke()
+        if not rule["regex"]:
+            regex_checkbox.invoke()
+        frame.pack(pady=2)
+        self.rules_frame.update()
+        return frame
+
+    def store_replace_rules(self):
+        self.replace_rules = []
+        for rule in self.rules_frame.winfo_children():
+            rule_settings = rule.winfo_children()
+            self.replace_rules.append({"find":rule_settings[0].get(),"replace":rule_settings[1].get(),"regex": "selected" in rule_settings[2].state()})
+        self.replace_window.destroy()
+
     def create_override_settings_window(self, window, name, settings_type):
         settings_map = {
             "animation": self.settings_manager.animation_settings,
@@ -460,6 +504,7 @@ class TextureAtlasExtractorApp:
             crop_option=self.crop_option.get(),
             prefix=self.prefix.get(),
             filename_format=self.filename_format.get(),
+            replace_rules=self.replace_rules,
             variable_delay=self.variable_delay.get(),
             fnf_idle_loop=self.fnf_idle_loop.get(),
         )
