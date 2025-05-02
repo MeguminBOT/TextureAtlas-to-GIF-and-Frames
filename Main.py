@@ -61,12 +61,13 @@ class TextureAtlasExtractorApp:
 
     def __init__(self, root):
         self.root = root
-        self.settings_manager = SettingsManager()
-        self.data_dict = {}
-        self.temp_dir = tempfile.mkdtemp()
-        self.fnf_char_json_directory = ""
         self.current_version = '1.9.3'
+        self.settings_manager = SettingsManager()
+        self.temp_dir = tempfile.mkdtemp()
+        self.data_dict = {}
+
         self.fnf_utilities = FnfUtilities()
+        self.fnf_char_json_directory = ""
 
         self.setup_gui()
         self.check_version()
@@ -96,7 +97,7 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         import_menu = tk.Menu(self.menubar, tearoff=0)
-        import_menu.add_command(label="FNF: Import FPS from character json", command=lambda: self.fnf_utilities.fnf_select_char_json_directory(self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data))
+        import_menu.add_command(label="FNF: Import settings from character data file", command=lambda: self.fnf_utilities.fnf_select_char_data_directory(self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data))
         self.menubar.add_cascade(label="Import", menu=import_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
