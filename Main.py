@@ -221,9 +221,9 @@ class TextureAtlasExtractorApp:
         self.filename_format = tk.StringVar(value="Standardized")
         self.filename_format_label = tk.Label(self.root, text="Filename format:")
         self.filename_format_label.pack()
-        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format, state="readonly")
+        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
         self.filename_format_menu['values'] = ("Standardized", "No spaces", "No special characters")
-        self.filename_format_menu.pack(pady=1   )
+        self.filename_format_menu.pack(pady=1)
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"

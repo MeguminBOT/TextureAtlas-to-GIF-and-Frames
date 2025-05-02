@@ -1,5 +1,6 @@
 import re
 import os
+from string import Template
 
 class Utilities:
     """
@@ -36,7 +37,7 @@ class Utilities:
         else:
             base_name = Template(filename_format).safe_substitute(sprite=sprite_name, anim=animation_name)
             
-        for rule in rules:
+        for rule in replace_rules:
             if rule["regex"]:
                 base_name = re.sub(rule["find"], rule["replace"], base_name)
             else:
