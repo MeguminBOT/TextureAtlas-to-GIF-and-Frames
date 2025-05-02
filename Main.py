@@ -150,9 +150,11 @@ class TextureAtlasExtractorApp:
 
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
         self.output_dir_label.pack(pady=4)
+        
+        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
         self.animation_format = tk.StringVar(value="None")
-        self.animation_format_label = tk.Label(self.root, text="Animation Format:")
+        self.animation_format_label = tk.Label(self.root, text="Animation format:")
         self.animation_format_label.pack()
         self.animation_format_combobox = ttk.Combobox(
             self.root,
@@ -163,19 +165,19 @@ class TextureAtlasExtractorApp:
         self.animation_format_combobox.pack()
 
         self.set_framerate = tk.DoubleVar(value=24)
-        self.frame_rate_label = tk.Label(self.root, text="Frame Rate (fps):")
+        self.frame_rate_label = tk.Label(self.root, text="Frame rate (fps):")
         self.frame_rate_label.pack()
         self.frame_rate_entry = tk.Entry(self.root, textvariable=self.set_framerate)
         self.frame_rate_entry.pack()
 
         self.set_loopdelay = tk.DoubleVar(value=250)
-        self.loopdelay_label = tk.Label(self.root, text="Loop Delay (ms):")
+        self.loopdelay_label = tk.Label(self.root, text="Loop delay (ms):")
         self.loopdelay_label.pack()
         self.loopdelay_entry = tk.Entry(self.root, textvariable=self.set_loopdelay)
         self.loopdelay_entry.pack()
 
         self.set_minperiod = tk.DoubleVar(value=0)
-        self.minperiod_label = tk.Label(self.root, text="Minimum Period (ms):")
+        self.minperiod_label = tk.Label(self.root, text="Minimum period (ms):")
         self.minperiod_label.pack()
         self.minperiod_entry = tk.Entry(self.root, textvariable=self.set_minperiod)
         self.minperiod_entry.pack()
@@ -187,10 +189,12 @@ class TextureAtlasExtractorApp:
         self.scale_entry.pack()
 
         self.set_threshold = tk.DoubleVar(value=0.5)
-        self.threshold_label = tk.Label(self.root, text="Alpha Threshold:")
+        self.threshold_label = tk.Label(self.root, text="Alpha threshold:")
         self.threshold_label.pack()
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
-        self.threshold_entry.pack()
+        self.threshold_entry.pack(pady=8)
+        
+        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
         self.keep_frames = tk.StringVar(value='All')
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
@@ -200,10 +204,11 @@ class TextureAtlasExtractorApp:
         self.keepframes_menu.pack(pady=2)
 
         self.crop_option = tk.StringVar(value="Animation based")
-        self.crop_label = tk.Label(self.root, text="PNG Cropping Method")
-        self.crop_label.pack()
-        self.crop_menu = tk.OptionMenu(self.root, self.crop_option, "None", "Frame based", "Animation based")
-        self.crop_menu.pack(pady=1)
+        self.crop_menu_label = tk.Label(self.root, text="PNG cropping method:")
+        self.crop_menu_label.pack()
+        self.crop_menu_menu = ttk.Combobox(self.root, textvariable=self.crop_option, state="readonly")
+        self.crop_menu_menu['values'] = ("None", "Animation based", "Frame based")
+        self.crop_menu_menu.pack(pady=1)
 
         self.prefix_label = tk.Label(self.root, text="Filename prefix:")
         self.prefix_label.pack()
@@ -212,11 +217,11 @@ class TextureAtlasExtractorApp:
         self.prefix_entry.pack()
         
         self.filename_format = tk.StringVar(value="Standardized")
-        self.filename_format_label = tk.Label(self.root, text="Filename Format:")
+        self.filename_format_label = tk.Label(self.root, text="Filename format:")
         self.filename_format_label.pack()
-        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
-        self.filename_format_menu['values'] = ("Standardized", "No Spaces", "No Special Characters")
-        self.filename_format_menu.pack(pady=1)
+        self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format, state="readonly")
+        self.filename_format_menu['values'] = ("Standardized", "No spaces", "No special characters")
+        self.filename_format_menu.pack(pady=1   )
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
