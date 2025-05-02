@@ -120,18 +120,46 @@ class AnimationProcessor:
 
     def get_kept_frame_indices(self, kept_frames, image_tuples):
         kept_frame_indices = set()
-        
+
+        if isinstance(kept_frames, str):
+            kept_frames = kept_frames.split(',')
+
         for entry in kept_frames:
-            if '-' in entry:
+            entry = entry.strip()
+
+            if '--' in entry:  # Detect ranges like "-1--4"
+                try:
+                    split_index = entry[1:].find('-') + 1 
+                    start = int(entry[:split_index])
+                    end = int(entry[split_index + 1:])
+
+                    if start < 0:
+                        start += len(image_tuples)
+                    if end < 0:
+                        end += len(image_tuples)
+
+                    if start <= end:
+                        kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+                    else:
+                        kept_frame_indices.update(range(max(0, end), min(len(image_tuples), start + 1))[::-1])
+                except ValueError:
+                    continue
+
+            elif '-' in entry and not entry.lstrip('-').isdigit():  # Detect ranges like "0-3"
                 try:
                     start, end = map(int, entry.split('-'))
                     if start < 0:
                         start += len(image_tuples)
                     if end < 0:
                         end += len(image_tuples)
-                    kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+
+                    if start <= end:
+                        kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+                    else:
+                        kept_frame_indices.update(range(max(0, end), min(len(image_tuples), start + 1))[::-1])
                 except ValueError:
                     continue
+
             else:
                 try:
                     frame_index = int(entry)
@@ -141,7 +169,7 @@ class AnimationProcessor:
                         kept_frame_indices.add(frame_index)
                 except ValueError:
                     continue
-        return kept_frame_indices
+        return sorted(kept_frame_indices)
 
     def save_frames(self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings):
         frames_generated = 0
