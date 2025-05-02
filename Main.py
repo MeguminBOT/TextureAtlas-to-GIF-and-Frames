@@ -28,7 +28,6 @@ class TextureAtlasExtractorApp:
         temp_dir (str): A temporary directory for storing files.
         fnf_char_json_directory (str): Directory for FNF character JSON files.
         current_version (str): The current version of the application.
-        quant_frames (dict): A dictionary to store quantized frames.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
         progress_var (tk.DoubleVar): A variable to track progress for the progress bar.
         variable_delay (tk.BooleanVar): A flag to enable or disable variable delay between frames.
@@ -50,6 +49,9 @@ class TextureAtlasExtractorApp:
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
         on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
+        create_find_and_replace_window(): # TODO
+        add_replace_rule(): # TODO
+        store_replace_rules(): # TODO
         create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
         store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
         on_closing(): Handles the event when the application is closing.
@@ -64,7 +66,6 @@ class TextureAtlasExtractorApp:
         self.temp_dir = tempfile.mkdtemp()
         self.fnf_char_json_directory = ""
         self.current_version = '1.9.3'
-        self.quant_frames = {}
         self.fnf_utilities = FnfUtilities()
 
         self.setup_gui()
@@ -225,7 +226,7 @@ class TextureAtlasExtractorApp:
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
-
+        self.replace_rules = []
         self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
         self.replace_button.pack(pady=2)
         
@@ -359,7 +360,6 @@ class TextureAtlasExtractorApp:
 
     def create_find_and_replace_window(self):
         self.replace_window = tk.Toplevel()
-        print(self.replace_rules)
         tk.Label(self.replace_window, text="Find and replace").pack()
         add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
         add_button.pack()
