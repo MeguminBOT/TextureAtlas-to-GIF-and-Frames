@@ -229,7 +229,7 @@ class TextureAtlasExtractorApp:
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
 
-        self.show_user_settings = tk.Button(self.button_frame, text="Show User Settings", command=self.create_settings_window)
+        self.show_user_settings = tk.Button(self.button_frame, text="Show user settings", command=self.create_settings_window)
         self.show_user_settings.pack(side=tk.LEFT, padx=4)
 
         self.process_button = tk.Button(self.button_frame, text="Start process", cursor="hand2", command=lambda: self.start_process())
