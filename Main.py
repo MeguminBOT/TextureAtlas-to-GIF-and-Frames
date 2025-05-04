@@ -467,6 +467,7 @@ class TextureAtlasExtractorApp:
                 settings['scale'] = float(scale_entry.get())
             if threshold_entry.get() != '':
                 settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
+            print("indices_entry.get(): "+indices_entry.get())
             if indices_entry.get() != '':
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
                 settings['indices'] = indices
@@ -496,17 +497,17 @@ class TextureAtlasExtractorApp:
     def start_process(self):
         self.settings_manager.set_global_settings(
             animation_format=self.animation_format.get(),
-            framerate=self.set_framerate.get(),
-            loop_delay=self.set_loopdelay.get(),
-            min_period=self.set_minperiod.get(),
+            fps=self.set_framerate.get(),
+            delay=self.set_loopdelay.get(),
+            period=self.set_minperiod.get(),
             scale=self.set_scale.get(),
             threshold=self.set_threshold.get(),
-            keep_frames=self.keep_frames.get(),
+            frames=self.keep_frames.get(),
             crop_option=self.crop_option.get(),
             prefix=self.prefix.get(),
             filename_format=self.filename_format.get(),
             replace_rules=self.replace_rules,
-            variable_delay=self.variable_delay.get(),
+            var_delay=self.variable_delay.get(),
             fnf_idle_loop=self.fnf_idle_loop.get(),
         )
 

@@ -43,5 +43,5 @@ class SettingsManager:
         if animation_name:
             animation_settings = self.animation_settings.get(animation_name, {})
             settings.update(animation_settings)
-
+        
         return settings

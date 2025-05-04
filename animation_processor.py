@@ -60,11 +60,11 @@ class AnimationProcessor:
         for animation_name, image_tuples in self.animations.items():
             print(f"Processing animation: {animation_name}")
 
-            settings = self.settings_manager.get_settings(spritesheet_name, animation_name)
-            scale = settings.get('scale', 1)
+            settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{animation_name}")
+            scale = settings.get('scale')
             image_tuples.sort(key=lambda x: x[0])
 
-            indices = settings.get('indices', None)
+            indices = settings.get('indices')
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
@@ -73,11 +73,11 @@ class AnimationProcessor:
             kept_frames = self.get_kept_frames(settings, single_frame, image_tuples)
             kept_frame_indices = self.get_kept_frame_indices(kept_frames, image_tuples)
 
-            if settings.get('fnf_idle_loop', False) and "idle" in animation_name.lower():
+            if settings.get('fnf_idle_loop') and "idle" in animation_name.lower():
                 settings['delay'] = 0
             frames_generated += self.save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings)
 
-            animation_format = settings.get('animation_format', 'None')
+            animation_format = settings.get('animation_format')
             if not single_frame and animation_format != 'None':
                 anims_generated += self.save_animations(image_tuples, spritesheet_name, animation_name, settings)
 
@@ -96,7 +96,7 @@ class AnimationProcessor:
         if single_frame:
             return ['0']
 
-        kept_frames = settings.get('keep_frames', 'All')
+        kept_frames = settings.get('frames')
         if kept_frames == 'All':
             return [str(i) for i in range(len(image_tuples))]
         elif kept_frames == 'First':
@@ -179,7 +179,7 @@ class AnimationProcessor:
         frames_folder = os.path.join(self.output_dir, animation_name)
         os.makedirs(frames_folder, exist_ok=True)
 
-        crop_option = settings.get('crop_option', 'None')
+        crop_option = settings.get('crop_option')
 
         if crop_option == "Animation based":
             min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
@@ -198,10 +198,10 @@ class AnimationProcessor:
         for index, frame in enumerate(image_tuples):
             if index in kept_frame_indices:
                 formatted_frame_name = Utilities.format_filename(
-                    settings.get('prefix', ''),
+                    settings.get('prefix'),
                     spritesheet_name,
                     frame[0],
-                    settings.get('filename_format', 'Standardized'),
+                    settings.get('filename_format'),
                     settings.get('replace_rules')
                 )
                 frame_filename = os.path.join(frames_folder, f"{formatted_frame_name}.png")
@@ -231,12 +231,12 @@ class AnimationProcessor:
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
         anims_generated = 0
 
-        fps = settings.get('fps', 24)
-        delay = settings.get('delay', 250)
-        period = settings.get('period', 0)
-        scale = settings.get('scale', 1)
-        threshold = settings.get('threshold', 0.5)
-        animation_format = settings.get('animation_format', 'None')
+        fps = settings.get('fps')
+        delay = settings.get('delay')
+        period = settings.get('period')
+        scale = settings.get('scale')
+        threshold = settings.get('threshold')
+        animation_format = settings.get('animation_format')
 
         images = [img[1] for img in image_tuples]
         sizes = [frame.size for frame in images]
@@ -273,7 +273,7 @@ class AnimationProcessor:
             return
 
         final_images = []
-        if settings.get('crop_option', 'None') == 'None':
+        if settings.get('crop_option') == 'None':
             final_images = list(map(lambda x: self.scale_image(x, scale), images))
         else:
             for frame in images:
@@ -281,7 +281,7 @@ class AnimationProcessor:
                 final_images.append(self.scale_image(cropped_frame, scale))
 
         durations = []
-        var_delay = settings.get('var_delay', False)
+        var_delay = settings.get('var_delay')
         if var_delay:
             for index in range(len(final_images)):
                 durations.append(round((index + 1) * 1000 / fps) - round(index * 1000 / fps))
@@ -291,10 +291,10 @@ class AnimationProcessor:
         durations[-1] += max(period - sum(durations), 0)
 
         formatted_webp_name = Utilities.format_filename(
-            settings.get('prefix', ''),
+            settings.get('prefix'),
             spritesheet_name,
             animation_name,
-            settings.get('filename_format', 'Standardized'),
+            settings.get('filename_format'),
             settings.get('replace_rules')
         )
         webp_filename = os.path.join(self.output_dir, f"{formatted_webp_name}.webp")
@@ -359,7 +359,7 @@ class AnimationProcessor:
             return
 
         final_images = []
-        if settings.get('crop_option', 'None') == 'None':
+        if settings.get('crop_option') == 'None':
             final_images = list(map(lambda x: self.scale_image(x, scale), images))
         else:
             for frame in images:
@@ -367,7 +367,7 @@ class AnimationProcessor:
                 final_images.append(self.scale_image(cropped_frame, scale))
 
         durations = []
-        var_delay = settings.get('var_delay', False)
+        var_delay = settings.get('var_delay')
         if var_delay:
             for index in range(len(images)):
                 durations.append(round((index + 1) * 1000 / fps, -1) - round(index * 1000 / fps, -1))
@@ -377,10 +377,10 @@ class AnimationProcessor:
         durations[-1] += max(round(period, -1) - sum(durations), 0)
 
         formatted_gif_name = Utilities.format_filename(
-            settings.get('prefix', ''), 
+            settings.get('prefix'), 
             spritesheet_name, 
             animation_name, 
-            settings.get('filename_format', 'Standardized'),
+            settings.get('filename_format'),
             settings.get('replace_rules')
         )
         gif_filename = os.path.join(self.output_dir, f"{formatted_gif_name}.gif")
@@ -413,7 +413,7 @@ class AnimationProcessor:
             return
 
         final_images = []
-        if settings.get('crop_option', 'None') == 'None':
+        if settings.get('crop_option') == 'None':
             final_images = list(map(lambda x: self.scale_image(x, scale), images))
         else:
             for frame in images:
@@ -421,7 +421,7 @@ class AnimationProcessor:
                 final_images.append(self.scale_image(cropped_frame, scale))
 
         durations = []
-        var_delay = settings.get('var_delay', False)
+        var_delay = settings.get('var_delay')
         if var_delay:
             for index in range(len(images)):
                 durations.append(int(round((index + 1) * 1000 / fps)) - int(round(index * 1000 / fps)))
@@ -431,10 +431,10 @@ class AnimationProcessor:
         durations[-1] += max(int(round(period)) - sum(durations), 0)
 
         formatted_apng_name = Utilities.format_filename(
-            settings.get('prefix', ''),
+            settings.get('prefix'),
             spritesheet_name,
             animation_name,
-            settings.get('filename_format', 'Standardized'),
+            settings.get('filename_format'),
             settings.get('replace_rules')
         )
         apng_filename = os.path.join(self.output_dir, f"{formatted_apng_name}.png")
