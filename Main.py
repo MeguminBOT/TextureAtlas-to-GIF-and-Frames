@@ -206,7 +206,7 @@ class TextureAtlasExtractorApp:
         self.keepframes_menu.pack(pady=2)
 
         self.crop_option = tk.StringVar(value="Animation based")
-        self.crop_menu_label = tk.Label(self.root, text="PNG cropping method:")
+        self.crop_menu_label = tk.Label(self.root, text="Cropping method:")
         self.crop_menu_label.pack()
         self.crop_menu_menu = ttk.Combobox(self.root, textvariable=self.crop_option, state="readonly")
         self.crop_menu_menu['values'] = ("None", "Animation based", "Frame based")

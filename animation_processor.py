@@ -339,7 +339,7 @@ class AnimationProcessor:
                 with WandImg.from_array(numpy.array(frame)) as wand_frame:
                     wand_frame.background_color = Color('None')
                     wand_frame.alpha_channel = 'background'
-                    wand_frame.trim(background_color='None')
+                    wand_frame.trim(color=Color('None'))
 
                     if wand_frame.colors > 256:
                         wand_frame.quantize(number_colors=256, colorspace_type='undefined', dither=False)
@@ -457,11 +457,8 @@ class AnimationProcessor:
     def scale_image(self, img, size):
         if size < 0:
             img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-        if abs(size) == 1:
-            return img
-        else:
-            new_width_float = img.width * abs(size)
-            new_height_float = img.height * abs(size)
-            new_width = round(new_width_float)
-            new_height = round(new_height_float)
-            return img.resize((new_width, new_height), Image.NEAREST)
+        new_width_float = img.width * abs(size)
+        new_height_float = img.height * abs(size)
+        new_width = round(new_width_float)
+        new_height = round(new_height_float)
+        return img.resize((new_width, new_height), Image.NEAREST)
