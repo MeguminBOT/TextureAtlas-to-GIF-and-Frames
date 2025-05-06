@@ -74,7 +74,7 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title("TextureAtlas to GIF and Frames")
-        self.root.geometry("900x680")
+        self.root.geometry("900x720")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
