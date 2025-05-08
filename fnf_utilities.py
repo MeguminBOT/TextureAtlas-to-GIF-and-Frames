@@ -128,6 +128,7 @@ class FnfUtilities:
                     listbox_png.insert(tk.END, png_filename)
                     data_dict[png_filename] = file_path
 
+                scale = parsed_data.get("scale")
                 for anim in parsed_data.get("animations", []):
                     anim_name = anim.get("name", "")
                     fps = anim.get("fps", 0)
@@ -137,6 +138,8 @@ class FnfUtilities:
                     full_anim_name = f"{png_filename}/{anim_name}"
                     settings = {"fps": fps}
 
+                    if scale != 1: 
+                        settings["scale"] = scale
                     if indices:
                         settings["indices"] = indices
                     if loop:
@@ -160,8 +163,10 @@ class FnfUtilities:
                     loop = anim.get("loop", "false").lower() == "true"
 
                     full_anim_name = f"{png_filename}/{anim_name}"
-                    settings = {"fps": fps, "scale": scale}
+                    settings = {"fps": fps}
 
+                    if scale != 1: 
+                        settings["scale"] = scale
                     if indices:
                         settings["indices"] = [int(i) for i in indices.split("..")] if ".." in indices else [int(i) for i in indices.split(",")]
                     if loop:
