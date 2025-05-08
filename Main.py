@@ -361,6 +361,7 @@ class TextureAtlasExtractorApp:
 
     def create_find_and_replace_window(self):
         self.replace_window = tk.Toplevel()
+        self.replace_window.geometry("400x300")
         tk.Label(self.replace_window, text="Find and replace").pack()
         add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
         add_button.pack()
@@ -375,10 +376,10 @@ class TextureAtlasExtractorApp:
         frame = tk.Frame(self.rules_frame)
         frame['borderwidth'] = 2
         frame['relief'] = 'sunken'
-        find_entry = tk.Entry(frame)
+        find_entry = tk.Entry(frame, width=40)
         find_entry.insert(0, rule["find"])
         find_entry.pack()
-        replace_entry = tk.Entry(frame)
+        replace_entry = tk.Entry(frame, width=40)
         replace_entry.insert(0, rule["replace"])
         replace_entry.pack()
         regex_checkbox = ttk.Checkbutton(frame, text="Regular expression")
