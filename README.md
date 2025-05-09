@@ -1,3 +1,4 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames)
 # TextureAtlas to GIF and Frames
 [TextureAtlas to GIF and Frames](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames) is a free and open-source software, used for extracting frames from sprite sheets, organizing them into folders, and generating GIFs/WebPs.
 Perfect for creating showcases and galleries of game sprites.
