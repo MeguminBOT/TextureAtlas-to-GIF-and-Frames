@@ -5,6 +5,8 @@ import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
+from PIL import Image, ImageTk, ImageSequence
+import io
 
 # Import our own modules
 from dependencies_checker import DependenciesChecker
@@ -15,6 +17,9 @@ from fnf_utilities import FnfUtilities
 from xml_parser import XmlParser 
 from txt_parser import TxtParser
 from extractor import Extractor
+from atlas_processor import AtlasProcessor
+from sprite_processor import SpriteProcessor
+from animation_processor import AnimationProcessor
 from help_window import HelpWindow
 
 class TextureAtlasExtractorApp:
@@ -49,11 +54,13 @@ class TextureAtlasExtractorApp:
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
         on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_find_and_replace_window(): # TODO
+        create_find_and_replace_window(): Creates a window to display animation and spritesheet settings
         add_replace_rule(): # TODO
         store_replace_rules(): # TODO
         create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
         store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
+        preview_gif_window(name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Generates and displays a preview GIF.
+        show_gif_preview_window(gif_path, settings): Displays the preview GIF in a new window.
         on_closing(): Handles the event when the application is closing.
         start_process(): Prepares and starts the processing thread.
         run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
@@ -452,6 +459,141 @@ class TextureAtlasExtractorApp:
         tk.Button(window, text="OK", command=lambda: self.store_input(
             window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
         )).pack()
+
+        tk.Button(window, text="Preview as GIF", command=lambda: self.preview_gif_window(
+            name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
+        )).pack(pady=6)
+
+    def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+        # Copy paste of the store_input method, but with fewer settings
+        settings = {}
+        try:
+            if fps_entry.get() != '':
+                settings['fps'] = float(fps_entry.get())
+            if delay_entry.get() != '':
+                settings['delay'] = int(delay_entry.get())
+            if period_entry.get() != '':
+                settings['period'] = int(period_entry.get())
+            if scale_entry.get() != '':
+                settings['scale'] = float(scale_entry.get())
+            if threshold_entry.get() != '':
+                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                settings['indices'] = indices
+        except ValueError as e:
+            messagebox.showerror("Invalid input", f"Error: {str(e)}")
+            return
+
+        if settings_type == "animation":
+            spritesheet_name, animation_name = name.split('/', 1)
+        else:
+            spritesheet_name = name
+            animation_name = None
+
+        input_dir = self.input_dir.get()
+        png_path = os.path.join(input_dir, spritesheet_name)
+        xml_path = os.path.splitext(png_path)[0] + '.xml'
+        txt_path = os.path.splitext(png_path)[0] + '.txt'
+        metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
+
+        try:
+            extractor = Extractor(None, self.current_version, self.settings_manager)
+            gif_path = extractor.generate_temp_gif_for_preview(
+                png_path, metadata_path, settings, animation_name, temp_dir=self.temp_dir
+            )
+            if not gif_path or not os.path.isfile(gif_path):
+                messagebox.showerror("Preview Error", "Could not generate preview GIF.")
+                return
+        except Exception as e:
+            messagebox.showerror("Preview Error", f"Error generating preview GIF: {e}")
+            return
+
+        self.show_gif_preview_window(gif_path, settings)
+
+    def show_gif_preview_window(self, gif_path, settings):
+        preview_win = tk.Toplevel()
+        preview_win.title("GIF Preview")
+
+        gif = Image.open(gif_path)
+        pil_frames = [frame.copy() for frame in ImageSequence.Iterator(gif)]
+        frame_count = len(pil_frames)
+        current_frame = [0]
+
+        fps = settings.get('fps', 24)
+        delay_setting = settings.get('delay', 0)
+        base_delay = int(1000 / fps)
+
+        bg_value = tk.IntVar(value=0)
+
+        def get_composited_frame(idx):
+            frame = pil_frames[idx].convert("RGBA")
+            bg = Image.new("RGBA", frame.size, (bg_value.get(), bg_value.get(), bg_value.get(), 255))
+            composited = Image.alpha_composite(bg, frame)
+            return ImageTk.PhotoImage(composited.convert("RGB"))
+
+        label = tk.Label(preview_win)
+        label.pack()
+
+        def show_frame(idx):
+            img = get_composited_frame(idx)
+            label.config(image=img)
+            label.image = img  # Prevent garbage collection
+            preview_win.geometry(f"{img.width()}x{img.height()+80}")
+
+        def next_frame():
+            current_frame[0] = (current_frame[0] + 1) % frame_count
+            show_frame(current_frame[0])
+
+        def prev_frame():
+            current_frame[0] = (current_frame[0] - 1) % frame_count
+            show_frame(current_frame[0])
+
+        playing = [False]
+
+        def play():
+            playing[0] = True
+            def loop():
+                if playing[0]:
+                    next_frame()
+                    if current_frame[0] == frame_count - 1 and delay_setting:
+                        delay = base_delay + delay_setting
+                    else:
+                        delay = base_delay
+                    preview_win.after(delay, loop)
+            loop()
+
+        def stop():
+            playing[0] = False
+
+        btn_frame = tk.Frame(preview_win)
+        btn_frame.pack()
+        tk.Button(btn_frame, text="Prev", command=prev_frame).pack(side=tk.LEFT)
+        tk.Button(btn_frame, text="Play", command=play).pack(side=tk.LEFT)
+        tk.Button(btn_frame, text="Stop", command=stop).pack(side=tk.LEFT)
+        tk.Button(btn_frame, text="Next", command=next_frame).pack(side=tk.LEFT)
+
+        def on_bg_change(val):
+            show_frame(current_frame[0])
+
+        slider_frame = tk.Frame(preview_win)
+        slider_frame.pack(pady=4)
+        tk.Label(slider_frame, text="Background:").pack(side=tk.LEFT)
+        bg_slider = tk.Scale(slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, variable=bg_value, command=on_bg_change, length=200)
+        bg_slider.pack(side=tk.LEFT)
+
+        show_frame(0)
+
+        def cleanup_temp_gif():
+            try:
+                gif.close()
+                if os.path.isfile(gif_path):
+                    os.remove(gif_path)
+            except Exception:
+                pass
+            preview_win.destroy()
+
+        preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_gif)
 
     def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         settings = {}

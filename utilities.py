@@ -27,8 +27,14 @@ class Utilities:
     
     @staticmethod
     def format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules):
+        # Provide safe defaults for preview function or missing values
+        if filename_format is None:
+            filename_format = "Standardized"
+        if not replace_rules:
+            replace_rules = []
+
         sprite_name = os.path.splitext(sprite_name)[0]
-        if filename_format == "Standardized" or filename_format == "No Spaces" or filename_format == "No Special Characters":
+        if filename_format in ("Standardized", "No Spaces", "No Special Characters"):
             base_name = f"{prefix} - {sprite_name} - {animation_name}" if prefix else f"{sprite_name} - {animation_name}"
             if filename_format == "No Spaces":
                 base_name = base_name.replace(" ", "")
