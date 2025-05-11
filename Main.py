@@ -7,14 +7,14 @@ import webbrowser
 from tkinter import filedialog, ttk, messagebox
 
 # Import our own modules
-from dependencies_checker import DependenciesChecker
+from utils.dependencies_checker import DependenciesChecker
 DependenciesChecker.check_and_configure_imagemagick()
-from update_checker import UpdateChecker
-from settings_manager import SettingsManager
-from fnf_utilities import FnfUtilities
-from xml_parser import XmlParser 
-from txt_parser import TxtParser
-from extractor import Extractor
+from utils.update_checker import UpdateChecker
+from utils.settings_manager import SettingsManager
+from utils.fnf_utilities import FnfUtilities
+from parsers.xml_parser import XmlParser 
+from parsers.txt_parser import TxtParser
+from core.extractor import Extractor
 from gui.help_window import HelpWindow
 from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
@@ -52,9 +52,6 @@ class TextureAtlasExtractorApp:
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
         on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_find_and_replace_window(): # TODO
-        add_replace_rule(): # TODO
-        store_replace_rules(): # TODO
         create_find_and_replace_window(): Creates the Find and Replace window.
         add_replace_rule(): Adds a replace rule to the Find and Replace window.
         store_replace_rules(): Stores the replace rules from the Find and Replace window.
