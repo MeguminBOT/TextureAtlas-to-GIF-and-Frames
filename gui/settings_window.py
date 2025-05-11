@@ -1,6 +1,19 @@
 import tkinter as tk
 
 class SettingsWindow:
+    """
+    A window for displaying user-overridden animation and spritesheet settings.
+
+    This class creates a Tkinter window that lists all animation-specific and spritesheet-specific settings
+    currently set by the user, allowing for easy inspection of overrides compared to global settings.
+
+    Attributes:
+        settings_window (tk.Toplevel): The Tkinter window instance displaying the settings.
+
+    Methods:
+        update_settings_window(settings_frame, settings_canvas, settings_manager):
+            Populates the window with the current animation and spritesheet settings.
+    """
     def __init__(self, parent, settings_manager):
         self.settings_window = tk.Toplevel(parent)
         self.settings_window.geometry("400x300")

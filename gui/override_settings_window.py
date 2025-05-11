@@ -1,6 +1,26 @@
 import tkinter as tk
 
 class OverrideSettingsWindow:
+    """
+    A window for overriding animation or spritesheet settings.
+
+    This class creates a Tkinter window that allows the user to override settings such as FPS, delay, period, scale,
+    threshold, indices, and frame-keeping options for a specific animation or spritesheet. The window is populated
+    with current settings if available, and provides input fields for each configurable option.
+
+    Attributes:
+        window (tk.Toplevel): The Tkinter window instance.
+        name (str): The name of the animation or spritesheet being configured.
+        settings_type (str): Either "animation" or "spritesheet", indicating the type of settings to override.
+        settings_manager: The settings manager instance used to retrieve and update settings.
+        on_store_callback (callable): Callback function to call when the user confirms the changes.
+        fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry (tk.Entry):
+            Entry widgets for each configurable setting.
+
+    Methods:
+        store_input():
+            Calls the provided callback with the current input values to store the overridden settings.
+    """
     def __init__(self, window, name, settings_type, settings_manager, on_store_callback):
         self.window = window
         self.name = name

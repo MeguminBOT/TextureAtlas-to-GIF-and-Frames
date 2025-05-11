@@ -2,6 +2,24 @@ import tkinter as tk
 from tkinter import ttk
 
 class FindReplaceWindow:
+    """
+    A window for managing find-and-replace rules for filenames.
+
+    This class creates a Tkinter window that allows the user to add, edit, and delete find-and-replace rules,
+    including support for regular expressions, to be applied to exported filenames.
+
+    Attributes:
+        replace_window (tk.Toplevel): The Tkinter window instance.
+        replace_rules (list): The list of current find-and-replace rules.
+        on_store_callback (callable): Callback function to call when the user confirms the changes.
+        rules_frame (tk.Frame): Frame containing the rule entry widgets.
+
+    Methods:
+        add_replace_rule(rule):
+            Adds a new rule entry row to the window.
+        store_replace_rules():
+            Collects all rule entries and calls the callback with the updated rules.
+    """
     def __init__(self, parent, replace_rules, on_store_callback):
         self.replace_window = tk.Toplevel(parent)
         self.replace_window.geometry("400x300")
