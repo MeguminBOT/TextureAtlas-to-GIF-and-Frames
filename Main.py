@@ -536,15 +536,29 @@ class TextureAtlasExtractorApp:
             durations = [base_delay] * frame_count
             durations[-1] += delay_setting
 
+        frame_counter_label = tk.Label(preview_win, text=f"Frame 0 / {frame_count-1}")
         frame_counter_label.pack()
 
+        slider_frame = tk.Frame(preview_win)
+        slider_frame.pack(pady=4)
         def on_slider(val):
             idx = int(float(val))
             current_frame[0] = idx
             show_frame(idx)
+        slider = tk.Scale(
+            slider_frame, from_=0, to=frame_count-1, orient=tk.HORIZONTAL, length=300,
+            showvalue=0, command=on_slider
+        )
+        slider.pack()
+        slider.set(0)
 
-        slider = tk.Scale(preview_win, from_=0, to=frame_count-1, orient=tk.HORIZONTAL, length=300, showvalue=0, command=on_slider)
-        slider.pack(pady=4)
+        preview_win.update_idletasks()
+        slider_frame_width = slider_frame.winfo_reqwidth()
+        preview_win_width = preview_win.winfo_width()
+        if preview_win_width > slider_frame_width:
+            slider_frame.pack_configure(padx=(preview_win_width - slider_frame_width)//2)
+
+        delays_canvas = tk.Canvas(preview_win, height=40)
         delays_canvas.pack(fill="x", expand=False)
         delays_scrollbar = tk.Scrollbar(preview_win, orient="horizontal", command=delays_canvas.xview)
         delays_scrollbar.pack(fill="x")
@@ -574,13 +588,15 @@ class TextureAtlasExtractorApp:
 
         bg_slider_frame = tk.Frame(preview_win)
         bg_slider_frame.pack(pady=4)
-        tk.Label(bg_slider_frame, text="Background:").pack(side=tk.LEFT)
-
         bg_value = tk.IntVar(value=127)
         def on_bg_change(val):
             clear_cache_for_bg()
             show_frame(current_frame[0])
-        bg_slider = tk.Scale(bg_slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, variable=bg_value, command=on_bg_change, length=200)
+        tk.Label(bg_slider_frame, text="Background:").pack(side=tk.LEFT, padx=(0, 8))
+        bg_slider = tk.Scale(
+            bg_slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, variable=bg_value,
+            command=on_bg_change, length=200
+        )
         bg_slider.pack(side=tk.LEFT)
 
         label = tk.Label(preview_win)
