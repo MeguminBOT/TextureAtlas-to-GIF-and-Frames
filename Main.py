@@ -520,34 +520,102 @@ class TextureAtlasExtractorApp:
         frame_count = len(pil_frames)
         current_frame = [0]
 
-        fps = settings.get('fps', 24)
-        delay_setting = settings.get('delay', 0)
-        base_delay = int(1000 / fps)
+        durations = []
+        try:
+            for frame in ImageSequence.Iterator(gif):
+                duration = frame.info.get('duration', 0)
+                durations.append(duration)
+        except Exception:
+            pass
 
-        bg_value = tk.IntVar(value=0)
+        fps = settings.get('fps', 24)
+        delay_setting = settings.get('delay', 250)
+        base_delay = round(1000 / fps, -1)
+
+        if not durations or len(durations) != frame_count:
+            durations = [base_delay] * frame_count
+            durations[-1] += delay_setting
+
+        frame_counter_label = tk.Label(preview_win, text=f"Frame 1 / {frame_count}")
+        frame_counter_label.pack()
+
+        bg_value = tk.IntVar(value=127)
+
+        composited_cache = {}
+
+        fixed_size = [None]
+        scale_factor = [1.0]
 
         def get_composited_frame(idx):
-            frame = pil_frames[idx].convert("RGBA")
-            bg = Image.new("RGBA", frame.size, (bg_value.get(), bg_value.get(), bg_value.get(), 255))
-            composited = Image.alpha_composite(bg, frame)
-            return ImageTk.PhotoImage(composited.convert("RGB"))
+            bg = bg_value.get()
+            cache_key = (idx, bg, scale_factor[0])
 
-        label = tk.Label(preview_win)
-        label.pack()
+            if cache_key in composited_cache:
+                return composited_cache[cache_key]
+            frame = pil_frames[idx].convert("RGBA")
+
+            if scale_factor[0] != 1.0:
+                new_size = (int(frame.width * scale_factor[0]), int(frame.height * scale_factor[0]))
+                frame = frame.resize(new_size, Image.NEAREST)
+
+            bg_img = Image.new("RGBA", frame.size, (bg, bg, bg, 255))
+            composited = Image.alpha_composite(bg_img, frame)
+            tk_img = ImageTk.PhotoImage(composited.convert("RGB"))
+            composited_cache[cache_key] = tk_img
+            return tk_img
+
+        def clear_cache_for_bg():
+            bg = bg_value.get()
+            keys_to_remove = [k for k in composited_cache if k[1] == bg]
+            for k in keys_to_remove:
+                del composited_cache[k]
 
         def show_frame(idx):
             img = get_composited_frame(idx)
             label.config(image=img)
             label.image = img  # Prevent garbage collection
-            preview_win.geometry(f"{img.width()}x{img.height()+80}")
+            frame_counter_label.config(text=f"Frame {idx+1} / {frame_count}")
+
+            if fixed_size[0] is None:
+                extra_height = 240
+                width = img.width()
+                height = img.height() + extra_height
+
+                # Scale window if it exceeds screen resolution
+                screen_width = preview_win.winfo_screenwidth()
+                screen_height = preview_win.winfo_screenheight()
+
+                scale = 1.0
+                if width > screen_width or height > screen_height:
+                    scale_w = (screen_width - 40) / width
+                    scale_h = (screen_height - 80) / height
+                    scale = min(scale_w, scale_h, 1.0)
+                    scale_factor[0] = scale
+
+                    img2 = get_composited_frame(idx)
+                    width = img2.width()
+                    height = img2.height() + extra_height
+                    img = img2
+
+                preview_win.geometry(f"{width}x{height}")
+                preview_win.minsize(width, height)
+                fixed_size[0] = (width, height)
+
+            for i, l in enumerate(delay_labels):
+                if i == idx:
+                    l.config(bg="#e0e0e0")
+                else:
+                    l.config(bg=preview_win.cget("bg"))
 
         def next_frame():
             current_frame[0] = (current_frame[0] + 1) % frame_count
             show_frame(current_frame[0])
+            slider.set(current_frame[0])
 
         def prev_frame():
             current_frame[0] = (current_frame[0] - 1) % frame_count
             show_frame(current_frame[0])
+            slider.set(current_frame[0])
 
         playing = [False]
 
@@ -556,15 +624,43 @@ class TextureAtlasExtractorApp:
             def loop():
                 if playing[0]:
                     next_frame()
-                    if current_frame[0] == frame_count - 1 and delay_setting:
-                        delay = base_delay + delay_setting
-                    else:
-                        delay = base_delay
+                    delay = durations[current_frame[0]]
                     preview_win.after(delay, loop)
             loop()
 
         def stop():
             playing[0] = False
+
+        def on_slider(val):
+            idx = int(float(val))
+            current_frame[0] = idx
+            show_frame(idx)
+
+        slider = tk.Scale(preview_win, from_=0, to=frame_count-1, orient=tk.HORIZONTAL, length=300, showvalue=0, command=on_slider)
+        slider.pack(pady=4)
+        slider.set(0)
+
+        delays_canvas = tk.Canvas(preview_win, height=40)
+        delays_canvas.pack(fill="x", expand=False)
+        delays_scrollbar = tk.Scrollbar(preview_win, orient="horizontal", command=delays_canvas.xview)
+        delays_scrollbar.pack(fill="x")
+        delays_canvas.configure(xscrollcommand=delays_scrollbar.set)
+
+        delays_frame = tk.Frame(delays_canvas)
+        delays_canvas.create_window((0, 0), window=delays_frame, anchor="nw")
+
+        delay_labels = []
+        for i, d in enumerate(durations):
+            ms = f"{d} ms"
+            lbl = tk.Label(delays_frame, text=ms, font=("Arial", 8, "italic"))
+            lbl.grid(row=1, column=i, padx=1)
+            idx_lbl = tk.Label(delays_frame, text=str(i), font=("Arial", 8))
+            idx_lbl.grid(row=0, column=i, padx=1)
+            delay_labels.append(lbl)
+
+        # Update scrollregion after populating
+        delays_frame.update_idletasks()
+        delays_canvas.config(scrollregion=delays_canvas.bbox("all"))
 
         btn_frame = tk.Frame(preview_win)
         btn_frame.pack()
@@ -573,12 +669,15 @@ class TextureAtlasExtractorApp:
         tk.Button(btn_frame, text="Stop", command=stop).pack(side=tk.LEFT)
         tk.Button(btn_frame, text="Next", command=next_frame).pack(side=tk.LEFT)
 
-        def on_bg_change(val):
-            show_frame(current_frame[0])
+        label = tk.Label(preview_win)
+        label.pack()
 
         slider_frame = tk.Frame(preview_win)
         slider_frame.pack(pady=4)
         tk.Label(slider_frame, text="Background:").pack(side=tk.LEFT)
+        def on_bg_change(val):
+            clear_cache_for_bg()
+            show_frame(current_frame[0])
         bg_slider = tk.Scale(slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, variable=bg_value, command=on_bg_change, length=200)
         bg_slider.pack(side=tk.LEFT)
 

@@ -156,8 +156,14 @@ class Extractor:
                 animations, atlas_path, temp_dir, self.settings_manager, self.current_version
             )
             for anim_name, image_tuples in animations.items():
+                images = [img_tuple[1] for img_tuple in image_tuples]
+                if images:
+                    sizes = [frame.size for frame in images]
+                    max_size = tuple(map(max, zip(*sizes)))
+                else:
+                    max_size = (1, 1)
                 animation_processor.save_gif(
-                    [img_tuple[1] for img_tuple in image_tuples],
+                    images,
                     os.path.basename(atlas_path),
                     anim_name,
                     settings.get('fps', 24),
@@ -165,7 +171,7 @@ class Extractor:
                     settings.get('period', 0),
                     settings.get('scale', 1),
                     settings.get('threshold', 0.5),
-                    settings.get('max_size', None),
+                    max_size,  # Pass the computed max_size
                     image_tuples,
                     settings
                 )
