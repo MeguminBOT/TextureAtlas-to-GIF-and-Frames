@@ -8,7 +8,7 @@ from wand.color import Color
 import numpy
 
 # Import our own modules
-from utilities import Utilities
+from utils.utilities import Utilities
 
 class AnimationProcessor:
     """

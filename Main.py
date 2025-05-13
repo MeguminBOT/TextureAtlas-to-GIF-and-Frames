@@ -9,16 +9,19 @@ from PIL import Image, ImageTk, ImageSequence
 import io
 
 # Import our own modules
-from dependencies_checker import DependenciesChecker
+from utils.dependencies_checker import DependenciesChecker
 DependenciesChecker.check_and_configure_imagemagick()
-from update_checker import UpdateChecker
-from settings_manager import SettingsManager
-from fnf_utilities import FnfUtilities
-from xml_parser import XmlParser 
-from txt_parser import TxtParser
-from extractor import Extractor
-from help_window import HelpWindow
+from utils.update_checker import UpdateChecker
+from utils.settings_manager import SettingsManager
+from utils.fnf_utilities import FnfUtilities
+from parsers.xml_parser import XmlParser 
+from parsers.txt_parser import TxtParser
+from core.extractor import Extractor
+from gui.help_window import HelpWindow
+from gui.find_replace_window import FindReplaceWindow
+from gui.override_settings_window import OverrideSettingsWindow
 from gif_preview_window import GifPreviewWindow
+from gui.settings_window import SettingsWindow
 
 class TextureAtlasExtractorApp:
     """
@@ -52,9 +55,9 @@ class TextureAtlasExtractorApp:
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
         on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_find_and_replace_window(): Creates a window to display animation and spritesheet settings
-        add_replace_rule(): # TODO
-        store_replace_rules(): # TODO
+        create_find_and_replace_window(): Creates the Find and Replace window.
+        add_replace_rule(): Adds a replace rule to the Find and Replace window.
+        store_replace_rules(): Stores the replace rules from the Find and Replace window.
         create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
         store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
         preview_gif_window(name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Generates and displays a preview GIF.
@@ -305,34 +308,14 @@ class TextureAtlasExtractorApp:
         return self.temp_dir
 
     def create_settings_window(self):
-        self.settings_window = tk.Toplevel()
-        self.settings_window.geometry("400x300")
-        settings_canvas = tk.Canvas(self.settings_window)
-        settings_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        settings_scrollbar = tk.Scrollbar(self.settings_window, orient=tk.VERTICAL, command=settings_canvas.yview)
-        settings_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        settings_canvas.config(yscrollcommand=settings_scrollbar.set)
-        settings_frame = tk.Frame(settings_canvas)
-        settings_canvas.create_window((0, 0), window=settings_frame, anchor=tk.NW)
-        self.update_settings_window(settings_frame, settings_canvas)
-        settings_frame.update_idletasks()
-        settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
+        SettingsWindow(self.root, self.settings_manager)
 
-    def update_settings_window(self, settings_frame, settings_canvas):
-        for widget in settings_frame.winfo_children():
-            widget.destroy()
+    def create_find_and_replace_window(self):
+        FindReplaceWindow(self.root, self.replace_rules, self.store_replace_rules)
 
-        tk.Label(settings_frame, text="Animation Settings").pack(pady=10)
-        for key, value in self.settings_manager.animation_settings.items():
-            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
+    def create_override_settings_window(self, window, name, settings_type):
+        OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input)
 
-        tk.Label(settings_frame, text="Spritesheet Settings").pack(pady=10)
-        for key, value in self.settings_manager.spritesheet_settings.items():
-            tk.Label(settings_frame, text=f"{key}: {value}").pack(anchor=tk.W, padx=20)
-
-        settings_frame.update_idletasks()
-        settings_canvas.config(scrollregion=settings_canvas.bbox("all"))
-        
     def on_select_spritesheet(self, evt):
         self.listbox_data.delete(0, tk.END)
 
@@ -363,104 +346,6 @@ class TextureAtlasExtractorApp:
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
-
-    def create_find_and_replace_window(self):
-        self.replace_window = tk.Toplevel()
-        self.replace_window.geometry("400x300")
-        tk.Label(self.replace_window, text="Find and replace").pack()
-        add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
-        add_button.pack()
-        self.rules_frame = tk.Frame(self.replace_window)
-        for rule in self.replace_rules:
-            self.add_replace_rule(rule)
-        self.rules_frame.pack()
-        ok_button = tk.Button(self.replace_window, text='OK', command=lambda: self.store_replace_rules())
-        ok_button.pack()
-
-    def add_replace_rule(self, rule):
-        frame = tk.Frame(self.rules_frame)
-        frame['borderwidth'] = 2
-        frame['relief'] = 'sunken'
-        find_entry = tk.Entry(frame, width=40)
-        find_entry.insert(0, rule["find"])
-        find_entry.pack()
-        replace_entry = tk.Entry(frame, width=40)
-        replace_entry.insert(0, rule["replace"])
-        replace_entry.pack()
-        regex_checkbox = ttk.Checkbutton(frame, text="Regular expression")
-        regex_checkbox.pack()
-        delete_rule_button = tk.Button(frame, text="Delete", command=lambda: frame.destroy())
-        delete_rule_button.pack()
-        regex_checkbox.invoke()
-        if not rule["regex"]:
-            regex_checkbox.invoke()
-        frame.pack(pady=2)
-        self.rules_frame.update()
-        return frame
-
-    def store_replace_rules(self):
-        self.replace_rules = []
-        for rule in self.rules_frame.winfo_children():
-            rule_settings = rule.winfo_children()
-            self.replace_rules.append({"find":rule_settings[0].get(),"replace":rule_settings[1].get(),"regex": "selected" in rule_settings[2].state()})
-        self.replace_window.destroy()
-
-    def create_override_settings_window(self, window, name, settings_type):
-        settings_map = {
-            "animation": self.settings_manager.animation_settings,
-            "spritesheet": self.settings_manager.spritesheet_settings,
-        }
-        settings = settings_map.get(settings_type, {}).get(name, {})
-
-        tk.Label(window, text="FPS for " + name).pack()
-        fps_entry = tk.Entry(window)
-        if settings:
-            fps_entry.insert(0, str(settings.get('fps', '')))
-        fps_entry.pack()
-
-        tk.Label(window, text="Delay for " + name).pack()
-        delay_entry = tk.Entry(window)
-        if settings:
-            delay_entry.insert(0, str(settings.get('delay', '')))
-        delay_entry.pack()
-
-        tk.Label(window, text="Min period for " + name).pack()
-        period_entry = tk.Entry(window)
-        if settings:
-            period_entry.insert(0, str(settings.get('period', '')))
-        period_entry.pack()
-
-        tk.Label(window, text="Scale for " + name).pack()
-        scale_entry = tk.Entry(window)
-        if settings:
-            scale_entry.insert(0, str(settings.get('scale', '')))
-        scale_entry.pack()
-
-        tk.Label(window, text="Threshold for " + name).pack()
-        threshold_entry = tk.Entry(window)
-        if settings:
-            threshold_entry.insert(0, str(settings.get('threshold', '')))
-        threshold_entry.pack()
-
-        tk.Label(window, text="Indices for " + name).pack()
-        indices_entry = tk.Entry(window)
-        if settings:
-            indices_entry.insert(0, str(settings.get('indices', '')).translate(str.maketrans('', '', '[] ')))
-        indices_entry.pack()
-
-        tk.Label(window, text="Keep frames for " + name).pack()
-        frames_entry = tk.Entry(window)
-        if settings:
-            frames_entry.insert(0, str(settings.get('frames', '')))
-        frames_entry.pack()
-
-        tk.Button(window, text="OK", command=lambda: self.store_input(
-            window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
-        )).pack()
-
-        tk.Button(window, text="Preview as GIF", command=lambda: self.preview_gif_window(
-            name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
-        )).pack(pady=6)
 
     def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         # Copy paste of the store_input method, but with fewer settings

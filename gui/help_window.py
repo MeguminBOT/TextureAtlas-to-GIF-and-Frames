@@ -3,14 +3,18 @@ from tkinter import ttk
 
 class HelpWindow:
     """
-    A class used to create help windows with scrollable text for the application.
+    A window class for displaying help and documentation for the application.
+
+    This class provides static methods to create scrollable help windows with detailed instructions
+    and guidance for using the application, including special advice for FNF (Friday Night Funkin') sprites.
+
     Methods:
         create_scrollable_help_window(help_text, title="Help"):
             Creates a scrollable help window with the provided help text and title.
         create_main_help_window():
-            Creates the main help window with detailed instructions and descriptions of the application's features.
+            Opens the main help window with instructions and feature descriptions.
         create_fnf_help_window():
-            Creates a help window specific to the FNF (Friday Night Funkin') sprites, providing guidance on importing FPS settings and loop delays.
+            Opens a help window with guidance specific to FNF sprites and settings.
     """
 
     @staticmethod

@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 import tkinter as tk
 
 # Import our own modules
-from utilities import Utilities
+from utils.utilities import Utilities
 
 class XmlParser:
     """

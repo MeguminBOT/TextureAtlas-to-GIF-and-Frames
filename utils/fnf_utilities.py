@@ -4,8 +4,6 @@ import xml.etree.ElementTree as ET
 import tkinter as tk
 from tkinter import filedialog
 
-
-
 class FnfUtilities:
     """
     A utility class for importing Friday Night Funkin' (FNF) character data.

@@ -10,11 +10,11 @@ from PIL import Image
 import tempfile
 
 ## Import our own modules
-from atlas_processor import AtlasProcessor
-from sprite_processor import SpriteProcessor
-from animation_processor import AnimationProcessor
-from exception_handler import ExceptionHandler
-from utilities import Utilities
+from core.atlas_processor import AtlasProcessor
+from core.sprite_processor import SpriteProcessor
+from core.animation_processor import AnimationProcessor
+from core.exception_handler import ExceptionHandler
+from utils.utilities import Utilities
 
 class Extractor:
     """

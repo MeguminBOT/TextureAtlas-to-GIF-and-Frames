@@ -1,9 +1,6 @@
 from PIL import Image
-from wand.image import Image as WandImg
-
-# Import our own modules
-from txt_parser import TxtParser
-from xml_parser import XmlParser
+from parsers.txt_parser import TxtParser
+from parsers.xml_parser import XmlParser
 
 class AtlasProcessor:
     """
