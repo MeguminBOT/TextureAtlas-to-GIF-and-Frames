@@ -5,8 +5,6 @@ import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
-from PIL import Image, ImageTk, ImageSequence
-import io
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
@@ -20,7 +18,7 @@ from core.extractor import Extractor
 from gui.help_window import HelpWindow
 from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
-from gif_preview_window import GifPreviewWindow
+from gui.gif_preview_window import GifPreviewWindow
 from gui.settings_window import SettingsWindow
 
 class TextureAtlasExtractorApp:
@@ -314,7 +312,7 @@ class TextureAtlasExtractorApp:
         FindReplaceWindow(self.root, self.replace_rules, self.store_replace_rules)
 
     def create_override_settings_window(self, window, name, settings_type):
-        OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input)
+        OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input, app=self)
 
     def on_select_spritesheet(self, evt):
         self.listbox_data.delete(0, tk.END)
@@ -348,51 +346,9 @@ class TextureAtlasExtractorApp:
         self.create_override_settings_window(new_window, full_anim_name, "animation")
 
     def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
-        # Copy paste of the store_input method, but with fewer settings
-        settings = {}
-        try:
-            if fps_entry.get() != '':
-                settings['fps'] = float(fps_entry.get())
-            if delay_entry.get() != '':
-                settings['delay'] = int(delay_entry.get())
-            if period_entry.get() != '':
-                settings['period'] = int(period_entry.get())
-            if scale_entry.get() != '':
-                settings['scale'] = float(scale_entry.get())
-            if threshold_entry.get() != '':
-                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                settings['indices'] = indices
-        except ValueError as e:
-            messagebox.showerror("Invalid input", f"Error: {str(e)}")
-            return
-
-        if settings_type == "animation":
-            spritesheet_name, animation_name = name.split('/', 1)
-        else:
-            spritesheet_name = name
-            animation_name = None
-
-        input_dir = self.input_dir.get()
-        png_path = os.path.join(input_dir, spritesheet_name)
-        xml_path = os.path.splitext(png_path)[0] + '.xml'
-        txt_path = os.path.splitext(png_path)[0] + '.txt'
-        metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
-
-        try:
-            extractor = Extractor(None, self.current_version, self.settings_manager)
-            gif_path = extractor.generate_temp_gif_for_preview(
-                png_path, metadata_path, settings, animation_name, temp_dir=self.temp_dir
-            )
-            if not gif_path or not os.path.isfile(gif_path):
-                messagebox.showerror("Preview Error", "Could not generate preview GIF.")
-                return
-        except Exception as e:
-            messagebox.showerror("Preview Error", f"Error generating preview GIF: {e}")
-            return
-
-        self.show_gif_preview_window(gif_path, settings)
+        GifPreviewWindow.preview(
+            self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
+        )
 
     def show_gif_preview_window(self, gif_path, settings):
         GifPreviewWindow.show(gif_path, settings)

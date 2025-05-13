@@ -237,3 +237,57 @@ class GifPreviewWindow:
             preview_win.destroy()
 
         preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_gif)
+
+    @staticmethod
+    def preview(app, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+        """
+        Generates a preview GIF using the provided settings and displays it in a preview window.
+        """
+        import os
+        from tkinter import messagebox
+
+        settings = {}
+        try:
+            if fps_entry.get() != '':
+                settings['fps'] = float(fps_entry.get())
+            if delay_entry.get() != '':
+                settings['delay'] = int(delay_entry.get())
+            if period_entry.get() != '':
+                settings['period'] = int(period_entry.get())
+            if scale_entry.get() != '':
+                settings['scale'] = float(scale_entry.get())
+            if threshold_entry.get() != '':
+                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                settings['indices'] = indices
+        except ValueError as e:
+            messagebox.showerror("Invalid input", f"Error: {str(e)}")
+            return
+
+        if settings_type == "animation":
+            spritesheet_name, animation_name = name.split('/', 1)
+        else:
+            spritesheet_name = name
+            animation_name = None
+
+        input_dir = app.input_dir.get()
+        png_path = os.path.join(input_dir, spritesheet_name)
+        xml_path = os.path.splitext(png_path)[0] + '.xml'
+        txt_path = os.path.splitext(png_path)[0] + '.txt'
+        metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
+
+        try:
+            from core.extractor import Extractor
+            extractor = Extractor(None, app.current_version, app.settings_manager)
+            gif_path = extractor.generate_temp_gif_for_preview(
+                png_path, metadata_path, settings, animation_name, temp_dir=app.temp_dir
+            )
+            if not gif_path or not os.path.isfile(gif_path):
+                messagebox.showerror("Preview Error", "Could not generate preview GIF.")
+                return
+        except Exception as e:
+            messagebox.showerror("Preview Error", f"Error generating preview GIF: {e}")
+            return
+
+        app.show_gif_preview_window(gif_path, settings)

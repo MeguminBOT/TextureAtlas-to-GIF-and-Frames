@@ -1,5 +1,8 @@
 import tkinter as tk
 
+# Import our own modules
+from gui.gif_preview_window import GifPreviewWindow
+
 class OverrideSettingsWindow:
     """
     A window for overriding animation or spritesheet settings.
@@ -14,6 +17,7 @@ class OverrideSettingsWindow:
         settings_type (str): Either "animation" or "spritesheet", indicating the type of settings to override.
         settings_manager: The settings manager instance used to retrieve and update settings.
         on_store_callback (callable): Callback function to call when the user confirms the changes.
+        app: Reference to the main application instance.
         fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry (tk.Entry):
             Entry widgets for each configurable setting.
 
@@ -21,12 +25,13 @@ class OverrideSettingsWindow:
         store_input():
             Calls the provided callback with the current input values to store the overridden settings.
     """
-    def __init__(self, window, name, settings_type, settings_manager, on_store_callback):
+    def __init__(self, window, name, settings_type, settings_manager, on_store_callback, app=None):
         self.window = window
         self.name = name
         self.settings_type = settings_type
         self.settings_manager = settings_manager
         self.on_store_callback = on_store_callback
+        self.app = app  # Store app reference
 
         settings_map = {
             "animation": self.settings_manager.animation_settings,
@@ -77,6 +82,10 @@ class OverrideSettingsWindow:
         self.frames_entry.pack()
 
         tk.Button(window, text="OK", command=self.store_input).pack()
+        
+        tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
+            self.app, self.name, self.settings_type, self.fps_entry, self.delay_entry, self.period_entry, self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
+        )).pack(pady=6)
 
     def store_input(self):
         self.on_store_callback(
