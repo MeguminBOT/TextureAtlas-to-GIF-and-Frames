@@ -5,6 +5,8 @@ import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
+from PIL import Image, ImageTk, ImageSequence
+import io
 
 # Import our own modules
 from dependencies_checker import DependenciesChecker
@@ -16,6 +18,7 @@ from xml_parser import XmlParser
 from txt_parser import TxtParser
 from extractor import Extractor
 from help_window import HelpWindow
+from gif_preview_window import GifPreviewWindow
 
 class TextureAtlasExtractorApp:
     """
@@ -49,11 +52,13 @@ class TextureAtlasExtractorApp:
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
         on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_find_and_replace_window(): # TODO
+        create_find_and_replace_window(): Creates a window to display animation and spritesheet settings
         add_replace_rule(): # TODO
         store_replace_rules(): # TODO
         create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
         store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
+        preview_gif_window(name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Generates and displays a preview GIF.
+        show_gif_preview_window(gif_path, settings): Displays the preview GIF in a new window.
         on_closing(): Handles the event when the application is closing.
         start_process(): Prepares and starts the processing thread.
         run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
@@ -452,6 +457,60 @@ class TextureAtlasExtractorApp:
         tk.Button(window, text="OK", command=lambda: self.store_input(
             window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
         )).pack()
+
+        tk.Button(window, text="Preview as GIF", command=lambda: self.preview_gif_window(
+            name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
+        )).pack(pady=6)
+
+    def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+        # Copy paste of the store_input method, but with fewer settings
+        settings = {}
+        try:
+            if fps_entry.get() != '':
+                settings['fps'] = float(fps_entry.get())
+            if delay_entry.get() != '':
+                settings['delay'] = int(delay_entry.get())
+            if period_entry.get() != '':
+                settings['period'] = int(period_entry.get())
+            if scale_entry.get() != '':
+                settings['scale'] = float(scale_entry.get())
+            if threshold_entry.get() != '':
+                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
+            if indices_entry.get() != '':
+                indices = [int(ele) for ele in indices_entry.get().split(',')]
+                settings['indices'] = indices
+        except ValueError as e:
+            messagebox.showerror("Invalid input", f"Error: {str(e)}")
+            return
+
+        if settings_type == "animation":
+            spritesheet_name, animation_name = name.split('/', 1)
+        else:
+            spritesheet_name = name
+            animation_name = None
+
+        input_dir = self.input_dir.get()
+        png_path = os.path.join(input_dir, spritesheet_name)
+        xml_path = os.path.splitext(png_path)[0] + '.xml'
+        txt_path = os.path.splitext(png_path)[0] + '.txt'
+        metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
+
+        try:
+            extractor = Extractor(None, self.current_version, self.settings_manager)
+            gif_path = extractor.generate_temp_gif_for_preview(
+                png_path, metadata_path, settings, animation_name, temp_dir=self.temp_dir
+            )
+            if not gif_path or not os.path.isfile(gif_path):
+                messagebox.showerror("Preview Error", "Could not generate preview GIF.")
+                return
+        except Exception as e:
+            messagebox.showerror("Preview Error", f"Error generating preview GIF: {e}")
+            return
+
+        self.show_gif_preview_window(gif_path, settings)
+
+    def show_gif_preview_window(self, gif_path, settings):
+        GifPreviewWindow.show(gif_path, settings)
 
     def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         settings = {}

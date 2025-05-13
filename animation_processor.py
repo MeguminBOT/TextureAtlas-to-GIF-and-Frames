@@ -97,6 +97,9 @@ class AnimationProcessor:
             return ['0']
 
         kept_frames = settings.get('frames')
+        if kept_frames is None:
+            kept_frames = 'All'
+
         if kept_frames == 'All':
             return [str(i) for i in range(len(image_tuples))]
         elif kept_frames == 'First':
