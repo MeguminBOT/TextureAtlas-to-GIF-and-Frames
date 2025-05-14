@@ -311,6 +311,9 @@ class TextureAtlasExtractorApp:
     def create_find_and_replace_window(self):
         FindReplaceWindow(self.root, self.replace_rules, self.store_replace_rules)
 
+    def store_replace_rules(self, rules):
+        self.replace_rules = rules
+
     def create_override_settings_window(self, window, name, settings_type):
         OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input, app=self)
 
