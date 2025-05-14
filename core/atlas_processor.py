@@ -1,4 +1,6 @@
 from PIL import Image
+
+# Import our own modules
 from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
 

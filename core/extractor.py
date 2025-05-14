@@ -5,7 +5,6 @@ import time
 import tkinter as tk
 import xml.etree.ElementTree as ET
 from tkinter import messagebox
-import io
 from PIL import Image
 import tempfile
 
@@ -13,6 +12,7 @@ import tempfile
 from core.atlas_processor import AtlasProcessor
 from core.sprite_processor import SpriteProcessor
 from core.animation_processor import AnimationProcessor
+from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
 
@@ -35,7 +35,7 @@ class Extractor:
         extract_preview_gif_frames(atlas_path, metadata_path, settings, animation_name=None):
             Extracts frames for a single animation for preview purposes.
         generate_temp_gif_for_preview(atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
-            Generates a temporary GIF file using the actual AnimationProcessor.save_gif logic.
+            Generates a temporary GIF file using the actual AnimationExporter.save_gif logic.
     """
 
     def __init__(self, progress_bar, current_version, settings_manager):
@@ -140,6 +140,7 @@ class Extractor:
             atlas_processor = AtlasProcessor(atlas_path, metadata_path)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
+
             if animation_name:
                 animations = {animation_name: animations.get(animation_name, [])}
             else:
@@ -152,9 +153,14 @@ class Extractor:
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
 
-            animation_processor = AnimationProcessor(
-                animations, atlas_path, temp_dir, self.settings_manager, self.current_version
+            quant_frames = {}
+            animation_exporter = AnimationExporter(
+                temp_dir,
+                self.current_version,
+                lambda img, size: img.resize((round(img.width * abs(size)), round(img.height * abs(size))), Image.NEAREST),
+                quant_frames
             )
+    
             for anim_name, image_tuples in animations.items():
                 images = [img_tuple[1] for img_tuple in image_tuples]
                 if images:
@@ -162,24 +168,30 @@ class Extractor:
                     max_size = tuple(map(max, zip(*sizes)))
                 else:
                     max_size = (1, 1)
-                animation_processor.save_gif(
+
+                spritesheet_name = os.path.basename(atlas_path)
+                preview_settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{anim_name}")
+                merged_settings = {**preview_settings, **settings}
+
+                animation_exporter.save_gif(
                     images,
-                    os.path.basename(atlas_path),
+                    spritesheet_name,
                     anim_name,
-                    settings.get('fps', 24),
-                    settings.get('delay', 250),
-                    settings.get('period', 0),
-                    settings.get('scale', 1),
-                    settings.get('threshold', 0.5),
-                    max_size,  # Pass the computed max_size
+                    merged_settings.get('fps', 24),
+                    merged_settings.get('delay', 250),
+                    merged_settings.get('period', 0),
+                    merged_settings.get('scale', 1),
+                    merged_settings.get('threshold', 0.5),
+                    max_size,
                     image_tuples,
-                    settings
+                    merged_settings
                 )
-    
+
                 for file in os.listdir(temp_dir):
                     if file.endswith('.gif'):
                         return os.path.join(temp_dir, file)
             return None
+
         except Exception as e:
             print(f"Preview GIF generation error: {e}")
             return None
