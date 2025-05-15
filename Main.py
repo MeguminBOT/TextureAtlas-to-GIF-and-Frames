@@ -5,6 +5,7 @@ import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, ttk, messagebox
+import xml.etree.ElementTree as ET
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
@@ -50,9 +51,8 @@ class TextureAtlasExtractorApp:
         select_files_manually(variable, label): Opens a file selection dialog and updates the label.
         create_settings_window(): Creates a window to display animation and spritesheet settings.
         update_settings_window(settings_frame, settings_canvas): Updates the settings window with current settings.
-        on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
-        on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
-        on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
+        on_select_tree(evt): Handles the event when an item is selected in the Treeview.
+        on_double_click_tree(evt): Handles the event when an item is double-clicked in the Treeview.
         create_find_and_replace_window(): Creates the Find and Replace window.
         add_replace_rule(): Adds a replace rule to the Find and Replace window.
         store_replace_rules(): Stores the replace rules from the Find and Replace window.
@@ -103,7 +103,7 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         import_menu = tk.Menu(self.menubar, tearoff=0)
-        import_menu.add_command(label="FNF: Import settings from character data file", command=lambda: self.fnf_utilities.fnf_select_char_data_directory(self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data))
+        import_menu.add_command(label="FNF: Import settings from character data file", command=lambda: self.fnf_utilities.fnf_select_char_data_directory(self.settings_manager, self.data_dict, self.tree, None) or self.add_settings_to_tree())
         self.menubar.add_cascade(label="Import", menu=import_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
@@ -126,20 +126,14 @@ class TextureAtlasExtractorApp:
         self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
         self.progress_bar.pack(pady=8)
 
-        self.scrollbar_png = tk.Scrollbar(self.root)
-        self.scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.listbox_png = tk.Listbox(self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
-        self.listbox_png.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.scrollbar_xml = tk.Scrollbar(self.root)
-        self.scrollbar_xml.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.listbox_data = tk.Listbox(self.root, width=30, yscrollcommand=self.scrollbar_xml.set)
-        self.listbox_data.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.scrollbar_png.config(command=self.listbox_png.yview)
-        self.scrollbar_xml.config(command=self.listbox_data.yview)
+        self.tree = ttk.Treeview(self.root, columns=("Type",), show="tree headings", height=25)
+        self.tree.heading("#0", text="Spritesheet/Animation")
+        self.tree.heading("Type", text="Type")
+        self.tree.column("#0", width=300, anchor="w")
+        self.tree.column("Type", width=100, anchor="w")
+        self.tree.pack(side=tk.LEFT, fill=tk.Y)
+        self.tree.bind('<<TreeviewSelect>>', self.on_select_tree)
+        self.tree.bind('<Double-1>', self.on_double_click_tree)
 
         self.input_dir = tk.StringVar()
         self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2",
@@ -159,7 +153,7 @@ class TextureAtlasExtractorApp:
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
         self.output_dir_label.pack(pady=4)
         
-        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", pady=2)
 
         self.animation_format = tk.StringVar(value="None")
         self.animation_format_label = tk.Label(self.root, text="Animation format:")
@@ -202,7 +196,7 @@ class TextureAtlasExtractorApp:
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
         self.threshold_entry.pack(pady=8)
         
-        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", pady=2)
 
         self.keep_frames = tk.StringVar(value='All')
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
@@ -264,24 +258,36 @@ class TextureAtlasExtractorApp:
         DependenciesChecker.check_and_configure_imagemagick()
 
     def clear_filelist(self):
-        self.listbox_png.delete(0, tk.END)
-        self.listbox_data.delete(0, tk.END)
+        self.tree.delete(*self.tree.get_children())
         self.settings_manager.animation_settings.clear()  # Clear animation-specific settings
         self.settings_manager.spritesheet_settings.clear()  # Clear spritesheet-specific settings
 
     def select_directory(self, variable, label):
         directory = filedialog.askdirectory()
+    
         if directory:
             variable.set(directory)
             label.config(text=directory)
+            
             if variable == self.input_dir:
                 self.clear_filelist()
+                
                 for filename in os.listdir(directory):
+                    
                     if filename.endswith('.xml') or filename.endswith('.txt'):
-                        self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
-                self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
-                self.listbox_png.bind('<Double-1>', self.on_double_click_spritesheet)
-                self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
+                        png_name = os.path.splitext(filename)[0] + '.png'
+                        parent_id = self.tree.insert('', 'end', text=png_name, values=("Spritesheet",))
+                        xml_filename = os.path.splitext(png_name)[0] + '.xml'
+                        txt_filename = os.path.splitext(png_name)[0] + '.txt'
+                        
+                        if os.path.isfile(os.path.join(directory, xml_filename)):
+                            xml_parser = XmlParser(directory, xml_filename, self.tree)
+                            for anim in xml_parser.extract_names(ET.parse(os.path.join(directory, xml_filename)).getroot()):
+                                self.tree.insert(parent_id, 'end', text=anim, values=("Animation",))
+                        elif os.path.isfile(os.path.join(directory, txt_filename)):
+                            txt_parser = TxtParser(directory, txt_filename, self.tree)
+                            for anim in txt_parser.extract_names():
+                                self.tree.insert(parent_id, 'end', text=anim, values=("Animation",))
         return directory
 
     def select_files_manually(self, variable, label):
@@ -289,20 +295,28 @@ class TextureAtlasExtractorApp:
         png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
         variable.set(self.temp_dir)
         label.config(text=self.temp_dir)
+        
         if data_files and png_files:
             for file in data_files:
                 shutil.copy(file, self.temp_dir)
                 png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
+                
                 if any(png_filename == os.path.basename(png) for png in png_files):
-                    if png_filename not in [self.listbox_png.get(idx) for idx in range(self.listbox_png.size())]:
-                        self.listbox_png.insert(tk.END, png_filename)
+                    if not any(self.tree.item(child)['text'] == png_filename for child in self.tree.get_children()):
+                        parent_id = self.tree.insert('', 'end', text=png_filename, values=("Spritesheet",))
                         self.data_dict[png_filename] = os.path.basename(file)
+                        ext = os.path.splitext(file)[1]
+                        
+                        if ext == '.xml':
+                            xml_parser = XmlParser(self.temp_dir, os.path.basename(file), self.tree)
+                            for anim in xml_parser.extract_names(ET.parse(file).getroot()):
+                                self.tree.insert(parent_id, 'end', text=anim, values=("Animation",))
+                        elif ext == '.txt':
+                            txt_parser = TxtParser(self.temp_dir, os.path.basename(file), self.tree)
+                            for anim in txt_parser.extract_names():
+                                self.tree.insert(parent_id, 'end', text=anim, values=("Animation",))
             for file in png_files:
                 shutil.copy(file, self.temp_dir)
-            self.listbox_png.unbind('<<ListboxSelect>>')
-            self.listbox_data.unbind('<Double-1>')
-            self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
-            self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
         return self.temp_dir
 
     def create_settings_window(self):
@@ -317,36 +331,29 @@ class TextureAtlasExtractorApp:
     def create_override_settings_window(self, window, name, settings_type):
         OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input, app=self)
 
-    def on_select_spritesheet(self, evt):
-        self.listbox_data.delete(0, tk.END)
+    def on_select_tree(self, evt):
+        pass
 
-        png_filename = self.listbox_png.get(self.listbox_png.curselection())
-        base_filename = os.path.splitext(png_filename)[0]
-        xml_filename = base_filename + '.xml'
-        txt_filename = base_filename + '.txt'
+    def on_double_click_tree(self, evt):
+        selected = self.tree.selection()
+        if not selected:
+            return
 
-        directory = self.input_dir.get()
-
-        if os.path.isfile(os.path.join(directory, xml_filename)):
-            xml_parser = XmlParser(directory, xml_filename, self.listbox_data)
-            xml_parser.get_data()
-        elif os.path.isfile(os.path.join(directory, txt_filename)):
-            txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
-            txt_parser.get_data()
-
-    def on_double_click_spritesheet(self, evt):
-        spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
-        new_window = tk.Toplevel()
-        new_window.geometry("360x360")
-        self.create_override_settings_window(new_window, spritesheet_name, "spritesheet")
-
-    def on_double_click_animation(self, evt):
-        spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
-        animation_name = self.listbox_data.get(self.listbox_data.curselection())
-        full_anim_name = spritesheet_name + '/' + animation_name
-        new_window = tk.Toplevel()
-        new_window.geometry("360x360")
-        self.create_override_settings_window(new_window, full_anim_name, "animation")
+        item_id = selected[0]
+        parent_id = self.tree.parent(item_id)
+    
+        if parent_id == '':
+            spritesheet_name = self.tree.item(item_id)['text']
+            new_window = tk.Toplevel()
+            new_window.geometry("360x360")
+            self.create_override_settings_window(new_window, spritesheet_name, "spritesheet")
+        else:
+            spritesheet_name = self.tree.item(parent_id)['text']
+            animation_name = self.tree.item(item_id)['text']
+            full_anim_name = spritesheet_name + '/' + animation_name
+            new_window = tk.Toplevel()
+            new_window.geometry("360x360")
+            self.create_override_settings_window(new_window, full_anim_name, "animation")
 
     def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         GifPreviewWindow.preview(
@@ -392,6 +399,7 @@ class TextureAtlasExtractorApp:
             settings_method(name, **settings)
 
         window.destroy()
+        self.add_settings_to_tree()
         
     def on_closing(self):
         if self.temp_dir and os.path.exists(self.temp_dir):
@@ -430,6 +438,33 @@ class TextureAtlasExtractorApp:
             self.progress_var,
             self.root,
         )
+
+    def add_settings_to_tree(self):
+        # Nesting, nesting, nesting, nesting, i'm crying, will fix this later.
+        for spritesheet_item in self.tree.get_children():
+            for anim_item in self.tree.get_children(spritesheet_item):
+                for setting_item in self.tree.get_children(anim_item):
+                    self.tree.delete(setting_item)
+
+            for setting_item in self.tree.get_children(spritesheet_item):
+                if self.tree.item(setting_item)['text'].startswith('['):
+                    self.tree.delete(setting_item)
+
+        for spritesheet, settings in self.settings_manager.spritesheet_settings.items():
+            for item in self.tree.get_children():
+                if self.tree.item(item)['text'] == spritesheet:
+                    for key, value in settings.items():
+                        self.tree.insert(item, 'end', text=f"[{key}]", values=(str(value),))
+
+        for anim_full, settings in self.settings_manager.animation_settings.items():
+            if '/' in anim_full:
+                spritesheet, animation = anim_full.split('/', 1)
+                for item in self.tree.get_children():
+                    if self.tree.item(item)['text'] == spritesheet:
+                        for child in self.tree.get_children(item):
+                            if self.tree.item(child)['text'] == animation:
+                                for key, value in settings.items():
+                                    self.tree.insert(child, 'end', text=f"[{key}]", values=(str(value),))
 
 if __name__ == "__main__":
     root = tk.Tk()

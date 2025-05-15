@@ -12,19 +12,21 @@ class TxtParser:
     Attributes:
         directory: The directory where the TXT file is located.
         txt_filename: The name of the TXT file to parse.
-        listbox_data: The Tkinter listbox to populate with extracted names.
+        tree: The Tkinter Treeview to populate with extracted names.
+        parent_id: The ID of the parent node in the Treeview, if applicable.
 
     Methods:
-        get_data(): Parses the TXT file and populates the listbox with names.
+        get_data(): Parses the TXT file and populates the Treeview with names.
         extract_names(): Extracts names from each line of the TXT file.
-        get_names(names): Populates the listbox with the given names.
+        get_names(names): Populates the Treeview with the given names.
         parse_txt_packer(file_path): Static method to parse TXT data from a file and return sprite information.
     """
 
-    def __init__(self, directory, txt_filename, listbox_data):
+    def __init__(self, directory, txt_filename, tree, parent_id=None):
         self.directory = directory
         self.txt_filename = txt_filename
-        self.listbox_data = listbox_data
+        self.tree = tree
+        self.parent_id = parent_id
 
     def get_data(self):
         names = self.extract_names()
@@ -41,7 +43,10 @@ class TxtParser:
 
     def get_names(self, names):
         for name in names:
-            self.listbox_data.insert(tk.END, name)
+            if self.parent_id:
+                self.tree.insert(self.parent_id, 'end', text=name, values=("Animation",))
+            else:
+                self.tree.insert('', 'end', text=name, values=("Animation",))
 
     @staticmethod
     def parse_txt_packer(file_path):

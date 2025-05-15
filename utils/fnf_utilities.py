@@ -17,9 +17,9 @@ class FnfUtilities:
     Methods:
         detect_engine(file_path):
             Attempt to detect the engine character file is from and return the parsed data.
-        fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data):
+        fnf_load_char_data_settings(settings_manager, data_dict, tree):
             Loads character JSON from the specified directory and updates the settings manager with the correct fps for every animation.
-        fnf_select_char_data_directory(settings_manager, data_dict, listbox_png, listbox_data):
+        fnf_select_char_data_directory(settings_manager, data_dict, tree, app=None):
             Prompts the user to select a directory containing FNF character JSON files, and loads the data from the selected directory.
     """
 
@@ -110,7 +110,7 @@ class FnfUtilities:
                 pass
         return "Unknown", None
 
-    def fnf_load_char_data_settings(self, settings_manager, data_dict, listbox_png, listbox_data):
+    def fnf_load_char_data_settings(self, settings_manager, data_dict, tree):
         for filename in os.listdir(self.fnf_char_json_directory):
             file_path = os.path.join(self.fnf_char_json_directory, filename)
 
@@ -122,9 +122,12 @@ class FnfUtilities:
                 image_base = os.path.splitext(os.path.basename(parsed_data.get("image", "")))[0]
                 png_filename = image_base + '.png'
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                existing_items = [tree.item(item)['text'] for item in tree.get_children()]
+                if png_filename not in existing_items:
+                    parent_id = tree.insert('', 'end', text=png_filename, values=("Spritesheet",))
                     data_dict[png_filename] = file_path
+                else:
+                    parent_id = next((item for item in tree.get_children() if tree.item(item)['text'] == png_filename), None)
 
                 scale = parsed_data.get("scale")
                 for anim in parsed_data.get("animations", []):
@@ -145,13 +148,21 @@ class FnfUtilities:
 
                     settings_manager.set_animation_settings(full_anim_name, **settings)
 
+                    # Insert animation as child if not already present
+                    anim_exists = any(tree.item(child)['text'] == anim_name for child in tree.get_children(parent_id))
+                    if not anim_exists:
+                        tree.insert(parent_id, 'end', text=anim_name, values=("Animation",))
+
             elif engine_type == "Codename Engine" and parsed_data:
                 image_base = os.path.splitext(filename)[0]
                 png_filename = image_base + '.png'
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                existing_items = [tree.item(item)['text'] for item in tree.get_children()]
+                if png_filename not in existing_items:
+                    parent_id = tree.insert('', 'end', text=png_filename, values=("Spritesheet",))
                     data_dict[png_filename] = file_path
+                else:
+                    parent_id = next((item for item in tree.get_children() if tree.item(item)['text'] == png_filename), None)
 
                 scale = float(parsed_data.attrib.get("scale", 1))
                 for anim in parsed_data.findall("anim"):
@@ -166,19 +177,26 @@ class FnfUtilities:
                     if scale != 1: 
                         settings["scale"] = scale
                     if indices:
-                        settings["indices"] = [int(i) for i in indices.split("..")] if ".." in indices else [int(i) for i in indices.split(",")]
+                        settings["indices"] = [int(i) for i in indices.split("..") if i] if ".." in indices else [int(i) for i in indices.split(",") if i]
                     if loop:
                         settings["delay"] = 0  # Set delay to 0 for looping animations
 
                     settings_manager.set_animation_settings(full_anim_name, **settings)
 
+                    anim_exists = any(tree.item(child)['text'] == anim_name for child in tree.get_children(parent_id))
+                    if not anim_exists:
+                        tree.insert(parent_id, 'end', text=anim_name, values=("Animation",))
+
             elif engine_type == "Kade Engine" and parsed_data:
                 image_base = os.path.splitext(filename)[0]
                 png_filename = image_base + '.png'
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                existing_items = [tree.item(item)['text'] for item in tree.get_children()]
+                if png_filename not in existing_items:
+                    parent_id = tree.insert('', 'end', text=png_filename, values=("Spritesheet",))
                     data_dict[png_filename] = file_path
+                else:
+                    parent_id = next((item for item in tree.get_children() if tree.item(item)['text'] == png_filename), None)
 
                 for anim in parsed_data.get("animations", []):
                     anim_name = anim.get("name", "")
@@ -196,11 +214,21 @@ class FnfUtilities:
 
                     settings_manager.set_animation_settings(full_anim_name, **settings)
 
+                    anim_exists = any(tree.item(child)['text'] == anim_name for child in tree.get_children(parent_id))
+                    if not anim_exists:
+                        tree.insert(parent_id, 'end', text=anim_name, values=("Animation",))
+
             else:
                 print(f"Skipping {filename}: Not a FNF character data file or unsupported engine type.")
 
-    def fnf_select_char_data_directory(self, settings_manager, data_dict, listbox_png, listbox_data):
+    def fnf_select_char_data_directory(self, settings_manager, data_dict, tree, app=None):
+        """
+        Opens a directory dialog and loads FNF character data settings, updating the provided single Treeview widget.
+        """
         self.fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character Data Directory")
         if self.fnf_char_json_directory:
-            self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data)
+            self.fnf_load_char_data_settings(settings_manager, data_dict, tree)
             print("Animation settings updated in SettingsManager.")
+            # If app is provided, update the tree settings nodes
+            if app is not None and hasattr(app, 'add_settings_to_tree'):
+                app.add_settings_to_tree()
