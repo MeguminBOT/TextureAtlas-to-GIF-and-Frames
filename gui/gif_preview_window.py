@@ -245,9 +245,9 @@ class GifPreviewWindow:
             if fps_entry.get() != '':
                 settings['fps'] = float(fps_entry.get())
             if delay_entry.get() != '':
-                settings['delay'] = int(delay_entry.get())
+                settings['delay'] = int(float(delay_entry.get()))
             if period_entry.get() != '':
-                settings['period'] = int(period_entry.get())
+                settings['period'] = int(float(period_entry.get()))
             if scale_entry.get() != '':
                 settings['scale'] = float(scale_entry.get())
             if threshold_entry.get() != '':
