@@ -445,31 +445,61 @@ class TextureAtlasExtractorApp:
         )
 
     def add_settings_to_tree(self):
-        # Nesting, nesting, nesting, nesting, i'm crying, will fix this later.
-        for spritesheet_item in self.tree.get_children():
-            for anim_item in self.tree.get_children(spritesheet_item):
-                for setting_item in self.tree.get_children(anim_item):
-                    self.tree.delete(setting_item)
+        def find_child_by_text(parent, text):
+            for child in self.tree.get_children(parent):
+                if self.tree.item(child)['text'] == text:
+                    return child
+            return None
 
-            for setting_item in self.tree.get_children(spritesheet_item):
-                if self.tree.item(setting_item)['text'].startswith('['):
-                    self.tree.delete(setting_item)
+        def clear_settings_nodes():
+            for spritesheet_item in self.tree.get_children():
+                for anim_item in self.tree.get_children(spritesheet_item):
+                    for setting_item in list(self.tree.get_children(anim_item)):
+                        self.tree.delete(setting_item)
 
-        for spritesheet, settings in self.settings_manager.spritesheet_settings.items():
-            for item in self.tree.get_children():
-                if self.tree.item(item)['text'] == spritesheet:
-                    for key, value in settings.items():
-                        self.tree.insert(item, 'end', text=f"[{key}]", values=(str(value),))
+                for setting_item in list(self.tree.get_children(spritesheet_item)):
+                    if self.tree.item(setting_item)['text'].startswith('['):
+                        self.tree.delete(setting_item)
 
-        for anim_full, settings in self.settings_manager.animation_settings.items():
-            if '/' in anim_full:
+        def insert_spritesheet_settings():
+            for spritesheet, settings in self.settings_manager.spritesheet_settings.items():
+                spritesheet_item = find_child_by_text('', spritesheet)
+
+                if spritesheet_item is None:
+                    continue
+
+                for key, value in settings.items():
+                    self.tree.insert(
+                        spritesheet_item, 'end',
+                        text=f"[{key}]",
+                        values=(str(value),)
+                    )
+
+        def insert_animation_settings():
+            for anim_full, settings in self.settings_manager.animation_settings.items():
+                if '/' not in anim_full:
+                    continue
+
                 spritesheet, animation = anim_full.split('/', 1)
-                for item in self.tree.get_children():
-                    if self.tree.item(item)['text'] == spritesheet:
-                        for child in self.tree.get_children(item):
-                            if self.tree.item(child)['text'] == animation:
-                                for key, value in settings.items():
-                                    self.tree.insert(child, 'end', text=f"[{key}]", values=(str(value),))
+                spritesheet_item = find_child_by_text('', spritesheet)
+
+                if spritesheet_item is None:
+                    continue
+
+                anim_item = find_child_by_text(spritesheet_item, animation)
+                if anim_item is None:
+                    continue
+
+                for key, value in settings.items():
+                    self.tree.insert(
+                        anim_item, 'end',
+                        text=f"[{key}]",
+                        values=(str(value),)
+                    )
+
+        clear_settings_nodes()
+        insert_spritesheet_settings()
+        insert_animation_settings()
 
 if __name__ == "__main__":
     root = tk.Tk()
