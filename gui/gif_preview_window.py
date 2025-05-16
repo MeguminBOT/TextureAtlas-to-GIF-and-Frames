@@ -240,12 +240,6 @@ class GifPreviewWindow:
 
     @staticmethod
     def preview(app, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
-        """
-        Generates a preview GIF using the provided settings and displays it in a preview window.
-        """
-        import os
-        from tkinter import messagebox
-
         settings = {}
         try:
             if fps_entry.get() != '':
