@@ -33,52 +33,50 @@ class OverrideSettingsWindow:
         self.on_store_callback = on_store_callback
         self.app = app
 
-        settings_map = {
-            "animation": self.settings_manager.animation_settings,
-            "spritesheet": self.settings_manager.spritesheet_settings,
-        }
-        settings = settings_map.get(settings_type, {}).get(name, {})
+        if settings_type == "animation" and "/" in name:
+            spritesheet_name, animation_name = name.split("/", 1)
+        else:
+            spritesheet_name = name
+            animation_name = None
+
+        settings = self.settings_manager.get_settings(spritesheet_name, animation_name)
 
         tk.Label(window, text="FPS for " + name).pack()
         self.fps_entry = tk.Entry(window)
-        if settings:
-            self.fps_entry.insert(0, str(settings.get('fps', '')))
+        self.fps_entry.insert(0, str(settings.get('fps', '')))
         self.fps_entry.pack()
 
         tk.Label(window, text="Delay for " + name).pack()
         self.delay_entry = tk.Entry(window)
-        if settings:
-            self.delay_entry.insert(0, str(settings.get('delay', '')))
+        self.delay_entry.insert(0, str(settings.get('delay', '')))
         self.delay_entry.pack()
 
         tk.Label(window, text="Min period for " + name).pack()
         self.period_entry = tk.Entry(window)
-        if settings:
-            self.period_entry.insert(0, str(settings.get('period', '')))
+        self.period_entry.insert(0, str(settings.get('period', '')))
         self.period_entry.pack()
 
         tk.Label(window, text="Scale for " + name).pack()
         self.scale_entry = tk.Entry(window)
-        if settings:
-            self.scale_entry.insert(0, str(settings.get('scale', '')))
+        self.scale_entry.insert(0, str(settings.get('scale', '')))
         self.scale_entry.pack()
 
         tk.Label(window, text="Threshold for " + name).pack()
         self.threshold_entry = tk.Entry(window)
-        if settings:
-            self.threshold_entry.insert(0, str(settings.get('threshold', '')))
+        self.threshold_entry.insert(0, str(settings.get('threshold', '')))
         self.threshold_entry.pack()
 
         tk.Label(window, text="Indices for " + name).pack()
         self.indices_entry = tk.Entry(window)
-        if settings:
-            self.indices_entry.insert(0, str(settings.get('indices', '')).translate(str.maketrans('', '', '[] ')))
+        indices_val = settings.get('indices', '')
+        if isinstance(indices_val, list):
+            indices_val = ','.join(str(i) for i in indices_val)
+        self.indices_entry.insert(0, str(indices_val))
         self.indices_entry.pack()
 
         tk.Label(window, text="Keep frames for " + name).pack()
         self.frames_entry = tk.Entry(window)
-        if settings:
-            self.frames_entry.insert(0, str(settings.get('frames', '')))
+        self.frames_entry.insert(0, str(settings.get('frames', '')))
         self.frames_entry.pack()
 
         tk.Button(window, text="OK", command=self.store_input).pack()
