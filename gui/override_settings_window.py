@@ -31,7 +31,7 @@ class OverrideSettingsWindow:
         self.settings_type = settings_type
         self.settings_manager = settings_manager
         self.on_store_callback = on_store_callback
-        self.app = app  # Store app reference
+        self.app = app
 
         settings_map = {
             "animation": self.settings_manager.animation_settings,
@@ -84,7 +84,9 @@ class OverrideSettingsWindow:
         tk.Button(window, text="OK", command=self.store_input).pack()
         
         tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
-            self.app, self.name, self.settings_type, self.fps_entry, self.delay_entry, self.period_entry, self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
+            self.app, self.name, self.settings_type, 
+            self.fps_entry, self.delay_entry, self.period_entry, 
+            self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
         )).pack(pady=6)
 
     def store_input(self):

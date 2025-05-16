@@ -40,13 +40,6 @@ class AnimationExporter:
         self.scale_image = scale_image_func
         self.quant_frames = quant_frames
 
-
-    def __init__(self, output_dir, current_version, scale_image_func, quant_frames):
-        self.output_dir = output_dir
-        self.current_version = current_version
-        self.scale_image = scale_image_func
-        self.quant_frames = quant_frames
-
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
         anims_generated = 0
 
