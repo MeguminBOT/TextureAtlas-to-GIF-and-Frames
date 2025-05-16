@@ -315,6 +315,7 @@ class TextureAtlasExtractorApp:
         self.replace_rules = rules
 
     def create_override_settings_window(self, window, name, settings_type):
+        self.update_global_settings()
         OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input, app=self)
 
     def on_select_spritesheet(self, evt):
@@ -393,12 +394,7 @@ class TextureAtlasExtractorApp:
 
         window.destroy()
         
-    def on_closing(self):
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-        self.root.destroy()
-        
-    def start_process(self):
+    def update_global_settings(self):
         self.settings_manager.set_global_settings(
             animation_format=self.animation_format.get(),
             fps=self.set_framerate.get(),
@@ -414,6 +410,15 @@ class TextureAtlasExtractorApp:
             var_delay=self.variable_delay.get(),
             fnf_idle_loop=self.fnf_idle_loop.get(),
         )
+        print("Global settings updated:", self.settings_manager.global_settings)
+        
+    def on_closing(self):
+        if self.temp_dir and os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        self.root.destroy()
+        
+    def start_process(self):
+        self.update_global_settings()
 
         if any(char in self.settings_manager.global_settings["prefix"] for char in r'\/:*?"<>|'):
             messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
