@@ -33,8 +33,10 @@ class OverrideSettingsWindow:
         self.on_store_callback = on_store_callback
         self.app = app
 
-        if settings_type == "animation" and "/" in name:
-            spritesheet_name, animation_name = name.split("/", 1)
+        if settings_type == "animation":
+            # For animation, use the full name as animation_name key (Ugly workaround for now)
+            spritesheet_name = name.split("/", 1)[0] if "/" in name else name
+            animation_name = name
         else:
             spritesheet_name = name
             animation_name = None
