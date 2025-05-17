@@ -372,7 +372,6 @@ class TextureAtlasExtractorApp:
                 settings['scale'] = float(scale_entry.get())
             if threshold_entry.get() != '':
                 settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
-            print("indices_entry.get(): "+indices_entry.get())
             if indices_entry.get() != '':
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
                 settings['indices'] = indices
