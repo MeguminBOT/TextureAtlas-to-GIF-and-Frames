@@ -81,11 +81,12 @@ class OverrideSettingsWindow:
 
         tk.Button(window, text="OK", command=self.store_input).pack()
         
-        tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
-            self.app, self.name, self.settings_type, 
-            self.fps_entry, self.delay_entry, self.period_entry, 
-            self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
-        )).pack(pady=6)
+        if settings_type == "animation":
+            tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
+                self.app, self.name, self.settings_type, 
+                self.fps_entry, self.delay_entry, self.period_entry, 
+                self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
+            )).pack(pady=6)
 
     def store_input(self):
         self.on_store_callback(
