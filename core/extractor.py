@@ -160,30 +160,16 @@ class Extractor:
                 lambda img, size: img.resize((round(img.width * abs(size)), round(img.height * abs(size))), Image.NEAREST),
                 quant_frames
             )
-    
-            for anim_name, image_tuples in animations.items():
-                images = [img_tuple[1] for img_tuple in image_tuples]
-                if images:
-                    sizes = [frame.size for frame in images]
-                    max_size = tuple(map(max, zip(*sizes)))
-                else:
-                    max_size = (1, 1)
 
+            for anim_name, image_tuples in animations.items():
                 spritesheet_name = os.path.basename(atlas_path)
                 preview_settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{anim_name}")
                 merged_settings = {**preview_settings, **settings}
-
-                animation_exporter.save_gif(
-                    images,
+                merged_settings['animation_format'] = 'GIF'
+                animation_exporter.save_animations(
+                    image_tuples,
                     spritesheet_name,
                     anim_name,
-                    merged_settings.get('fps', 24),
-                    merged_settings.get('delay', 250),
-                    merged_settings.get('period', 0),
-                    merged_settings.get('scale', 1),
-                    merged_settings.get('threshold', 0.5),
-                    max_size,
-                    image_tuples,
                     merged_settings
                 )
 
