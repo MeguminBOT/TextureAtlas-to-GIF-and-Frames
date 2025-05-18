@@ -376,7 +376,7 @@ class TextureAtlasExtractorApp:
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
                 settings['indices'] = indices
             if frames_entry.get() != '':
-                settings['frames'] = frames_entry.get().lower()
+                settings['frames'] = frames_entry.get()
         except ValueError as e:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             window.lift()

@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 
 # Import our own modules
 from gui.gif_preview_window import GifPreviewWindow
@@ -77,8 +78,9 @@ class OverrideSettingsWindow:
         self.indices_entry.pack()
 
         tk.Label(window, text="Keep frames for " + name).pack()
-        self.frames_entry = tk.Entry(window)
-        self.frames_entry.insert(0, str(settings.get('frames', '')))
+        self.frames_var = tk.StringVar(value=str(settings.get('frames', '')))
+        self.frames_entry = ttk.Combobox(window, textvariable=self.frames_var)
+        self.frames_entry['values'] = ("None", "All", "No duplicates", "First", "Last", "First, Last")
         self.frames_entry.pack()
 
         tk.Button(window, text="OK", command=self.store_input).pack()
