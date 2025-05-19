@@ -45,13 +45,13 @@ class Extractor:
         self.progress_bar = progress_bar
         self.current_version = current_version
 
-    def process_directory(self, input_dir, output_dir, progress_var, tk_root):
+    def process_directory(self, input_dir, output_dir, progress_var, tk_root, spritesheet_list=None):
         total_frames_generated = 0
         total_anims_generated = 0
         total_sprites_failed = 0
 
         progress_var.set(0)
-        total_files = Utilities.count_spritesheets(input_dir)
+        total_files = Utilities.count_spritesheets(spritesheet_list)
         self.progress_bar["maximum"] = total_files
 
         cpu_threads = os.cpu_count() if self.use_all_threads.get() else os.cpu_count() // 2
@@ -60,26 +60,26 @@ class Extractor:
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
             futures = []
 
-            for filename in os.listdir(input_dir):
-                if filename.endswith('.png'):
-                    base_filename = filename.rsplit('.', 1)[0]
-                    xml_path = os.path.join(input_dir, base_filename + '.xml')
-                    txt_path = os.path.join(input_dir, base_filename + '.txt')
+            filenames = spritesheet_list
+            for filename in filenames:
+                base_filename = filename.rsplit('.', 1)[0]
+                xml_path = os.path.join(input_dir, base_filename + '.xml')
+                txt_path = os.path.join(input_dir, base_filename + '.txt')
 
-                    if os.path.isfile(xml_path) or os.path.isfile(txt_path):
-                        sprite_output_dir = os.path.join(output_dir, base_filename)
-                        os.makedirs(sprite_output_dir, exist_ok=True)
+                if os.path.isfile(xml_path) or os.path.isfile(txt_path):
+                    sprite_output_dir = os.path.join(output_dir, base_filename)
+                    os.makedirs(sprite_output_dir, exist_ok=True)
 
-                        settings = self.settings_manager.get_settings(filename)
+                    settings = self.settings_manager.get_settings(filename)
 
-                        future = executor.submit(
-                            self.extract_sprites,
-                            os.path.join(input_dir, filename),
-                            xml_path if os.path.isfile(xml_path) else txt_path,
-                            sprite_output_dir,
-                            settings,
-                        )
-                        futures.append(future)
+                    future = executor.submit(
+                        self.extract_sprites,
+                        os.path.join(input_dir, filename),
+                        xml_path if os.path.isfile(xml_path) else txt_path,
+                        sprite_output_dir,
+                        settings,
+                    )
+                    futures.append(future)
 
             for future in concurrent.futures.as_completed(futures):
                 try:

@@ -11,6 +11,8 @@ class SettingsManager:
         set_global_settings(**kwargs): Set or update the global settings.
         set_spritesheet_settings(spritesheet_name, **kwargs): Set or update the settings for a specific spritesheet.
         set_animation_settings(animation_name, **kwargs): Set or update the settings for a specific animation.
+        delete_spritesheet_settings(spritesheet_name): Delete the settings for a specific spritesheet.
+        delete_animation_settings(animation_name): Delete the settings for a specific animation.
         get_settings(filename, animation_name=None): Retrieve the settings for a given spritesheet or animation
     """
 
@@ -33,6 +35,14 @@ class SettingsManager:
             self.animation_settings[animation_name] = {}
 
         self.animation_settings[animation_name].update(kwargs)
+        
+    def delete_spritesheet_settings(self, spritesheet_name):
+        if spritesheet_name in self.spritesheet_settings:
+            del self.spritesheet_settings[spritesheet_name]
+
+    def delete_animation_settings(self, animation_name):
+        if animation_name in self.animation_settings:
+            del self.animation_settings[animation_name]
 
     def get_settings(self, filename, animation_name=None):
         settings = self.global_settings.copy()

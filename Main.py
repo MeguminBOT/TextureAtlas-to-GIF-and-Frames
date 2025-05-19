@@ -140,7 +140,11 @@ class TextureAtlasExtractorApp:
 
         self.scrollbar_png.config(command=self.listbox_png.yview)
         self.scrollbar_xml.config(command=self.listbox_data.yview)
-
+        
+        self.listbox_png_menu = tk.Menu(self.root, tearoff=0)
+        self.listbox_png_menu.add_command(label="Delete", command=self.delete_selected_spritesheet)
+        self.listbox_png.bind("<Button-3>", self.show_listbox_png_menu)
+    
         self.input_dir = tk.StringVar()
         self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2",
             command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
@@ -348,6 +352,35 @@ class TextureAtlasExtractorApp:
         new_window = tk.Toplevel()
         new_window.geometry("360x360")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
+        
+    def show_listbox_png_menu(self, event):
+        try:
+            index = self.listbox_png.nearest(event.y)
+            self.listbox_png.selection_clear(0, tk.END)
+            self.listbox_png.selection_set(index)
+            self.listbox_png.activate(index)
+            self.listbox_png_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.listbox_png_menu.grab_release()
+
+    def delete_selected_spritesheet(self):
+        selection = self.listbox_png.curselection()
+        if selection:
+            spritesheet_name = self.listbox_png.get(selection[0])
+            self.listbox_png.delete(selection[0])
+            self.listbox_data.delete(0, tk.END)
+
+            keys = list(self.data_dict.keys())
+            if selection[0] < len(keys):
+                del self.data_dict[keys[selection[0]]]
+
+            self.settings_manager.delete_spritesheet_settings(spritesheet_name)
+            #print(f"Removed: {spritesheet_name}")
+
+            prefix = spritesheet_name + "/"
+            anims_to_delete = [key for key in self.settings_manager.animation_settings if key.startswith(prefix)]
+            for anim in anims_to_delete:
+                self.settings_manager.delete_animation_settings(anim)
 
     def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         GifPreviewWindow.preview(
@@ -427,12 +460,15 @@ class TextureAtlasExtractorApp:
         process_thread.start()
 
     def run_extractor(self):
+        spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
+
         extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
             self.progress_var,
             self.root,
+            spritesheet_list=spritesheet_list
         )
 
 if __name__ == "__main__":
