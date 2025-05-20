@@ -101,6 +101,22 @@ class GifPreviewWindow:
         tk.Button(btn_frame, text="Stop", command=lambda: stop()).pack(side=tk.LEFT)
         tk.Button(btn_frame, text="Next", command=lambda: next_frame()).pack(side=tk.LEFT)
 
+        def open_external(path=gif_path):
+            import subprocess
+            import platform
+            try:
+                current_os = platform.system().lower()
+                if current_os == "windows":
+                    os.startfile(path)
+                elif current_os == "darwin":
+                    subprocess.Popen(['open', path])
+                else:
+                    subprocess.Popen(['xdg-open', path])
+            except Exception as e:
+                messagebox.showerror("Open External", f"Could not open GIF in external program:\n{e}")
+
+        tk.Button(btn_frame, text="Open GIF externally", command=open_external).pack(side=tk.LEFT, padx=(12, 0))
+
         bg_slider_frame = tk.Frame(preview_win)
         bg_slider_frame.pack(pady=4)
         bg_value = tk.IntVar(value=127)
@@ -261,6 +277,19 @@ class GifPreviewWindow:
             preview_win.destroy()
 
         preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_gif)
+
+        note_text = "Playback speed of GIFs may not be accurately depicted in this preview window. Open the GIF externally for accurate playback."
+        note_label = tk.Label(preview_win, text=note_text, font=("Arial", 9, "italic"), fg="#333333")
+        note_label.pack(side=tk.BOTTOM, pady=(8, 4))
+
+        preview_win.update_idletasks()
+        note_width = note_label.winfo_reqwidth()
+        win_width = preview_win.winfo_width()
+        win_height = preview_win.winfo_height()
+        margin = 32
+        if note_width + margin > win_width:
+            preview_win.geometry(f"{note_width + margin}x{win_height}")
+            preview_win.minsize(note_width + margin, win_height)
 
     @staticmethod
     def preview(app, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
