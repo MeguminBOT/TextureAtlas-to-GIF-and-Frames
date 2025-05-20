@@ -204,6 +204,26 @@ class GifPreviewWindow:
                 else:
                     l.config(bg=preview_win.cget("bg"))
 
+            try:
+                label_widget = delay_labels[idx]
+                delays_canvas.update_idletasks()
+
+                label_x = label_widget.winfo_x()
+                label_w = label_widget.winfo_width()
+                canvas_w = delays_canvas.winfo_width()
+
+                scroll_to = max(0, label_x + label_w//2 - canvas_w//2)
+
+                scrollregion = delays_canvas.cget('scrollregion')
+                if scrollregion:
+                    _, _, scrollregion_w, _ = map(int, scrollregion.split())
+                    if scrollregion_w > canvas_w:
+                        xview = scroll_to / (scrollregion_w - canvas_w)
+                        xview = min(max(xview, 0), 1)
+                        delays_canvas.xview_moveto(xview)
+            except Exception:
+                pass
+
         def next_frame():
             current_frame[0] = (current_frame[0] + 1) % frame_count
             show_frame(current_frame[0])
