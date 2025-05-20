@@ -219,14 +219,14 @@ class TextureAtlasExtractorApp:
         self.input_button.pack(pady=2)
 
         self.input_dir_label = tk.Label(self.root, text="No input directory selected")
-        self.input_dir_label.pack(pady=4)
+        self.input_dir_label.pack(pady=2)
 
         self.output_dir = tk.StringVar()
         self.output_button = tk.Button(self.root, text="Select save directory", cursor="hand2", command=lambda: self.select_directory(self.output_dir, self.output_dir_label))
         self.output_button.pack(pady=2)
 
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
-        self.output_dir_label.pack(pady=4)
+        self.output_dir_label.pack(pady=2)
         
         ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
@@ -269,7 +269,7 @@ class TextureAtlasExtractorApp:
         self.threshold_label = tk.Label(self.root, text="Alpha threshold:")
         self.threshold_label.pack()
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
-        self.threshold_entry.pack(pady=8)
+        self.threshold_entry.pack(pady=4)
         
         ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
@@ -285,7 +285,7 @@ class TextureAtlasExtractorApp:
         self.crop_menu_label.pack()
         self.crop_menu_menu = ttk.Combobox(self.root, textvariable=self.crop_option, state="readonly")
         self.crop_menu_menu['values'] = ("None", "Animation based", "Frame based")
-        self.crop_menu_menu.pack(pady=1)
+        self.crop_menu_menu.pack(pady=2)
 
         self.prefix_label = tk.Label(self.root, text="Filename prefix:")
         self.prefix_label.pack()
@@ -298,7 +298,7 @@ class TextureAtlasExtractorApp:
         self.filename_format_label.pack()
         self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
         self.filename_format_menu['values'] = ("Standardized", "No spaces", "No special characters")
-        self.filename_format_menu.pack(pady=1)
+        self.filename_format_menu.pack(pady=2)
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
