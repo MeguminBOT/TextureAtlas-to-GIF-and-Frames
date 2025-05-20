@@ -175,10 +175,13 @@ class GifPreviewWindow:
                 screen_width = preview_win.winfo_screenwidth()
                 screen_height = preview_win.winfo_screenheight()
 
+                max_width = int(screen_width * 0.9)
+                max_height = int(screen_height * 0.9)
+
                 scale = 1.0
-                if width > screen_width or height > screen_height:
-                    scale_w = (screen_width - 40) / width
-                    scale_h = (screen_height - 80) / height
+                if width > max_width or height > max_height:
+                    scale_w = (max_width) / width
+                    scale_h = (max_height) / height
                     scale = min(scale_w, scale_h, 1.0)
                     scale_factor[0] = scale
 
