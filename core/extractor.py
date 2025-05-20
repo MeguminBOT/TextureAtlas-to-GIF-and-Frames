@@ -11,6 +11,7 @@ import tempfile
 ## Import our own modules
 from core.atlas_processor import AtlasProcessor
 from core.sprite_processor import SpriteProcessor
+from core.frame_selector import FrameSelector
 from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
@@ -166,6 +167,17 @@ class Extractor:
                 preview_settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{anim_name}")
                 merged_settings = {**preview_settings, **settings}
                 merged_settings['animation_format'] = 'GIF'
+
+                indices = merged_settings.get('indices')
+                if indices:
+                    indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
+                    image_tuples = [image_tuples[i] for i in indices]
+
+                single_frame = FrameSelector.is_single_frame(image_tuples)
+                kept_frames = FrameSelector.get_kept_frames(merged_settings, single_frame, image_tuples)
+                kept_frame_indices = FrameSelector.get_kept_frame_indices(kept_frames, image_tuples)
+                image_tuples = [img for idx, img in enumerate(image_tuples) if idx in kept_frame_indices]
+
                 animation_exporter.save_animations(
                     image_tuples,
                     spritesheet_name,
