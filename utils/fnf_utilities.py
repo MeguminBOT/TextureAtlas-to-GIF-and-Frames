@@ -4,6 +4,9 @@ import xml.etree.ElementTree as ET
 import tkinter as tk
 from tkinter import filedialog
 
+# Import our own modules
+from utils.utilities import Utilities
+
 class FnfUtilities:
     """
     A utility class for importing Friday Night Funkin' (FNF) character data.
@@ -128,7 +131,8 @@ class FnfUtilities:
 
                 scale = parsed_data.get("scale")
                 for anim in parsed_data.get("animations", []):
-                    anim_name = anim.get("name", "")
+                    raw_anim_name = anim.get("name", "")
+                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
                     fps = anim.get("fps", 0)
                     indices = anim.get("indices", None)
                     loop = anim.get("loop", False)
@@ -155,7 +159,8 @@ class FnfUtilities:
 
                 scale = float(parsed_data.attrib.get("scale", 1))
                 for anim in parsed_data.findall("anim"):
-                    anim_name = anim.get("name", "")
+                    raw_anim_name = anim.get("name", "")
+                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
                     fps = int(anim.get("fps", 0))
                     indices = anim.get("indices", None)
                     loop = anim.get("loop", "false").lower() == "true"
@@ -181,7 +186,8 @@ class FnfUtilities:
                     data_dict[png_filename] = file_path
 
                 for anim in parsed_data.get("animations", []):
-                    anim_name = anim.get("name", "")
+                    raw_anim_name = anim.get("name", "")
+                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
                     fps = parsed_data.get("frameRate", 0)
                     indices = anim.get("frameIndices", None)
                     loop = anim.get("looped", False)
