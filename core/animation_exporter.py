@@ -25,7 +25,7 @@ class AnimationExporter:
     Methods:
         save_animations(image_tuples, spritesheet_name, animation_name, settings) -> int
             Processes and saves the animation in the specified format (GIF, WebP, or APNG).
-        save_gif(images, spritesheet_name, animation_name, fps, delay, period, scale, threshold, max_size, image_tuples, settings)
+        save_gif(images, spritesheet_name, animation_name, fps, delay, period, scale, threshold, settings)
             Saves the animation as a GIF file.
         save_webp(images, spritesheet_name, animation_name, fps, delay, period, scale, settings)
             Saves the animation as a WebP file.

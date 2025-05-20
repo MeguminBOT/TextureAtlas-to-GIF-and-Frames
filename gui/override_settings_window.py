@@ -26,6 +26,7 @@ class OverrideSettingsWindow:
         store_input():
             Calls the provided callback with the current input values to store the overridden settings.
     """
+
     def __init__(self, window, name, settings_type, settings_manager, on_store_callback, app=None):
         self.window = window
         self.name = name

@@ -7,10 +7,14 @@ class Utilities:
     A utility class providing static methods for common tasks.
 
     Methods:
-        count_spritesheets(directory): Count the number of spritesheet data files in a directory.
-        clean_invalid_chars(name): Replace invalid filename characters (\\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
-        strip_trailing_digits(name): Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
-        format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules): Formats the filename based on the given parameters.
+        count_spritesheets(spritesheet_list):
+            Count the number of spritesheet data files in a list.
+        replace_invalid_chars(name):
+            Replace invalid filename characters (\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
+        strip_trailing_digits(name):
+            Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
+        format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules):
+            Formats the filename based on the given parameters and applies find/replace rules.
     """
 
     @staticmethod

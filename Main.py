@@ -27,16 +27,69 @@ class TextureAtlasExtractorApp:
 
     Attributes:
         root (tk.Tk): The root window of the application.
-        settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
-        data_dict (dict): A dictionary to store data related to the spritesheets.
-        temp_dir (str): A temporary directory for storing files.
-        fnf_char_json_directory (str): Directory for FNF character JSON files.
+
         current_version (str): The current version of the application.
+        settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
+        temp_dir (str): A temporary directory for storing files.
+        data_dict (dict): A dictionary to store data related to the spritesheets.
         fnf_utilities (FnfUtilities): An instance of FnfUtilities for FNF-related utilities.
+        fnf_char_json_directory (str): Directory for FNF character JSON files.
+        replace_rules (list): List of find/replace rules.
+        linkSourceCode (str): URL to the source code.
+
         progress_var (tk.DoubleVar): A variable to track progress for the progress bar.
+        progress_bar (ttk.Progressbar): The progress bar widget.
+        menubar (tk.Menu): The main menu bar.
         variable_delay (tk.BooleanVar): A flag to enable or disable variable delay between frames.
         use_all_threads (tk.BooleanVar): A flag to enable or disable the use of all CPU threads.
         fnf_idle_loop (tk.BooleanVar): A flag to set loop delay to 0 for idle animations in FNF.
+        scrollbar_png (tk.Scrollbar): Scrollbar for the PNG listbox.
+        listbox_png (tk.Listbox): Listbox for PNG files.
+        scrollbar_xml (tk.Scrollbar): Scrollbar for the data listbox.
+        listbox_data (tk.Listbox): Listbox for animation/data files.
+        listbox_png_menu (tk.Menu): Context menu for the PNG listbox.
+        input_dir (tk.StringVar): Input directory variable.
+        input_button (tk.Button): Button to select input directory.
+        input_dir_label (tk.Label): Label showing the selected input directory.
+        output_dir (tk.StringVar): Output directory variable.
+        output_button (tk.Button): Button to select output directory.
+        output_dir_label (tk.Label): Label showing the selected output directory.
+        animation_format (tk.StringVar): Animation format variable.
+        animation_format_label (tk.Label): Label for animation format.
+        animation_format_combobox (ttk.Combobox): Combobox for animation format selection.
+        set_framerate (tk.DoubleVar): Frame rate variable.
+        frame_rate_label (tk.Label): Label for frame rate.
+        frame_rate_entry (tk.Entry): Entry for frame rate.
+        set_loopdelay (tk.DoubleVar): Loop delay variable.
+        loopdelay_label (tk.Label): Label for loop delay.
+        loopdelay_entry (tk.Entry): Entry for loop delay.
+        set_minperiod (tk.DoubleVar): Minimum period variable.
+        minperiod_label (tk.Label): Label for minimum period.
+        minperiod_entry (tk.Entry): Entry for minimum period.
+        set_scale (tk.DoubleVar): Scale variable.
+        scale_label (tk.Label): Label for scale.
+        scale_entry (tk.Entry): Entry for scale.
+        set_threshold (tk.DoubleVar): Alpha threshold variable.
+        threshold_label (tk.Label): Label for alpha threshold.
+        threshold_entry (tk.Entry): Entry for alpha threshold.
+        keep_frames (tk.StringVar): Option for keeping frames.
+        keepframes_label (tk.Label): Label for keep frames option.
+        keepframes_menu (ttk.Combobox): Combobox for keep frames option.
+        crop_option (tk.StringVar): Cropping method variable.
+        crop_menu_label (tk.Label): Label for cropping method.
+        crop_menu_menu (ttk.Combobox): Combobox for cropping method.
+        prefix_label (tk.Label): Label for filename prefix.
+        prefix (tk.StringVar): Filename prefix variable.
+        prefix_entry (tk.Entry): Entry for filename prefix.
+        filename_format (tk.StringVar): Filename format variable.
+        filename_format_label (tk.Label): Label for filename format.
+        filename_format_menu (ttk.Combobox): Combobox for filename format.
+        replace_button (tk.Button): Button to open find and replace window.
+        button_frame (tk.Frame): Frame for bottom buttons.
+        show_user_settings (tk.Button): Button to show user settings.
+        process_button (tk.Button): Button to start processing.
+        author_label (tk.Label): Label for author credit.
+        link1 (tk.Label): Label with clickable link to source code.
 
     Methods:
         setup_gui(): Sets up the GUI components of the application.
@@ -49,17 +102,18 @@ class TextureAtlasExtractorApp:
         select_directory(variable, label): Opens a directory selection dialog and updates the label.
         select_files_manually(variable, label): Opens a file selection dialog and updates the label.
         create_settings_window(): Creates a window to display animation and spritesheet settings.
-        update_settings_window(settings_frame, settings_canvas): Updates the settings window with current settings.
+        create_find_and_replace_window(): Creates the Find and Replace window.
+        store_replace_rules(rules): Stores the replace rules from the Find and Replace window.
+        create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
         on_select_spritesheet(evt): Handles the event when a PNG file is selected from the listbox.
         on_double_click_spritesheet(evt): Handles the event when a PNG file is double-clicked in the listbox.
-        on_double_click_animation(evt): Handles the event when an XML file is double-clicked in the listbox.
-        create_find_and_replace_window(): Creates the Find and Replace window.
-        add_replace_rule(): Adds a replace rule to the Find and Replace window.
-        store_replace_rules(): Stores the replace rules from the Find and Replace window.
-        create_override_settings_window(window, name, settings_type): Creates a window to edit animation or spritesheet settings.
-        store_input(window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Stores the input from the override settings window.
-        preview_gif_window(name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry): Generates and displays a preview GIF.
+        on_double_click_animation(evt): Handles the event when an animation is double-clicked in the listbox.
+        show_listbox_png_menu(event): Shows the context menu for the PNG listbox.
+        delete_selected_spritesheet(): Deletes the selected spritesheet and related settings.
+        preview_gif_window(...): Generates and displays a preview GIF.
         show_gif_preview_window(gif_path, settings): Displays the preview GIF in a new window.
+        store_input(...): Stores the input from the override settings window.
+        update_global_settings(): Updates the global settings from the GUI.
         on_closing(): Handles the event when the application is closing.
         start_process(): Prepares and starts the processing thread.
         run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
