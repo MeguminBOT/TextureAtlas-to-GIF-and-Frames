@@ -122,7 +122,7 @@ class TextureAtlasExtractorApp:
 
     def __init__(self, root):
         self.root = root
-        self.current_version = '1.9.3'
+        self.current_version = '1.9.4'
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
         self.data_dict = {}
