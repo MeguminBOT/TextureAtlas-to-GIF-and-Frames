@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import tempfile
 import threading
@@ -133,10 +134,20 @@ class TextureAtlasExtractorApp:
         self.check_version()
 
     def setup_gui(self):
-        self.root.title("TextureAtlas to GIF and Frames")
+        self.root.title(f"TextureAtlas to GIF and Frames v{self.current_version}")
         self.root.geometry("900x720")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        try:
+            current_os = platform.system()
+            if current_os == "Windows":
+                self.root.iconbitmap(os.path.join("assets", "icon.ico"))
+            else:
+                icon = tk.PhotoImage(file=os.path.join("assets", "icon.png"))
+                self.root.iconphoto(True, icon)
+        except Exception:
+            pass
 
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
