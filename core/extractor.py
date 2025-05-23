@@ -2,6 +2,7 @@ import os
 import sys
 import concurrent.futures
 import time
+import gc
 import tkinter as tk
 import xml.etree.ElementTree as ET
 from tkinter import messagebox
@@ -55,18 +56,14 @@ class Extractor:
         total_files = Utilities.count_spritesheets(spritesheet_list)
         self.progress_bar["maximum"] = total_files
 
-        cpu_threads = os.cpu_count() // 2
+        cpu_threads = os.cpu_count() // 4
         if self.app_config:
             cpu_cores_val = self.app_config.get("cpu_cores", "auto")
             try:
-                if cpu_cores_val == "auto":
-                    cpu_threads = os.cpu_count()
-                else:
+                if cpu_cores_val != "auto":
                     cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
             except Exception:
-                cpu_threads = os.cpu_count() // 2
-        else:
-            cpu_threads = os.cpu_count() // 2
+                cpu_threads = os.cpu_count() // 4
 
         start_time = time.time()
 
@@ -109,6 +106,7 @@ class Extractor:
                         
                 tk_root.after(0, progress_var.set, progress_var.get() + 1)
                 tk_root.after(0, tk_root.update_idletasks)
+                gc.collect()
 
         end_time = time.time()
         duration = end_time - start_time
