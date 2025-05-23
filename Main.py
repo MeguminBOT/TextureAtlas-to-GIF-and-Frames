@@ -10,12 +10,14 @@ from tkinter import filedialog, ttk, messagebox
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
 DependenciesChecker.check_and_configure_imagemagick()
+from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
 from utils.fnf_utilities import FnfUtilities
 from parsers.xml_parser import XmlParser 
 from parsers.txt_parser import TxtParser
 from core.extractor import Extractor
+from gui.app_config_window import AppConfigWindow
 from gui.help_window import HelpWindow
 from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
@@ -30,6 +32,7 @@ class TextureAtlasExtractorApp:
         root (tk.Tk): The root window of the application.
 
         current_version (str): The current version of the application.
+        app_config (AppConfig): Application configuration instance for app settings like resource limits (CPU/memory).
         settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
         temp_dir (str): A temporary directory for storing files.
         data_dict (dict): A dictionary to store data related to the spritesheets.
@@ -42,7 +45,6 @@ class TextureAtlasExtractorApp:
         progress_bar (ttk.Progressbar): The progress bar widget.
         menubar (tk.Menu): The main menu bar.
         variable_delay (tk.BooleanVar): A flag to enable or disable variable delay between frames.
-        use_all_threads (tk.BooleanVar): A flag to enable or disable the use of all CPU threads.
         fnf_idle_loop (tk.BooleanVar): A flag to set loop delay to 0 for idle animations in FNF.
         scrollbar_png (tk.Scrollbar): Scrollbar for the PNG listbox.
         listbox_png (tk.Listbox): Listbox for PNG files.
@@ -99,6 +101,7 @@ class TextureAtlasExtractorApp:
         contributeLink(linkSourceCode): Opens the source code link in a web browser.
         check_version(): Checks for updates to the application.
         check_dependencies(): Checks and configures dependencies.
+        create_app_config_window(): Creates the options window for setting CPU/memory limits and other persistent app settings via AppConfig.
         clear_filelist(): Clears the file list and resets animation and spritesheet settings.
         select_directory(variable, label): Opens a directory selection dialog and updates the label.
         select_files_manually(variable, label): Opens a file selection dialog and updates the label.
@@ -123,6 +126,7 @@ class TextureAtlasExtractorApp:
     def __init__(self, root):
         self.root = root
         self.current_version = '1.9.4'
+        self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
         self.data_dict = {}
@@ -179,12 +183,14 @@ class TextureAtlasExtractorApp:
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
         self.variable_delay = tk.BooleanVar()
-        self.use_all_threads = tk.BooleanVar()
         self.fnf_idle_loop = tk.BooleanVar()
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
-        advanced_menu.add_checkbutton(label="Use all CPU threads", variable=self.use_all_threads)
         advanced_menu.add_checkbutton(label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop)
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
+
+        options_menu = tk.Menu(self.menubar, tearoff=0)
+        options_menu.add_command(label="Set CPU Cores / Memory Limit", command=self.create_app_config_window)
+        self.menubar.add_cascade(label="Options", menu=options_menu)
 
     def setup_widgets(self):
         self.progress_var = tk.DoubleVar()
@@ -331,6 +337,9 @@ class TextureAtlasExtractorApp:
 
     def check_dependencies(self):
         DependenciesChecker.check_and_configure_imagemagick()
+        
+    def create_app_config_window(self):
+        AppConfigWindow(self.root, self.app_config)
 
     def clear_filelist(self):
         self.listbox_png.delete(0, tk.END)
@@ -527,7 +536,7 @@ class TextureAtlasExtractorApp:
     def run_extractor(self):
         spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
 
-        extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager)
+        extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager, app_config=self.app_config)
         extractor.process_directory(
             self.input_dir.get(),
             self.output_dir.get(),
