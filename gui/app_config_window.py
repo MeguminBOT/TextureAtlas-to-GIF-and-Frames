@@ -79,7 +79,7 @@ class AppConfigWindow:
 
         tk.Label(self.window, text="App resource limits", font=("Arial", 10, "bold")).pack(pady=(8, 2))
         tk.Label(self.window, text=f"CPU Threads to Use (max: {self.max_threads}):").pack()
-        default_threads = (self.max_threads + 1) // 2
+        default_threads = (self.max_threads + 1) // 4
         cpu_default = self.app_config.get("cpu_cores")
         if cpu_default is None or cpu_default == "auto":
             cpu_default = str(default_threads)
@@ -88,7 +88,7 @@ class AppConfigWindow:
         self.cpu_entry.pack()
 
         tk.Label(self.window, text=f"Memory Limit (MB, max: {self.max_memory_mb}):").pack(pady=(12, 0))
-        default_mem = ((self.max_memory_mb // 2 + 9) // 10) * 10
+        default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
         mem_default = self.app_config.get("memory_limit_mb")
         if mem_default is None or mem_default == 0:
             mem_default = str(default_mem)
