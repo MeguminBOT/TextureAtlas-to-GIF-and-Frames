@@ -2,6 +2,7 @@ import os
 import sys
 import concurrent.futures
 import time
+import gc
 import tkinter as tk
 import xml.etree.ElementTree as ET
 from tkinter import messagebox
@@ -25,11 +26,11 @@ class Extractor:
         progress_bar (tkinter.Progressbar): The progress bar to update during processing.
         current_version (str): The current version of the extractor.
         settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
-        use_all_threads (tk.BooleanVar): A flag to determine if all CPU threads should be used.
+        app_config (AppConfig): Configuration for resource limits (CPU/memory).
         fnf_idle_loop (tk.BooleanVar): A flag to determine if idle animations should have a loop delay of 0.
 
     Methods:
-        process_directory(input_dir, output_dir, progress_var, tk_root):
+        process_directory(input_dir, output_dir, progress_var, tk_root, spritesheet_list=None):
             Processes the given directory of spritesheets and metadata files, extracting sprites and generating animations.
         extract_sprites(atlas_path, metadata_path, output_dir, settings):
             Extracts sprites from a given atlas and metadata file, and processes the animations.
@@ -39,12 +40,12 @@ class Extractor:
             Generates a temporary GIF file using the actual AnimationExporter.save_gif logic.
     """
 
-    def __init__(self, progress_bar, current_version, settings_manager):
+    def __init__(self, progress_bar, current_version, settings_manager, app_config=None):
         self.settings_manager = settings_manager
-        self.use_all_threads = tk.BooleanVar()
-        self.fnf_idle_loop = tk.BooleanVar()
         self.progress_bar = progress_bar
         self.current_version = current_version
+        self.app_config = app_config
+        self.fnf_idle_loop = tk.BooleanVar()
 
     def process_directory(self, input_dir, output_dir, progress_var, tk_root, spritesheet_list=None):
         total_frames_generated = 0
@@ -55,7 +56,15 @@ class Extractor:
         total_files = Utilities.count_spritesheets(spritesheet_list)
         self.progress_bar["maximum"] = total_files
 
-        cpu_threads = os.cpu_count() if self.use_all_threads.get() else os.cpu_count() // 2
+        cpu_threads = os.cpu_count() // 4
+        if self.app_config:
+            cpu_cores_val = self.app_config.get("cpu_cores", "auto")
+            try:
+                if cpu_cores_val != "auto":
+                    cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
+            except Exception:
+                cpu_threads = os.cpu_count() // 4
+
         start_time = time.time()
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
@@ -97,6 +106,7 @@ class Extractor:
                         
                 tk_root.after(0, progress_var.set, progress_var.get() + 1)
                 tk_root.after(0, tk_root.update_idletasks)
+                gc.collect()
 
         end_time = time.time()
         duration = end_time - start_time
