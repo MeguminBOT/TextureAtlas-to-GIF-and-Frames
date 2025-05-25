@@ -32,7 +32,7 @@ class TextureAtlasExtractorApp:
         root (tk.Tk): The root window of the application.
 
         current_version (str): The current version of the application.
-        app_config (AppConfig): Application configuration instance for app settings like resource limits (CPU/memory).
+        app_config (AppConfig): Application configuration instance for persistent app settings.
         settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
         temp_dir (str): A temporary directory for storing files.
         data_dict (dict): A dictionary to store data related to the spritesheets.
@@ -160,6 +160,8 @@ class TextureAtlasExtractorApp:
         self.setup_widgets()
 
     def setup_menus(self):
+        defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
+
         file_menu = tk.Menu(self.menubar, tearoff=0)
         file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
             and self.settings_manager.animation_settings.clear()
@@ -182,17 +184,18 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="Help", menu=help_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
-        self.variable_delay = tk.BooleanVar()
-        self.fnf_idle_loop = tk.BooleanVar()
+        self.variable_delay = tk.BooleanVar(value=defaults.get("variable_delay"))
+        self.fnf_idle_loop = tk.BooleanVar(value=defaults.get("fnf_idle_loop"))
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
         advanced_menu.add_checkbutton(label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop)
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
         options_menu = tk.Menu(self.menubar, tearoff=0)
-        options_menu.add_command(label="Set CPU Cores / Memory Limit", command=self.create_app_config_window)
+        options_menu.add_command(label="Preferences", command=self.create_app_config_window)
         self.menubar.add_cascade(label="Options", menu=options_menu)
 
     def setup_widgets(self):
+        defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
         self.progress_bar.pack(pady=8)
@@ -236,7 +239,7 @@ class TextureAtlasExtractorApp:
         
         ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
-        self.animation_format = tk.StringVar(value="None")
+        self.animation_format = tk.StringVar(value=defaults.get("animation_format"))
         self.animation_format_label = tk.Label(self.root, text="Animation format:")
         self.animation_format_label.pack()
         self.animation_format_combobox = ttk.Combobox(
@@ -247,46 +250,46 @@ class TextureAtlasExtractorApp:
         )
         self.animation_format_combobox.pack()
 
-        self.set_framerate = tk.DoubleVar(value=24)
+        self.set_framerate = tk.DoubleVar(value=defaults.get("fps"))
         self.frame_rate_label = tk.Label(self.root, text="Frame rate (fps):")
         self.frame_rate_label.pack()
         self.frame_rate_entry = tk.Entry(self.root, textvariable=self.set_framerate)
         self.frame_rate_entry.pack()
 
-        self.set_loopdelay = tk.DoubleVar(value=250)
+        self.set_loopdelay = tk.DoubleVar(value=defaults.get("delay"))
         self.loopdelay_label = tk.Label(self.root, text="Loop delay (ms):")
         self.loopdelay_label.pack()
         self.loopdelay_entry = tk.Entry(self.root, textvariable=self.set_loopdelay)
         self.loopdelay_entry.pack()
 
-        self.set_minperiod = tk.DoubleVar(value=0)
+        self.set_minperiod = tk.DoubleVar(value=defaults.get("period"))
         self.minperiod_label = tk.Label(self.root, text="Minimum period (ms):")
         self.minperiod_label.pack()
         self.minperiod_entry = tk.Entry(self.root, textvariable=self.set_minperiod)
         self.minperiod_entry.pack()
 
-        self.set_scale = tk.DoubleVar(value=1)
+        self.set_scale = tk.DoubleVar(value=defaults.get("scale"))
         self.scale_label = tk.Label(self.root, text="Scale:")
         self.scale_label.pack()
         self.scale_entry = tk.Entry(self.root, textvariable=self.set_scale)
         self.scale_entry.pack()
 
-        self.set_threshold = tk.DoubleVar(value=0.5)
+        self.set_threshold = tk.DoubleVar(value=defaults.get("threshold"))
         self.threshold_label = tk.Label(self.root, text="Alpha threshold:")
         self.threshold_label.pack()
         self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
         self.threshold_entry.pack(pady=4)
-        
+
         ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
-        self.keep_frames = tk.StringVar(value='All')
+        self.keep_frames = tk.StringVar(value=defaults.get("keep_frames"))
         self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
         self.keepframes_label.pack()
         self.keepframes_menu = ttk.Combobox(self.root, textvariable=self.keep_frames)
         self.keepframes_menu['values'] = ("None", "All", "No duplicates", "First", "Last", "First, Last")
         self.keepframes_menu.pack(pady=2)
 
-        self.crop_option = tk.StringVar(value="Animation based")
+        self.crop_option = tk.StringVar(value=defaults.get("crop_option"))
         self.crop_menu_label = tk.Label(self.root, text="Cropping method:")
         self.crop_menu_label.pack()
         self.crop_menu_menu = ttk.Combobox(self.root, textvariable=self.crop_option, state="readonly")
@@ -298,8 +301,8 @@ class TextureAtlasExtractorApp:
         self.prefix = tk.StringVar(value="")
         self.prefix_entry = tk.Entry(self.root, textvariable=self.prefix)
         self.prefix_entry.pack()
-        
-        self.filename_format = tk.StringVar(value="Standardized")
+
+        self.filename_format = tk.StringVar(value=defaults.get("filename_format"))
         self.filename_format_label = tk.Label(self.root, text="Filename format:")
         self.filename_format_label.pack()
         self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
