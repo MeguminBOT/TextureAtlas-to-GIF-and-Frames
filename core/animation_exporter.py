@@ -21,7 +21,7 @@ class AnimationExporter:
             Function to scale images before saving.
 
     Methods:
-        save_animations(image_tuples, filename, settings) -> int
+        save_animations(image_tuples, spritesheet_name, animation_name, settings) -> int
             Processes and saves the animation in the specified format (GIF, WebP, or APNG).
         remove_dups(animation)
             Removes duplicate frames from a Wand animation, merging delays as needed.
