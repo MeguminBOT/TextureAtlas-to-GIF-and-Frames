@@ -299,7 +299,7 @@ class AppConfigWindow:
             val = self.extraction_vars[key].get()
             expected_type = self.app_config.TYPE_MAP[key]
             try:
-                extraction_defaults[key] = self._parse_value(key, val, expected_type)
+                extraction_defaults[key] = self.parse_value(key, val, expected_type)
             except ValueError as e:
                 tk.messagebox.showerror("Invalid Input", f"Invalid value for '{key}': '{val}'\n{str(e)}")
                 return
