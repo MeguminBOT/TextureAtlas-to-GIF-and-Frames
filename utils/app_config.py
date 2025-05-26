@@ -49,9 +49,9 @@ class AppConfig:
     # Not correctly implemented yet.
     TYPE_MAP = {
         "animation_format": str,
-        "fps": float,
-        "delay": lambda v: int(float(v)),
-        "period": lambda v: int(float(v)),
+        "fps": int,
+        "delay": int,
+        "period": int,
         "scale": float,
         "threshold": float,
         "crop_option": str,
@@ -76,22 +76,10 @@ class AppConfig:
         self.load()
 
     def get_extraction_defaults(self):
-        defaults = dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
-        for key in ("fps", "delay", "period"):
-            try:
-                defaults[key] = int(float(defaults.get(key, self.DEFAULTS["extraction_defaults"][key])))
-            except Exception:
-                defaults[key] = self.DEFAULTS["extraction_defaults"][key]
-        return defaults
+        return dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
 
     def set_extraction_defaults(self, **kwargs):
         defaults = self.get_extraction_defaults()
-        for key in ("fps", "delay", "period"):
-            if key in kwargs:
-                try:
-                    kwargs[key] = int(float(kwargs[key]))
-                except Exception:
-                    kwargs[key] = self.DEFAULTS["extraction_defaults"][key]
         defaults.update(kwargs)
         self.set("extraction_defaults", defaults)
         self.save()
