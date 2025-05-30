@@ -127,10 +127,7 @@ call nuitka ^
  --include-data-dir=assets=assets^
  --include-data-dir=ImageMagick=ImageMagick^
  --include-data-files=ImageMagick\*.dll=ImageMagick\^
- --include-package=core^
- --include-package=gui^
- --include-package=parsers^
- --include-package=utils^
+ --include-package=src^
  --windows-icon-from-ico=assets\icon.ico^
  --company-name="AutisticLulu"^
  --product-name="TextureAtlas to GIF and Frames"^
@@ -139,7 +136,7 @@ call nuitka ^
  --copyright="Copyright © 2025 AutisticLulu. Licensed under the GNU Affero General Public License (AGPL)"^
  --file-description="TextureAtlas to GIF and Frames v%APP_VERSION%"^
  --output-filename="TextureAtlas to GIF and Frames.exe"^
- --output-dir=_build-output Main.py %SHOW_SCONS% %NUITKA_CLANG%
+ --output-dir=_build-output src\Main.py %SHOW_SCONS% %NUITKA_CLANG%
 
 if %errorlevel%==0 (
     echo.
@@ -163,10 +160,7 @@ if %errorlevel%==0 (
      --include-data-dir=assets=assets^
      --include-data-dir=ImageMagick=ImageMagick^
      --include-data-files=ImageMagick\*.dll=ImageMagick\^
-     --include-package=core^
-     --include-package=gui^
-     --include-package=parsers^
-     --include-package=utils^
+     --include-package=src^
      --windows-icon-from-ico=assets\icon.ico^
      --company-name="AutisticLulu"^
      --product-name="TextureAtlas to GIF and Frames"^
@@ -175,7 +169,7 @@ if %errorlevel%==0 (
      --copyright="Copyright © 2025 AutisticLulu. Licensed under the GNU Affero General Public License (AGPL)"^
      --file-description="TextureAtlas to GIF and Frames v%APP_VERSION%"^
      --output-filename="TextureAtlas to GIF and Frames.exe"^
-     --output-dir=_build-output Main.py %SHOW_SCONS%
+     --output-dir=_build-output src\Main.py %SHOW_SCONS%
 
     if %errorlevel%==0 (
         echo.
