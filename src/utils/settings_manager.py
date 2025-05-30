@@ -25,16 +25,18 @@ class SettingsManager:
         self.global_settings.update(kwargs)
 
     def set_spritesheet_settings(self, spritesheet_name, **kwargs):
-        if spritesheet_name not in self.spritesheet_settings:
-            self.spritesheet_settings[spritesheet_name] = {}
-
+        self.spritesheet_settings[spritesheet_name] = {}
         self.spritesheet_settings[spritesheet_name].update(kwargs)
 
-    def set_animation_settings(self, animation_name, **kwargs):
-        if animation_name not in self.animation_settings:
-            self.animation_settings[animation_name] = {}
+        if self.spritesheet_settings[spritesheet_name] == {}:
+            del self.spritesheet_settings[spritesheet_name]
 
+    def set_animation_settings(self, animation_name, **kwargs):
+        self.animation_settings[animation_name] = {}
         self.animation_settings[animation_name].update(kwargs)
+
+        if self.animation_settings[animation_name] == {}:
+            del self.animation_settings[animation_name]
         
     def delete_spritesheet_settings(self, spritesheet_name):
         if spritesheet_name in self.spritesheet_settings:

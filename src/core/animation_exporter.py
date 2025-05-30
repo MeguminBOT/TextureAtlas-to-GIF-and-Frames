@@ -59,13 +59,16 @@ class AnimationExporter:
                 new_frame.paste(frame)
                 images[index] = new_frame
 
-        filename = Utilities.format_filename(
-            settings.get('prefix'),
-            spritesheet_name,
-            animation_name,
-            settings.get('filename_format'),
-            settings.get('replace_rules')
-        )
+        filename = settings.get('filename')
+
+        if not filename:
+            filename = Utilities.format_filename(
+                settings.get('prefix'),
+                spritesheet_name,
+                animation_name,
+                settings.get('filename_format'),
+                settings.get('replace_rules')
+            )
 
         if animation_format == 'GIF':
             self.save_gif(

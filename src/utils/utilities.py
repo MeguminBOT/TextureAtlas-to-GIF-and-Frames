@@ -55,11 +55,11 @@ class Utilities:
             replace_rules = []
 
         sprite_name = os.path.splitext(sprite_name)[0]
-        if filename_format in ("Standardized", "No Spaces", "No Special Characters"):
+        if filename_format in ("Standardized", "No spaces", "No special characters"):
             base_name = f"{prefix} - {sprite_name} - {animation_name}" if prefix else f"{sprite_name} - {animation_name}"
-            if filename_format == "No Spaces":
+            if filename_format == "No spaces":
                 base_name = base_name.replace(" ", "")
-            elif filename_format == "No Special Characters":
+            elif filename_format == "No special characters":
                 base_name = base_name.replace(" ", "").replace("-", "").replace("_", "")
         else:
             base_name = Template(filename_format).safe_substitute(sprite=sprite_name, anim=animation_name)

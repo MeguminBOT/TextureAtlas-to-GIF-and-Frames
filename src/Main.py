@@ -197,17 +197,8 @@ class TextureAtlasExtractorApp:
         options_menu = tk.Menu(self.menubar, tearoff=0)
         options_menu.add_command(label="Preferences", command=self.create_app_config_window)
         self.menubar.add_cascade(label="Options", menu=options_menu)
-
-    def setup_widgets(self):
         defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
-        self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
-        self.progress_bar.pack(pady=8)
-
-        self.scrollbar_png = tk.Scrollbar(self.root)
-        self.scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.listbox_png = tk.Listbox(self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
+=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
         self.listbox_png.pack(side=tk.LEFT, fill=tk.Y)
 
         self.scrollbar_xml = tk.Scrollbar(self.root)
@@ -431,7 +422,7 @@ class TextureAtlasExtractorApp:
         animation_name = self.listbox_data.get(self.listbox_data.curselection())
         full_anim_name = spritesheet_name + '/' + animation_name
         new_window = tk.Toplevel()
-        new_window.geometry("360x360")
+        new_window.geometry("360x400")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
         
     def show_listbox_png_menu(self, event):
@@ -471,7 +462,7 @@ class TextureAtlasExtractorApp:
     def show_gif_preview_window(self, gif_path, settings):
         GifPreviewWindow.show(gif_path, settings)
 
-    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry, filename_entry):
         settings = {}
         try:
             if fps_entry.get() != '':
@@ -491,6 +482,8 @@ class TextureAtlasExtractorApp:
                 settings['indices'] = indices
             if frames_entry.get() != '':
                 settings['frames'] = frames_entry.get()
+            if filename_entry and filename_entry.get() != '':
+                settings['filename'] = filename_entry.get()
         except ValueError as e:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             window.lift()
