@@ -1,9 +1,11 @@
 import shutil
 import os
-import sys
 import platform
 import tkinter as tk
 import webbrowser
+
+# Import our own modules
+from utils.utilities import Utilities
 
 class DependenciesChecker:
     """
@@ -54,8 +56,10 @@ class DependenciesChecker:
 
     @staticmethod
     def configure_imagemagick():
-        dll_path = os.path.join(os.path.dirname(sys.argv[0]), 'ImageMagick')
-
+        imagemagick_path = Utilities.find_root('ImageMagick')
+        if imagemagick_path is None:
+            raise FileNotFoundError("Could not find 'ImageMagick' folder in any parent directory.")
+        dll_path = os.path.join(imagemagick_path, 'ImageMagick')
         if not os.path.isdir(dll_path):
             raise FileNotFoundError(f"Expected ImageMagick folder but couldn't be found at: {dll_path}")
 

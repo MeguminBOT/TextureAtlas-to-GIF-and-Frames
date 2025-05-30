@@ -13,6 +13,7 @@ DependenciesChecker.check_and_configure_imagemagick()
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
+from utils.utilities import Utilities
 from utils.fnf_utilities import FnfUtilities
 from parsers.xml_parser import XmlParser 
 from parsers.txt_parser import TxtParser
@@ -145,10 +146,13 @@ class TextureAtlasExtractorApp:
 
         try:
             current_os = platform.system()
+            assets_path = Utilities.find_root('assets')
             if current_os == "Windows":
-                self.root.iconbitmap(os.path.join("assets", "icon.ico"))
+                if assets_path is None:
+                    raise FileNotFoundError("Could not find 'assets' folder in any parent directory.")
+                self.root.iconbitmap(os.path.join(assets_path, "assets", "icon.ico"))
             else:
-                icon = tk.PhotoImage(file=os.path.join("assets", "icon.png"))
+                icon = tk.PhotoImage(file=os.path.join(assets_path, "assets", "icon.png"))
                 self.root.iconphoto(True, icon)
         except Exception:
             pass
