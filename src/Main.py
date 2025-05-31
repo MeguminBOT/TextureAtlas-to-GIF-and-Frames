@@ -198,7 +198,14 @@ class TextureAtlasExtractorApp:
         options_menu.add_command(label="Preferences", command=self.create_app_config_window)
         self.menubar.add_cascade(label="Options", menu=options_menu)
         defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
-=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
+        self.progress_bar.pack(pady=8)
+
+        self.scrollbar_png = tk.Scrollbar(self.root)
+        self.scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
+
+        self.listbox_png = tk.Listbox(self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
         self.listbox_png.pack(side=tk.LEFT, fill=tk.Y)
 
         self.scrollbar_xml = tk.Scrollbar(self.root)
