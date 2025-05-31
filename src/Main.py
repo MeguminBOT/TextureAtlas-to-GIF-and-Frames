@@ -197,6 +197,8 @@ class TextureAtlasExtractorApp:
         options_menu = tk.Menu(self.menubar, tearoff=0)
         options_menu.add_command(label="Preferences", command=self.create_app_config_window)
         self.menubar.add_cascade(label="Options", menu=options_menu)
+
+    def setup_widgets(self):
         defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
