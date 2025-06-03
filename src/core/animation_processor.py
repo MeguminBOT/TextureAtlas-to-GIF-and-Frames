@@ -42,8 +42,22 @@ class AnimationProcessor:
 
         spritesheet_name = os.path.split(self.atlas_path)[1]
 
-        for animation_name, image_tuples in self.animations.items():
+        for animation_name in list(self.animations.keys()):
             print(f"Processing animation: {animation_name}")
+
+            # Support FNF sub-animations: {base_name}/{sub_anim_name}
+            if "/" in animation_name:
+                # Split into base_name and sub_anim_name (sub_anim_name is not used)
+                parts = animation_name.split("/")
+                base_name = parts[0]
+                # Use frames from base_name if available
+                if base_name in self.animations:
+                    image_tuples = self.animations[base_name][:]
+                else:
+                    image_tuples = self.animations[animation_name][:]
+            else:
+                base_name = animation_name
+                image_tuples = self.animations[animation_name][:]
 
             settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{animation_name}")
             scale = settings.get('scale')

@@ -149,6 +149,9 @@ class FnfUtilities:
 
                     settings_manager.set_animation_settings(full_anim_name, **settings)
 
+                # Augment listbox_data with FNF sub-animations (after settings are set)
+                self.augment_listbox_with_fnf_animations(parsed_data, listbox_png, listbox_data)
+
             elif engine_type == "Codename Engine" and parsed_data:
                 image_base = os.path.splitext(filename)[0]
                 png_filename = image_base + '.png'
@@ -210,3 +213,41 @@ class FnfUtilities:
         if self.fnf_char_json_directory:
             self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data)
             print("Animation settings updated in SettingsManager.")
+            
+    
+    def augment_listbox_with_fnf_animations(self, parsed_data, listbox_png, listbox_data):
+        """
+        Augments listbox_data with FNF-specific sub-animations if multiple JSON animations use the same base name.
+        Adds entries in the format: {spritesheet_name}/{base_name}/{sub_anim_name}
+        """
+        if not parsed_data or "animations" not in parsed_data:
+            return
+
+        # Get the spritesheet name (without extension)
+        image_path = parsed_data.get("image", "")
+        spritesheet_name = os.path.splitext(os.path.basename(image_path))[0]
+
+        # Build mapping: base_name -> list of (anim, indices)
+        name_to_anims = {}
+        for anim in parsed_data["animations"]:
+            base_name = anim.get("name")
+            sub_anim = anim.get("anim")
+            indices = anim.get("indices", [])
+            if base_name:
+                name_to_anims.setdefault(base_name, []).append({
+                    "anim": sub_anim,
+                    "indices": indices
+                })
+
+        # For each base_name, add the base entry and sub-entries
+        for base_name, anims in name_to_anims.items():
+            base_entry = f"{spritesheet_name}/{str(base_name)}"
+            if base_entry not in listbox_data.get(0, tk.END):
+                listbox_data.insert(tk.END, base_entry)
+            if len(anims) > 1:
+                for anim_info in anims:
+                    sub_anim = anim_info["anim"]
+                    if sub_anim is not None:
+                        sub_entry = f"{base_entry}/{str(sub_anim)}"
+                        if sub_entry not in listbox_data.get(0, tk.END):
+                            listbox_data.insert(tk.END, sub_entry)
