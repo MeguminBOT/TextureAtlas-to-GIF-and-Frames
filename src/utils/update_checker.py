@@ -105,10 +105,15 @@ class UpdateChecker:
                 os.remove(tmp_path)
                 set_status("Update complete! Please restart the application.")
                 progressbar['value'] = 100
+                def on_restart():
+                    progress_win.destroy()
+                    python = sys.executable
+                    os.execl(python, python, *sys.argv)
+                restart_btn = tk.Button(progress_win, text="Restart App Now", command=on_restart)
+                restart_btn.pack(pady=16)
             except Exception as e:
                 set_status(f"Source update failed: {e}")
                 messagebox.showerror("Update failed", f"Source update failed: {e}")
-        progress_win.after(2000, progress_win.destroy)
 
     @staticmethod
     def update_exe():
@@ -211,12 +216,16 @@ start "" "{exe_path}"
 del "%~f0"
                 """)
 
-            set_status("Update complete! Restarting...")
+            set_status("Update complete! Ready to restart.")
             progressbar['value'] = 100
             progress_win.update()
-            progress_win.after(1000, progress_win.destroy)
-            os.startfile(bat_path)
-            sys.exit()
+
+            def on_restart():
+                progress_win.destroy()
+                os.startfile(bat_path)
+                sys.exit()
+            restart_btn = tk.Button(progress_win, text="Restart App Now", command=on_restart)
+            restart_btn.pack(pady=16)
         except Exception as e:
             messagebox.showerror("Update failed", f"Executable update failed: {e}")
 
@@ -236,7 +245,6 @@ del "%~f0"
                         UpdateChecker.update_exe()
                     else:
                         UpdateChecker.update_source()
-                    sys.exit()
                 else:
                     result = messagebox.askyesno("Update available", "An update is available. Do you want to download and install it now?\n\nThe app will restart after updating.", parent=parent)
                     if result:
@@ -245,7 +253,6 @@ del "%~f0"
                             UpdateChecker.update_exe()
                         else:
                             UpdateChecker.update_source()
-                        sys.exit()
                     else:
                         print("User chose not to update.")
                 if parent_window is None:

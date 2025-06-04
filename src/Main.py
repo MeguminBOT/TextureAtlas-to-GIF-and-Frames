@@ -100,7 +100,6 @@ class TextureAtlasExtractorApp:
         setup_menus(): Sets up the menu bar and its items.
         setup_widgets(): Sets up the widgets in the main window.
         contributeLink(linkSourceCode): Opens the source code link in a web browser.
-        check_version(): Checks for updates to the application.
         check_version(): Checks for updates to the application and prompts the user if the user wants to update.
         check_dependencies(): Checks and configures dependencies.
         create_app_config_window(): Creates the options window for setting CPU/memory limits and other persistent app settings via AppConfig.
