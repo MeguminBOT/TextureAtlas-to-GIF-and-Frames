@@ -101,6 +101,7 @@ class TextureAtlasExtractorApp:
         setup_widgets(): Sets up the widgets in the main window.
         contributeLink(linkSourceCode): Opens the source code link in a web browser.
         check_version(): Checks for updates to the application.
+        check_version(): Checks for updates to the application and prompts the user if the user wants to update.
         check_dependencies(): Checks and configures dependencies.
         create_app_config_window(): Creates the options window for setting CPU/memory limits and other persistent app settings via AppConfig.
         clear_filelist(): Clears the file list and resets animation and spritesheet settings.
@@ -339,8 +340,12 @@ class TextureAtlasExtractorApp:
     def contributeLink(self, linkSourceCode):
         webbrowser.open_new(linkSourceCode)
         
-    def check_version(self):
-        UpdateChecker.check_for_updates(self.current_version)
+    def check_version(self, force=False):
+        update_settings = self.app_config.get("update_settings", {})
+        check_on_startup = update_settings.get("check_updates_on_startup", False)
+        auto_update = update_settings.get("auto_download_updates", False)
+        if force or check_on_startup:
+            UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)
 
     def check_dependencies(self):
         DependenciesChecker.check_and_configure_imagemagick()

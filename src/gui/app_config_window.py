@@ -8,7 +8,7 @@ from core.exception_handler import ExceptionHandler
 
 class AppConfigWindow:
     """
-    A window for configuring application resource usage and displaying system information.
+    A window for configuring application settings.
 
     Attributes:
         window (tk.Toplevel): The options window instance.
@@ -20,7 +20,9 @@ class AppConfigWindow:
         mem_var (tk.StringVar): Tkinter variable for memory limit input field.
         extraction_fields (dict): Dictionary of extraction settings fields and their types.
         extraction_vars (dict): Dictionary of Tkinter variables for extraction settings.
-        
+        check_updates_var (tk.BooleanVar): Tkinter variable for the 'Check for updates on startup' checkbox.
+        auto_update_var (tk.BooleanVar): Tkinter variable for the 'Auto-download and install updates' checkbox.
+
     Methods:
         __init__(parent, app_config):
             Initialize the options window with system information and current settings.
@@ -33,7 +35,7 @@ class AppConfigWindow:
         _on_linux_scroll(event):
             Handle mouse scroll events on Linux systems.
         reset_to_defaults():
-            Reset all fields to the application's initial defaults.
+            Reset all fields, to the application's initial defaults.
         save_config():
             Validate and save user settings to the app config.
         parse_value(key, val, expected_type):
@@ -214,6 +216,16 @@ class AppConfigWindow:
                 tk.Entry(extraction_frame, textvariable=self.extraction_vars[key], width=10).grid(row=option_row, column=1, sticky="w", padx=(8,0))
             option_row += 1
 
+        row += 1
+        tk.Label(main_frame, text="Update settings", font=("Arial", 10, "bold")).grid(row=row, column=0, sticky="w", pady=(8, 2), columnspan=2)
+        row += 1
+        update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
+        self.check_updates_var = tk.BooleanVar(value=update_settings.get("check_updates_on_startup", True))
+        self.auto_update_var = tk.BooleanVar(value=update_settings.get("auto_download_updates", False))
+        tk.Checkbutton(main_frame, text="Check for updates on startup", variable=self.check_updates_var).grid(row=row, column=0, sticky="w", columnspan=2)
+
+        row += 1
+        tk.Checkbutton(main_frame, text="Auto-download and install updates", variable=self.auto_update_var).grid(row=row, column=0, sticky="w", columnspan=2)
         button_frame = tk.Frame(self.window)
         button_frame.pack(side="bottom", pady=10)
         tk.Button(button_frame, text="Save", command=self.save_config, width=12).pack(side="left", padx=10)
@@ -234,6 +246,10 @@ class AppConfigWindow:
                 self.extraction_vars[key].set(default_val)
             else:
                 self.extraction_vars[key].set(str(default_val))
+
+        update_defaults = self.app_config.DEFAULTS["update_settings"]
+        self.check_updates_var.set(update_defaults.get("check_updates_on_startup", True))
+        self.auto_update_var.set(update_defaults.get("auto_download_updates", False))
         print("[Config] Configuration has been reset to defaults.")
 
     def save_config(self):
@@ -307,6 +323,13 @@ class AppConfigWindow:
                 tk.messagebox.showerror("Invalid Input", str(err))
                 return
         self.app_config.set_extraction_defaults(**extraction_defaults)
+
+        update_settings = {
+            "check_updates_on_startup": self.check_updates_var.get(),
+            "auto_download_updates": self.auto_update_var.get(),
+        }
+        self.app_config.set("update_settings", update_settings)
+        self.app_config.save()
         self.window.destroy()
 
     @staticmethod

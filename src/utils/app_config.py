@@ -44,9 +44,12 @@ class AppConfig:
             "variable_delay": False,
             "fnf_idle_loop": False,
         },
+        "update_settings": {
+            "check_updates_on_startup": True,
+            "auto_download_updates": False,
+        },
     }
-    
-    # Not correctly implemented yet.
+
     TYPE_MAP = {
         "animation_format": str,
         "fps": int,
@@ -59,6 +62,8 @@ class AppConfig:
         "filename_format": str,
         "variable_delay": bool,
         "fnf_idle_loop": bool,
+        "check_updates_on_startup": bool,
+        "auto_download_updates": bool,
     }
 
     def __init__(self, config_path=None):
