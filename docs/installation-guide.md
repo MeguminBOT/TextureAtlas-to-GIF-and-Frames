@@ -75,23 +75,43 @@ This guide will walk you through manually installing and setting up TextureAtlas
 
 ### Using requirements.txt (Recommended)
 
-1. Open a terminal or command prompt.
-2. Navigate to the project root directory.
-3. Run:
+#### Windows
+1. Double-click or run `setup/setup_windows.bat` from the project folder. This will attempt to install all required dependencies automatically.
+2. If you prefer manual steps, open a terminal or command prompt, navigate to the project root directory, and run:
+   ```powershell
+   pip install -r setup/requirements.txt
+   ```
+   If you encounter permission errors, try:
+   ```powershell
+   python -m pip install --user -r setup/requirements.txt
+   ```
+
+#### macOS
+1. Open Terminal and run the setup script:
+   ```bash
+   bash setup/setup_macOSX.sh
+   ```
+   This will attempt to install all required dependencies automatically, please note that the .sh script for OSX is experimental and not tested by me.
+2. If you prefer manual steps, navigate to the project root directory and run:
    ```bash
    pip install -r setup/requirements.txt
    ```
    If you encounter permission errors, try:
    ```bash
-   python -m pip install --user -r setup/requirements.txt
+   python3 -m pip install --user -r setup/requirements.txt
    ```
-   or, on Linux/macOS:
+
+#### Linux
+1. Open a terminal, navigate to the project root directory, and run:
+   ```bash
+   pip install -r setup/requirements.txt
+   ```
+   If you encounter permission errors, try:
    ```bash
    python3 -m pip install --user -r setup/requirements.txt
    ```
 
-
-### Manual Installation
+### Full manual Installation
 
 If you prefer, you can install packages individually:
 ```bash
