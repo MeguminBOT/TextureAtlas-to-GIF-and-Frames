@@ -1,17 +1,19 @@
 # Developer Documentation
 
-Technical documentation for developers working with the TextureAtlas-to-GIF-and-Frames codebase.
-**This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
+Technical documentation for developers working with the TextureAtlas to GIF and Frames codebase.
+
+**This doc file was partly written by AI**
 
 ## 📋 Table of Contents
 
-- [Architecture Overview](#architecture-overview)
-- [Code Structure](#code-structure)
-- [Core Classes](#core-classes)
-- [API Reference](#api-reference)
-- [Development Setup](#development-setup)
-- [Contributing Guidelines](#contributing-guidelines)
-- [Extension Points](#extension-points)
+- [Architecture Overview](-#architecture-overview)
+- [Code Structure](#-code-structure)
+- [Core Classes](#-core-classes)
+- [API Reference](-#api-reference)
+- [Development Setup](#-development-setup)
+- [Contributing Guidelines](#-contributing-guidelines)
+- [Extension Points](#-extension-points)
+- [Development Notes](#-development-notes)
 
 ## 🏗️ Architecture Overview
 
@@ -44,6 +46,7 @@ We're attempting to keep the code structure as modular as possible with clear se
 - **Configuration Management**: Persistent settings with validation
 - **Extensibility**: Support for new formats and engines
 
+
 ## 📁 Code Structure
 
 ### Directory Organization
@@ -75,21 +78,27 @@ src/
     └── __init__.py
 ```
 
-### Import Structure
 
+### Import Structure
+Imports should be organized like the example below:
 ```python
-# Main application imports
+# Python packages, preferably built-in packages being listed first.
+import os
+import platform
+import shutil
+import tempfile
+
+# Our classes
 from utils.dependencies_checker import DependenciesChecker
 from utils.app_config import AppConfig
 from core.extractor import Extractor
-from gui.* import *
-
-# Core processing imports
-from parsers.xml_parser import XmlParser
-from parsers.txt_parser import TxtParser
 from core.atlas_processor import AtlasProcessor
 from core.sprite_processor import SpriteProcessor
+from parsers.xml_parser import XmlParser
+from parsers.txt_parser import TxtParser
+from gui.* import *
 ```
+
 
 ## 🔧 Core Classes
 
@@ -164,6 +173,7 @@ class AnimationProcessor:
         # Process all animations and return statistics
 ```
 
+
 ## 📚 API Reference
 
 ### Core Processing Pipeline
@@ -188,6 +198,7 @@ animations = sprite_processor.process_sprites()
 animation_processor = AnimationProcessor(animations, atlas_path, output_dir, settings_manager, version)
 frames_generated, anims_generated = animation_processor.process_animations()
 ```
+
 
 ### Configuration API
 
@@ -251,6 +262,7 @@ class CustomWindow:
         pass
 ```
 
+
 ## 🛠️ Development Setup
 
 ### Prerequisites
@@ -264,7 +276,7 @@ class CustomWindow:
 git clone https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames.git
 cd TextureAtlas-to-GIF-and-Frames
 
-# Create virtual environment
+# Create virtual environment (if desired)
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
@@ -272,7 +284,7 @@ venv\Scripts\activate     # Windows
 # Install dependencies
 pip install -r requirements.txt
 
-# Install development dependencies
+# Install development dependencies (Optional)
 pip install pytest black flake8 mypy
 ```
 
@@ -311,25 +323,31 @@ flake8 src/
 mypy src/
 ```
 
+
 ## 🤝 Contributing Guidelines
 
 ### Code Style
-- Follow PEP 8 style guidelines
-- Use meaningful variable and function names
+- Follow PEP 8 style guidelines as much as you can.
+- Use meaningful variable and function names, they should be as directly on the nose as possible
 - Add docstrings to all classes and public methods
 - Keep functions focused and under 50 lines when possible
+- Avoid repetitive code, if it can be used for something else it's more likely to fit as a Utility class.
+- Back-end and front-end code should be as separated as possible, this makes updates to the graphical user interface easier.
+- Pass as little variables as possible to functions.
 
 ### Documentation
 - Update relevant documentation for new features
 - Include inline comments for complex logic
 - Add examples for new API methods
-- Update version numbers in relevant files
+- Update version numbers in relevant files, excluding "latestVersion.txt" as this will cause pre-mature update notifications for users
 
 ### Testing
-- Write unit tests for new functionality
 - Test edge cases and error conditions
 - Ensure all tests pass before submitting
 - Maintain test coverage above 80%
+
+**OR**
+- Test app functionality thoroughly with a large number of spritesheets
 
 ### Git Workflow
 ```bash
@@ -343,11 +361,13 @@ git commit -m "Add support for new animation format"
 git push origin feature/feature-name
 ```
 
+
 ### Pull Request Guidelines
 - Provide clear description of changes
 - Include screenshots for UI changes
 - Link related issues
-- Ensure you've tested with several spritesheets.
+- Ensure you've tested with at least 25 spritesheets if your changes impact the extraction process.
+
 
 ## 🔌 Extension Points
 
@@ -374,7 +394,7 @@ elif animation_format == 'NewFormat':
 format_options = ['None', 'GIF', 'WebP', 'APNG', 'NewFormat']
 ```
 
-### Adding New Engine Support
+### Adding New FNF Engine Support
 
 1. **Extend FnfUtilities**:
 ```python
@@ -423,9 +443,8 @@ class Utilities:
 ## 📝 Development Notes
 
 ### Performance Considerations
-- Use lazy loading for large atlases
 - Implement progress callbacks for long operations
-- Consider memory usage with large image processing
+- Consider memory usage increases.
 - Use appropriate image formats for intermediate processing
 
 ### Error Handling
@@ -443,9 +462,11 @@ class Utilities:
 ### Memory Management
 - Dispose of large Image objects when no longer needed
 - Use appropriate image modes (RGBA vs RGB)
-- Consider using image streaming for very large atlases
 - Monitor memory usage during batch processing
 
 ---
 
 *For usage instructions, see the [User Manual](user-manual.md). For installation help, see the [Installation Guide](installation-guide.md).*
+
+*You can also see a fully AI generated documentation on DeepWiki as an alternative*
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames)
