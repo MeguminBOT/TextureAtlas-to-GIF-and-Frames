@@ -5,12 +5,12 @@ Technical reference for developers wanting to contribute to TextureAtlas to GIF 
 
 ## 📋 Table of Contents
 
-- [Core Classes](#core-classes)
-- [Utility Classes](#utility-classes)
-- [Parser Classes](#parser-classes)
-- [GUI Classes](#gui-classes)
-- [Configuration](#configuration)
-- [Error Handling](#error-handling)
+- [Core Classes](#-core-classes)
+- [Utility Classes](#-utility-classes)
+- [Parser Classes](#-parser-classes)
+- [GUI Classes](#-gui-classes)
+- [Configuration](#️-configuration)
+- [Error Handling](#-error-handling)
 
 ## 🔧 Core Classes
 
@@ -510,5 +510,3 @@ class ExceptionHandler:
 - **ImageMagick Errors**: Missing or misconfigured ImageMagick
 
 ---
-
-*For usage examples, see the [User Manual](user-manual.md). For development setup, see the [Developer Documentation](developer-docs.md).*

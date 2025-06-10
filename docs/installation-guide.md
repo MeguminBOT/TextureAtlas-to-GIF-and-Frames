@@ -3,6 +3,40 @@
 This guide will walk you through manually installing and setting up TextureAtlas-to-GIF-and-Frames on your system from source code.
 **This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
 
+## 📑 Table of Contents
+
+- [System Requirements](#-system-requirements)
+  - [Minimum Requirements](#minimum-requirements)
+  - [Recommended Requirements](#recommended-requirements)
+- [Python Installation](#-python-installation)
+  - [Windows](#windows)
+  - [macOS](#macos)
+  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
+- [Installing Python Dependencies](#-installing-python-dependencies)
+  - [Using requirements.txt (Recommended)](#using-requirementstxt-recommended)
+    - [Windows](#windows-1)
+    - [macOS](#macos-1)
+    - [Linux](#linux)
+  - [Full manual Installation](#full-manual-installation)
+  - [Package Details](#package-details)
+- [ImageMagick Setup](#-imagemagick-setup)
+  - [Windows](#windows-2)
+  - [macOS](#macos-2)
+  - [Linux](#linux-1)
+- [Downloading the Application](#-downloading-the-application)
+  - [Option 1: Download Release (Recommended for Users)](#option-1-download-release-recommended-for-users)
+  - [Option 2: Clone Repository (For Developers)](#option-2-clone-repository-for-developers)
+- [Running the Application](#-running-the-application)
+- [Troubleshooting Installation & Common Errors](#-troubleshooting-installation--common-errors)
+  - [Python Not Recognized](#python-not-recognized)
+  - [Missing Packages](#missing-packages)
+  - [ImageMagick Errors](#imagemagick-errors)
+  - ["No module named 'PIL'"](#no-module-named-pil)
+  - ["tkinter not found" (Linux)](#tkinter-not-found-linux)
+- [Verifying Installation](#-verifying-installation)
+- [Updating the Application](#-updating-the-application)
+- [Next Steps](#-next-steps)
+
 ## 📋 System Requirements
 
 ### Minimum Requirements

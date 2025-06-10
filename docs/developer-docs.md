@@ -6,11 +6,11 @@ Technical documentation for developers working with the TextureAtlas to GIF and 
 
 ## 📋 Table of Contents
 
-- [Architecture Overview](-#architecture-overview)
+- [Architecture Overview](#️-architecture-overview)
 - [Code Structure](#-code-structure)
 - [Core Classes](#-core-classes)
-- [API Reference](-#api-reference)
-- [Development Setup](#-development-setup)
+- [API Reference](#-api-reference)
+- [Development Setup](#️-development-setup)
 - [Contributing Guidelines](#-contributing-guidelines)
 - [Extension Points](#-extension-points)
 - [Development Notes](#-development-notes)
@@ -261,6 +261,7 @@ class CustomWindow:
         """Handle user confirmation."""
         pass
 ```
+*For full API overview, see the [API Reference](api-reference.md).* al
 
 
 ## 🛠️ Development Setup

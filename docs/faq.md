@@ -4,20 +4,18 @@ Welcome to the TextureAtlas to GIF and Frames FAQ! This guide helps you solve co
 
 ## 📋 Table of Contents
 
-- [What This Tool Does](#what-this-tool-does)
-- [Getting Started](#getting-started)
-- [Installation Issues](#installation-issues)
-- [File Format Questions](#file-format-questions)
-- [Export Problems](#export-problems)
-- [Performance Issues](#performance-issues)
-- [Friday Night Funkin' Questions](#friday-night-funkin-questions)
-- [Advanced Usage](#advanced-usage)
-- [Troubleshooting](#troubleshooting)
-- [Getting More Help](#getting-more-help)
+- [Installation Issues](#-installation-issues)
+- [File Format Questions](#-file-format-questions)
+- [Export Problems](#-export-problems)
+- [Performance Issues](#-performance-issues)
+- [Friday Night Funkin' Questions](#-friday-night-funkin-questions)
+- [General Usage](#️-general-usage)
+- [Troubleshooting](#-troubleshooting)
+- [Getting More Help](#-getting-more-help)
 
 
-## 🔧 Installation Issues (Not applicable for .exe file)
-
+## 🔧 Installation Issues
+*(Not applicable for .exe files)*
 If you encounter installation problems (such as Python not being recognized, missing packages, ImageMagick errors, or the application not starting), please see the [Installation Guide](installation-guide.md#-troubleshooting-installation) for detailed troubleshooting steps and solutions to common errors.
 
 This helps keep instructions up to date and avoids duplication. The installation guide covers:
