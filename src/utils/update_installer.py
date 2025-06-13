@@ -53,7 +53,7 @@ class UpdateWindow:
         if not GUI_AVAILABLE:
             raise ImportError("GUI not available")
             
-        self.window = tk.Toplevel()
+        self.window = tk.Tk()
         self.window.title(title)
         self.window.geometry(f"{width}x{height}")
         self.window.configure(bg='#1e1e1e')
