@@ -5,6 +5,7 @@ import tempfile
 import threading
 import tkinter as tk
 import webbrowser
+import argparse
 from tkinter import filedialog, ttk, messagebox
 
 # Import our own modules
@@ -559,6 +560,33 @@ class TextureAtlasExtractorApp:
         )
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = TextureAtlasExtractorApp(root)
-    root.mainloop()
+    parser = argparse.ArgumentParser(description="TextureAtlas to GIF and Frames")
+    parser.add_argument("--update", action="store_true", help="Run in update mode")
+    parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
+    args = parser.parse_args()
+    
+    if args.update:
+        from utils.update_installer import Updater, UpdateUtilities
+        
+        print("Starting update process...")
+        if args.wait > 0:
+            print(f"Waiting {args.wait} seconds...")
+            import time
+            time.sleep(args.wait)
+        
+        exe_mode = Utilities.is_frozen()
+        updater = Updater(use_gui=True, exe_mode=exe_mode)
+        
+        if exe_mode:
+            print("Running executable update...")
+            updater.update_exe()
+        else:
+            print("Running source update...")
+            updater.update_source()
+        
+        if updater.use_gui and updater.console:
+            updater.console.window.mainloop()
+    else:
+        root = tk.Tk()
+        app = TextureAtlasExtractorApp(root)
+        root.mainloop()

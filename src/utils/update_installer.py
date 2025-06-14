@@ -7,15 +7,17 @@ import subprocess
 import tempfile
 import zipfile
 import requests
-import threading
 import time
-import json
 import argparse
-import re
 import platform
-from pathlib import Path
+import threading
 from datetime import datetime
-from string import Template
+
+try:
+    import py7zr
+    PY7ZR_AVAILABLE = True
+except ImportError:
+    PY7ZR_AVAILABLE = False
 
 GUI_AVAILABLE = False
 try:
@@ -31,10 +33,14 @@ class UpdateWindow:
     A class for displaying and managing the update progress window.
 
     Attributes:
-        window (tk.Toplevel): The main update window.
+        window (tk.Tk): The main update window.
+        console_frame (tk.Frame): Frame containing the console text and scrollbar.
         console_text (tk.Text): Text widget for logging update messages.
+        scrollbar (ttk.Scrollbar): Scrollbar for the console text widget.
+        progress_frame (tk.Frame): Frame containing progress elements.
         progressbar (ttk.Progressbar): Progress bar for update status.
         progress_label (tk.Label): Label for progress status.
+        button_frame (tk.Frame): Frame containing control buttons.
         restart_btn (tk.Button): Button to restart the application.
         close_btn (tk.Button): Button to close the update window.
 
@@ -201,11 +207,16 @@ class UpdateUtilities:
             Check if a file is currently locked.
         wait_for_file_unlock(file_path, max_attempts=10, delay=1.0):
             Wait for a file to become unlocked.
+        extract_7z(archive_path, extract_dir):
+            Extract a 7z archive to a directory.
+        is_frozen():
+            Check if running as a frozen executable.
+        find_exe_files(directory):
+            Find .exe files in a directory.
     """
 
     @staticmethod
     def find_root(target_name):
-        """Find project root by looking for target file/folder"""
         root_path = os.path.abspath(__file__)
         while True:
             root_path = os.path.dirname(root_path)
@@ -231,12 +242,39 @@ class UpdateUtilities:
     
     @staticmethod
     def wait_for_file_unlock(file_path, max_attempts=10, delay=1.0):
-        """Wait for a file to become unlocked"""
         for attempt in range(max_attempts):
             if not UpdateUtilities.is_file_locked(file_path):
                 return True
             time.sleep(delay)
         return False
+
+    @staticmethod
+    def extract_7z(archive_path, extract_dir):
+        if PY7ZR_AVAILABLE:
+            with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+                archive.extractall(path=extract_dir)
+            return True
+        else:
+            # Fallback to system 7z command
+            try:
+                cmd = ['7z', 'x', archive_path, f'-o{extract_dir}', '-y']
+                result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                return True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                return False
+
+    @staticmethod
+    def is_frozen():
+        return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
+    @staticmethod
+    def find_exe_files(directory):
+        exe_files = []
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+            if os.path.isfile(item_path) and item.lower().endswith('.exe'):
+                exe_files.append(item)
+        return exe_files
 
 
 class Updater:
@@ -257,22 +295,24 @@ class Updater:
             Enable the restart button or print restart instructions.
         get_latest_release_info():
             Get the latest release info from GitHub.
-        _detect_project_root(directory):
-            Detect if a directory is a valid project root.
-        _find_github_zipball_root(extract_dir):
-            Find the root directory in a GitHub zipball extraction.
-        wait_for_main_app_closure(max_wait_seconds=30):
-            Wait for the main application to close before updating.
         find_project_root():
             Find the project root directory.
+        wait_for_main_app_closure(max_wait_seconds=30):
+            Wait for the main application to close before updating.
         create_updater_backup():
             Create a backup of the updater script.
         cleanup_updater_backup():
             Remove the updater backup script.
         update_source():
             Perform the update process for the source code.
+        update_exe():
+            Perform the update process for the executable.
+        _detect_project_root(directory):
+            Detect if a directory is a valid project root.
+        _find_github_zipball_root(extract_dir):
+            Find the root directory in a GitHub zipball extraction.
         _merge_directory(src_dir, dst_dir):
-            Merge the contents of two directories.
+            Merge the contents of two directories.        
         _copy_file_with_retry(src_file, dst_file, max_attempts=5):
             Copy a file with retry logic on failure.
     """
@@ -283,7 +323,7 @@ class Updater:
         self.console = None
         if self.use_gui:
             try:
-                self.console = UpdateWindow("Standalone Update", 650, 450)
+                self.console = UpdateWindow("Standalone Update", 650, 480)
             except:
                 self.use_gui = False
                 print("Failed to create GUI, falling back to console mode")
@@ -310,24 +350,46 @@ class Updater:
     @staticmethod
     def get_latest_release_info():
         url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
+
+        ### URLs for testing purposes: 
+        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-quick"
+        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-source-update"
+        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-executable-update"
+
         response = requests.get(url)
         response.raise_for_status()
         return response.json()
     
     @staticmethod
-    def _detect_project_root(directory):
-        required_folders = ['assets', 'ImageMagick', 'src']  # Minimal requirements
-        required_files = ['latestVersion.txt', 'LICENSE', 'README.md']
-        
-        for folder in required_folders:
-            if not os.path.isdir(os.path.join(directory, folder)):
+    def _detect_project_root(directory, exe_mode=False):
+        if exe_mode:
+            required_folders = ['assets', 'ImageMagick']
+            required_files = []
+            
+            for folder in required_folders:
+                if not os.path.isdir(os.path.join(directory, folder)):
+                    return False
+            
+            # Check for at least one .exe file
+            exe_files = UpdateUtilities.find_exe_files(directory)
+            if not exe_files:
                 return False
-        
-        for file in required_files:
-            if not os.path.isfile(os.path.join(directory, file)):
-                return False
-        
-        return True
+            
+            return True
+        else:
+            # For source mode, look for full project structure
+            required_folders = ['assets', 'ImageMagick', 'src']
+            required_files = ['latestVersion.txt', 'LICENSE', 'README.md']
+            
+            for folder in required_folders:
+                if not os.path.isdir(os.path.join(directory, folder)):
+                    return False
+            
+            for file in required_files:
+                if not os.path.isfile(os.path.join(directory, file)):
+                    return False
+            
+            return True
     
     @staticmethod
     def _find_github_zipball_root(extract_dir):
@@ -346,7 +408,7 @@ class Updater:
         for item in extracted_contents:
             item_path = os.path.join(extract_dir, item)
             if os.path.isdir(item_path):
-                if Updater._detect_project_root(item_path):
+                if Updater._detect_project_root(item_path, exe_mode=False):
                     return item_path
         
         return None
@@ -357,20 +419,24 @@ class Updater:
         
         start_time = time.time()
         while time.time() - start_time < max_wait_seconds:
-            project_root = self.find_project_root()
-            if project_root:
-                test_file = os.path.join(project_root, "ImageMagick", "CORE_RL_bzlib_.dll")
-                if os.path.exists(test_file):
-                    if not UpdateUtilities.is_file_locked(test_file):
-                        self.log("Main application appears to have closed", "success")
-                        return True
-                    else:
-                        self.log(f"Waiting... (files still locked)", "info")
-                        time.sleep(2)
-                else:
-                    return True
+            locked_files = []
+            
+            if self.exe_mode and UpdateUtilities.is_frozen():
+                current_exe = sys.executable
+                if UpdateUtilities.is_file_locked(current_exe):
+                    locked_files.append(current_exe)
             else:
+                project_root = self.find_project_root()
+                if project_root:
+                    main_py = os.path.join(project_root, "src", "Main.py")
+                    if os.path.exists(main_py) and UpdateUtilities.is_file_locked(main_py):
+                        locked_files.append(main_py)
+            
+            if not locked_files:
+                self.log("Application appears to be closed", "success")
                 return True
+                
+            time.sleep(2)
         
         self.log("Timeout waiting for application closure", "warning")
         return False
@@ -383,17 +449,13 @@ class Updater:
             current_script = os.path.abspath(__file__)
             backup_script = current_script + ".backup"
             
-            if os.path.exists(backup_script):
-                self.log("Running from backup updater script", "info")
-                return backup_script
-            
             shutil.copy2(current_script, backup_script)
             self.log(f"Created updater backup: {backup_script}", "info")
-            return current_script
+            return backup_script
             
         except Exception as e:
             self.log(f"Warning: Could not create updater backup: {e}", "warning")
-            return os.path.abspath(__file__)
+            return None
     
     def cleanup_updater_backup(self):
         try:
@@ -561,6 +623,197 @@ class Updater:
             self.set_progress(0, "Update failed!")
             if self.console and GUI_AVAILABLE:
                 messagebox.showerror("Update Failed", f"Standalone update failed: {str(e)}")
+
+    def update_exe(self):
+        try:
+            self.log("Starting executable update...", "info")
+            
+            if platform.system() != "Windows":
+                raise Exception(
+                    f"Executable updates are only supported on Windows currently. Current platform: {platform.system()}.\n"
+                    "If you're running a compiled executable for macOS or Linux, your version isn't official."
+                )
+            
+            self.set_progress(10, "Finding application directory...")
+            
+            if UpdateUtilities.is_frozen():
+                current_exe = sys.executable
+                app_root = os.path.dirname(current_exe)
+            else:
+                app_root = self.find_project_root()
+                if not app_root:
+                    raise Exception("Could not determine application directory")
+                current_exe = None
+                
+            self.log(f"Application directory: {app_root}", "info")
+            
+            if not self.wait_for_main_app_closure():
+                self.log("Continuing update despite locked files (may fail)...", "warning")
+            
+            self.set_progress(15, "Fetching release information...")
+            
+            info = self.get_latest_release_info()
+            self.log(f"Found latest release: {info.get('tag_name', 'unknown')}", "info")
+            
+            assets = info.get('assets', [])
+            seven_z_asset = None
+            
+            for asset in assets:
+                if asset['name'].lower().endswith('.7z'):
+                    seven_z_asset = asset
+                    break
+                    
+            if not seven_z_asset:
+                raise Exception("No .7z release file found in latest release")
+                
+            download_url = seven_z_asset['browser_download_url']
+            file_size = seven_z_asset.get('size', 0)
+            
+            self.log(f"Downloading: {seven_z_asset['name']}", "info")
+            self.log(f"Size: {file_size / 1024 / 1024:.2f} MB", "info")
+            
+            self.set_progress(20, "Downloading executable archive...")
+            
+            response = requests.get(download_url, stream=True)
+            response.raise_for_status()
+            
+            with tempfile.NamedTemporaryFile(suffix=".7z", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+                downloaded = 0
+                
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        tmp_file.write(chunk)
+                        downloaded += len(chunk)
+                        if file_size:
+                            progress = 20 + (downloaded * 40 // file_size)
+                            self.set_progress(progress, f"Downloaded {downloaded / 1024 / 1024:.1f} MB")
+            
+            self.log(f"Download complete: {tmp_path}", "success")
+            self.set_progress(60, "Extracting archive...")
+            
+            extract_dir = tempfile.mkdtemp()
+            self.log(f"Extracting to: {extract_dir}", "info")
+            
+            if not UpdateUtilities.extract_7z(tmp_path, extract_dir):
+                raise Exception("Failed to extract 7z archive. Make sure py7zr is installed or 7z command is available.")
+            
+            self.set_progress(70, "Detecting release structure...")
+            
+            extracted_contents = os.listdir(extract_dir)
+            self.log(f"Extracted contents: {', '.join(extracted_contents)}", "info")
+            
+            release_root = extract_dir
+            if len(extracted_contents) == 1 and os.path.isdir(os.path.join(extract_dir, extracted_contents[0])):
+                potential_root = os.path.join(extract_dir, extracted_contents[0])
+                contents = os.listdir(potential_root)
+                if any(item.lower().endswith('.exe') for item in contents):
+                    release_root = potential_root
+                    
+            release_contents = os.listdir(release_root)
+            self.log(f"Release contents: {', '.join(release_contents)}", "info")
+            
+            exe_files = UpdateUtilities.find_exe_files(release_root)
+            if not exe_files:
+                raise Exception("No executable files found in release")
+                
+            self.log(f"Found executables: {', '.join(exe_files)}", "info")
+            
+            self.set_progress(80, "Installing update...")
+            
+            backup_dir = None
+            if current_exe and os.path.exists(current_exe):
+                backup_dir = os.path.join(tempfile.gettempdir(), f"app_backup_{int(time.time())}")
+                os.makedirs(backup_dir, exist_ok=True)
+                
+                backup_exe = os.path.join(backup_dir, os.path.basename(current_exe))
+                try:
+                    shutil.copy2(current_exe, backup_exe)
+                    self.log(f"Backed up current executable to: {backup_exe}", "info")
+                except Exception as e:
+                    self.log(f"Warning: Could not backup current executable: {e}", "warning")
+            
+            items_to_copy = ['assets', 'ImageMagick', 'LICENSE', 'README.md']
+            items_to_copy.extend(exe_files)
+            
+            optional_items = ['docs', '.gitignore']
+            for item in optional_items:
+                if os.path.exists(os.path.join(release_root, item)):
+                    items_to_copy.append(item)
+                    
+            for item in items_to_copy:
+                src_path = os.path.join(release_root, item)
+                dst_path = os.path.join(app_root, item)
+                
+                if os.path.exists(src_path):
+                    self.log(f"Installing {item}...", "info")
+                    try:
+                        if os.path.isdir(src_path):
+                            if os.path.exists(dst_path):
+                                self._merge_directory(src_path, dst_path)
+                            else:
+                                shutil.copytree(src_path, dst_path)
+                        else:
+                            if item.lower().endswith('.exe') and os.path.exists(dst_path):
+                                backup_name = dst_path + ".old"
+                                if os.path.exists(backup_name):
+                                    try:
+                                        os.remove(backup_name)
+                                    except:
+                                        pass
+                                try:
+                                    os.rename(dst_path, backup_name)
+                                    self.log(f"Renamed old executable to {backup_name}", "info")
+                                except Exception as e:
+                                    self.log(f"Could not rename old executable: {e}", "warning")
+                            
+                            self._copy_file_with_retry(src_path, dst_path)
+                        self.log(f"Successfully installed {item}", "success")
+                    except Exception as e:
+                        self.log(f"Failed to install {item}: {str(e)}", "error")
+                        if item.lower().endswith('.exe'):
+                            raise e
+                else:
+                    self.log(f"Warning: {item} not found in release", "warning")
+
+            os.remove(tmp_path)
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            self.log("Cleanup completed", "info")
+            
+            self.set_progress(100, "Update complete!")
+            self.log("Executable update completed successfully!", "success")
+            self.log("Please restart the application to use the updated version.", "info")
+            
+            def restart_app():
+                if self.console:
+                    self.console.close()
+                
+                main_exe = None
+                for exe_file in exe_files:
+                    exe_path = os.path.join(app_root, exe_file)
+                    if os.path.exists(exe_path):
+                        if "TextureAtlas" in exe_file or "Main" in exe_file:
+                            main_exe = exe_path
+                            break
+                        elif not main_exe:
+                            main_exe = exe_path
+                
+                if main_exe:
+                    try:
+                        subprocess.Popen([main_exe], cwd=app_root)
+                        self.log(f"Restarting with: {main_exe}", "info")
+                    except Exception as e:
+                        self.log(f"Failed to restart application: {e}", "error")
+                        
+                sys.exit(0)
+            
+            self.enable_restart(restart_app)
+            
+        except Exception as e:
+            self.log(f"Executable update failed: {str(e)}", "error")
+            self.set_progress(0, "Update failed!")
+            if self.console and GUI_AVAILABLE:
+                messagebox.showerror("Update Failed", f"Executable update failed: {str(e)}")
     
     def _merge_directory(self, src_dir, dst_dir):
         for root, dirs, files in os.walk(src_dir):
@@ -580,7 +833,6 @@ class Updater:
     def _copy_file_with_retry(self, src_file, dst_file, max_attempts=5):
         for attempt in range(max_attempts):
             try:
-                # Create directory if it doesn't exist
                 os.makedirs(os.path.dirname(dst_file), exist_ok=True)
                 shutil.copy2(src_file, dst_file)
                 return
@@ -590,6 +842,7 @@ class Updater:
                     time.sleep(2)
                 else:
                     raise e
+
 
 def main():
     parser = argparse.ArgumentParser(description="Standalone updater for TextureAtlas-to-GIF-and-Frames")
@@ -607,7 +860,10 @@ def main():
     
     if updater.use_gui:
         def run_update():
-            updater.update_source()
+            if args.exe_mode:
+                updater.update_exe()
+            else:
+                updater.update_source()
         
         thread = threading.Thread(target=run_update, daemon=True)
         thread.start()
@@ -615,7 +871,10 @@ def main():
         if updater.console:
             updater.console.window.mainloop()
     else:
-        updater.update_source()
+        if args.exe_mode:
+            updater.update_exe()
+        else:
+            updater.update_source()
 
 
 if __name__ == "__main__":

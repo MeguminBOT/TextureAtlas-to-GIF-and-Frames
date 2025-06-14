@@ -1,9 +1,8 @@
 import os
+import platform
 import subprocess
 import sys
 import requests
-import threading
-import time
 
 import tkinter as tk
 from tkinter import messagebox
@@ -19,8 +18,6 @@ class UpdateChecker:
         None
 
     Methods:
-        is_frozen():
-            Determine if the application is running as a frozen executable.
         get_latest_release_info():
             Retrieve the latest release information from GitHub.
         check_for_updates(current_version, auto_update=False, parent_window=None):
@@ -28,15 +25,6 @@ class UpdateChecker:
         _launch_standalone_updater(exe_mode=False):
             Launch the standalone updater script and exit the current application.
     """
-
-    @staticmethod
-    def is_frozen():
-        return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')    @staticmethod
-    def get_latest_release_info():
-        url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
 
     @staticmethod
     def check_for_updates(current_version, auto_update=False, parent_window=None):
@@ -61,14 +49,18 @@ class UpdateChecker:
 
                 if auto_update:
                     print("Auto-update enabled, starting update process...")
-                    if UpdateChecker.is_frozen():
+                    if Utilities.is_frozen():
+                        if platform.system() != "Windows":
+                            print(f"Error: Executable updates are only supported on Windows. Current platform: {platform.system()}")
+                            print("Please use source code updates on macOS/Linux or manually download the release.")
+                            return
                         print("Running as executable, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=True)
                     else:
                         print("Running from source, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=False)
                 else:
-                    update_type = "executable" if UpdateChecker.is_frozen() else "source code"
+                    update_type = "executable" if Utilities.is_frozen() else "source code"
                     message = (
                         f"An update is available!\n\n"
                         f"Current version: {current_version}\n"
@@ -86,7 +78,15 @@ class UpdateChecker:
 
                     if result:
                         print("User chose to update.")
-                        if UpdateChecker.is_frozen():
+                        if Utilities.is_frozen():
+                            if platform.system() != "Windows":
+                                error_msg = (
+                                    f"Executable updates are only supported on Windows.\n"
+                                    f"Current platform: {platform.system()}\n\n"
+                                    f"Please use source code updates on macOS/Linux or manually download the release."
+                                )
+                                messagebox.showerror("Platform Not Supported", error_msg, parent=parent)
+                                return
                             print("Starting executable update...")
                             UpdateChecker._launch_standalone_updater(exe_mode=True)
                         else:
@@ -113,41 +113,66 @@ class UpdateChecker:
         except Exception as err:
             print(f"Unexpected error during update check: {err}")
             import traceback
-            traceback.print_exc()
-
+            traceback.print_exc()    
+            
     @staticmethod
     def _launch_standalone_updater(exe_mode=False):
         try:
-            project_root = Utilities.find_root('README.md')
-            if not project_root:
-                raise Exception("Could not find project root")
-            
-            updater_script = os.path.join(project_root, "src", "utils", "update_installer.py")
-            if not os.path.exists(updater_script):
-                raise Exception("Update installer script not found")
-            
-            cmd = [sys.executable, updater_script]
-            if exe_mode:
-                cmd.append("--exe-mode")
-            
-            print(f"Launching updater: {' '.join(cmd)}")
-            subprocess.Popen(cmd, cwd=os.path.dirname(updater_script))
-            
-            import time
-            time.sleep(1)
+            if Utilities.is_frozen() and exe_mode:
+                # When frozen, restart the same executable with --update flag
+                current_exe = sys.executable
+                cmd = [current_exe, "--update", "--wait", "3"]
+                
+                print(f"Restarting with update mode: {' '.join(cmd)}")
+                subprocess.Popen(cmd, cwd=os.path.dirname(current_exe))
+                
+                import time
+                time.sleep(1)
 
-            print("Exiting main application to allow update...")
+                print("Exiting main application to allow update...")
 
-            try:
-                import tkinter as tk
-                root = tk._default_root
-                if root:
-                    root.quit()
-                    root.destroy()
-            except:
-                pass
-            
-            sys.exit(0)
+                try:
+                    import tkinter as tk
+                    root = tk._default_root
+                    if root:
+                        root.quit()
+                        root.destroy()
+                except:
+                    pass
+                
+                sys.exit(0)
+            else:
+                # When not frozen, run the updater script directly
+                project_root = Utilities.find_root('README.md')
+                if not project_root:
+                    raise Exception("Could not find project root")
+                
+                updater_script = os.path.join(project_root, "src", "utils", "update_installer.py")
+                if not os.path.exists(updater_script):
+                    raise Exception("Update installer script not found")
+                
+                cmd = [sys.executable, updater_script]
+                if exe_mode:
+                    cmd.append("--exe-mode")
+                
+                print(f"Launching updater: {' '.join(cmd)}")
+                subprocess.Popen(cmd, cwd=os.path.dirname(updater_script))
+                
+                import time
+                time.sleep(1)
+
+                print("Exiting main application to allow update...")
+
+                try:
+                    import tkinter as tk
+                    root = tk._default_root
+                    if root:
+                        root.quit()
+                        root.destroy()
+                except:
+                    pass
+                
+                sys.exit(0)
                 
         except Exception as e:
             print(f"Failed to launch standalone updater: {e}")
