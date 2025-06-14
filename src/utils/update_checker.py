@@ -52,7 +52,7 @@ class UpdateChecker:
                     if Utilities.is_frozen():
                         if platform.system() != "Windows":
                             print(f"Error: Executable updates are only supported on Windows. Current platform: {platform.system()}")
-                            print("Please use source code updates on macOS/Linux or manually download the release.")
+                            print(f"Please use source code updates on macOS/Linux or manually download the release.")
                             return
                         print("Running as executable, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=True)
@@ -121,7 +121,7 @@ class UpdateChecker:
             if Utilities.is_frozen() and exe_mode:
                 # When frozen, restart the same executable with --update flag
                 current_exe = sys.executable
-                cmd = [current_exe, "--update", "--wait", "3"]
+                cmd = [current_exe, "--update", "--exe-mode", "--wait", "3"]
                 
                 print(f"Restarting with update mode: {' '.join(cmd)}")
                 subprocess.Popen(cmd, cwd=os.path.dirname(current_exe))

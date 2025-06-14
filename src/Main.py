@@ -562,6 +562,7 @@ class TextureAtlasExtractorApp:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TextureAtlas to GIF and Frames")
     parser.add_argument("--update", action="store_true", help="Run in update mode")
+    parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
     parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
     args = parser.parse_args()
     
@@ -574,7 +575,7 @@ if __name__ == "__main__":
             import time
             time.sleep(args.wait)
         
-        exe_mode = Utilities.is_frozen()
+        exe_mode = args.exe_mode or Utilities.is_frozen()
         updater = Updater(use_gui=True, exe_mode=exe_mode)
         
         if exe_mode:

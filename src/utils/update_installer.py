@@ -436,13 +436,19 @@ class Updater:
                 self.log("Application appears to be closed", "success")
                 return True
                 
-            time.sleep(2)
-        
+            time.sleep(2)        
         self.log("Timeout waiting for application closure", "warning")
         return False
     
     def find_project_root(self):
-        return UpdateUtilities.find_root('README.md')
+        if self.exe_mode:
+            if UpdateUtilities.is_frozen():
+                return os.path.dirname(sys.executable)
+            else:
+                # Extra fallback just in case.
+                return os.getcwd()
+        else:
+            return UpdateUtilities.find_root('README.md')
     
     def create_updater_backup(self):
         try:
@@ -645,7 +651,18 @@ class Updater:
                     raise Exception("Could not determine application directory")
                 current_exe = None
                 
+                exe_files = UpdateUtilities.find_exe_files(app_root)
+                if exe_files:
+                    for exe_file in exe_files:
+                        if "TextureAtlas" in exe_file or "Main" in exe_file:
+                            current_exe = os.path.join(app_root, exe_file)
+                            break
+                    if not current_exe:
+                        current_exe = os.path.join(app_root, exe_files[0])
+                
             self.log(f"Application directory: {app_root}", "info")
+            if current_exe:
+                self.log(f"Current executable: {current_exe}", "info")
             
             if not self.wait_for_main_app_closure():
                 self.log("Continuing update despite locked files (may fail)...", "warning")
