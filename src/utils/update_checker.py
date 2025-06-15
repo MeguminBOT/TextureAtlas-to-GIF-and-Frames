@@ -49,7 +49,7 @@ class UpdateChecker:
 
                 if auto_update:
                     print("Auto-update enabled, starting update process...")
-                    if Utilities.is_frozen():
+                    if Utilities.is_compiled():
                         if platform.system() != "Windows":
                             print(f"Error: Executable updates are only supported on Windows. Current platform: {platform.system()}")
                             print(f"Please use source code updates on macOS/Linux or manually download the release.")
@@ -60,7 +60,7 @@ class UpdateChecker:
                         print("Running from source, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=False)
                 else:
-                    update_type = "executable" if Utilities.is_frozen() else "source code"
+                    update_type = "executable" if Utilities.is_compiled() else "source code"
                     message = (
                         f"An update is available!\n\n"
                         f"Current version: {current_version}\n"
@@ -78,7 +78,7 @@ class UpdateChecker:
 
                     if result:
                         print("User chose to update.")
-                        if Utilities.is_frozen():
+                        if Utilities.is_compiled():
                             if platform.system() != "Windows":
                                 error_msg = (
                                     f"Executable updates are only supported on Windows.\n"
@@ -117,9 +117,11 @@ class UpdateChecker:
             
     @staticmethod
     def _launch_standalone_updater(exe_mode=False):
+        print(f"Debug: _launch_standalone_updater called with exe_mode={exe_mode}")
+        print(f"Debug: Utilities.is_compiled() = {Utilities.is_compiled()}")
         try:
-            if Utilities.is_frozen() and exe_mode:
-                # When frozen, restart the same executable with --update flag
+            if Utilities.is_compiled() and exe_mode:
+                # When compiled, restart the same executable with --update flag
                 current_exe = sys.executable
                 cmd = [current_exe, "--update", "--exe-mode", "--wait", "3"]
                 
@@ -142,7 +144,7 @@ class UpdateChecker:
                 
                 sys.exit(0)
             else:
-                # When not frozen, run the updater script directly
+                # When not compiled, run the updater script directly
                 project_root = Utilities.find_root('README.md')
                 if not project_root:
                     raise Exception("Could not find project root")

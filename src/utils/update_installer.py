@@ -196,6 +196,7 @@ class UpdateWindow:
 class UpdateUtilities:
     """
     A utility class for update-related file and directory operations.
+    Contains duplicates from utils/utilities.py, but are required here as well.
 
     Attributes:
         None
@@ -209,8 +210,8 @@ class UpdateUtilities:
             Wait for a file to become unlocked.
         extract_7z(archive_path, extract_dir):
             Extract a 7z archive to a directory.
-        is_frozen():
-            Check if running as a frozen executable.
+        is_compiled():
+            Check if running as a Nuitka-compiled Nuitka executable.
         find_exe_files(directory):
             Find .exe files in a directory.
     """
@@ -232,7 +233,6 @@ class UpdateUtilities:
     def is_file_locked(file_path):
         if not os.path.exists(file_path):
             return False
-            
         try:
             with open(file_path, 'r+b') as f:
                 pass
@@ -262,10 +262,13 @@ class UpdateUtilities:
                 return True
             except (subprocess.CalledProcessError, FileNotFoundError):
                 return False
-
+    
     @staticmethod
-    def is_frozen():
-        return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    def is_compiled():
+        if '__compiled__' in globals():
+            return True
+        else:
+            return False
 
     @staticmethod
     def find_exe_files(directory):
@@ -285,10 +288,11 @@ class Updater:
         use_gui (bool): Whether to use the GUI for updates.
         exe_mode (bool): Whether running in executable update mode.
         console (UpdateWindow or None): The update window or None for console mode.
+        log_file (str or None): Path to the log file for saving logs.
 
     Methods:
         log(message, level="info"):
-            Log a message to the update console or print to stdout.
+            Log a message to the update console or print to stdout, and save to log file.
         set_progress(progress, message=""):
             Set the update progress and status message.
         enable_restart(restart_func):
@@ -321,20 +325,46 @@ class Updater:
         self.use_gui = use_gui and GUI_AVAILABLE
         self.exe_mode = exe_mode
         self.console = None
+        self.log_file = None
         if self.use_gui:
             try:
-                self.console = UpdateWindow("Standalone Update", 650, 480)
+                self.console = UpdateWindow("TextureAtlas to GIF and Frames Updater", 650, 480)
             except:
                 self.use_gui = False
                 print("Failed to create GUI, falling back to console mode")
-    
+        self._setup_log_file()
+
+    def _setup_log_file(self):
+        try:
+            if self.exe_mode and UpdateUtilities.is_compiled():
+                app_dir = os.path.dirname(sys.executable)
+            else:
+                app_dir = self.find_project_root() or os.getcwd()
+            logs_dir = os.path.join(app_dir, "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            self.log_file = os.path.join(logs_dir, f"update_{timestamp}.log")
+        except Exception as e:
+            print(f"[WARNING] Could not set up log file: {e}")
+            self.log_file = None
+
     def log(self, message, level="info"):
         if self.console:
             self.console.log(message, level)
         else:
             prefix = f"[{level.upper()}]" if level != "info" else ""
             print(f"{prefix} {message}")
-    
+        # Save to log file if available
+        if self.log_file:
+            try:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open(self.log_file, "a", encoding="utf-8") as f:
+                    f.write(f"[{timestamp}] [{level.upper()}] {message}\n")
+            except Exception as e:
+                # Only print warning if not in GUI mode
+                if not self.console:
+                    print(f"[WARNING] Could not write to log file: {e}")
+
     def set_progress(self, progress, message=""):
         if self.console:
             self.console.set_progress(progress, message)
@@ -417,14 +447,30 @@ class Updater:
         self.log("Waiting for main application to close...")
         self.set_progress(5, "Waiting for application closure...")
         
+        # For executable mode, wait longer since DLLs might need more time to be released
+        if self.exe_mode:
+            max_wait_seconds = 60
+            self.log("Executable mode detected, extending wait time for DLL release...", "info")
+        
         start_time = time.time()
         while time.time() - start_time < max_wait_seconds:
             locked_files = []
             
-            if self.exe_mode and UpdateUtilities.is_frozen():
+            if self.exe_mode and UpdateUtilities.is_compiled():
                 current_exe = sys.executable
                 if UpdateUtilities.is_file_locked(current_exe):
                     locked_files.append(current_exe)
+                    
+                # Also check for ImageMagick DLLs that might be locked
+                app_root = os.path.dirname(current_exe)
+                imagemagick_dir = os.path.join(app_root, "ImageMagick")
+                if os.path.exists(imagemagick_dir):
+                    for dll_file in os.listdir(imagemagick_dir):
+                        if dll_file.lower().endswith('.dll'):
+                            dll_path = os.path.join(imagemagick_dir, dll_file)
+                            if UpdateUtilities.is_file_locked(dll_path):
+                                locked_files.append(dll_path)
+                                
             else:
                 project_root = self.find_project_root()
                 if project_root:
@@ -435,14 +481,20 @@ class Updater:
             if not locked_files:
                 self.log("Application appears to be closed", "success")
                 return True
+            else:
+                if len(locked_files) <= 3:  # Only log a few files to avoid spam
+                    self.log(f"Still waiting for {len(locked_files)} files to be released: {', '.join([os.path.basename(f) for f in locked_files[:3]])}", "info")
+                else:
+                    self.log(f"Still waiting for {len(locked_files)} files to be released...", "info")
                 
-            time.sleep(2)        
+            time.sleep(3)
+        
         self.log("Timeout waiting for application closure", "warning")
         return False
     
     def find_project_root(self):
         if self.exe_mode:
-            if UpdateUtilities.is_frozen():
+            if UpdateUtilities.is_compiled():
                 return os.path.dirname(sys.executable)
             else:
                 # Extra fallback just in case.
@@ -642,7 +694,7 @@ class Updater:
             
             self.set_progress(10, "Finding application directory...")
             
-            if UpdateUtilities.is_frozen():
+            if UpdateUtilities.is_compiled():
                 current_exe = sys.executable
                 app_root = os.path.dirname(current_exe)
             else:
@@ -817,11 +869,32 @@ class Updater:
                 
                 if main_exe:
                     try:
-                        subprocess.Popen([main_exe], cwd=app_root)
-                        self.log(f"Restarting with: {main_exe}", "info")
+                        self.log(f"Attempting to restart application...", "info")
+                        self.log(f"Executable: {main_exe}", "info")
+                        self.log(f"Working directory: {app_root}", "info")
+                        
+                        if UpdateUtilities.is_compiled():
+                            # For Nuitka executables, try with shell=True for better compatibility
+                            process = subprocess.Popen([main_exe], cwd=app_root, shell=True)
+                            self.log(f"Started process with PID: {process.pid}", "success")
+                        else:
+                            # For non-Nuitka (shouldn't happen in exe mode but just in case)
+                            process = subprocess.Popen([main_exe], cwd=app_root)
+                            self.log(f"Started process with PID: {process.pid}", "success")
+                        
+                        self.log(f"Application restart initiated successfully", "success")
+                        
+                        # Give the process a moment to start
+                        import time
+                        time.sleep(2)
+                        
                     except Exception as e:
                         self.log(f"Failed to restart application: {e}", "error")
-                        
+                        self.log(f"Please manually start the application from: {main_exe}", "warning")
+                else:
+                    self.log("No executable found to restart", "error")
+                    self.log(f"Available files in {app_root}: {', '.join(os.listdir(app_root))}", "info")
+                
                 sys.exit(0)
             
             self.enable_restart(restart_app)
@@ -851,13 +924,38 @@ class Updater:
         for attempt in range(max_attempts):
             try:
                 os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                
+                if dst_file.lower().endswith('.dll') and os.path.exists(dst_file):
+                    backup_dll = dst_file + ".old"
+                    try:
+                        if os.path.exists(backup_dll):
+                            os.remove(backup_dll)
+                        os.rename(dst_file, backup_dll)
+                        self.log(f"Backed up existing DLL: {os.path.basename(dst_file)}", "info")
+                    except Exception as e:
+                        self.log(f"Could not backup DLL {os.path.basename(dst_file)}: {e}", "warning")
+                
                 shutil.copy2(src_file, dst_file)
                 return
+
             except (PermissionError, OSError) as e:
                 if attempt < max_attempts - 1:
-                    self.log(f"Copy attempt {attempt + 1} failed for {os.path.basename(dst_file)}, retrying...", "warning")
-                    time.sleep(2)
+                    self.log(f"Copy attempt {attempt + 1} failed for {os.path.basename(dst_file)}: {e}", "warning")
+                    self.log("Waiting before retry...", "info")
+                    time.sleep(3)
                 else:
+                    if dst_file.lower().endswith('.dll'):
+                        try:
+                            temp_name = dst_file + ".new"
+                            shutil.copy2(src_file, temp_name)
+                            if os.path.exists(dst_file):
+                                os.remove(dst_file)
+                            os.rename(temp_name, dst_file)
+                            self.log(f"Successfully updated DLL using temp file method: {os.path.basename(dst_file)}", "success")
+                            return
+
+                        except Exception as temp_e:
+                            self.log(f"Temp file method also failed for {os.path.basename(dst_file)}: {temp_e}", "error")
                     raise e
 
 

@@ -11,8 +11,8 @@ class Utilities:
         find_root(target_name):
             Walks up the directory tree from the current file location until it finds a directory containing the target_name (file or folder).
             Returns the path to the directory containing the target_name, or None if not found.
-        is_frozen():
-            Determine if the application is running as a frozen executable.
+        is_compiled():
+            Determine if the application is running as a Nuitka-compiled executable.
         count_spritesheets(spritesheet_list):
             Count the number of spritesheet data files in a list.
         replace_invalid_chars(name):
@@ -38,8 +38,11 @@ class Utilities:
         return None
     
     @staticmethod
-    def is_frozen():
-        return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    def is_compiled():
+        if '__compiled__' in globals():
+            return True
+        else:
+            return False
 
     @staticmethod
     def count_spritesheets(spritesheet_list):

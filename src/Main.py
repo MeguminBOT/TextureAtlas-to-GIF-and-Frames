@@ -575,7 +575,7 @@ if __name__ == "__main__":
             import time
             time.sleep(args.wait)
         
-        exe_mode = args.exe_mode or Utilities.is_frozen()
+        exe_mode = args.exe_mode or Utilities.is_compiled()
         updater = Updater(use_gui=True, exe_mode=exe_mode)
         
         if exe_mode:
