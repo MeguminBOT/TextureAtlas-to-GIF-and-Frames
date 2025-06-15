@@ -186,6 +186,8 @@ class TextureAtlasExtractorApp:
         help_menu.add_command(label="Manual", command=HelpWindow.create_main_help_window)
         help_menu.add_separator()
         help_menu.add_command(label="FNF: GIF/WebP settings advice", command=HelpWindow.create_fnf_help_window)
+        help_menu.add_separator()
+        help_menu.add_command(label="Check for Updates", command=lambda: self.check_version(force=True))
         self.menubar.add_cascade(label="Help", menu=help_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
@@ -316,6 +318,7 @@ class TextureAtlasExtractorApp:
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
+
         self.replace_rules = []
         self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
         self.replace_button.pack(pady=2)
@@ -331,7 +334,6 @@ class TextureAtlasExtractorApp:
 
         self.author_label = tk.Label(self.root, text="Project started by AutisticLulu")
         self.author_label.pack(side='bottom')
-
         self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
         self.link1 = tk.Label(self.root, text="If you wish to contribute to the project, click here!", fg="blue", cursor="hand2")
         self.link1.pack(side='bottom')
@@ -341,8 +343,8 @@ class TextureAtlasExtractorApp:
         webbrowser.open_new(linkSourceCode)
         
     def check_version(self, force=False):
-        update_settings = self.app_config.get("update_settings", {})
-        check_on_startup = update_settings.get("check_updates_on_startup", False)
+        update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
+        check_on_startup = update_settings.get("check_updates_on_startup", True)
         auto_update = update_settings.get("auto_download_updates", False)
         if force or check_on_startup:
             UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)

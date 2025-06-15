@@ -45,7 +45,7 @@ class AppConfigWindow:
     def __init__(self, parent, app_config):
         self.window = tk.Toplevel(parent)
         self.window.title("App options")
-        self.window.geometry("460x580")
+        self.window.geometry("460x660")
         self.app_config = app_config
 
         # Get system limits
@@ -219,13 +219,28 @@ class AppConfigWindow:
         row += 1
         tk.Label(main_frame, text="Update settings", font=("Arial", 10, "bold")).grid(row=row, column=0, sticky="w", pady=(8, 2), columnspan=2)
         row += 1
+        update_outer_frame = tk.Frame(main_frame, borderwidth=1, relief="solid", highlightthickness=1, highlightbackground="#888")
+        update_outer_frame.grid(row=row, column=0, columnspan=2, sticky="nsew", padx=(0, 0), pady=(0, 10))
+
         update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
         self.check_updates_var = tk.BooleanVar(value=update_settings.get("check_updates_on_startup", True))
         self.auto_update_var = tk.BooleanVar(value=update_settings.get("auto_download_updates", False))
-        tk.Checkbutton(main_frame, text="Check for updates on startup", variable=self.check_updates_var).grid(row=row, column=0, sticky="w", columnspan=2)
 
-        row += 1
-        tk.Checkbutton(main_frame, text="Auto-download and install updates", variable=self.auto_update_var).grid(row=row, column=0, sticky="w", columnspan=2)
+        def on_check_updates_change(*args):
+            if not self.check_updates_var.get():
+                self.auto_update_var.set(False)
+                self.auto_update_cb.config(state="disabled")
+            else:
+                self.auto_update_cb.config(state="normal")
+
+        self.check_updates_cb = tk.Checkbutton(update_outer_frame, text="Check for updates on startup", variable=self.check_updates_var)
+        self.check_updates_cb.pack(anchor="w", padx=4, pady=(4, 0))
+        self.auto_update_cb = tk.Checkbutton(update_outer_frame, text="Auto-download and install updates", variable=self.auto_update_var)
+        self.auto_update_cb.pack(anchor="w", padx=4, pady=(0, 4))
+
+        self.check_updates_var.trace_add('write', lambda *args: on_check_updates_change())
+        on_check_updates_change()
+
         button_frame = tk.Frame(self.window)
         button_frame.pack(side="bottom", pady=10)
         tk.Button(button_frame, text="Save", command=self.save_config, width=12).pack(side="left", padx=10)
@@ -326,7 +341,7 @@ class AppConfigWindow:
 
         update_settings = {
             "check_updates_on_startup": self.check_updates_var.get(),
-            "auto_download_updates": self.auto_update_var.get(),
+            "auto_download_updates": self.auto_update_var.get() if self.check_updates_var.get() else False,
         }
         self.app_config.set("update_settings", update_settings)
         self.app_config.save()
