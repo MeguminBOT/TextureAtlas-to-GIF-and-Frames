@@ -8,3 +8,5 @@ __pycache__/
 .vs/
 env/
 _build-output/
+_logs/
+_src/logs
