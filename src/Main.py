@@ -186,8 +186,6 @@ class TextureAtlasExtractorApp:
         help_menu.add_command(label="Manual", command=HelpWindow.create_main_help_window)
         help_menu.add_separator()
         help_menu.add_command(label="FNF: GIF/WebP settings advice", command=HelpWindow.create_fnf_help_window)
-        help_menu.add_separator()
-        help_menu.add_command(label="Check for Updates", command=lambda: self.check_version(force=True))
         self.menubar.add_cascade(label="Help", menu=help_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
@@ -199,6 +197,8 @@ class TextureAtlasExtractorApp:
 
         options_menu = tk.Menu(self.menubar, tearoff=0)
         options_menu.add_command(label="Preferences", command=self.create_app_config_window)
+        options_menu.add_separator()
+        options_menu.add_command(label="Check for Updates", command=lambda: self.check_version(force=True))
         self.menubar.add_cascade(label="Options", menu=options_menu)
 
     def setup_widgets(self):
