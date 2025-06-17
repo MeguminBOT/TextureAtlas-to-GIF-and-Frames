@@ -126,8 +126,11 @@ call nuitka ^
  --enable-plugin=tk-inter^
  --windows-console-mode=disable^
  --include-data-dir=assets=assets^
+ --include-data-dir=docs=docs^
  --include-data-dir=ImageMagick=ImageMagick^
  --include-data-files=ImageMagick\*.dll=ImageMagick\^
+ --include-data-files=LICENSE=LICENSE^
+ --include-data-files=README.md=README.md^
  --include-package=src^
  --windows-icon-from-ico=assets\icon.ico^
  --company-name="AutisticLulu"^
@@ -159,8 +162,11 @@ if %errorlevel%==0 (
      --enable-plugin=tk-inter^
      --windows-console-mode=disable^
      --include-data-dir=assets=assets^
+     --include-data-dir=docs=docs^
      --include-data-dir=ImageMagick=ImageMagick^
      --include-data-files=ImageMagick\*.dll=ImageMagick\^
+     --include-data-files=LICENSE=LICENSE^
+     --include-data-files=README.md=README.md^
      --include-package=src^
      --windows-icon-from-ico=assets\icon.ico^
      --company-name="AutisticLulu"^
