@@ -1,41 +1,106 @@
-# TextureAtlas to GIF and Frames
-[TextureAtlas to GIF and Frames](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames) is a free and open-source software, used for extracting frames from sprite sheets, organizing them into folders, and generating GIFs/WebPs.
+# 🎨 TextureAtlas to GIF and Frames
+
+**A powerful, free and open-source tool for extracting frames and animations from Texture Atlases**
+
+[TextureAtlas to GIF and Frames](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames) converts texture atlases into organized frame collections and GIF/WebP/APNG animations. 
 Perfect for creating showcases and galleries of game sprites.
 
-Licensed under [AGPL-3.0](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/blob/main/LICENSE).
+📄 **Licensed under [AGPL-3.0](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/blob/main/LICENSE)**
 
-## Supported Spritesheet Types
-* Sparrow
-* Starling
-* Packer TXT
+## 📋 Quick Navigation
 
-## Features
-* Extracts and organizes frames from sprite sheets into individual folders.
-* Generate GIF/WebP for each animation, prefixed by the spritesheet name.
-* Automatically crops frames.
-* Customizable frame rate, loop delay, scale, indices and alpha transparency threshold.
-* (Friday Night Funkin' sprites only): Import Characters JSON files to automatically set the correct fps for every animation.
+- [🚀 Quick Start](#-quick-start)
+- [📦 Supported Formats](#-supported-spritesheet-types)
+- [✨ Features](#-features)
+- [⚠️ Current Limitations](#️-current-limitations)
+- [🔮 Planned Features](#-planned-features)
+- [💾 Downloads](#-official-download-sites)
+- [📖 Documentation](docs/README.md)
 
-## Upcoming Features
-Contributors are welcome to help implement the following features:
-* New QT UI: Work is underway in the "new_ui_project" folder.
-* Icon Splitter Tool Integration: Once the new QT UI is fully implemented, the icon splitter tool will be added as a submenu. This tool can currently be found here: [FNF Icon Splitter](https://github.com/MeguminBOT/FNF-Icon-Splitter)
+## 🚀 Quick Start
 
-## Installation and Usage
-You can find help here: https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation
+1. **Download** from [official sources](#-official-download-sites)
+2. **Install** following the [Installation Guide](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation)
+3. **Load** your texture atlas and metadata file
+4. **Configure** animation settings
+5. **Extract** and enjoy your animations!
 
-## Official Download Sites
-### SourceForge
+## 📦 Supported Spritesheet Types
+
+- ✅ **Sparrow** (XML format)
+- ✅ **Starling** (XML format)  
+- ✅ **Packer TXT** (TXT format)
+
+## ✨ Features
+
+- ✅ **Multiple output formats**: GIF, WebP, APNG animations + individual PNG frames
+- ✅ **Batch processing**: Extract multiple animations and spritesheets simultaneously
+- ✅ **Organized** Sort frames from spritesheets into individual folders.
+- ✅ **Advanced controls**: Customizable frame rate, loop delay, scale, frame selection, and alpha transparency threshold
+- ✅ **Smart cropping**: Animation-based and frame-based cropping options
+- ✅ **Find/Replace rules**: Customize output filenames with pattern matching
+- ✅ **Auto-update system**: Automatic checking and installation of updates
+- ✅ **Persistent settings**: Configuration saved between sessions
+- ✅ (*) **Preview system**: Real-time GIF preview with playback controls
+- ✅ (*) **Friday Night Funkin' character data**: Import character data files from various FNF engines to set correct animation settings
+
+(*) = *Feature may have bad results or are not fully stable yet*
+
+## ⚠️ Current Limitations
+
+- ⚠️ **Input image format**: Currently supports PNG texture atlases only
+- ⚠️ **Static thread and memory usage**: Currently uses the resources you tell it to without any dynamic managing of system resources.
+- ⚠️ **False positive virus (Windows only)**: Some anti-virus software flags compiled Python code as malware. Read [this](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/issues/20) for more info
+
+## 🔮 Planned Features
+
+**Contributors are welcome to help implement the following features:**
+- 📚 **QT graphical interface**: Swapping to QT based UI. (Repo maintainer will do the initial work in a branch named "QT", afterwards any help is welcome) 
+- 🔄 **Command-line interface**: Full CLI support for automation and scripting
+- 🖼️ **Additional input formats**: Support for more image formats beyond PNG
+- 🖱️ **Drag & drop support**: Easier file loading interface
+- 🔌 **Custom FFMPEG output**: Custom output formats through FFMPEG
+- ⚡ **Enhanced memory management**: Dynamic memory limits and optimization
+
+*Note: Features mentioned above are planned for future versions and are not currently implemented.*
+
+## 📚 Installation and Usage
+
+**Need help getting started?** Check out the documentation:
+- [📖 Installation Guide →](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation)
+- [📚 Full Documentation →](docs/README.md)
+
+## 💾 Official Download Sites
+***Note: Mac OSX and Linux users need to download source code from GitHub!***
+### 🔗 SourceForge
 [![Download TextureAtlas Extractor and GIF Generator](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/textureatlas-to-gif-and-frames/)
-### GameBanana
+
+### 🎮 GameBanana
 [![Download TextureAtlas Extractor and GIF Generator GB](https://gamebanana.com/tools/embeddables/16621?type=large)](https://gamebanana.com/tools/16621)
 
-Do NOT download this tool from unofficial sources, I'm not responsible for any damage or issues caused by this app when downloading from any other sites than the official pages for the tool on GameBanana, SourceForge and this GitHub repository.
+> ⚠️ **Security Notice**: Only download from official sources listed above. I'm are not responsible for any damage or issues caused by downloading from unofficial sites.
 
-## Other
-This application uses [ImageMagick](https://imagemagick.org/) for image processing. ImageMagick is an open-source software suite that allows for the manipulation of image files.
-For more information on ImageMagick and its licensing terms, please visit:
-- [ImageMagick Website](https://imagemagick.org/)
-- [ImageMagick License](https://imagemagick.org/script/license.php)
+## 🔧 Technical Information
 
-For Windows users, the necessary libraries are included with the TextureAtlas to GIF and Frames setup file.
+This application uses [ImageMagick](https://imagemagick.org/) for advanced image processing capabilities. ImageMagick is a powerful, open-source software suite for image manipulation and conversion.
+
+**Learn more about ImageMagick:**
+- [🌐 ImageMagick Website →](https://imagemagick.org/)
+- [📄 ImageMagick License →](https://imagemagick.org/script/license.php)
+
+For Windows users, all necessary ImageMagick libraries are included with the release package.
+
+## 📞 Support & Contributing
+
+**Need help?**
+- [❓ FAQ →](docs/faq.md)
+- [📖 User Manual →](docs/user-manual.md)
+- [🐛 Report Issues →](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/issues)
+
+**Want to contribute?**
+- [👩‍💻 Developer Documentation →](docs/developer-docs.md)
+- [🔀 Submit Pull Requests →](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/pulls)
+
+---
+
+*Last updated: June 17, 2025 - Visit the [📚 Documentation →](docs/README.md) for more details*

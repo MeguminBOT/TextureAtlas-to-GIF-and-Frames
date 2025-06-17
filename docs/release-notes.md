@@ -1,138 +1,232 @@
 # Release Notes
 
+## 🗂️ Table of Contents (Major Versions)
+
+- [Version 1.9.x](#version-19x)
+- [Version 1.8.x](#version-18x)
+- [Version 1.7.x](#version-17x)
+- [Version 1.6.x](#version-16x)
+- [Version 1.5.x](#version-15x)
+- [Version 1.4.x](#version-14x)
+- [Version 1.3.x](#version-13x)
+- [Version 1.2.x](#version-12x)
+- [Version 1.1.x](#version-11x)
+- [Version 1.0.x](#version-10x)
+- [Planned Features (2.0.0)](#future-development)
+
+---
+
 Version history and changelog for TextureAtlas to GIF and Frames.
-**This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
+
 
 ## 📋 Current Version
 
-### Version 1.9.4 (Current)
-*Release Date: Latest*
-
-#### 🚀 Features
-- **Multi-engine FNF support**: Kade Engine, Psych Engine, and Codename Engine
-- **Advanced animation controls**: FPS, delay, period, scaling, and frame selection
-- **Multiple output formats**: GIF, WebP, APNG, and PNG frames
-- **Intelligent cropping**: Animation-based, frame-based, and alpha-based options
-- **Batch processing**: Process multiple animations and atlases simultaneously
-- **Customizable filename patterns**: Template system with find/replace rules
-- **Preview functionality**: Real-time GIF preview with playback controls
-- **Persistent configuration**: Application settings saved between sessions
-
-#### 🔧 Technical Details
-- **Python 3.10+ support**: Compatible with modern Python versions
-- **ImageMagick integration**: Advanced image processing and optimization
-- **Automatic dependency checking**: Built-in installation guidance
-- **Memory optimization**: Efficient handling of large texture atlases
-- **Multi-threading**: Parallel processing for improved performance
+### Version 1.9.5 (Current)
+Release date: **2025-06-17**
 
 ---
 
 ## 📚 Version History
 
-### Version 1.9.x Series - Advanced Features
+### Version 1.9.x
+
+#### Version 1.9.5
+
+
+- Feature: **Update system overhaul**
+    - **App can now download updates and replace itself.**
+
+- Feature: **App configuration menu**: 
+    - **Modify default extraction settings**
+    - **Modify processing threads**
+    - **Toggle Automatic update checks**
+    - **Toggle Automatically install new updates**
+
+- Known issues: **GIF frame delays may round down too much, making GIFs look faster than they should**
+
+#### Version 1.9.4
+- Bugfix: **Fixed "Invalid Palette Size" error for good by swapping GIF generation to Wand**
+- Enhancement: **Improve single frame handling, clear spritesheet settings along with user settings**
+- Feature: **Deleting spritesheets from the list by right clicking is now possible**.
+- Feature: **Custom filename formats**
+- Feature: **Make animation cropping optional, add find and replace feature**
+- Feature: **Preview GIFs from Override settings window.**
+- Feature: **Filename formatting presets.**
 
 #### Version 1.9.3
-- **Enhanced FNF support**: Improved character data loading
-- **Performance optimizations**: Better memory management for large atlases
-- **Bug fixes**: Resolved issues with specific XML formats
-- **UI improvements**: Better progress reporting and error messages
+- Feature: **Different crop methods for png frames depending on your needs. Defaults to cropping based on animation bounding box.**
+- Bugfix: **Fix bug causing user_settings not being applied correctly.**
+- Bugfix: **Fix bug involving animations with transparency, all shades of gray and no other colors. (Should solve most gray/black/white spritesheets having problems) Still minor issues on some sprites.**
 
 #### Version 1.9.2  
-- **WebP export support**: Modern web-compatible animation format
-- **Advanced cropping options**: Multiple cropping strategies
-- **Settings management**: Per-animation and per-spritesheet overrides
-- **Preview window**: Interactive animation preview with frame scrubbing
+- Enhancement: **User settings list is now scrollable**
+- Enhancement: **User settings no longer show "NONE" values.**
+- Bugfix: **Setting scale to 0 actually raises an error** 
+- Bugfix: **Blank animations no longer prevents remaining animations from being processed.**
+- Bugfix: **Fix GIFs being blank when using HQ color mode on grayscale spritesheets and spritesheets with low color data.**
 
 #### Version 1.9.1
-- **Batch processing**: Process multiple animations simultaneously
-- **Find/replace rules**: Filename transformation system
-- **Configuration persistence**: Settings saved between sessions
-- **Error handling improvements**: Better user feedback and recovery
+- Tweak: **Crop individual frames is no longer automatic, added a checkbox to let users decide**
+- Tweak: **Default Minimum Duration changed from 500 to 0**
+- Bugfix: **Fix spritesheet_settings not being cleared for a specific sheet**
+- Bugfix: **Windows users with ImageMagick already installed had an issue where the paths clashed, now we're checking if it's already in path**
 
 #### Version 1.9.0
-- **Major architecture rewrite**: Modular codebase for better maintainability
-- **FNF engine detection**: Automatic detection of Kade/Psych/Codename formats
-- **Advanced animation controls**: Period, variable delay, frame selection
-- **GUI overhaul**: Modern interface with improved usability
+- Enhancement: **Crop individual frames**
+- Enhancement: **Frames are only saved when necessary**
+- Enhancement: **User settings are only accessed when necessary**
+- Enhancement: **Single-frame animations are saved as PNG, no matter what**
+- Enhancement: **Instead of being all-or-nothing, specific frames can be chosen to be saved**
+- Enhancement: **Use Wand/ImageMagick to achieve better color quality for GIFs, can be turned on under the 'Advanced' tab in the app.**
+- Feature: **Advanced delay option: vary some frame delays slightly for more accurate fps, can be turned on under the 'Advanced' tab in the app**
+- Feature: **Resize frames and animations, with an option to flip by using negative numbers**
+- Experimental Feature: **Set total animation duration to be at least a certain value*- (Not sure if this will be necessary to use at all but w/e)
 
-### Version 1.8.x Series - Stability and Polish
 
-#### Version 1.8.5
-- **Stability improvements**: Fixed crashes with large atlases
-- **Memory optimization**: Reduced RAM usage during processing
-- **Export quality**: Better GIF optimization and color handling
-- **Documentation**: Comprehensive user manual and help system
-
-#### Version 1.8.4
-- **Friday Night Funkin' support**: Initial FNF character integration
-- **Animation looping**: Configurable loop settings and delays
-- **Scale options**: Resize output with quality interpolation
-- **Progress tracking**: Real-time progress bars and status updates
-
-#### Version 1.8.3
-- **Alpha threshold**: Transparency-based cropping control
-- **Frame selection**: Custom frame ranges and duplicate removal
-- **Performance**: Faster processing with optimized algorithms
-- **Bug fixes**: Resolved XML parsing edge cases
-
-#### Version 1.8.2
-- **APNG support**: High-quality animation export format
-- **Cropping system**: Automatic transparent border removal
-- **Settings persistence**: Remember user preferences
-- **UI polish**: Improved layout and visual feedback
+### Version 1.8.x
 
 #### Version 1.8.1
-- **Multi-format support**: XML (Starling) and TXT (TextPacker)
-- **Batch operations**: Process multiple spritesheets
-- **Quality improvements**: Better GIF optimization
-- **Error handling**: Graceful failure and user guidance
+- Enhancement: **Shows time processed, gif and frames generated**
+- Bugfix: **Fixed GIF/WebPs not using correct frame order if the spritesheets xml is unsorted (Like when using Free Packer Tool)**
 
 #### Version 1.8.0
-- **Complete rewrite**: Modern Python architecture
-- **GUI interface**: User-friendly Tkinter application
-- **Animation export**: GIF generation with timing controls
-- **Extensible design**: Support for future format additions
+- Feature: **(FNF Specific): Import character animation fps from character json files. Located within the "import" menu**
+- Feature: **Support for spritesheets using txt packer (Like Spirit in FNF)**
+- Feature: **You can now select individual spritesheets instead of directories. Located within the "file" menu**
+- Feature: **Help and advice on the application. Located within the "help" menu**
+- Bugfix: **Force all cpu threads now work as intended**
+- Bugfix: **Fix cropping for sprites that end up having an empty frame after threshold is applied*- _(does not work for all sprites)_
 
-### Version 1.7.x Series - Foundation
 
-#### Version 1.7.x
-- **Initial release**: Basic sprite extraction functionality
-- **XML parsing**: Starling format support
-- **PNG export**: Individual frame extraction
-- **Command-line interface**: Script-based operation
+### Version 1.7.x
+
+#### Version 1.7.1
+- Improvement: **If Alpha threshold is set to 1, keep all fully-opaque pixels**
+- Improvement: **Alpha threshold is set between 0 and 1 inclusive**
+- Bugfix/Improvement: **Frame dimensions are enlarged to hold the entire sprite when necessary, like rotated sprites.**
+- Improvement: **Apply Alpha threshold before cropping on GIFs**
+- Improvement: **Throw an error when sprite dimensions don't match xml data**
+- Bugfix: **Windows .exe having errors**
+
+#### Version 1.7.0
+- Feature: **GIFs now automatically gets trimmed/cropped.**
+- Feature: **Force max CPU threads**
+
+### Version 1.6.x
+
+#### Version 1.6.0
+- Feature: **Indices option (individual animations only) formatted as CSV**
+- Feature: **Option to remove png frames**
+- Feature: **Show User Settings button.**
+- Enhancement: **Allow local settings to be reset to global settings by entering blank values in the popup dialog**
+- Enhancement: **Fps now accepts non-integer values**
+- Adjustment: **Delay option adds to the final frame duration**
+- Adjustment: **Animation names are now in the form of [spritesheet name] [animation name]**
+- Bugfix: **Progress bar considers xml files instead of png files**
+- Bugfix: **Non-positive width/height no longer trigger errors**
+- Bugfix: **Changing the input directory now resets the user settings**
+- Bugfix: **Png files without corresponding xml files no longer cause a crash**
+
+
+### Version 1.5.x
+
+#### Version 1.5.0
+- Bugfix: Fix crash when an animation has different size frames
+- Bugfix: Fix animations of the same name from different spritesheets not having their settings set independently
+- Add threshold option for handling semi-transparent pixels
+- Improve handling of some XMLs with unusual SubTexture names, such as those with ".png" suffix or more than 4 digits at the end
+
+
+### Version 1.4.x
+
+#### Version 1.4.1
+- Bugfix: Now properly rounds the loop delay value. GIFs and WebPs should now always have the same loop delay (if not override is used of course)
+
+#### Version 1.4.0
+- Enhancement: Now processes multiple files at once (based on your CPU threads divided by two)
+- Feature: Setting FPS and delay for individual animations is now possible through a scrollable filelist
+
+```
+Performance increase benchmark: 
+Processing 106 spritesheets and generating GIFs on an AMD Ryzen 9 3900X and exporting to a regular hard drive.
+
+v1.3.1: 377.82 seconds
+v1.4.0: 52.55 seconds
+```
+
+
+### Version 1.3.x
+
+#### Version 1.3.1
+- Bugfix: Some spritesheets ended up making a "space" after the file name, this caused an error causing the script to not find the file and directory.
+- Enhancement: Show error message when xml files are badly formatted and other errors.
+- Enhancement: WebPs are now lossless.
+
+#### Version 1.3.0
+- Feature: Added support for framerate.
+- Feature: Added support for loop delay.
+
+
+### Version 1.2.x
+
+#### Version 1.2.0
+- Feature: Added support for exporting animated WebPs.
+- Feature: Added Update notifications system added
+- Enhancement: Frames of animations are now sorted into folders. GIFs/WebPs are now in the main folder of the extracted sprite.
+- Enhancement: Now properly supports 'rotated' variable of some spritesheets.
+
+
+### Version 1.1.x
+
+#### Version 1.1.0
+- Bugfix: Frame extraction now properly uses `frameX` / `frameY` / `frameWidth` / `frameHeight` if present in the XML files.
+- Bugfix: No longer adds black background to transparent sprites
+- Bugfix: GIFs are now properly aligned.
+
+
+### Version 1.0.x
+
+#### Version 1.0.0
+- Initial Release
+- Currently only takes folders as input and not individually selected sprites.
 
 ---
 
 ## 🔮 Planned Features
 
-### Version 2.0.0 (Future Major Release)
+### Future Development
+*Note: The following features are planned for future versions but are not currently implemented*
+
+#### Version 2.0.0 (Future Major Release)
 - **Command-line interface**: Full CLI for automation and scripting
 - **Plugin system**: Third-party extension support
-- **Additional formats**: More texture atlas and export formats
-- **Cloud integration**: Direct export to cloud storage services
-- **Performance improvements**: Multi-core optimization and GPU acceleration
+- **Additional input formats**: More texture atlas formats beyond PNG/XML/TXT
+- **Enhanced memory management**: Dynamic memory limit controls
+- **Performance improvements**: GPU acceleration and advanced optimization
 
-### Near-term Improvements
-- **Drag & drop support**: Easier file loading
-- **Undo/redo system**: Reversible operations
+#### Near-term Improvements
+- **Drag & drop support**: Easier file loading through drag and drop
+- **Undo/redo system**: Reversible operations for settings changes
 - **Preset management**: Save and load configuration presets
 - **Advanced filtering**: Search and filter animations
-- **Sprite sheet creation**: Reverse operation - create atlases from frames
+- **Extended image format support**: Support for additional input image formats
 
 ---
 
 ## 🐛 Known Issues
 
 ### Current Limitations
-- **Large file handling**: Very large atlases (>4GB) may cause memory issues
-- **Complex XML**: Some non-standard XML variants not fully supported
+- **Large file handling**: Very large atlases (>4GB) may cause memory issues on systems with limited RAM
+- **Complex XML variants**: Some non-standard XML formats may not be fully supported
 - **Platform differences**: Minor UI differences between operating systems
-- **Preview performance**: Large animations may preview slowly
+- **Preview performance**: Large animations may preview slowly on older hardware
+- **Memory limit controls**: Memory limit settings in preferences are not yet active (UI placeholder for future implementation)
 
 ### Workarounds
-- **Memory issues**: Process animations individually for large atlases
-- **XML compatibility**: Convert to standard Starling format if needed
-- **Performance**: Use lower scale for previews, full scale for final export
+- **Memory issues**: Process animations individually for very large atlases
+- **XML compatibility**: Convert to standard Starling/Sparrow format if needed
+- **Performance**: Use lower scale settings for previews, full scale for final export
+- **Complex animations**: Break down large animation sets into smaller batches
 
 ---
 
@@ -157,27 +251,6 @@ Version history and changelog for TextureAtlas to GIF and Frames.
 
 ---
 
-## 📝 Development Notes
-
-### Version Numbering
-- **Major.Minor.Patch**: Semantic versioning system
-- **Major**: Breaking changes or significant rewrites
-- **Minor**: New features and enhancements
-- **Patch**: Bug fixes and small improvements
-
-### Release Cycle
-- **Regular updates**: Monthly minor releases when possible
-- **Patch releases**: As needed for critical bug fixes
-- **Major releases**: Annual or bi-annual for significant changes
-
-### Testing Process
-- **Automated testing**: Unit tests for core functionality
-- **Manual testing**: GUI and integration testing
-- **Community feedback**: Beta testing with active users
-- **Compatibility testing**: Multiple Python versions and operating systems
-
----
-
 ## 🤝 Contributing
 
 ### How to Contribute
@@ -190,5 +263,7 @@ Version history and changelog for TextureAtlas to GIF and Frames.
 See [Developer Documentation](developer-docs.md) for detailed setup instructions.
 
 ---
-
 *For installation instructions, see the [Installation Guide](installation-guide.md). For usage help, check the [User Manual](user-manual.md).*
+
+
+*Last updated: June 17, 2025 - Version 1.9.5 - Visit the [📚 Documentation →](docs/README.md) for more details*

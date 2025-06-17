@@ -1,46 +1,45 @@
 # Installation Guide
 
-This guide will walk you through manually installing and setting up TextureAtlas-to-GIF-and-Frames on your system from source code.
+This guide will walk you through installing and setting up TextureAtlas-to-GIF-and-Frames on your system. **Regular users should follow the Quick Start section first** - advanced users and developers can refer to the detailed manual installation sections.
+
 **This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
 
 ## 📑 Table of Contents
 
-- [System Requirements](#-system-requirements)
+- [📝 System Requirements](#system-requirements)
   - [Minimum Requirements](#minimum-requirements)
   - [Recommended Requirements](#recommended-requirements)
-- [Python Installation](#-python-installation)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
-- [Installing Python Dependencies](#-installing-python-dependencies)
-  - [Using requirements.txt (Recommended)](#using-requirementstxt-recommended)
-    - [Windows](#windows-1)
-    - [macOS](#macos-1)
-    - [Linux](#linux)
-  - [Full manual Installation](#full-manual-installation)
-  - [Package Details](#package-details)
-- [ImageMagick Setup](#-imagemagick-setup)
-  - [Windows](#windows-2)
-  - [macOS](#macos-2)
-  - [Linux](#linux-1)
-- [Downloading the Application](#-downloading-the-application)
-  - [Option 1: Download Release (Recommended for Users)](#option-1-download-release-recommended-for-users)
-  - [Option 2: Clone Repository (For Developers)](#option-2-clone-repository-for-developers)
-- [Running the Application](#-running-the-application)
-- [Troubleshooting Installation & Common Errors](#-troubleshooting-installation--common-errors)
+- [🚀 Normal Install (Windows only)](#normal-install-windows-only)
+  - [Step 1: Download the Application](#step-1-download-the-application)
+  - [Step 2: Quick Setup](#step-2-quick-setup)
+  - [Step 3: Run the Application](#step-3-run-the-application)
+- [🚀 Manual Installation](#manual-installation)
+  - [Python Installation](#python-installation)
+    - [Windows](#windows)
+    - [macOS](#macos)
+    - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
+  - [Installing Python Dependencies](#installing-python-dependencies)
+    - [Using requirements.txt (Recommended)](#using-requirementstxt-recommended)
+    - [Full manual Installation](#full-manual-installation)
+    - [Package Details](#package-details)
+  - [ImageMagick Setup](#imagemagick-setup)
+    - [Windows (Manual)](#windows-manual)
+    - [macOS (Manual)](#macos-manual)
+    - [Linux (Manual)](#linux-manual)
+  - [Clone Repository (For Developers)](#clone-repository-for-developers)
+- [🔧 Troubleshooting Installation & Common Errors](#troubleshooting-installation--common-errors)
   - [Python Not Recognized](#python-not-recognized)
   - [Missing Packages](#missing-packages)
   - [ImageMagick Errors](#imagemagick-errors)
   - ["No module named 'PIL'"](#no-module-named-pil)
   - ["tkinter not found" (Linux)](#tkinter-not-found-linux)
-- [Verifying Installation](#-verifying-installation)
-- [Updating the Application](#-updating-the-application)
-- [Next Steps](#-next-steps)
+- [Verifying Installation](#verifying-installation)
+- [Updating the Application](#updating-the-application)
 
-## 📋 System Requirements
+## System Requirements
 
 ### Minimum Requirements
-- **Operating System**: Windows 7/8/10/11, macOS 10.12+, or Linux (Ubuntu/Debian/CentOS/Fedora etc)
+- **Operating System**: Windows 7+, macOS 10.12+, or Linux (Ubuntu/Debian/CentOS/Fedora etc)
 - **CPU**: At least 2 cores (dual-core or better required)
 - **Python**: Version 3.10 or higher
 - **RAM**: At least 4GB
@@ -55,15 +54,57 @@ This guide will walk you through manually installing and setting up TextureAtlas
 ### Recommended Requirements
 - **Operating System**: Windows 10/11 (64-bit), macOS 11+ (Big Sur or later), or recent Linux (Ubuntu 20.04+/Fedora 36+)
 - **CPU**: Quad-core or better
-- **Python**: Version 3.11 or higher (64-bit)
+- **Python**: Version 3.12 or higher (64-bit)
 - **RAM**: 8GB or more (16GB+ recommended for for batch processing large atlases)
 - **Storage**: SSD with 10GB+ free space for faster processing speeds but a regular hard drive will suffice.
 - **Internet Access**: Required for downloading dependencies and updates
 
+## Normal Install (Windows only)
 
-## 🐍 Python Installation
+**Windows Only**
 
-### Windows
+### Step 1: Download the Application
+
+1. Go to the [GitHub Releases page](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases).
+2. Download the latest release ZIP or 7z file.
+3. Extract all files to a folder of your choice (e.g., `C:\TextureAtlas-to-GIF-and-Frames`).
+
+### Step 2: Quick Setup
+
+**Windows Users:**
+1. Make sure you have Python 3.10+ installed from [python.org](https://www.python.org/downloads/) with "Add Python to PATH" checked during installation.
+2. Double-click or run `setup/setup_windows.bat` from the extracted project folder. This will automatically:
+   - Install all required Python packages
+   - Set up ImageMagick if needed
+   - Verify your installation
+
+### Step 3: Run the Application
+
+1. Open a terminal or command prompt.
+2. Navigate to the `src` directory:
+   ```bash
+   cd src
+   ```
+3. Start the application:
+   ```bash
+   python Main.py
+   ```
+   - On Windows, you may also double-click `Main.py` if Python is associated with `.py` files.
+
+**That's it!** If you encounter any issues, check the [Troubleshooting section](#-troubleshooting-installation--common-errors) below.
+
+---
+
+## Manual Installation
+
+**For the Advanced users, developers or Mac/Linux users**:
+
+This will guide you through how to install Python and the required dependencies to run the app directly from the .py scripts.
+
+
+### Python Installation
+
+#### Windows
 
 1. Download Python from [python.org](https://www.python.org/downloads/).
 2. **Important**: During installation, check the box for **"Add Python to PATH"**.
@@ -74,7 +115,7 @@ This guide will walk you through manually installing and setting up TextureAtlas
    ```
    If you see a version number (e.g., `Python 3.12.3`), Python is installed correctly.
 
-### macOS
+#### macOS
 
 1. **Recommended**: Install Homebrew if you haven't already:
    ```bash
@@ -89,7 +130,7 @@ This guide will walk you through manually installing and setting up TextureAtlas
    python3 --version
    ```
 
-### Linux (Ubuntu/Debian)
+#### Linux (Ubuntu/Debian)
 
 1. Update package lists:
    ```bash
@@ -104,12 +145,11 @@ This guide will walk you through manually installing and setting up TextureAtlas
    python3 --version
    ```
 
+### Installing Python Dependencies
 
-## 📦 Installing Python Dependencies
+#### Using requirements.txt (Recommended)
 
-### Using requirements.txt (Recommended)
-
-#### Windows
+**Windows:**
 1. Double-click or run `setup/setup_windows.bat` from the project folder. This will attempt to install all required dependencies automatically.
 2. If you prefer manual steps, open a terminal or command prompt, navigate to the project root directory, and run:
    ```powershell
@@ -120,7 +160,7 @@ This guide will walk you through manually installing and setting up TextureAtlas
    python -m pip install --user -r setup/requirements.txt
    ```
 
-#### macOS
+**macOS:**
 1. Open Terminal and run the setup script:
    ```bash
    bash setup/setup_macOSX.sh
@@ -135,7 +175,7 @@ This guide will walk you through manually installing and setting up TextureAtlas
    python3 -m pip install --user -r setup/requirements.txt
    ```
 
-#### Linux
+**Linux:**
 1. Open a terminal, navigate to the project root directory, and run:
    ```bash
    pip install -r setup/requirements.txt
@@ -145,15 +185,15 @@ This guide will walk you through manually installing and setting up TextureAtlas
    python3 -m pip install --user -r setup/requirements.txt
    ```
 
-### Full manual Installation
+##### Full manual Installation
 
 If you prefer, you can install packages individually:
 ```bash
-pip install certifi charset-normalizer colorama idna numpy pillow psutil requests tqdm urllib3 Wand tkinter
+pip install certifi charset-normalizer colorama idna numpy pillow psutil requests tqdm urllib3 Wand tkinter py7zr
 ```
 - **Note:** On some Linux systems, you may need to install `tkinter` separately (see Troubleshooting).
 
-### Package Details
+#### Package Details
 - **Pillow (PIL)**: Image processing and manipulation
 - **Wand**: Python binding for ImageMagick
 - **NumPy**: Numerical operations for image arrays
@@ -167,11 +207,12 @@ pip install certifi charset-normalizer colorama idna numpy pillow psutil request
 - **tqdm**: Progress bar for loops and CLI operations
 - **urllib3**: HTTP client for Python (dependency of requests)
 
-## 🎨 ImageMagick Setup
+### ImageMagick Setup
 
 ImageMagick is required for GIF processing and optimization.
 
-### Windows
+
+#### Windows (Manual)
 
 1. Download ImageMagick from [imagemagick.org](https://imagemagick.org/script/download.php#windows).
 2. Choose the version matching your system (64-bit recommended).
@@ -185,7 +226,7 @@ ImageMagick is required for GIF processing and optimization.
    ```
    If you see version info, ImageMagick is installed.
 
-### macOS
+#### macOS (Manual)
 
 1. Install via Homebrew:
    ```bash
@@ -196,36 +237,27 @@ ImageMagick is required for GIF processing and optimization.
    magick --version
    ```
 
-### Linux
+#### Linux (Manual)
 
-#### Ubuntu/Debian
+**Ubuntu/Debian:**
 ```bash
 sudo apt update
 sudo apt install imagemagick libmagickwand-dev
 ```
-#### Fedora
+**Fedora:**
 ```bash
 sudo dnf install ImageMagick ImageMagick-devel
 ```
-#### CentOS/RHEL
+**CentOS/RHEL:**
 ```bash
 sudo yum install ImageMagick ImageMagick-devel
 ```
-#### Verify Installation
+**Verify Installation:**
 ```bash
 magick --version
 ```
 
-
-## 📥 Downloading the Application
-
-### Option 1: Download Release (Recommended for Users)
-
-1. Go to the [GitHub Releases page](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases).
-2. Download the latest release ZIP file.
-3. Extract all files to a folder of your choice (e.g., `C:\TextureAtlas-to-GIF-and-Frames`).
-
-### Option 2: Clone Repository (For Developers)
+### Clone Repository (For Developers)
 
 1. Open a terminal or command prompt.
 2. Run:
@@ -233,27 +265,9 @@ magick --version
    git clone https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames.git
    cd TextureAtlas-to-GIF-and-Frames
    ```
+---
 
-
-## 🚀 Running the Application
-
-1. Open a terminal or command prompt.
-2. Navigate to the `src` directory:
-   ```bash
-   cd src
-   ```
-3. Start the application:
-   ```bash
-   python Main.py
-   ```
-   - On Windows, you may also double-click `Main.py` if Python is associated with `.py` files.
-   - On macOS/Linux, you can make the script executable:
-     ```bash
-     chmod +x Main.py
-     ./Main.py
-     ```
-
-## 🔧 Troubleshooting Installation & Common Errors
+## Troubleshooting Installation & Common Errors
 
 If you run into installation or startup problems, use this section to diagnose and fix the most common issues. These solutions apply to both source and (where relevant) .exe versions.
 
@@ -298,7 +312,7 @@ If you run into installation or startup problems, use this section to diagnose a
   ```
 
 
-## ✅ Verifying Installation
+## Verifying Installation
 
 1. Start the application:
    ```bash
@@ -309,18 +323,10 @@ If you run into installation or startup problems, use this section to diagnose a
 3. Test loading a sample texture atlas and exporting a GIF.
 
 
-## 🔄 Updating the Application
+## Updating the Application
 
 - The app checks for updates on startup.
 - If notified, download the latest release and replace your files.
 
-
-## 🎯 Next Steps
-
-- Read the [User Manual](user-manual.md) for usage instructions.
-- See the [FAQ](faq.md) for troubleshooting.
-- For FNF sprites, check the [FNF Guide](fnf-guide.md).
-
 ---
-
-**Tip:** If you encounter issues not covered here, please open an issue on [GitHub](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/issues).
+*Last updated: June 17, 2025 - Version 1.9.5*
