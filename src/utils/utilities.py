@@ -25,7 +25,16 @@ class Utilities:
     
     @staticmethod
     def find_root(target_name):
-        root_path = os.path.abspath(os.path.dirname(__file__))
+        if Utilities.is_compiled():
+            root_path = os.path.dirname(sys.executable)
+        else:
+            root_path = os.path.abspath(os.path.dirname(__file__))
+        
+        target_path = os.path.join(root_path, target_name)
+        if os.path.exists(target_path):
+            print(f"[find_root] Found '{target_name}' at: {target_path}")
+            return root_path
+            
         while True:
             target_path = os.path.join(root_path, target_name)
             if os.path.exists(target_path):
@@ -35,6 +44,8 @@ class Utilities:
             if new_root == root_path:
                 break
             root_path = new_root
+        
+        print(f"[find_root] Could not find '{target_name}' in directory tree")
         return None
     
     @staticmethod

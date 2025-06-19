@@ -137,7 +137,7 @@ class TextureAtlasExtractorApp:
         self.fnf_char_json_directory = ""
 
         self.setup_gui()
-        self.check_version()
+        self.root.after(1000, self.check_version)
 
     def setup_gui(self):
         self.root.title(f"TextureAtlas to GIF and Frames v{self.current_version}")
@@ -343,12 +343,15 @@ class TextureAtlasExtractorApp:
         webbrowser.open_new(linkSourceCode)
         
     def check_version(self, force=False):
-        update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
-        check_on_startup = update_settings.get("check_updates_on_startup", True)
-        auto_update = update_settings.get("auto_download_updates", False)
-        if force or check_on_startup:
-            UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)
-
+        try:
+            update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
+            check_on_startup = update_settings.get("check_updates_on_startup", True)
+            auto_update = update_settings.get("auto_download_updates", False)
+            if force or check_on_startup:
+                UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)
+        except Exception as e:
+            print(f"Update check failed: {e}")
+            
     def check_dependencies(self):
         DependenciesChecker.check_and_configure_imagemagick()
         
@@ -562,34 +565,55 @@ class TextureAtlasExtractorApp:
         )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="TextureAtlas to GIF and Frames")
-    parser.add_argument("--update", action="store_true", help="Run in update mode")
-    parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
-    parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
-    args = parser.parse_args()
-    
-    if args.update:
-        from utils.update_installer import Updater, UpdateUtilities
+    try:
+        parser = argparse.ArgumentParser(description="TextureAtlas to GIF and Frames")
+        parser.add_argument("--update", action="store_true", help="Run in update mode")
+        parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
+        parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
+        args = parser.parse_args()
         
-        print("Starting update process...")
-        if args.wait > 0:
-            print(f"Waiting {args.wait} seconds...")
-            import time
-            time.sleep(args.wait)
-        
-        exe_mode = args.exe_mode or Utilities.is_compiled()
-        updater = Updater(use_gui=True, exe_mode=exe_mode)
-        
-        if exe_mode:
-            print("Running executable update...")
-            updater.update_exe()
+        if args.update:
+            from utils.update_installer import Updater, UpdateUtilities
+            
+            print("Starting update process...")
+            if args.wait > 0:
+                print(f"Waiting {args.wait} seconds...")
+                import time
+                time.sleep(args.wait)
+            
+            exe_mode = args.exe_mode or Utilities.is_compiled()
+            updater = Updater(use_gui=True, exe_mode=exe_mode)
+            
+            if exe_mode:
+                print("Running executable update...")
+                updater.update_exe()
+            else:
+                print("Running source update...")
+                updater.update_source()
+            
+            if updater.use_gui and updater.console:
+                updater.console.window.mainloop()
         else:
-            print("Running source update...")
-            updater.update_source()
+            print("Starting main application...")
+            root = tk.Tk()
+            app = TextureAtlasExtractorApp(root)
+            print("Application initialized successfully.")
+            root.mainloop()
+            
+    except Exception as e:
+        print(f"Fatal error during startup: {e}")
+        import traceback
+        traceback.print_exc()
         
-        if updater.use_gui and updater.console:
-            updater.console.window.mainloop()
-    else:
-        root = tk.Tk()
-        app = TextureAtlasExtractorApp(root)
-        root.mainloop()
+        if Utilities.is_compiled():
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                messagebox.showerror("Startup Error", 
+                                   f"The application failed to start:\n\n{str(e)}\n\nPlease check the console output for more details.")
+                root.destroy()
+            except:
+                pass
+        
+        import sys
+        sys.exit(1)
