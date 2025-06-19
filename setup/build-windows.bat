@@ -124,7 +124,7 @@ call nuitka ^
  --deployment %NUITKA_COMPILER%^
  --follow-imports^
  --enable-plugin=tk-inter^
- --windows-console-mode=disable^
+ --windows-console-mode=attach^
  --include-data-dir=assets=assets^
  --include-data-dir=docs=docs^
  --include-data-dir=ImageMagick=ImageMagick^
@@ -160,7 +160,7 @@ if %errorlevel%==0 (
      --deployment %NUITKA_COMPILER%^
      --follow-imports^
      --enable-plugin=tk-inter^
-     --windows-console-mode=disable^
+     --windows-console-mode=attach^
      --include-data-dir=assets=assets^
      --include-data-dir=docs=docs^
      --include-data-dir=ImageMagick=ImageMagick^
