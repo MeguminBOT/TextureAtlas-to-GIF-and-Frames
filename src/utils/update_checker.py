@@ -5,10 +5,167 @@ import sys
 import requests
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 # Import our own modules
 from utils.utilities import Utilities
+
+
+class UpdateDialog:
+    """
+    A custom dialog window for displaying update information with changelog.
+    
+    Attributes:
+        window (tk.Toplevel): The dialog window
+        result (bool): The user's choice (True for update, False for cancel)
+        
+    Methods:
+        __init__(parent, current_version, latest_version, changelog, update_type):
+            Initialize the update dialog with version info and changelog
+        show():
+            Display the dialog and return the user's choice
+        _on_update():
+            Handle the update button click
+        _on_cancel():
+            Handle the cancel button click
+    """
+    def __init__(self, parent, current_version, latest_version, changelog, update_type):
+        self.result = False
+        
+        try:
+            self.window = tk.Toplevel(parent)
+            self.window.title("Update Available")
+            self.window.geometry("600x500")
+            self.window.resizable(True, True)
+            self.window.transient(parent)
+            self.window.grab_set()
+            
+            self.window.update_idletasks()
+            x = (self.window.winfo_screenwidth() // 2) - (600 // 2)
+            y = (self.window.winfo_screenheight() // 2) - (500 // 2)
+            self.window.geometry(f"600x500+{x}+{y}")
+            
+            self._create_widgets(current_version, latest_version, changelog, update_type)
+            
+        except Exception as e:
+            print(f"Error creating update dialog: {e}")
+            
+            import tkinter.messagebox as mb
+            result = mb.askyesno(
+                "Update Available",
+                f"An update is available!\n\nCurrent: {current_version}\nLatest: {latest_version}\n\nUpdate now?",
+                parent=parent
+            )
+            self.result = result
+            self.window = None
+            
+    def _create_widgets(self, current_version, latest_version, changelog, update_type):
+        main_container = tk.Frame(self.window)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        content_frame = tk.Frame(main_container)
+        content_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        title_label = tk.Label(content_frame, text="Update Available!", font=("Arial", 14, "bold"))
+        title_label.pack(anchor="w", pady=(0, 10))
+        
+        info_frame = tk.Frame(content_frame)
+        info_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(info_frame, text=f"Current version:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(info_frame, text=current_version).grid(row=0, column=1, sticky="w", padx=(10, 0))
+        
+        tk.Label(info_frame, text=f"Latest version:", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w")
+        tk.Label(info_frame, text=latest_version, fg="green").grid(row=1, column=1, sticky="w", padx=(10, 0))
+        
+        tk.Label(info_frame, text=f"Update method:", font=("Arial", 10, "bold")).grid(row=2, column=0, sticky="w")
+        tk.Label(info_frame, text=update_type).grid(row=2, column=1, sticky="w", padx=(10, 0))
+        
+        changelog_label = tk.Label(content_frame, text="What's new in this release:", font=("Arial", 12, "bold"))
+        changelog_label.pack(anchor="w", pady=(10, 5))
+        
+        changelog_frame = tk.Frame(content_frame, relief="sunken", borderwidth=1, height=200)
+        changelog_frame.pack(fill=tk.X, pady=(0, 10))
+        changelog_frame.pack_propagate(False)
+        self.changelog_text = tk.Text(
+            changelog_frame,
+            wrap=tk.WORD,
+            padx=10,
+            pady=10,
+            font=("Consolas", 9),
+            state=tk.DISABLED,
+            bg="#f8f8f8",
+            height=10
+        )
+        
+        scrollbar = ttk.Scrollbar(changelog_frame, orient=tk.VERTICAL, command=self.changelog_text.yview)
+        self.changelog_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.changelog_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.changelog_text.config(state=tk.NORMAL)
+        if changelog and changelog.strip():
+            cleaned_changelog = changelog.replace('\r\n', '\n').replace('\r', '\n')
+            self.changelog_text.insert(tk.END, cleaned_changelog)
+        else:
+            self.changelog_text.insert(tk.END, "No changelog information available for this release.")
+        self.changelog_text.config(state=tk.DISABLED)
+        
+        self.changelog_text.see("1.0")
+        
+
+        button_container = tk.Frame(main_container, relief="solid", borderwidth=1, bg="#f0f0f0")
+        button_container.pack(fill=tk.X, side=tk.BOTTOM, pady=(10, 0))
+        
+        button_frame = tk.Frame(button_container, bg="#f0f0f0")
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        info_label = tk.Label(
+            button_frame, 
+            text="The application will restart after updating.",
+            font=("Arial", 9),
+            fg="gray",
+            bg="#f0f0f0"
+        )
+        info_label.pack(side=tk.LEFT)
+        cancel_btn = tk.Button(
+            button_frame, 
+            text="Cancel", 
+            command=self._on_cancel,
+            padx=10,
+            pady=5        )
+        cancel_btn.pack(side=tk.RIGHT)
+        
+        # Update button
+        update_btn = tk.Button(
+            button_frame, 
+            text="Update Now", 
+            command=self._on_update,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=5        )
+        update_btn.pack(side=tk.RIGHT, padx=(5, 10))
+        
+        update_btn.focus_set()
+        
+        self.window.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        
+    def show(self):
+        if self.window:
+            self.window.wait_window()
+        return self.result
+    
+    def _on_update(self):
+        self.result = True
+        self.window.destroy()
+    
+    def _on_cancel(self):
+        self.result = False
+        self.window.destroy()
+
 
 class UpdateChecker:
     """
@@ -60,21 +217,12 @@ class UpdateChecker:
                         print("Running from source, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=False)
                 else:
+                    changelog = UpdateChecker._get_changelog()
+                    
                     update_type = "executable" if Utilities.is_compiled() else "source code"
-                    message = (
-                        f"An update is available!\n\n"
-                        f"Current version: {current_version}\n"
-                        f"Latest version: {latest_version}\n\n"
-                        f"Update method: {update_type}\n\n"
-                        f"Do you want to download and install it now?\n"
-                        f"The application will restart after updating."
-                    )
-
-                    result = messagebox.askyesno(
-                        "Update Available", 
-                        message, 
-                        parent=parent
-                    )
+                    
+                    dialog = UpdateDialog(parent, current_version, latest_version, changelog, update_type)
+                    result = dialog.show()
 
                     if result:
                         print("User chose to update.")
@@ -113,7 +261,7 @@ class UpdateChecker:
         except Exception as err:
             print(f"Unexpected error during update check: {err}")
             import traceback
-            traceback.print_exc()    
+            traceback.print_exc()
             
     @staticmethod
     def _launch_standalone_updater(exe_mode=False):
@@ -178,3 +326,29 @@ class UpdateChecker:
                 
         except Exception as e:
             print(f"Failed to launch standalone updater: {e}")
+    
+    @staticmethod
+    def _get_changelog():
+        """Fetch the changelog from the latest GitHub release."""
+        try:
+            print("Fetching changelog from GitHub API...")
+            url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            release_data = response.json()
+            changelog = release_data.get('body', '')
+            
+            if changelog:
+                print("Changelog fetched successfully")
+                return changelog
+            else:
+                print("No changelog found in release data")
+                return "No changelog information available for this release."
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to fetch changelog: {e}")
+            return "Failed to load changelog information."
+        except Exception as e:
+            print(f"Unexpected error fetching changelog: {e}")
+            return "Failed to load changelog information."
