@@ -20,6 +20,10 @@ class AppConfig:
             Retrieve a setting value by key, with optional default.
         set(key, value):
             Set a setting value and immediately save to disk.
+        migrate():
+            Migrate existing configuration to include new features.
+        merge_defaults(current, defaults):
+            Recursively merge current settings with defaults, adding missing keys.
         get_extraction_defaults():
             Return a copy of the extraction defaults.
         set_extraction_defaults(**kwargs):
@@ -79,6 +83,7 @@ class AppConfig:
             print(f"[Config] Configuration file found at '{self.config_path}'. Loading settings...")
 
         self.load()
+        self.migrate()
 
     def get_extraction_defaults(self):
         return dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
@@ -107,6 +112,27 @@ class AppConfig:
         except Exception as e:
             print(f"[Config] Failed to save configuration: {e}")
             pass
+
+    def migrate(self):
+        needs_migration = False
+        
+        def merge_defaults(current, defaults):
+            nonlocal needs_migration
+            for key, default_value in defaults.items():
+                if key not in current:
+                    current[key] = default_value
+                    needs_migration = True
+                    print(f"[Config] Added new setting '{key}' with default value: {default_value}")
+                elif isinstance(default_value, dict) and isinstance(current[key], dict):
+                    merge_defaults(current[key], default_value)
+        
+        merge_defaults(self.settings, self.DEFAULTS)
+        
+        if needs_migration:
+            self.save()
+            print("[Config] Configuration migration completed successfully.")
+        else:
+            print("[Config] No migration needed - configuration is up to date.")
 
     def get(self, key, default=None):
         return self.settings.get(key, default if default is not None else self.DEFAULTS.get(key))
