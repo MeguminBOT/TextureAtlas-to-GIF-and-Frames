@@ -29,6 +29,7 @@ class UpdateDialog:
         _on_cancel():
             Handle the cancel button click
     """
+
     def __init__(self, parent, current_version, latest_version, changelog, update_type):
         self.result = False
 
@@ -51,10 +52,11 @@ class UpdateDialog:
             print(f"Error creating update dialog: {e}")
 
             import tkinter.messagebox as mb
+
             result = mb.askyesno(
                 "Update Available",
                 f"An update is available!\n\nCurrent: {current_version}\nLatest: {latest_version}\n\nUpdate now?",
-                parent=parent
+                parent=parent,
             )
             self.result = result
             self.window = None
@@ -72,16 +74,26 @@ class UpdateDialog:
         info_frame = tk.Frame(content_frame)
         info_frame.pack(fill=tk.X, pady=(0, 15))
 
-        tk.Label(info_frame, text=f"Current version:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(info_frame, text="Current version:", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
         tk.Label(info_frame, text=current_version).grid(row=0, column=1, sticky="w", padx=(10, 0))
 
-        tk.Label(info_frame, text=f"Latest version:", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w")
-        tk.Label(info_frame, text=latest_version, fg="green").grid(row=1, column=1, sticky="w", padx=(10, 0))
+        tk.Label(info_frame, text="Latest version:", font=("Arial", 10, "bold")).grid(
+            row=1, column=0, sticky="w"
+        )
+        tk.Label(info_frame, text=latest_version, fg="green").grid(
+            row=1, column=1, sticky="w", padx=(10, 0)
+        )
 
-        tk.Label(info_frame, text=f"Update method:", font=("Arial", 10, "bold")).grid(row=2, column=0, sticky="w")
+        tk.Label(info_frame, text="Update method:", font=("Arial", 10, "bold")).grid(
+            row=2, column=0, sticky="w"
+        )
         tk.Label(info_frame, text=update_type).grid(row=2, column=1, sticky="w", padx=(10, 0))
 
-        changelog_label = tk.Label(content_frame, text="What's new in this release:", font=("Arial", 12, "bold"))
+        changelog_label = tk.Label(
+            content_frame, text="What's new in this release:", font=("Arial", 12, "bold")
+        )
         changelog_label.pack(anchor="w", pady=(10, 5))
 
         changelog_frame = tk.Frame(content_frame, relief="sunken", borderwidth=1, height=200)
@@ -95,10 +107,12 @@ class UpdateDialog:
             font=("Consolas", 9),
             state=tk.DISABLED,
             bg="#f8f8f8",
-            height=10
+            height=10,
         )
 
-        scrollbar = ttk.Scrollbar(changelog_frame, orient=tk.VERTICAL, command=self.changelog_text.yview)
+        scrollbar = ttk.Scrollbar(
+            changelog_frame, orient=tk.VERTICAL, command=self.changelog_text.yview
+        )
         self.changelog_text.configure(yscrollcommand=scrollbar.set)
 
         self.changelog_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -106,10 +120,12 @@ class UpdateDialog:
 
         self.changelog_text.config(state=tk.NORMAL)
         if changelog and changelog.strip():
-            cleaned_changelog = changelog.replace('\r\n', '\n').replace('\r', '\n')
+            cleaned_changelog = changelog.replace("\r\n", "\n").replace("\r", "\n")
             self.changelog_text.insert(tk.END, cleaned_changelog)
         else:
-            self.changelog_text.insert(tk.END, "No changelog information available for this release.")
+            self.changelog_text.insert(
+                tk.END, "No changelog information available for this release."
+            )
         self.changelog_text.config(state=tk.DISABLED)
 
         self.changelog_text.see("1.0")
@@ -125,15 +141,11 @@ class UpdateDialog:
             text="The application will restart after updating.",
             font=("Arial", 9),
             fg="gray",
-            bg="#f0f0f0"
+            bg="#f0f0f0",
         )
         info_label.pack(side=tk.LEFT)
         cancel_btn = tk.Button(
-            button_frame,
-            text="Cancel",
-            command=self._on_cancel,
-            padx=10,
-            pady=5
+            button_frame, text="Cancel", command=self._on_cancel, padx=10, pady=5
         )
         cancel_btn.pack(side=tk.RIGHT)
 
@@ -145,7 +157,8 @@ class UpdateDialog:
             fg="white",
             font=("Arial", 10, "bold"),
             padx=10,
-            pady=5)
+            pady=5,
+        )
         update_btn.pack(side=tk.RIGHT, padx=(5, 10))
         update_btn.focus_set()
 
@@ -187,8 +200,8 @@ class UpdateChecker:
             print(f"Checking for updates... Current version: {current_version}")
 
             response = requests.get(
-                'https://raw.githubusercontent.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/main/latestVersion.txt',
-                timeout=10
+                "https://raw.githubusercontent.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/main/latestVersion.txt",
+                timeout=10,
             )
             response.raise_for_status()
             latest_version = response.text.strip()
@@ -206,8 +219,12 @@ class UpdateChecker:
                     print("Auto-update enabled, starting update process...")
                     if Utilities.is_compiled():
                         if platform.system() != "Windows":
-                            print(f"Error: Executable updates are only supported on Windows. Current platform: {platform.system()}")
-                            print(f"Please use source code updates on macOS/Linux or manually download the release.")
+                            print(
+                                f"Error: Executable updates are only supported on Windows. Current platform: {platform.system()}"
+                            )
+                            print(
+                                "Please use source code updates on macOS/Linux or manually download the release."
+                            )
                             return
                         print("Running as executable, using standalone updater")
                         UpdateChecker._launch_standalone_updater(exe_mode=True)
@@ -219,7 +236,9 @@ class UpdateChecker:
 
                     update_type = "executable" if Utilities.is_compiled() else "source code"
 
-                    dialog = UpdateDialog(parent, current_version, latest_version, changelog, update_type)
+                    dialog = UpdateDialog(
+                        parent, current_version, latest_version, changelog, update_type
+                    )
                     result = dialog.show()
 
                     if result:
@@ -231,7 +250,9 @@ class UpdateChecker:
                                     f"Current platform: {platform.system()}\n\n"
                                     f"Please use source code updates on macOS/Linux or manually download the release."
                                 )
-                                messagebox.showerror("Platform Not Supported", error_msg, parent=parent)
+                                messagebox.showerror(
+                                    "Platform Not Supported", error_msg, parent=parent
+                                )
                                 return
                             print("Starting executable update...")
                             UpdateChecker._launch_standalone_updater(exe_mode=True)
@@ -259,6 +280,7 @@ class UpdateChecker:
         except Exception as err:
             print(f"Unexpected error during update check: {err}")
             import traceback
+
             traceback.print_exc()
 
     @staticmethod
@@ -275,23 +297,25 @@ class UpdateChecker:
                 subprocess.Popen(cmd, cwd=os.path.dirname(current_exe))
 
                 import time
+
                 time.sleep(1)
 
                 print("Exiting main application to allow update...")
 
                 try:
                     import tkinter as tk
+
                     root = tk._default_root
                     if root:
                         root.quit()
                         root.destroy()
-                except:
+                except Exception:
                     pass
 
                 sys.exit(0)
             else:
                 # When not compiled, run the updater script directly
-                project_root = Utilities.find_root('README.md')
+                project_root = Utilities.find_root("README.md")
                 if not project_root:
                     raise Exception("Could not find project root")
 
@@ -307,17 +331,19 @@ class UpdateChecker:
                 subprocess.Popen(cmd, cwd=os.path.dirname(updater_script))
 
                 import time
+
                 time.sleep(1)
 
                 print("Exiting main application to allow update...")
 
                 try:
                     import tkinter as tk
+
                     root = tk._default_root
                     if root:
                         root.quit()
                         root.destroy()
-                except:
+                except Exception:
                     pass
 
                 sys.exit(0)
@@ -335,7 +361,7 @@ class UpdateChecker:
             response.raise_for_status()
 
             release_data = response.json()
-            changelog = release_data.get('body', '')
+            changelog = release_data.get("body", "")
 
             if changelog:
                 print("Changelog fetched successfully")

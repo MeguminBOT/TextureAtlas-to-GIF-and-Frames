@@ -30,10 +30,10 @@ class AtlasProcessor:
     def open_atlas_and_parse_metadata(self):
         print(f"Opening atlas: {self.atlas_path}")
         atlas = Image.open(self.atlas_path)
-        if self.metadata_path.endswith('.xml'):
+        if self.metadata_path.endswith(".xml"):
             print(f"Parsing XML metadata: {self.metadata_path}")
             sprites = XmlParser.parse_xml_data(self.metadata_path)
-        elif self.metadata_path.endswith('.txt'):
+        elif self.metadata_path.endswith(".txt"):
             print(f"Parsing TXT metadata: {self.metadata_path}")
             sprites = TxtParser.parse_txt_packer(self.metadata_path)
         return atlas, sprites

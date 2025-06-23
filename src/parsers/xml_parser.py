@@ -38,7 +38,7 @@ class XmlParser:
     def extract_names(self, xml_root):
         names = set()
         for subtexture in xml_root.findall(".//SubTexture"):
-            name = subtexture.get('name')
+            name = subtexture.get("name")
             name = Utilities.strip_trailing_digits(name)
             names.add(name)
         return names
@@ -53,16 +53,17 @@ class XmlParser:
         xml_root = tree.getroot()
         sprites = [
             {
-                'name': sprite.get('name'),
-                'x': int(sprite.get('x')),
-                'y': int(sprite.get('y')),
-                'width': int(sprite.get('width')),
-                'height': int(sprite.get('height')),
-                'frameX': int(sprite.get('frameX', 0)),
-                'frameY': int(sprite.get('frameY', 0)),
-                'frameWidth': int(sprite.get('frameWidth', sprite.get('width'))),
-                'frameHeight': int(sprite.get('frameHeight', sprite.get('height'))),
-                'rotated': sprite.get('rotated', 'false') == 'true'
-            } for sprite in xml_root.findall('SubTexture')
+                "name": sprite.get("name"),
+                "x": int(sprite.get("x")),
+                "y": int(sprite.get("y")),
+                "width": int(sprite.get("width")),
+                "height": int(sprite.get("height")),
+                "frameX": int(sprite.get("frameX", 0)),
+                "frameY": int(sprite.get("frameY", 0)),
+                "frameWidth": int(sprite.get("frameWidth", sprite.get("width"))),
+                "frameHeight": int(sprite.get("frameHeight", sprite.get("height"))),
+                "rotated": sprite.get("rotated", "false") == "true",
+            }
+            for sprite in xml_root.findall("SubTexture")
         ]
         return sprites

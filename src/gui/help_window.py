@@ -34,12 +34,14 @@ class HelpWindow:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
         scrollable_frame = ttk.Frame(canvas)
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        help_label = tk.Label(scrollable_frame, text=help_text, justify="left", padx=10, pady=10, wraplength=780)
+        help_label = tk.Label(
+            scrollable_frame, text=help_text, justify="left", padx=10, pady=10, wraplength=780
+        )
         help_label.pack()
 
     @staticmethod

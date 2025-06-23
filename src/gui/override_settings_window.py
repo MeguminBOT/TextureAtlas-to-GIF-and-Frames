@@ -55,104 +55,193 @@ class OverrideSettingsWindow:
 
         tk.Label(window, text="FPS for " + name).pack()
         self.fps_entry = tk.Entry(window)
-        self.fps_entry.insert(0, str(local_settings.get('fps', '')))
-        self.fps_entry.bind('<FocusIn>', lambda e: self.fps_entry.insert(0, settings.get('fps', '')) if (self.fps_entry.get() == '') else None)
+        self.fps_entry.insert(0, str(local_settings.get("fps", "")))
+        self.fps_entry.bind(
+            "<FocusIn>",
+            lambda e: self.fps_entry.insert(0, settings.get("fps", ""))
+            if (self.fps_entry.get() == "")
+            else None,
+        )
         self.fps_entry.pack()
 
         tk.Label(window, text="Delay for " + name).pack()
         self.delay_entry = tk.Entry(window)
-        self.delay_entry.insert(0, str(local_settings.get('delay', '')))
-        self.delay_entry.bind('<FocusIn>', lambda e: self.delay_entry.insert(0, settings.get('delay', '')) if (self.delay_entry.get() == '') else None)
+        self.delay_entry.insert(0, str(local_settings.get("delay", "")))
+        self.delay_entry.bind(
+            "<FocusIn>",
+            lambda e: self.delay_entry.insert(0, settings.get("delay", ""))
+            if (self.delay_entry.get() == "")
+            else None,
+        )
         self.delay_entry.pack()
 
         tk.Label(window, text="Min period for " + name).pack()
         self.period_entry = tk.Entry(window)
-        self.period_entry.insert(0, str(local_settings.get('period', '')))
-        self.period_entry.bind('<FocusIn>', lambda e: self.period_entry.insert(0, settings.get('period', '')) if (self.period_entry.get() == '') else None)
+        self.period_entry.insert(0, str(local_settings.get("period", "")))
+        self.period_entry.bind(
+            "<FocusIn>",
+            lambda e: self.period_entry.insert(0, settings.get("period", ""))
+            if (self.period_entry.get() == "")
+            else None,
+        )
         self.period_entry.pack()
 
         tk.Label(window, text="Scale for " + name).pack()
         self.scale_entry = tk.Entry(window)
-        self.scale_entry.insert(0, str(local_settings.get('scale', '')))
-        self.scale_entry.bind('<FocusIn>', lambda e: self.scale_entry.insert(0, settings.get('scale', '')) if (self.scale_entry.get() == '') else None)
+        self.scale_entry.insert(0, str(local_settings.get("scale", "")))
+        self.scale_entry.bind(
+            "<FocusIn>",
+            lambda e: self.scale_entry.insert(0, settings.get("scale", ""))
+            if (self.scale_entry.get() == "")
+            else None,
+        )
         self.scale_entry.pack()
 
         tk.Label(window, text="Threshold for " + name).pack()
         self.threshold_entry = tk.Entry(window)
-        self.threshold_entry.insert(0, str(local_settings.get('threshold', '')))
-        self.threshold_entry.bind('<FocusIn>', lambda e: self.threshold_entry.insert(0, settings.get('threshold', '')) if (self.threshold_entry.get() == '') else None)
+        self.threshold_entry.insert(0, str(local_settings.get("threshold", "")))
+        self.threshold_entry.bind(
+            "<FocusIn>",
+            lambda e: self.threshold_entry.insert(0, settings.get("threshold", ""))
+            if (self.threshold_entry.get() == "")
+            else None,
+        )
         self.threshold_entry.pack()
 
         tk.Label(window, text="Indices for " + name).pack()
         self.indices_entry = tk.Entry(window)
-        indices_val = local_settings.get('indices', '')
+        indices_val = local_settings.get("indices", "")
         if isinstance(indices_val, list):
-            indices_val = ','.join(str(i) for i in indices_val)
-        default_indices_val = settings.get('indices', '')
+            indices_val = ",".join(str(i) for i in indices_val)
+        default_indices_val = settings.get("indices", "")
         if isinstance(default_indices_val, list):
-            default_indices_val = ','.join(str(i) for i in default_indices_val)
+            default_indices_val = ",".join(str(i) for i in default_indices_val)
         self.indices_entry.insert(0, str(indices_val))
-        self.indices_entry.bind('<FocusIn>', lambda e: self.indices_entry.insert(0, default_indices_val) if (self.indices_entry.get() == '') else None)
+        self.indices_entry.bind(
+            "<FocusIn>",
+            lambda e: self.indices_entry.insert(0, default_indices_val)
+            if (self.indices_entry.get() == "")
+            else None,
+        )
         self.indices_entry.pack()
 
         tk.Label(window, text="Keep frames for " + name).pack()
-        self.frames_var = tk.StringVar(value=str(local_settings.get('frames', '')))
+        self.frames_var = tk.StringVar(value=str(local_settings.get("frames", "")))
         self.frames_entry = ttk.Combobox(window, textvariable=self.frames_var)
-        self.frames_entry.bind('<FocusIn>', lambda e: self.frames_var.set(settings.get('frames', '')) if (self.frames_var.get() == '') else None)
-        self.frames_entry['values'] = ("All", "No duplicates", "First", "Last", "First, Last")
+        self.frames_entry.bind(
+            "<FocusIn>",
+            lambda e: self.frames_var.set(settings.get("frames", ""))
+            if (self.frames_var.get() == "")
+            else None,
+        )
+        self.frames_entry["values"] = ("All", "No duplicates", "First", "Last", "First, Last")
         self.frames_entry.pack()
 
         tk.Label(window, text="Frame format for " + name).pack()
-        self.frame_format_var = tk.StringVar(value=str(local_settings.get('frame_format', '')))
-        self.frame_format_entry = ttk.Combobox(window, textvariable=self.frame_format_var, state="readonly")
-        self.frame_format_entry.bind('<FocusIn>', lambda e: self.frame_format_var.set(settings.get('frame_format', '')) if (self.frame_format_var.get() == '') else None)
-        self.frame_format_entry['values'] = ("None", "AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP")
+        self.frame_format_var = tk.StringVar(value=str(local_settings.get("frame_format", "")))
+        self.frame_format_entry = ttk.Combobox(
+            window, textvariable=self.frame_format_var, state="readonly"
+        )
+        self.frame_format_entry.bind(
+            "<FocusIn>",
+            lambda e: self.frame_format_var.set(settings.get("frame_format", ""))
+            if (self.frame_format_var.get() == "")
+            else None,
+        )
+        self.frame_format_entry["values"] = (
+            "None",
+            "AVIF",
+            "BMP",
+            "DDS",
+            "PNG",
+            "TGA",
+            "TIFF",
+            "WebP",
+        )
         self.frame_format_entry.pack()
 
         tk.Label(window, text="Frame scale for " + name).pack()
         self.frame_scale_entry = tk.Entry(window)
-        self.frame_scale_entry.insert(0, str(local_settings.get('frame_scale', '')))
-        self.frame_scale_entry.bind('<FocusIn>', lambda e: self.frame_scale_entry.insert(0, str(settings.get('frame_scale', ''))) if (self.frame_scale_entry.get() == '') else None)
+        self.frame_scale_entry.insert(0, str(local_settings.get("frame_scale", "")))
+        self.frame_scale_entry.bind(
+            "<FocusIn>",
+            lambda e: self.frame_scale_entry.insert(0, str(settings.get("frame_scale", "")))
+            if (self.frame_scale_entry.get() == "")
+            else None,
+        )
         self.frame_scale_entry.pack()
 
         if settings_type == "animation":
             tk.Label(window, text="Filename for " + name).pack()
             self.filename_entry = tk.Entry(window)
-            self.filename_entry.insert(0, local_settings.get('filename', ''))
-            filename = str(Utilities.format_filename(
-                    settings.get('prefix'),
+            self.filename_entry.insert(0, local_settings.get("filename", ""))
+            filename = str(
+                Utilities.format_filename(
+                    settings.get("prefix"),
                     spritesheet_name,
                     name.split("/", 1)[1],
-                    settings.get('filename_format'),
-                    settings.get('replace_rules')
+                    settings.get("filename_format"),
+                    settings.get("replace_rules"),
                 )
             )
-            self.filename_entry.bind('<FocusIn>', lambda e: self.filename_entry.insert(0, filename) if (self.filename_entry.get() == '') else None)
+            self.filename_entry.bind(
+                "<FocusIn>",
+                lambda e: self.filename_entry.insert(0, filename)
+                if (self.filename_entry.get() == "")
+                else None,
+            )
             self.filename_entry.pack()
 
         tk.Button(window, text="OK", command=self.store_input).pack()
 
         if settings_type == "animation":
-            tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
-                self.app, self.name, self.settings_type,
-                self.fps_entry, self.delay_entry, self.period_entry,
-                self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
-            )).pack(pady=6)
+            tk.Button(
+                window,
+                text="Preview as GIF",
+                command=lambda: GifPreviewWindow.preview(
+                    self.app,
+                    self.name,
+                    self.settings_type,
+                    self.fps_entry,
+                    self.delay_entry,
+                    self.period_entry,
+                    self.scale_entry,
+                    self.threshold_entry,
+                    self.indices_entry,
+                    self.frames_entry,
+                ),
+            ).pack(pady=6)
 
     def store_input(self):
         if self.settings_type == "animation":
             self.on_store_callback(
-                self.window, self.name, self.settings_type,
-                self.fps_entry, self.delay_entry, self.period_entry,
-                self.scale_entry, self.threshold_entry, self.indices_entry,
-                self.frames_entry, self.filename_entry, self.frame_format_entry,
-                self.frame_scale_entry
+                self.window,
+                self.name,
+                self.settings_type,
+                self.fps_entry,
+                self.delay_entry,
+                self.period_entry,
+                self.scale_entry,
+                self.threshold_entry,
+                self.indices_entry,
+                self.frames_entry,
+                self.filename_entry,
+                self.frame_format_entry,
+                self.frame_scale_entry,
             )
         else:
             self.on_store_callback(
-                self.window, self.name, self.settings_type,
-                self.fps_entry, self.delay_entry, self.period_entry,
-                self.scale_entry, self.threshold_entry, self.indices_entry,
-                self.frames_entry, None, self.frame_format_entry,
-                self.frame_scale_entry
+                self.window,
+                self.name,
+                self.settings_type,
+                self.fps_entry,
+                self.delay_entry,
+                self.period_entry,
+                self.scale_entry,
+                self.threshold_entry,
+                self.indices_entry,
+                self.frames_entry,
+                None,
+                self.frame_format_entry,
+                self.frame_scale_entry,
             )

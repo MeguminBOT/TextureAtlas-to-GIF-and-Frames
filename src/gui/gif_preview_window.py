@@ -39,20 +39,20 @@ class GifPreviewWindow:
         durations = []
         try:
             for frame in ImageSequence.Iterator(gif):
-                duration = frame.info.get('duration', 0)
+                duration = frame.info.get("duration", 0)
                 durations.append(duration)
         except Exception:
             pass
 
-        fps = settings.get('fps', 24)
-        delay_setting = settings.get('delay', 250)
+        fps = settings.get("fps", 24)
+        delay_setting = settings.get("delay", 250)
         base_delay = round(1000 / fps, -1)
 
         if not durations or len(durations) != frame_count:
             durations = [base_delay] * frame_count
             durations[-1] += delay_setting
 
-        frame_counter_label = tk.Label(preview_win, text=f"Frame 0 / {frame_count-1}")
+        frame_counter_label = tk.Label(preview_win, text=f"Frame 0 / {frame_count - 1}")
         frame_counter_label.pack()
 
         slider_frame = tk.Frame(preview_win)
@@ -62,9 +62,15 @@ class GifPreviewWindow:
             idx = int(float(val))
             current_frame[0] = idx
             show_frame(idx)
+
         slider = tk.Scale(
-            slider_frame, from_=0, to=frame_count-1, orient=tk.HORIZONTAL, length=300,
-            showvalue=0, command=on_slider
+            slider_frame,
+            from_=0,
+            to=frame_count - 1,
+            orient=tk.HORIZONTAL,
+            length=300,
+            showvalue=0,
+            command=on_slider,
         )
         slider.pack()
         slider.set(0)
@@ -73,11 +79,13 @@ class GifPreviewWindow:
         slider_frame_width = slider_frame.winfo_reqwidth()
         preview_win_width = preview_win.winfo_width()
         if preview_win_width > slider_frame_width:
-            slider_frame.pack_configure(padx=(preview_win_width - slider_frame_width)//2)
+            slider_frame.pack_configure(padx=(preview_win_width - slider_frame_width) // 2)
 
         delays_canvas = tk.Canvas(preview_win, height=40)
         delays_canvas.pack(fill="x", expand=False)
-        delays_scrollbar = tk.Scrollbar(preview_win, orient="horizontal", command=delays_canvas.xview)
+        delays_scrollbar = tk.Scrollbar(
+            preview_win, orient="horizontal", command=delays_canvas.xview
+        )
         delays_scrollbar.pack(fill="x")
         delays_canvas.configure(xscrollcommand=delays_scrollbar.set)
 
@@ -106,18 +114,23 @@ class GifPreviewWindow:
         def open_external(path=gif_path):
             import subprocess
             import platform
+
             try:
                 current_os = platform.system().lower()
                 if current_os == "windows":
                     os.startfile(path)
                 elif current_os == "darwin":
-                    subprocess.Popen(['open', path])
+                    subprocess.Popen(["open", path])
                 else:
-                    subprocess.Popen(['xdg-open', path])
+                    subprocess.Popen(["xdg-open", path])
             except Exception as e:
-                messagebox.showerror("Open External", f"Could not open GIF in external program:\n{e}")
+                messagebox.showerror(
+                    "Open External", f"Could not open GIF in external program:\n{e}"
+                )
 
-        tk.Button(btn_frame, text="Open GIF externally", command=open_external).pack(side=tk.LEFT, padx=(12, 0))
+        tk.Button(btn_frame, text="Open GIF externally", command=open_external).pack(
+            side=tk.LEFT, padx=(12, 0)
+        )
 
         bg_slider_frame = tk.Frame(preview_win)
         bg_slider_frame.pack(pady=4)
@@ -126,10 +139,16 @@ class GifPreviewWindow:
         def on_bg_change(val):
             clear_cache_for_bg()
             show_frame(current_frame[0])
+
         tk.Label(bg_slider_frame, text="Background:").pack(side=tk.LEFT, padx=(0, 8))
         bg_slider = tk.Scale(
-            bg_slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, variable=bg_value,
-            command=on_bg_change, length=200
+            bg_slider_frame,
+            from_=0,
+            to=255,
+            orient=tk.HORIZONTAL,
+            variable=bg_value,
+            command=on_bg_change,
+            length=200,
         )
         bg_slider.pack(side=tk.LEFT)
 
@@ -184,7 +203,7 @@ class GifPreviewWindow:
                 tk_img_holder[0].paste(img)
                 label.config(image=tk_img_holder[0])
                 label.image = tk_img_holder[0]
-            frame_counter_label.config(text=f"Frame {idx} / {frame_count-1}")
+            frame_counter_label.config(text=f"Frame {idx} / {frame_count - 1}")
 
             if fixed_size[0] is None:
                 extra_height = 240
@@ -217,11 +236,11 @@ class GifPreviewWindow:
                 preview_win.minsize(width, height)
                 fixed_size[0] = (width, height)
 
-            for i, l in enumerate(delay_labels):
+            for i, label_widget in enumerate(delay_labels):
                 if i == idx:
-                    l.config(bg="#e0e0e0")
+                    label_widget.config(bg="#e0e0e0")
                 else:
-                    l.config(bg=preview_win.cget("bg"))
+                    label_widget.config(bg=preview_win.cget("bg"))
 
             try:
                 label_widget = delay_labels[idx]
@@ -231,9 +250,9 @@ class GifPreviewWindow:
                 label_w = label_widget.winfo_width()
                 canvas_w = delays_canvas.winfo_width()
 
-                scroll_to = max(0, label_x + label_w//2 - canvas_w//2)
+                scroll_to = max(0, label_x + label_w // 2 - canvas_w // 2)
 
-                scrollregion = delays_canvas.cget('scrollregion')
+                scrollregion = delays_canvas.cget("scrollregion")
                 if scrollregion:
                     _, _, scrollregion_w, _ = map(int, scrollregion.split())
                     if scrollregion_w > canvas_w:
@@ -263,6 +282,7 @@ class GifPreviewWindow:
                     next_frame()
                     delay = durations[current_frame[0]]
                     preview_win.after(delay, loop)
+
             loop()
 
         def stop():
@@ -283,7 +303,9 @@ class GifPreviewWindow:
         preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_gif)
 
         note_text = "Playback speed of GIFs may not be accurately depicted in this preview window. Open the GIF externally for accurate playback."
-        note_label = tk.Label(preview_win, text=note_text, font=("Arial", 9, "italic"), fg="#333333")
+        note_label = tk.Label(
+            preview_win, text=note_text, font=("Arial", 9, "italic"), fg="#333333"
+        )
         note_label.pack(side=tk.BOTTOM, pady=(8, 4))
 
         preview_win.update_idletasks()
@@ -299,37 +321,38 @@ class GifPreviewWindow:
     def preview(app, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
         settings = {}
         try:
-            if fps_entry.get() != '':
-                settings['fps'] = float(fps_entry.get())
-            if delay_entry.get() != '':
-                settings['delay'] = int(float(delay_entry.get()))
-            if period_entry.get() != '':
-                settings['period'] = int(float(period_entry.get()))
-            if scale_entry.get() != '':
-                settings['scale'] = float(scale_entry.get())
-            if threshold_entry.get() != '':
-                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                settings['indices'] = indices
+            if fps_entry.get() != "":
+                settings["fps"] = float(fps_entry.get())
+            if delay_entry.get() != "":
+                settings["delay"] = int(float(delay_entry.get()))
+            if period_entry.get() != "":
+                settings["period"] = int(float(period_entry.get()))
+            if scale_entry.get() != "":
+                settings["scale"] = float(scale_entry.get())
+            if threshold_entry.get() != "":
+                settings["threshold"] = min(max(float(threshold_entry.get()), 0), 1)
+            if indices_entry.get() != "":
+                indices = [int(ele) for ele in indices_entry.get().split(",")]
+                settings["indices"] = indices
         except ValueError as e:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             return
 
         if settings_type == "animation":
-            spritesheet_name, animation_name = name.split('/', 1)
+            spritesheet_name, animation_name = name.split("/", 1)
         else:
             spritesheet_name = name
             animation_name = None
 
         input_dir = app.input_dir.get()
         png_path = os.path.join(input_dir, spritesheet_name)
-        xml_path = os.path.splitext(png_path)[0] + '.xml'
-        txt_path = os.path.splitext(png_path)[0] + '.txt'
+        xml_path = os.path.splitext(png_path)[0] + ".xml"
+        txt_path = os.path.splitext(png_path)[0] + ".txt"
         metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
 
         try:
             from core.extractor import Extractor
+
             extractor = Extractor(None, app.current_version, app.settings_manager)
             gif_path = extractor.generate_temp_gif_for_preview(
                 png_path, metadata_path, settings, animation_name, temp_dir=app.temp_dir

@@ -2,7 +2,6 @@ from PIL import Image
 import os
 
 # Import our own modules
-from utils.utilities import Utilities
 from core.frame_selector import FrameSelector
 from core.frame_exporter import FrameExporter
 from core.animation_exporter import AnimationExporter
@@ -35,7 +34,9 @@ class AnimationProcessor:
         self.current_version = current_version
         self.quant_frames = {}
         self.frame_exporter = FrameExporter(self.output_dir, self.current_version, self.scale_image)
-        self.animation_exporter = AnimationExporter(self.output_dir, self.current_version, self.scale_image, self.quant_frames)
+        self.animation_exporter = AnimationExporter(
+            self.output_dir, self.current_version, self.scale_image, self.quant_frames
+        )
 
     def process_animations(self):
         frames_generated = 0
@@ -46,11 +47,13 @@ class AnimationProcessor:
         for animation_name, image_tuples in self.animations.items():
             print(f"Processing animation: {animation_name}")
 
-            settings = self.settings_manager.get_settings(spritesheet_name, f"{spritesheet_name}/{animation_name}")
-            scale = settings.get('scale')
+            settings = self.settings_manager.get_settings(
+                spritesheet_name, f"{spritesheet_name}/{animation_name}"
+            )
+            scale = settings.get("scale")
             image_tuples.sort(key=lambda x: x[0])
 
-            indices = settings.get('indices')
+            indices = settings.get("indices")
             if indices:
                 indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                 image_tuples = [image_tuples[i] for i in indices]
@@ -59,15 +62,24 @@ class AnimationProcessor:
             kept_frames = FrameSelector.get_kept_frames(settings, single_frame, image_tuples)
             kept_frame_indices = FrameSelector.get_kept_frame_indices(kept_frames, image_tuples)
 
-            if settings.get('fnf_idle_loop') and "idle" in animation_name.lower():
-                settings['delay'] = 0
+            if settings.get("fnf_idle_loop") and "idle" in animation_name.lower():
+                settings["delay"] = 0
 
-            if settings.get('frame_format') != 'None':
-                frames_generated += self.frame_exporter.save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings)
+            if settings.get("frame_format") != "None":
+                frames_generated += self.frame_exporter.save_frames(
+                    image_tuples,
+                    kept_frame_indices,
+                    spritesheet_name,
+                    animation_name,
+                    scale,
+                    settings,
+                )
 
-            animation_format = settings.get('animation_format')
-            if not single_frame and animation_format != 'None':
-                anims_generated += self.animation_exporter.save_animations(image_tuples, spritesheet_name, animation_name, settings)
+            animation_format = settings.get("animation_format")
+            if not single_frame and animation_format != "None":
+                anims_generated += self.animation_exporter.save_animations(
+                    image_tuples, spritesheet_name, animation_name, settings
+                )
 
         return frames_generated, anims_generated
 

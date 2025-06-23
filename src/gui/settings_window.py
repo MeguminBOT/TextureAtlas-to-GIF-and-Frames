@@ -15,12 +15,15 @@ class SettingsWindow:
         update_settings_window(settings_frame, settings_canvas, settings_manager):
             Populates the window with the current animation and spritesheet settings.
     """
+
     def __init__(self, parent, settings_manager):
         self.settings_window = tk.Toplevel(parent)
         self.settings_window.geometry("400x300")
         settings_canvas = tk.Canvas(self.settings_window)
         settings_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        settings_scrollbar = tk.Scrollbar(self.settings_window, orient=tk.VERTICAL, command=settings_canvas.yview)
+        settings_scrollbar = tk.Scrollbar(
+            self.settings_window, orient=tk.VERTICAL, command=settings_canvas.yview
+        )
         settings_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         settings_canvas.config(yscrollcommand=settings_scrollbar.set)
         settings_frame = tk.Frame(settings_canvas)

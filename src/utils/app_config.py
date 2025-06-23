@@ -119,12 +119,14 @@ class AppConfig:
 
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), '..', 'app_config.cfg')
+            config_path = os.path.join(os.path.dirname(__file__), "..", "app_config.cfg")
         self.config_path = os.path.abspath(config_path)
         self.settings = dict(self.DEFAULTS)
 
         if not os.path.isfile(self.config_path):
-            print(f"[Config] Configuration file not found at '{self.config_path}'. Creating default config...")
+            print(
+                f"[Config] Configuration file not found at '{self.config_path}'. Creating default config..."
+            )
             self.save()
         else:
             print(f"[Config] Configuration file found at '{self.config_path}'. Loading settings...")
@@ -144,7 +146,7 @@ class AppConfig:
     def load(self):
         if os.path.isfile(self.config_path):
             try:
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, "r", encoding="utf-8") as f:
                     self.settings.update(json.load(f))
                 print(f"[Config] Configuration loaded successfully from '{self.config_path}'.")
             except Exception as e:
@@ -153,7 +155,7 @@ class AppConfig:
 
     def save(self):
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.settings, f, indent=4)
             print(f"[Config] Configuration saved to '{self.config_path}'.")
         except Exception as e:
@@ -178,7 +180,6 @@ class AppConfig:
                 if key not in defaults:
                     obsolete_keys.append(key)
                 elif isinstance(defaults[key], dict) and isinstance(current[key], dict):
-
                     nested_obsolete = []
                     for nested_key in current[key].keys():
                         if nested_key not in defaults[key]:
@@ -211,7 +212,9 @@ class AppConfig:
         self.save()
 
     def get_compression_defaults(self, format_name=None):
-        compression_defaults = self.get("compression_defaults", self.DEFAULTS["compression_defaults"])
+        compression_defaults = self.get(
+            "compression_defaults", self.DEFAULTS["compression_defaults"]
+        )
 
         if format_name:
             return dict(compression_defaults.get(format_name, {}))
@@ -231,30 +234,30 @@ class AppConfig:
         format_lower = format_name.lower()
         defaults = self.get_compression_defaults(format_lower)
 
-        if format_lower == 'png':
+        if format_lower == "png":
             return {
-                'png_compress_level': defaults.get('compress_level', 9),
-                'png_optimize': defaults.get('optimize', True),
+                "png_compress_level": defaults.get("compress_level", 9),
+                "png_optimize": defaults.get("optimize", True),
             }
-        elif format_lower == 'webp':
+        elif format_lower == "webp":
             return {
-                'webp_lossless': defaults.get('lossless', True),
-                'webp_quality': defaults.get('quality', 100),
-                'webp_method': defaults.get('method', 6),
-                'webp_alpha_quality': defaults.get('alpha_quality', 100),
-                'webp_exact': defaults.get('exact', True),
+                "webp_lossless": defaults.get("lossless", True),
+                "webp_quality": defaults.get("quality", 100),
+                "webp_method": defaults.get("method", 6),
+                "webp_alpha_quality": defaults.get("alpha_quality", 100),
+                "webp_exact": defaults.get("exact", True),
             }
-        elif format_lower == 'avif':
+        elif format_lower == "avif":
             return {
-                'avif_lossless': defaults.get('lossless', True),
-                'avif_quality': defaults.get('quality', 100),
-                'avif_speed': defaults.get('speed', 0),
+                "avif_lossless": defaults.get("lossless", True),
+                "avif_quality": defaults.get("quality", 100),
+                "avif_speed": defaults.get("speed", 0),
             }
-        elif format_lower == 'tiff':
+        elif format_lower == "tiff":
             return {
-                'tiff_compression_type': defaults.get('compression_type', 'lzw'),
-                'tiff_quality': defaults.get('quality', 90),
-                'tiff_optimize': defaults.get('optimize', True),
+                "tiff_compression_type": defaults.get("compression_type", "lzw"),
+                "tiff_quality": defaults.get("quality", 90),
+                "tiff_optimize": defaults.get("optimize", True),
             }
 
         return {}

@@ -31,51 +31,49 @@ class FnfUtilities:
         self.fnf_char_json_directory = ""
 
     def detect_engine(self, file_path):
-        if file_path.endswith('.json'):
-            with open(file_path, 'r') as file:
+        if file_path.endswith(".json"):
+            with open(file_path, "r") as file:
                 try:
                     data = json.load(file)
                     # Check Psych Engine
                     if (
-                        "animations" in data and
-                        isinstance(data["animations"], list) and
-                        all(
-                            isinstance(anim, dict) and
-                            "name" in anim and
-                            "fps" in anim and
-                            "anim" in anim and
-                            "loop" in anim and
-                            "indices" in anim and
-                            isinstance(anim["indices"], list)
+                        "animations" in data
+                        and isinstance(data["animations"], list)
+                        and all(
+                            isinstance(anim, dict)
+                            and "name" in anim
+                            and "fps" in anim
+                            and "anim" in anim
+                            and "loop" in anim
+                            and "indices" in anim
+                            and isinstance(anim["indices"], list)
                             for anim in data["animations"]
-                        ) and
-                        "image" in data and
-                        "scale" in data and
-                        "flip_x" in data and
-                        "no_antialiasing" in data
+                        )
+                        and "image" in data
+                        and "scale" in data
+                        and "flip_x" in data
+                        and "no_antialiasing" in data
                     ):
                         return "Psych Engine", data
 
                     # Check Kade Engine
                     elif (
-                        "name" in data and
-                        "asset" in data and
-                        "startingAnim" in data and
-                        "animations" in data and
-                        isinstance(data["animations"], list) and
-                        all(
-                            isinstance(anim, dict) and
-                            "name" in anim and
-                            "prefix" in anim and
-                            "offsets" in anim and
-                            isinstance(anim["offsets"], list) and
-                            len(anim["offsets"]) == 2 and
-                            (
+                        "name" in data
+                        and "asset" in data
+                        and "startingAnim" in data
+                        and "animations" in data
+                        and isinstance(data["animations"], list)
+                        and all(
+                            isinstance(anim, dict)
+                            and "name" in anim
+                            and "prefix" in anim
+                            and "offsets" in anim
+                            and isinstance(anim["offsets"], list)
+                            and len(anim["offsets"]) == 2
+                            and (
                                 "frameIndices" not in anim or isinstance(anim["frameIndices"], list)
-                            ) and
-                            (
-                                "looped" not in anim or isinstance(anim["looped"], bool)
                             )
+                            and ("looped" not in anim or isinstance(anim["looped"], bool))
                             for anim in data["animations"]
                         )
                     ):
@@ -83,25 +81,19 @@ class FnfUtilities:
                 except json.JSONDecodeError:
                     pass
 
-        elif file_path.endswith('.xml'):
+        elif file_path.endswith(".xml"):
             try:
                 tree = ET.parse(file_path)
                 root = tree.getroot()
                 # Check Codename Engine
-                if (
-                    root.tag == "character" and
-                    all(
-                        anim.tag == "anim" and
-                        "name" in anim.attrib and
-                        "anim" in anim.attrib and
-                        "fps" in anim.attrib and
-                        "loop" in anim.attrib and
-                        (
-                            "indices" not in anim.attrib or
-                            ".." in anim.attrib["indices"]
-                        )
-                        for anim in root.findall("anim")
-                    )
+                if root.tag == "character" and all(
+                    anim.tag == "anim"
+                    and "name" in anim.attrib
+                    and "anim" in anim.attrib
+                    and "fps" in anim.attrib
+                    and "loop" in anim.attrib
+                    and ("indices" not in anim.attrib or ".." in anim.attrib["indices"])
+                    for anim in root.findall("anim")
                 ):
                     scale = root.attrib.get("scale")
                     antialiasing = root.attrib.get("antialiasing")
@@ -124,7 +116,7 @@ class FnfUtilities:
 
             if engine_type == "Psych Engine" and parsed_data:
                 image_base = os.path.splitext(os.path.basename(parsed_data.get("image", "")))[0]
-                png_filename = image_base + '.png'
+                png_filename = image_base + ".png"
 
                 if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
                     listbox_png.insert(tk.END, png_filename)
@@ -152,7 +144,7 @@ class FnfUtilities:
 
             elif engine_type == "Codename Engine" and parsed_data:
                 image_base = os.path.splitext(filename)[0]
-                png_filename = image_base + '.png'
+                png_filename = image_base + ".png"
 
                 if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
                     listbox_png.insert(tk.END, png_filename)
@@ -172,7 +164,11 @@ class FnfUtilities:
                     if scale != 1:
                         settings["scale"] = scale
                     if indices:
-                        settings["indices"] = [int(i) for i in indices.split("..")] if ".." in indices else [int(i) for i in indices.split(",")]
+                        settings["indices"] = (
+                            [int(i) for i in indices.split("..")]
+                            if ".." in indices
+                            else [int(i) for i in indices.split(",")]
+                        )
                     if loop:
                         settings["delay"] = 0  # Set delay to 0 for looping animations
 
@@ -180,7 +176,7 @@ class FnfUtilities:
 
             elif engine_type == "Kade Engine" and parsed_data:
                 image_base = os.path.splitext(filename)[0]
-                png_filename = image_base + '.png'
+                png_filename = image_base + ".png"
 
                 if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
                     listbox_png.insert(tk.END, png_filename)
@@ -204,10 +200,16 @@ class FnfUtilities:
                     settings_manager.set_animation_settings(full_anim_name, **settings)
 
             else:
-                print(f"Skipping {filename}: Not a FNF character data file or unsupported engine type.")
+                print(
+                    f"Skipping {filename}: Not a FNF character data file or unsupported engine type."
+                )
 
-    def fnf_select_char_data_directory(self, settings_manager, data_dict, listbox_png, listbox_data):
-        self.fnf_char_json_directory = filedialog.askdirectory(title="Select FNF Character Data Directory")
+    def fnf_select_char_data_directory(
+        self, settings_manager, data_dict, listbox_png, listbox_data
+    ):
+        self.fnf_char_json_directory = filedialog.askdirectory(
+            title="Select FNF Character Data Directory"
+        )
         if self.fnf_char_json_directory:
             self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data)
             print("Animation settings updated in SettingsManager.")

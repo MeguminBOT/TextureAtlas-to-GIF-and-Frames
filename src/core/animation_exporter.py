@@ -34,7 +34,7 @@ class AnimationExporter:
             Saves the animation as an APNG file.
     """
 
-    def __init__(self, output_dir, current_version, scale_image_func, quant_frames):
+    def __init__(self, output_dir, current_version, scale_image_func):
         self.output_dir = output_dir
         self.current_version = current_version
         self.scale_image = scale_image_func
@@ -42,12 +42,12 @@ class AnimationExporter:
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
         anims_generated = 0
 
-        fps = settings.get('fps')
-        delay = settings.get('delay')
-        period = settings.get('period')
-        scale = settings.get('scale')
-        threshold = settings.get('threshold')
-        animation_format = settings.get('animation_format')
+        fps = settings.get("fps")
+        delay = settings.get("delay")
+        period = settings.get("period")
+        scale = settings.get("scale")
+        threshold = settings.get("threshold")
+        animation_format = settings.get("animation_format")
 
         images = [img[1] for img in image_tuples]
         sizes = [frame.size for frame in images]
@@ -56,42 +56,33 @@ class AnimationExporter:
 
         if max_size != min_size:
             for index, frame in enumerate(images):
-                new_frame = Image.new('RGBA', max_size)
+                new_frame = Image.new("RGBA", max_size)
                 new_frame.paste(frame)
                 images[index] = new_frame
 
-        filename = settings.get('filename')
+        filename = settings.get("filename")
 
         if not filename:
             filename = Utilities.format_filename(
-                settings.get('prefix'),
+                settings.get("prefix"),
                 spritesheet_name,
                 animation_name,
-                settings.get('filename_format'),
-                settings.get('replace_rules')
+                settings.get("filename_format"),
+                settings.get("replace_rules"),
             )
 
-        if animation_format == 'GIF':
-            self.save_gif(
-                images, filename, fps, delay, period,
-                scale, threshold, settings
-            )
-        elif animation_format == 'WebP':
-            self.save_webp(
-                images, filename, fps, delay, period,
-                scale, settings
-            )
-        elif animation_format == 'APNG':
-            self.save_apng(
-                images, filename, fps, delay, period,
-                scale, settings
-            )
+        if animation_format == "GIF":
+            self.save_gif(images, filename, fps, delay, period, scale, threshold, settings)
+        elif animation_format == "WebP":
+            self.save_webp(images, filename, fps, delay, period, scale, settings)
+        elif animation_format == "APNG":
+            self.save_apng(images, filename, fps, delay, period, scale, settings)
 
         anims_generated += 1
         return anims_generated
 
     def save_webp(self, images, filename, fps, delay, period, scale, settings):
-        min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+        min_x, min_y, max_x, max_y = float("inf"), float("inf"), 0, 0
 
         for frame in images:
             bbox = frame.getbbox()
@@ -106,7 +97,7 @@ class AnimationExporter:
             return
 
         final_images = []
-        if settings.get('crop_option') == 'None':
+        if settings.get("crop_option") == "None":
             final_images = list(map(lambda x: self.scale_image(x, scale), images))
         else:
             for frame in images:
@@ -114,7 +105,7 @@ class AnimationExporter:
                 final_images.append(self.scale_image(cropped_frame, scale))
 
         durations = []
-        var_delay = settings.get('var_delay')
+        var_delay = settings.get("var_delay")
         if var_delay:
             for index in range(len(final_images)):
                 durations.append(round((index + 1) * 1000 / fps) - round(index * 1000 / fps))
@@ -133,15 +124,17 @@ class AnimationExporter:
             disposal=2,
             duration=durations,
             loop=0,
-            lossless=True
+            lossless=True,
         )
         print(f"Saved WEBP animation: {webp_filename}")
 
     def remove_dups(self, animation):
         animation.iterator_reset()
+
         while animation.iterator_next():
             index = animation.iterator_get()
-            if animation.get_image_distortion(animation.sequence[index - 1], metric='absolute') == 0:
+
+            if (animation.get_image_distortion(animation.sequence[index - 1], metric="absolute") == 0):
                 delay = animation.delay
                 animation.image_remove()
                 animation.iterator_set(index - 1)
@@ -149,7 +142,7 @@ class AnimationExporter:
 
     def save_gif(self, images, filename, fps, delay, period, scale, threshold, settings):
         durations = []
-        if settings.get('var_delay'):
+        if settings.get("var_delay"):
             for index in range(len(images)):
                 durations.append(round((index + 1) * 1000 / fps, -1) - round(index * 1000 / fps, -1))
         else:
@@ -165,17 +158,19 @@ class AnimationExporter:
                 arr = numpy.array(pil_frame)
                 with WandImg.from_array(arr) as wand_frame:
                     if threshold == 1:
-                        wand_frame.negate(channel='alpha')
-                        wand_frame.threshold(0, channel='alpha')
-                        wand_frame.negate(channel='alpha')
+                        wand_frame.negate(channel="alpha")
+                        wand_frame.threshold(0, channel="alpha")
+                        wand_frame.negate(channel="alpha")
                     else:
-                        wand_frame.threshold(threshold, channel='alpha')
-                    wand_frame.background_color = Color('None')
-                    wand_frame.alpha_channel = 'background'
-                    wand_frame.trim(color='None')
+                        wand_frame.threshold(threshold, channel="alpha")
+
+                    wand_frame.background_color = Color("None")
+                    wand_frame.alpha_channel = "background"
+                    wand_frame.trim(color="None")
                     wand_frame.delay = int(durations[index] / 10)
-                    wand_frame.dispose = 'background'
-                    if (wand_frame.size > (1, 1) or wand_frame[0][0].alpha > 0):
+                    wand_frame.dispose = "background"
+
+                    if wand_frame.size > (1, 1) or wand_frame[0][0].alpha > 0:
                         left = min(wand_frame.page_x, left)
                         upper = min(wand_frame.page_y, upper)
                         right = max(wand_frame.page_x + wand_frame.width, right)
@@ -190,27 +185,36 @@ class AnimationExporter:
             animation.iterator_reset()
             for i in range(len(animation.sequence)):
                 animation.iterator_set(i)
-                animation.quantize(number_colors=256, colorspace_type='undefined', dither=False)
+                animation.quantize(number_colors=256, colorspace_type="undefined", dither=False)
             # We remove duplicate frames twice because different frames may become the same after quantization.
             self.remove_dups(animation)
             for i in range(len(animation.sequence)):
                 animation.iterator_set(i)
                 animation.extent(width, height, -animation.page_x, -animation.page_y)
                 animation.reset_coords()
-                if settings.get('crop_option') != 'None':
+                
+                if settings.get("crop_option") != "None":
                     animation.crop(left, upper, right, lower)
-                animation.sample(width=int(animation.width * abs(scale)), height=int(animation.height * abs(scale)))
+                
+                animation.sample(
+                    width=int(animation.width * abs(scale)),
+                    height=int(animation.height * abs(scale)),
+                )
+
                 if scale < 0:
                     animation.flop()
+
             gif_filename = os.path.join(self.output_dir, f"{filename}.gif")
             animation.loop = 0
-            animation.options['comment'] = f'GIF generated by: TextureAtlas to GIF and Frames v{self.current_version}'
+            animation.options["comment"] = (
+                f"GIF generated by: TextureAtlas to GIF and Frames v{self.current_version}"
+            )
             animation.save(filename=gif_filename)
 
             print(f"Saved GIF animation: {gif_filename}")
 
     def save_apng(self, images, filename, fps, delay, period, scale, settings):
-        min_x, min_y, max_x, max_y = float('inf'), float('inf'), 0, 0
+        min_x, min_y, max_x, max_y = float("inf"), float("inf"), 0, 0
 
         for frame in images:
             bbox = frame.getbbox()
@@ -225,7 +229,7 @@ class AnimationExporter:
             return
 
         final_images = []
-        if settings.get('crop_option') == 'None':
+        if settings.get("crop_option") == "None":
             final_images = list(map(lambda x: self.scale_image(x, scale), images))
         else:
             for frame in images:
@@ -233,10 +237,12 @@ class AnimationExporter:
                 final_images.append(self.scale_image(cropped_frame, scale))
 
         durations = []
-        var_delay = settings.get('var_delay')
+        var_delay = settings.get("var_delay")
         if var_delay:
             for index in range(len(images)):
-                durations.append(int(round((index + 1) * 1000 / fps)) - int(round(index * 1000 / fps)))
+                start_time = int(round((index + 1) * 1000 / fps))
+                end_time = int(round(index * 1000 / fps))
+                durations.append(start_time - end_time)
         else:
             durations = [int(round(1000 / fps))] * len(final_images)
 
@@ -246,7 +252,9 @@ class AnimationExporter:
         apng_filename = os.path.join(self.output_dir, f"{filename}.png")
 
         metadata = PngInfo()
-        metadata.add_text("Comment", f'APNG generated by TextureAtlas to GIF and Frames v{self.current_version}')
+        metadata.add_text(
+            "Comment", f"APNG generated by TextureAtlas to GIF and Frames v{self.current_version}"
+        )
 
         final_images[0].save(
             apng_filename,
@@ -256,6 +264,6 @@ class AnimationExporter:
             loop=0,
             format="PNG",
             disposal=2,
-            pnginfo=metadata
+            pnginfo=metadata,
         )
         print(f"Saved APNG animation: {apng_filename}")

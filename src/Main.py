@@ -10,6 +10,7 @@ from tkinter import filedialog, ttk, messagebox
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
+
 DependenciesChecker.check_and_configure_imagemagick()
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
@@ -146,7 +147,7 @@ class TextureAtlasExtractorApp:
 
     def __init__(self, root):
         self.root = root
-        self.current_version = '1.9.5'
+        self.current_version = "1.9.5"
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
@@ -166,10 +167,12 @@ class TextureAtlasExtractorApp:
 
         try:
             current_os = platform.system()
-            assets_path = Utilities.find_root('assets')
+            assets_path = Utilities.find_root("assets")
             if current_os == "Windows":
                 if assets_path is None:
-                    raise FileNotFoundError("Could not find 'assets' folder in any parent directory.")
+                    raise FileNotFoundError(
+                        "Could not find 'assets' folder in any parent directory."
+                    )
                 self.root.iconbitmap(os.path.join(assets_path, "assets", "icon.ico"))
             else:
                 icon = tk.PhotoImage(file=os.path.join(assets_path, "assets", "icon.png"))
@@ -184,7 +187,11 @@ class TextureAtlasExtractorApp:
         self.setup_widgets()
 
     def setup_menus(self):
-        defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
+        defaults = (
+            self.app_config.get_extraction_defaults()
+            if hasattr(self.app_config, "get_extraction_defaults")
+            else {}
+        )
 
         file_menu = tk.Menu(self.menubar, tearoff=0)
         file_menu.add_command(
@@ -193,39 +200,57 @@ class TextureAtlasExtractorApp:
                 self.select_directory(self.input_dir, self.input_dir_label)
                 and self.settings_manager.animation_settings.clear()
                 and self.settings_manager.spritesheet_settings.clear()
-            )
+            ),
         )
-        file_menu.add_command(label="Select files", command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label))
+        file_menu.add_command(
+            label="Select files",
+            command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label),
+        )
         file_menu.add_command(label="Clear filelist and user settings", command=self.clear_filelist)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_closing)
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         import_menu = tk.Menu(self.menubar, tearoff=0)
-        import_menu.add_command(label="FNF: Import settings from character data file", command=lambda: self.fnf_utilities.fnf_select_char_data_directory(self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data))
+        import_menu.add_command(
+            label="FNF: Import settings from character data file",
+            command=lambda: self.fnf_utilities.fnf_select_char_data_directory(
+                self.settings_manager, self.data_dict, self.listbox_png, self.listbox_data
+            ),
+        )
         self.menubar.add_cascade(label="Import", menu=import_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
         help_menu.add_command(label="Manual", command=HelpWindow.create_main_help_window)
         help_menu.add_separator()
-        help_menu.add_command(label="FNF: GIF/WebP settings advice", command=HelpWindow.create_fnf_help_window)
+        help_menu.add_command(
+            label="FNF: GIF/WebP settings advice", command=HelpWindow.create_fnf_help_window
+        )
         self.menubar.add_cascade(label="Help", menu=help_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
         self.variable_delay = tk.BooleanVar(value=defaults.get("variable_delay"))
         self.fnf_idle_loop = tk.BooleanVar(value=defaults.get("fnf_idle_loop"))
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
-        advanced_menu.add_checkbutton(label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop)
+        advanced_menu.add_checkbutton(
+            label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop
+        )
         self.menubar.add_cascade(label="Advanced", menu=advanced_menu)
 
         options_menu = tk.Menu(self.menubar, tearoff=0)
         options_menu.add_command(label="Preferences", command=self.create_app_config_window)
         options_menu.add_separator()
-        options_menu.add_command(label="Check for Updates", command=lambda: self.check_version(force=True))
+        options_menu.add_command(
+            label="Check for Updates", command=lambda: self.check_version(force=True)
+        )
         self.menubar.add_cascade(label="Options", menu=options_menu)
 
     def setup_widgets(self):
-        defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
+        defaults = (
+            self.app_config.get_extraction_defaults()
+            if hasattr(self.app_config, "get_extraction_defaults")
+            else {}
+        )
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
         self.progress_bar.pack(pady=8)
@@ -233,7 +258,9 @@ class TextureAtlasExtractorApp:
         self.scrollbar_png = tk.Scrollbar(self.root)
         self.scrollbar_png.pack(side=tk.LEFT, fill=tk.Y)
 
-        self.listbox_png = tk.Listbox(self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set)
+        self.listbox_png = tk.Listbox(
+            self.root, width=30, exportselection=0, yscrollcommand=self.scrollbar_png.set
+        )
         self.listbox_png.pack(side=tk.LEFT, fill=tk.Y)
 
         self.scrollbar_xml = tk.Scrollbar(self.root)
@@ -250,10 +277,13 @@ class TextureAtlasExtractorApp:
         self.listbox_png.bind("<Button-3>", self.show_listbox_png_menu)
 
         self.input_dir = tk.StringVar()
-        self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2",
+        self.input_button = tk.Button(
+            self.root,
+            text="Select directory with spritesheets",
+            cursor="hand2",
             command=lambda: self.select_directory(self.input_dir, self.input_dir_label)
             and self.settings_manager.animation_settings.clear()
-            and self.settings_manager.spritesheet_settings.clear()
+            and self.settings_manager.spritesheet_settings.clear(),
         )
         self.input_button.pack(pady=2)
 
@@ -261,7 +291,12 @@ class TextureAtlasExtractorApp:
         self.input_dir_label.pack(pady=2)
 
         self.output_dir = tk.StringVar()
-        self.output_button = tk.Button(self.root, text="Select save directory", cursor="hand2", command=lambda: self.select_directory(self.output_dir, self.output_dir_label))
+        self.output_button = tk.Button(
+            self.root,
+            text="Select save directory",
+            cursor="hand2",
+            command=lambda: self.select_directory(self.output_dir, self.output_dir_label),
+        )
         self.output_button.pack(pady=2)
 
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
@@ -276,33 +311,43 @@ class TextureAtlasExtractorApp:
 
         # Animation settings
         self.animation_format = tk.StringVar(value=defaults.get("animation_format"))
-        self.animation_format_label = tk.Label(self.animation_settings_frame, text="Animation format:")
+        self.animation_format_label = tk.Label(
+            self.animation_settings_frame, text="Animation format:"
+        )
         self.animation_format_label.pack()
         self.animation_format_combobox = ttk.Combobox(
             self.animation_settings_frame,
             textvariable=self.animation_format,
             values=["None", "GIF", "WebP", "APNG"],
-            state="readonly"
+            state="readonly",
         )
-        self.animation_format_combobox.bind('<<ComboboxSelected>>', self._on_animation_format_change)
+        self.animation_format_combobox.bind(
+            "<<ComboboxSelected>>", self._on_animation_format_change
+        )
         self.animation_format_combobox.pack(pady=(0, 5))
 
         self.set_framerate = tk.DoubleVar(value=defaults.get("fps"))
         self.frame_rate_label = tk.Label(self.animation_settings_frame, text="Frame rate (fps):")
         self.frame_rate_label.pack()
-        self.frame_rate_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_framerate)
+        self.frame_rate_entry = tk.Entry(
+            self.animation_settings_frame, textvariable=self.set_framerate
+        )
         self.frame_rate_entry.pack(pady=(0, 5))
 
         self.set_loopdelay = tk.DoubleVar(value=defaults.get("delay"))
         self.loopdelay_label = tk.Label(self.animation_settings_frame, text="Loop delay (ms):")
         self.loopdelay_label.pack()
-        self.loopdelay_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_loopdelay)
+        self.loopdelay_entry = tk.Entry(
+            self.animation_settings_frame, textvariable=self.set_loopdelay
+        )
         self.loopdelay_entry.pack(pady=(0, 5))
 
         self.set_minperiod = tk.DoubleVar(value=defaults.get("period"))
         self.minperiod_label = tk.Label(self.animation_settings_frame, text="Minimum period (ms):")
         self.minperiod_label.pack()
-        self.minperiod_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_minperiod)
+        self.minperiod_entry = tk.Entry(
+            self.animation_settings_frame, textvariable=self.set_minperiod
+        )
         self.minperiod_entry.pack(pady=(0, 5))
 
         self.set_scale = tk.DoubleVar(value=defaults.get("scale"))
@@ -314,7 +359,9 @@ class TextureAtlasExtractorApp:
         self.set_threshold = tk.DoubleVar(value=defaults.get("threshold"))
         self.threshold_label = tk.Label(self.animation_settings_frame, text="Alpha threshold:")
         self.threshold_label.pack()
-        self.threshold_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_threshold)
+        self.threshold_entry = tk.Entry(
+            self.animation_settings_frame, textvariable=self.set_threshold
+        )
         self.threshold_entry.pack(pady=(0, 5))
 
         # Frame settings
@@ -324,16 +371,35 @@ class TextureAtlasExtractorApp:
         self.frame_format = tk.StringVar(value=defaults.get("frame_format"))
         self.frame_format_label = tk.Label(self.frame_settings_frame, text="Frame format:")
         self.frame_format_label.pack()
-        self.frame_format_menu = ttk.Combobox(self.frame_settings_frame, textvariable=self.frame_format, state="readonly")
-        self.frame_format_menu['values'] = ("None", "AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP")
-        self.frame_format_menu.bind('<<ComboboxSelected>>', self._on_frame_format_change)
+        self.frame_format_menu = ttk.Combobox(
+            self.frame_settings_frame, textvariable=self.frame_format, state="readonly"
+        )
+        self.frame_format_menu["values"] = (
+            "None",
+            "AVIF",
+            "BMP",
+            "DDS",
+            "PNG",
+            "TGA",
+            "TIFF",
+            "WebP",
+        )
+        self.frame_format_menu.bind("<<ComboboxSelected>>", self._on_frame_format_change)
         self.frame_format_menu.pack(pady=(0, 5))
 
         self.frame_selection = tk.StringVar(value=defaults.get("frame_selection", "All"))
         self.frame_selection_label = tk.Label(self.frame_settings_frame, text="Frame selection:")
         self.frame_selection_label.pack()
-        self.frame_selection_menu = ttk.Combobox(self.frame_settings_frame, textvariable=self.frame_selection)
-        self.frame_selection_menu['values'] = ("All", "No duplicates", "First", "Last", "First, Last")
+        self.frame_selection_menu = ttk.Combobox(
+            self.frame_settings_frame, textvariable=self.frame_selection
+        )
+        self.frame_selection_menu["values"] = (
+            "All",
+            "No duplicates",
+            "First",
+            "Last",
+            "First, Last",
+        )
         self.frame_selection_menu.pack(pady=(0, 5))
 
         self.frame_scale = tk.DoubleVar(value=defaults.get("frame_scale", 1.0))
@@ -352,10 +418,10 @@ class TextureAtlasExtractorApp:
         self.compression_widgets = {}
         self._setup_compression_widgets()
 
-        png_defaults = self.app_config.get_compression_defaults('png')
-        webp_defaults = self.app_config.get_compression_defaults('webp')
-        avif_defaults = self.app_config.get_compression_defaults('avif')
-        tiff_defaults = self.app_config.get_compression_defaults('tiff')
+        png_defaults = self.app_config.get_compression_defaults("png")
+        webp_defaults = self.app_config.get_compression_defaults("webp")
+        avif_defaults = self.app_config.get_compression_defaults("avif")
+        tiff_defaults = self.app_config.get_compression_defaults("tiff")
 
         self.png_compress_level = tk.IntVar(value=png_defaults.get("compress_level", 9))
         self.png_optimize = tk.BooleanVar(value=png_defaults.get("optimize", True))
@@ -367,8 +433,10 @@ class TextureAtlasExtractorApp:
         self.avif_quality = tk.IntVar(value=avif_defaults.get("quality", 100))
         self.avif_speed = tk.IntVar(value=avif_defaults.get("speed", 0))
         self.avif_lossless = tk.BooleanVar(value=avif_defaults.get("lossless", True))
-        self.tiff_compression_type = tk.StringVar(value=tiff_defaults.get("compression_type", "lzw"))
-        self.tiff_compression_type.trace_add('write', self._on_tiff_compression_type_change)
+        self.tiff_compression_type = tk.StringVar(
+            value=tiff_defaults.get("compression_type", "lzw")
+        )
+        self.tiff_compression_type.trace_add("write", self._on_tiff_compression_type_change)
         self.tiff_quality = tk.IntVar(value=tiff_defaults.get("quality", 90))
         self.tiff_optimize = tk.BooleanVar(value=tiff_defaults.get("optimize", True))
 
@@ -377,8 +445,10 @@ class TextureAtlasExtractorApp:
         self.crop_option = tk.StringVar(value=defaults.get("crop_option"))
         self.crop_menu_label = tk.Label(self.root, text="Cropping method:")
         self.crop_menu_label.pack()
-        self.crop_menu_menu = ttk.Combobox(self.root, textvariable=self.crop_option, state="readonly")
-        self.crop_menu_menu['values'] = ("None", "Animation based", "Frame based")
+        self.crop_menu_menu = ttk.Combobox(
+            self.root, textvariable=self.crop_option, state="readonly"
+        )
+        self.crop_menu_menu["values"] = ("None", "Animation based", "Frame based")
         self.crop_menu_menu.pack(pady=2)
 
         self.prefix_label = tk.Label(self.root, text="Filename prefix:")
@@ -391,30 +461,47 @@ class TextureAtlasExtractorApp:
         self.filename_format_label = tk.Label(self.root, text="Filename format:")
         self.filename_format_label.pack()
         self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
-        self.filename_format_menu['values'] = ("Standardized", "No spaces", "No special characters")
+        self.filename_format_menu["values"] = ("Standardized", "No spaces", "No special characters")
         self.filename_format_menu.pack(pady=2)
         # "Standardized" example: "GodsentGaslit - Catnap - Idle"
         # "No Spaces" example: "GodsentGaslit-Catnap-Idle"
         # "No Special Characters" example: "GodsentGaslitCatnapIdle"
 
         self.replace_rules = []
-        self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
+        self.replace_button = tk.Button(
+            self.root,
+            text="Find and replace",
+            cursor="hand2",
+            command=lambda: self.create_find_and_replace_window(),
+        )
         self.replace_button.pack(pady=2)
 
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
 
-        self.show_user_settings = tk.Button(self.button_frame, text="Show user settings", command=self.create_settings_window)
+        self.show_user_settings = tk.Button(
+            self.button_frame, text="Show user settings", command=self.create_settings_window
+        )
         self.show_user_settings.pack(side=tk.LEFT, padx=4)
 
-        self.process_button = tk.Button(self.button_frame, text="Start process", cursor="hand2", command=lambda: self.start_process())
+        self.process_button = tk.Button(
+            self.button_frame,
+            text="Start process",
+            cursor="hand2",
+            command=lambda: self.start_process(),
+        )
         self.process_button.pack(side=tk.LEFT, padx=2)
 
         self.author_label = tk.Label(self.root, text="Project started by AutisticLulu")
-        self.author_label.pack(side='bottom')
+        self.author_label.pack(side="bottom")
         self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
-        self.link1 = tk.Label(self.root, text="If you wish to contribute to the project, click here!", fg="blue", cursor="hand2")
-        self.link1.pack(side='bottom')
+        self.link1 = tk.Label(
+            self.root,
+            text="If you wish to contribute to the project, click here!",
+            fg="blue",
+            cursor="hand2",
+        )
+        self.link1.pack(side="bottom")
         self.link1.bind("<Button-1>", lambda e: self.contributeLink(self.linkSourceCode))
 
         self._on_frame_format_change()
@@ -426,11 +513,15 @@ class TextureAtlasExtractorApp:
 
     def check_version(self, force=False):
         try:
-            update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
+            update_settings = self.app_config.get(
+                "update_settings", self.app_config.DEFAULTS["update_settings"]
+            )
             check_on_startup = update_settings.get("check_updates_on_startup", True)
             auto_update = update_settings.get("auto_download_updates", False)
             if force or check_on_startup:
-                UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)
+                UpdateChecker.check_for_updates(
+                    self.current_version, auto_update=auto_update, parent_window=self.root
+                )
         except Exception as e:
             print(f"Update check failed: {e}")
 
@@ -454,11 +545,11 @@ class TextureAtlasExtractorApp:
             if variable == self.input_dir:
                 self.clear_filelist()
                 for filename in os.listdir(directory):
-                    if filename.endswith('.xml') or filename.endswith('.txt'):
-                        self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + '.png')
-                self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
-                self.listbox_png.bind('<Double-1>', self.on_double_click_spritesheet)
-                self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
+                    if filename.endswith(".xml") or filename.endswith(".txt"):
+                        self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + ".png")
+                self.listbox_png.bind("<<ListboxSelect>>", self.on_select_spritesheet)
+                self.listbox_png.bind("<Double-1>", self.on_double_click_spritesheet)
+                self.listbox_data.bind("<Double-1>", self.on_double_click_animation)
         return directory
 
     def select_files_manually(self, variable, label):
@@ -469,17 +560,19 @@ class TextureAtlasExtractorApp:
         if data_files and png_files:
             for file in data_files:
                 shutil.copy(file, self.temp_dir)
-                png_filename = os.path.splitext(os.path.basename(file))[0] + '.png'
+                png_filename = os.path.splitext(os.path.basename(file))[0] + ".png"
                 if any(png_filename == os.path.basename(png) for png in png_files):
-                    if png_filename not in [self.listbox_png.get(idx) for idx in range(self.listbox_png.size())]:
+                    if png_filename not in [
+                        self.listbox_png.get(idx) for idx in range(self.listbox_png.size())
+                    ]:
                         self.listbox_png.insert(tk.END, png_filename)
                         self.data_dict[png_filename] = os.path.basename(file)
             for file in png_files:
                 shutil.copy(file, self.temp_dir)
-            self.listbox_png.unbind('<<ListboxSelect>>')
-            self.listbox_data.unbind('<Double-1>')
-            self.listbox_png.bind('<<ListboxSelect>>', self.on_select_spritesheet)
-            self.listbox_data.bind('<Double-1>', self.on_double_click_animation)
+            self.listbox_png.unbind("<<ListboxSelect>>")
+            self.listbox_data.unbind("<Double-1>")
+            self.listbox_png.bind("<<ListboxSelect>>", self.on_select_spritesheet)
+            self.listbox_data.bind("<Double-1>", self.on_double_click_animation)
         return self.temp_dir
 
     def create_settings_window(self):
@@ -493,15 +586,17 @@ class TextureAtlasExtractorApp:
 
     def create_override_settings_window(self, window, name, settings_type):
         self.update_global_settings()
-        OverrideSettingsWindow(window, name, settings_type, self.settings_manager, self.store_input, app=self)
+        OverrideSettingsWindow(
+            window, name, settings_type, self.settings_manager, self.store_input, app=self
+        )
 
     def on_select_spritesheet(self, evt):
         self.listbox_data.delete(0, tk.END)
 
         png_filename = self.listbox_png.get(self.listbox_png.curselection())
         base_filename = os.path.splitext(png_filename)[0]
-        xml_filename = base_filename + '.xml'
-        txt_filename = base_filename + '.txt'
+        xml_filename = base_filename + ".xml"
+        txt_filename = base_filename + ".txt"
 
         directory = self.input_dir.get()
 
@@ -521,7 +616,7 @@ class TextureAtlasExtractorApp:
     def on_double_click_animation(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
         animation_name = self.listbox_data.get(self.listbox_data.curselection())
-        full_anim_name = spritesheet_name + '/' + animation_name
+        full_anim_name = spritesheet_name + "/" + animation_name
         new_window = tk.Toplevel()
         new_window.geometry("360x400")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
@@ -548,49 +643,86 @@ class TextureAtlasExtractorApp:
                 del self.data_dict[keys[selection[0]]]
 
             self.settings_manager.delete_spritesheet_settings(spritesheet_name)
-            #print(f"Removed: {spritesheet_name}")
+            # print(f"Removed: {spritesheet_name}")
 
             prefix = spritesheet_name + "/"
-            anims_to_delete = [key for key in self.settings_manager.animation_settings if key.startswith(prefix)]
+            anims_to_delete = [
+                key for key in self.settings_manager.animation_settings if key.startswith(prefix)
+            ]
             for anim in anims_to_delete:
                 self.settings_manager.delete_animation_settings(anim)
 
-    def preview_gif_window(self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+    def preview_gif_window(
+        self,
+        name,
+        settings_type,
+        fps_entry,
+        delay_entry,
+        period_entry,
+        scale_entry,
+        threshold_entry,
+        indices_entry,
+        frames_entry,
+    ):
         GifPreviewWindow.preview(
-            self, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry
+            self,
+            name,
+            settings_type,
+            fps_entry,
+            delay_entry,
+            period_entry,
+            scale_entry,
+            threshold_entry,
+            indices_entry,
+            frames_entry,
         )
 
     def show_gif_preview_window(self, gif_path, settings):
         GifPreviewWindow.show(gif_path, settings)
 
-    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry, filename_entry, frame_format_entry=None, frame_scale_entry=None):
+    def store_input(
+        self,
+        window,
+        name,
+        settings_type,
+        fps_entry,
+        delay_entry,
+        period_entry,
+        scale_entry,
+        threshold_entry,
+        indices_entry,
+        frames_entry,
+        filename_entry,
+        frame_format_entry=None,
+        frame_scale_entry=None,
+    ):
         settings = {}
         try:
-            if fps_entry.get() != '':
-                settings['fps'] = float(fps_entry.get())
-            if delay_entry.get() != '':
-                settings['delay'] = int(float(delay_entry.get()))
-            if period_entry.get() != '':
-                settings['period'] = int(float(period_entry.get()))
-            if scale_entry.get() != '':
+            if fps_entry.get() != "":
+                settings["fps"] = float(fps_entry.get())
+            if delay_entry.get() != "":
+                settings["delay"] = int(float(delay_entry.get()))
+            if period_entry.get() != "":
+                settings["period"] = int(float(period_entry.get()))
+            if scale_entry.get() != "":
                 if float(scale_entry.get()) == 0:
                     raise ValueError
-                settings['scale'] = float(scale_entry.get())
-            if threshold_entry.get() != '':
-                settings['threshold'] = min(max(float(threshold_entry.get()), 0), 1)
-            if indices_entry.get() != '':
-                indices = [int(ele) for ele in indices_entry.get().split(',')]
-                settings['indices'] = indices
-            if frames_entry.get() != '':
-                settings['frame_selection'] = frames_entry.get()
-            if filename_entry and filename_entry.get() != '':
-                settings['filename'] = filename_entry.get()
-            if frame_format_entry and frame_format_entry.get() != '':
-                settings['frame_format'] = frame_format_entry.get()
-            if frame_scale_entry and frame_scale_entry.get() != '':
+                settings["scale"] = float(scale_entry.get())
+            if threshold_entry.get() != "":
+                settings["threshold"] = min(max(float(threshold_entry.get()), 0), 1)
+            if indices_entry.get() != "":
+                indices = [int(ele) for ele in indices_entry.get().split(",")]
+                settings["indices"] = indices
+            if frames_entry.get() != "":
+                settings["frame_selection"] = frames_entry.get()
+            if filename_entry and filename_entry.get() != "":
+                settings["filename"] = filename_entry.get()
+            if frame_format_entry and frame_format_entry.get() != "":
+                settings["frame_format"] = frame_format_entry.get()
+            if frame_scale_entry and frame_scale_entry.get() != "":
                 if float(frame_scale_entry.get()) == 0:
                     raise ValueError("Frame scale cannot be zero")
-                settings['frame_scale'] = float(frame_scale_entry.get())
+                settings["frame_scale"] = float(frame_scale_entry.get())
         except ValueError as e:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             window.lift()
@@ -609,19 +741,19 @@ class TextureAtlasExtractorApp:
 
     def update_global_settings(self):
         compression_settings = {
-            'png_compress_level': self.png_compress_level.get(),
-            'png_optimize': self.png_optimize.get(),
-            'webp_lossless': self.webp_lossless.get(),
-            'webp_quality': self.webp_quality.get(),
-            'webp_method': self.webp_method.get(),
-            'webp_alpha_quality': self.webp_alpha_quality.get(),
-            'webp_exact': self.webp_exact.get(),
-            'avif_lossless': self.avif_lossless.get(),
-            'avif_quality': self.avif_quality.get(),
-            'avif_speed': self.avif_speed.get(),
-            'tiff_compression_type': self.tiff_compression_type.get(),
-            'tiff_quality': self.tiff_quality.get(),
-            'tiff_optimize': self.tiff_optimize.get(),
+            "png_compress_level": self.png_compress_level.get(),
+            "png_optimize": self.png_optimize.get(),
+            "webp_lossless": self.webp_lossless.get(),
+            "webp_quality": self.webp_quality.get(),
+            "webp_method": self.webp_method.get(),
+            "webp_alpha_quality": self.webp_alpha_quality.get(),
+            "webp_exact": self.webp_exact.get(),
+            "avif_lossless": self.avif_lossless.get(),
+            "avif_quality": self.avif_quality.get(),
+            "avif_speed": self.avif_speed.get(),
+            "tiff_compression_type": self.tiff_compression_type.get(),
+            "tiff_quality": self.tiff_quality.get(),
+            "tiff_optimize": self.tiff_optimize.get(),
         }
 
         self.settings_manager.set_global_settings(
@@ -665,13 +797,18 @@ class TextureAtlasExtractorApp:
         try:
             spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
 
-            extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager, app_config=self.app_config)
+            extractor = Extractor(
+                self.progress_bar,
+                self.current_version,
+                self.settings_manager,
+                app_config=self.app_config,
+            )
             extractor.process_directory(
                 self.input_dir.get(),
                 self.output_dir.get(),
                 self.progress_var,
                 self.root,
-                spritesheet_list=spritesheet_list
+                spritesheet_list=spritesheet_list,
             )
         finally:
             self.root.after(0, self._re_enable_process_button)
@@ -683,7 +820,7 @@ class TextureAtlasExtractorApp:
         frame_format = self.frame_format.get()
 
         for widget_info in self.compression_widgets.values():
-            widget_info['frame'].pack_forget()
+            widget_info["frame"].pack_forget()
 
         if frame_format == "PNG":
             self._show_png_compression_widgets()
@@ -703,74 +840,78 @@ class TextureAtlasExtractorApp:
         self.frame_compression_label.config(state="normal")
 
     def _show_png_compression_widgets(self):
-        widgets = self.compression_widgets['PNG']
-        widgets['frame'].pack(fill="x", pady=2)
+        widgets = self.compression_widgets["PNG"]
+        widgets["frame"].pack(fill="x", pady=2)
 
-        widgets['compress_level'].config(variable=self.png_compress_level)
-        widgets['optimize'].config(variable=self.png_optimize, command=self._on_png_optimize_change)
-        widgets['compress_level'].set(self.png_compress_level.get())
+        widgets["compress_level"].config(variable=self.png_compress_level)
+        widgets["optimize"].config(variable=self.png_optimize, command=self._on_png_optimize_change)
+        widgets["compress_level"].set(self.png_compress_level.get())
         if self.png_optimize.get():
-            widgets['optimize'].select()
+            widgets["optimize"].select()
         else:
-            widgets['optimize'].deselect()
+            widgets["optimize"].deselect()
 
         self._on_png_optimize_change()
 
     def _show_webp_compression_widgets(self):
-        widgets = self.compression_widgets['WebP']
-        widgets['frame'].pack(fill="x", pady=2)
+        widgets = self.compression_widgets["WebP"]
+        widgets["frame"].pack(fill="x", pady=2)
 
-        widgets['lossless'].config(variable=self.webp_lossless, command=self._on_webp_lossless_change)
-        widgets['quality'].config(variable=self.webp_quality)
-        widgets['method'].config(variable=self.webp_method)
-        widgets['alpha_quality'].config(variable=self.webp_alpha_quality)
-        widgets['exact'].config(variable=self.webp_exact)
+        widgets["lossless"].config(
+            variable=self.webp_lossless, command=self._on_webp_lossless_change
+        )
+        widgets["quality"].config(variable=self.webp_quality)
+        widgets["method"].config(variable=self.webp_method)
+        widgets["alpha_quality"].config(variable=self.webp_alpha_quality)
+        widgets["exact"].config(variable=self.webp_exact)
 
         if self.webp_lossless.get():
-            widgets['lossless'].select()
+            widgets["lossless"].select()
         else:
-            widgets['lossless'].deselect()
+            widgets["lossless"].deselect()
 
-        widgets['quality'].set(self.webp_quality.get())
-        widgets['method'].set(self.webp_method.get())
-        widgets['alpha_quality'].set(self.webp_alpha_quality.get())
+        widgets["quality"].set(self.webp_quality.get())
+        widgets["method"].set(self.webp_method.get())
+        widgets["alpha_quality"].set(self.webp_alpha_quality.get())
 
         if self.webp_exact.get():
-            widgets['exact'].select()
+            widgets["exact"].select()
         else:
-            widgets['exact'].deselect()
+            widgets["exact"].deselect()
 
         self._on_webp_lossless_change()
 
     def _show_avif_compression_widgets(self):
-        widgets = self.compression_widgets['AVIF']
-        widgets['frame'].pack(fill="x", pady=2)
+        widgets = self.compression_widgets["AVIF"]
+        widgets["frame"].pack(fill="x", pady=2)
 
-        widgets['lossless'].config(variable=self.avif_lossless, command=self._on_avif_lossless_change)
-        widgets['quality'].config(variable=self.avif_quality)
-        widgets['speed'].config(variable=self.avif_speed)
+        widgets["lossless"].config(
+            variable=self.avif_lossless, command=self._on_avif_lossless_change
+        )
+        widgets["quality"].config(variable=self.avif_quality)
+        widgets["speed"].config(variable=self.avif_speed)
         if self.avif_lossless.get():
-            widgets['lossless'].select()
+            widgets["lossless"].select()
         else:
-            widgets['lossless'].deselect()
-        widgets['quality'].set(self.avif_quality.get())
-        widgets['speed'].set(self.avif_speed.get())
+            widgets["lossless"].deselect()
+        widgets["quality"].set(self.avif_quality.get())
+        widgets["speed"].set(self.avif_speed.get())
 
         self._on_avif_lossless_change()
 
     def _show_tiff_compression_widgets(self):
-        widgets = self.compression_widgets['TIFF']
-        widgets['frame'].pack(fill="x", pady=2)
+        widgets = self.compression_widgets["TIFF"]
+        widgets["frame"].pack(fill="x", pady=2)
 
-        widgets['type'].config(textvariable=self.tiff_compression_type)
-        widgets['quality'].config(variable=self.tiff_quality)
-        widgets['optimize'].config(variable=self.tiff_optimize)
-        widgets['type'].set(self.tiff_compression_type.get())
-        widgets['quality'].set(self.tiff_quality.get())
+        widgets["type"].config(textvariable=self.tiff_compression_type)
+        widgets["quality"].config(variable=self.tiff_quality)
+        widgets["optimize"].config(variable=self.tiff_optimize)
+        widgets["type"].set(self.tiff_compression_type.get())
+        widgets["quality"].set(self.tiff_quality.get())
         if self.tiff_optimize.get():
-            widgets['optimize'].select()
+            widgets["optimize"].select()
         else:
-            widgets['optimize'].deselect()
+            widgets["optimize"].deselect()
 
         self._on_tiff_compression_type_change()
 
@@ -783,7 +924,7 @@ class TextureAtlasExtractorApp:
             self.frame_compression_label.config(state="disabled")
 
             for widget_info in self.compression_widgets.values():
-                widget_info['frame'].pack_forget()
+                widget_info["frame"].pack_forget()
         else:
             self.frame_selection_label.config(state="normal")
             self.frame_selection_menu.config(state="readonly")
@@ -830,7 +971,9 @@ class TextureAtlasExtractorApp:
         png_compress_level_frame.pack(fill="x", pady=2)
         png_compress_level_label = tk.Label(png_compress_level_frame, text="Compress Level (0-9):")
         png_compress_level_label.pack(side="left")
-        png_compress_level_scale = tk.Scale(png_compress_level_frame, from_=0, to=9, orient="horizontal")
+        png_compress_level_scale = tk.Scale(
+            png_compress_level_frame, from_=0, to=9, orient="horizontal"
+        )
         png_compress_level_scale.pack(side="right", fill="x", expand=True)
 
         png_optimize_frame = tk.Frame(png_frame)
@@ -840,10 +983,10 @@ class TextureAtlasExtractorApp:
         png_optimize_check = tk.Checkbutton(png_optimize_frame)
         png_optimize_check.pack(side="right")
 
-        self.compression_widgets['PNG'] = {
-            'frame': png_frame,
-            'compress_level': png_compress_level_scale,
-            'optimize': png_optimize_check
+        self.compression_widgets["PNG"] = {
+            "frame": png_frame,
+            "compress_level": png_compress_level_scale,
+            "optimize": png_optimize_check,
         }
 
         Tooltip(
@@ -855,7 +998,7 @@ class TextureAtlasExtractorApp:
                 "• 4-6: Medium compression\n"
                 "• 7-9: High compression (slowest, smallest file)\n"
                 "This doesn't affect the quality of the image, only the file size"
-            )
+            ),
         )
         Tooltip(
             png_compress_level_scale,
@@ -866,7 +1009,7 @@ class TextureAtlasExtractorApp:
                 "• 4-6: Medium compression\n"
                 "• 7-9: High compression (slowest, smallest file)\n"
                 "This doesn't affect the quality of the image, only the file size"
-            )
+            ),
         )
         Tooltip(
             png_optimize_label,
@@ -876,7 +1019,7 @@ class TextureAtlasExtractorApp:
                 "When enabled, compression level is automatically set to 9\n"
                 "Results in slower processing but better compression\n\n"
                 "This doesn't affect the quality of the image, only the file size"
-            )
+            ),
         )
         Tooltip(
             png_optimize_check,
@@ -886,7 +1029,7 @@ class TextureAtlasExtractorApp:
                 "When enabled, compression level is automatically set to 9\n"
                 "Results in slower processing but better compression\n\n"
                 "This doesn't affect the quality of the image, only the file size"
-            )
+            ),
         )
 
         webp_frame = tk.Frame(self.compression_frame)
@@ -915,7 +1058,9 @@ class TextureAtlasExtractorApp:
         webp_alpha_quality_frame.pack(fill="x", pady=2)
         webp_alpha_quality_label = tk.Label(webp_alpha_quality_frame, text="Alpha Quality (0-100):")
         webp_alpha_quality_label.pack(side="left")
-        webp_alpha_quality_scale = tk.Scale(webp_alpha_quality_frame, from_=0, to=100, orient="horizontal")
+        webp_alpha_quality_scale = tk.Scale(
+            webp_alpha_quality_frame, from_=0, to=100, orient="horizontal"
+        )
         webp_alpha_quality_scale.pack(side="right", fill="x", expand=True)
 
         webp_exact_frame = tk.Frame(webp_frame)
@@ -925,13 +1070,13 @@ class TextureAtlasExtractorApp:
         webp_exact_check = tk.Checkbutton(webp_exact_frame)
         webp_exact_check.pack(side="right")
 
-        self.compression_widgets['WebP'] = {
-            'frame': webp_frame,
-            'lossless': webp_lossless_check,
-            'quality': webp_quality_scale,
-            'method': webp_method_scale,
-            'alpha_quality': webp_alpha_quality_scale,
-            'exact': webp_exact_check
+        self.compression_widgets["WebP"] = {
+            "frame": webp_frame,
+            "lossless": webp_lossless_check,
+            "quality": webp_quality_scale,
+            "method": webp_method_scale,
+            "alpha_quality": webp_alpha_quality_scale,
+            "exact": webp_exact_check,
         }
 
         Tooltip(
@@ -941,7 +1086,7 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Perfect quality preservation, larger file size\n"
                 "• Disabled: Lossy compression with adjustable quality\n"
                 "When enabled, quality sliders are disabled"
-            )
+            ),
         )
         Tooltip(
             webp_lossless_check,
@@ -950,7 +1095,7 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Perfect quality preservation, larger file size\n"
                 "• Disabled: Lossy compression with adjustable quality\n"
                 "When enabled, quality sliders are disabled"
-            )
+            ),
         )
         Tooltip(
             webp_quality_label,
@@ -960,7 +1105,7 @@ class TextureAtlasExtractorApp:
                 "• 75: Balanced quality/size\n"
                 "• 100: Highest quality, largest file\n"
                 "Only used in lossy mode"
-            )
+            ),
         )
         Tooltip(
             webp_quality_scale,
@@ -970,7 +1115,7 @@ class TextureAtlasExtractorApp:
                 "• 75: Balanced quality/size\n"
                 "• 100: Highest quality, largest file\n"
                 "Only used in lossy mode"
-            )
+            ),
         )
         Tooltip(
             webp_method_label,
@@ -980,7 +1125,7 @@ class TextureAtlasExtractorApp:
                 "• 3: Balanced speed/compression\n"
                 "• 6: Slowest encoding, best compression\n"
                 "Higher values take more time but produce smaller files"
-            )
+            ),
         )
         Tooltip(
             webp_method_scale,
@@ -990,7 +1135,7 @@ class TextureAtlasExtractorApp:
                 "• 3: Balanced speed/compression\n"
                 "• 6: Slowest encoding, best compression\n"
                 "Higher values take more time but produce smaller files"
-            )
+            ),
         )
         Tooltip(
             webp_alpha_quality_label,
@@ -1000,7 +1145,7 @@ class TextureAtlasExtractorApp:
                 "• 0: Maximum alpha compression\n"
                 "• 100: Best alpha quality\n"
                 "Only used in lossy mode"
-            )
+            ),
         )
         Tooltip(
             webp_alpha_quality_scale,
@@ -1010,7 +1155,7 @@ class TextureAtlasExtractorApp:
                 "• 0: Maximum alpha compression\n"
                 "• 100: Best alpha quality\n"
                 "Only used in lossy mode"
-            )
+            ),
         )
         Tooltip(
             webp_exact_label,
@@ -1019,7 +1164,7 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Preserves RGB values in transparent areas\n"
                 "• Disabled: Allows optimization of transparent pixels\n"
                 "Enable for better quality when transparency matters"
-            )
+            ),
         )
         Tooltip(
             webp_exact_check,
@@ -1028,7 +1173,7 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Preserves RGB values in transparent areas\n"
                 "• Disabled: Allows optimization of transparent pixels\n"
                 "Enable for better quality when transparency matters"
-            )
+            ),
         )
 
         avif_frame = tk.Frame(self.compression_frame)
@@ -1050,11 +1195,11 @@ class TextureAtlasExtractorApp:
         avif_speed_scale = tk.Scale(avif_speed_frame, from_=0, to=10, orient="horizontal")
         avif_speed_scale.pack(side="right", fill="x", expand=True)
 
-        self.compression_widgets['AVIF'] = {
-            'frame': avif_frame,
-            'lossless': avif_lossless_check,
-            'quality': avif_quality_scale,
-            'speed': avif_speed_scale
+        self.compression_widgets["AVIF"] = {
+            "frame": avif_frame,
+            "lossless": avif_lossless_check,
+            "quality": avif_quality_scale,
+            "speed": avif_speed_scale,
         }
 
         Tooltip(
@@ -1064,7 +1209,7 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Perfect quality preservation, larger file size\n"
                 "• Disabled: Lossy compression with adjustable quality\n"
                 "When enabled, quality slider is disabled"
-            )
+            ),
         )
         Tooltip(
             avif_quality_scale,
@@ -1073,7 +1218,7 @@ class TextureAtlasExtractorApp:
                 "• 0: Lowest quality, smallest file\n"
                 "• 100: Highest quality, largest file\n"
                 "Only used in lossy mode"
-            )
+            ),
         )
         Tooltip(
             avif_speed_scale,
@@ -1083,14 +1228,16 @@ class TextureAtlasExtractorApp:
                 "• 5: Balanced speed/compression\n"
                 "• 10: Fastest encoding, larger file\n"
                 "Higher values encode faster but produce larger files.\nAVIF may take much longer to encode than other formats."
-            )
+            ),
         )
 
         tiff_frame = tk.Frame(self.compression_frame)
         tiff_type_frame = tk.Frame(tiff_frame)
         tiff_type_frame.pack(fill="x", pady=2)
         tk.Label(tiff_type_frame, text="Compression Type:").pack(side="left")
-        tiff_type_combo = ttk.Combobox(tiff_type_frame, values=["none", "lzw", "zip", "jpeg"], state="readonly")
+        tiff_type_combo = ttk.Combobox(
+            tiff_type_frame, values=["none", "lzw", "zip", "jpeg"], state="readonly"
+        )
         tiff_type_combo.pack(side="right")
 
         tiff_quality_frame = tk.Frame(tiff_frame)
@@ -1105,11 +1252,11 @@ class TextureAtlasExtractorApp:
         tiff_optimize_check = tk.Checkbutton(tiff_optimize_frame)
         tiff_optimize_check.pack(side="right")
 
-        self.compression_widgets['TIFF'] = {
-            'frame': tiff_frame,
-            'type': tiff_type_combo,
-            'quality': tiff_quality_scale,
-            'optimize': tiff_optimize_check
+        self.compression_widgets["TIFF"] = {
+            "frame": tiff_frame,
+            "type": tiff_type_combo,
+            "quality": tiff_quality_scale,
+            "optimize": tiff_optimize_check,
         }
 
         Tooltip(
@@ -1120,7 +1267,7 @@ class TextureAtlasExtractorApp:
                 "• LZW: Lossless compression (good for graphics)\n"
                 "• ZIP: Lossless compression (good for photos)\n"
                 "• JPEG: Lossy compression (smallest files, adjustable quality)"
-            )
+            ),
         )
         Tooltip(
             tiff_quality_scale,
@@ -1128,7 +1275,7 @@ class TextureAtlasExtractorApp:
                 "TIFF JPEG quality (0-100):\n"
                 "Only used when compression type is JPEG\n"
                 "• 100: Highest quality, largest file"
-            )
+            ),
         )
         Tooltip(
             tiff_optimize_check,
@@ -1137,92 +1284,100 @@ class TextureAtlasExtractorApp:
                 "• Enabled: Use additional optimization techniques\n"
                 "Results in better compression but slower processing\n"
                 "Not available when compression type is 'None'"
-            )
+            ),
         )
 
         for widget_info in self.compression_widgets.values():
-            widget_info['frame'].pack_forget()
+            widget_info["frame"].pack_forget()
 
     def _initialize_compression_defaults(self):
-        widgets = self.compression_widgets.get('PNG', {})
-        if 'compress_level' in widgets:
-            widgets['compress_level'].set(self.png_compress_level.get())
-        if 'optimize' in widgets:
-            widgets['optimize'].select() if self.png_optimize.get() else widgets['optimize'].deselect()
+        widgets = self.compression_widgets.get("PNG", {})
+        if "compress_level" in widgets:
+            widgets["compress_level"].set(self.png_compress_level.get())
+        if "optimize" in widgets:
+            widgets["optimize"].select() if self.png_optimize.get() else widgets[
+                "optimize"
+            ].deselect()
 
-        widgets = self.compression_widgets.get('WebP', {})
-        if 'lossless' in widgets:
-            widgets['lossless'].select() if self.webp_lossless.get() else widgets['lossless'].deselect()
-        if 'quality' in widgets:
-            widgets['quality'].set(self.webp_quality.get())
-        if 'method' in widgets:
-            widgets['method'].set(self.webp_method.get())
-        if 'alpha_quality' in widgets:
-            widgets['alpha_quality'].set(self.webp_alpha_quality.get())
-        if 'exact' in widgets:
-            widgets['exact'].select() if self.webp_exact.get() else widgets['exact'].deselect()
+        widgets = self.compression_widgets.get("WebP", {})
+        if "lossless" in widgets:
+            widgets["lossless"].select() if self.webp_lossless.get() else widgets[
+                "lossless"
+            ].deselect()
+        if "quality" in widgets:
+            widgets["quality"].set(self.webp_quality.get())
+        if "method" in widgets:
+            widgets["method"].set(self.webp_method.get())
+        if "alpha_quality" in widgets:
+            widgets["alpha_quality"].set(self.webp_alpha_quality.get())
+        if "exact" in widgets:
+            widgets["exact"].select() if self.webp_exact.get() else widgets["exact"].deselect()
 
-        widgets = self.compression_widgets.get('AVIF', {})
-        if 'lossless' in widgets:
-            widgets['lossless'].select() if self.avif_lossless.get() else widgets['lossless'].deselect()
-        if 'quality' in widgets:
-            widgets['quality'].set(self.avif_quality.get())
-        if 'speed' in widgets:
-            widgets['speed'].set(self.avif_speed.get())
+        widgets = self.compression_widgets.get("AVIF", {})
+        if "lossless" in widgets:
+            widgets["lossless"].select() if self.avif_lossless.get() else widgets[
+                "lossless"
+            ].deselect()
+        if "quality" in widgets:
+            widgets["quality"].set(self.avif_quality.get())
+        if "speed" in widgets:
+            widgets["speed"].set(self.avif_speed.get())
 
-        widgets = self.compression_widgets.get('TIFF', {})
-        if 'type' in widgets:
-            widgets['type'].set(self.tiff_compression_type.get())
-        if 'quality' in widgets:
-            widgets['quality'].set(self.tiff_quality.get())
-        if 'optimize' in widgets:
-            widgets['optimize'].select() if self.tiff_optimize.get() else widgets['optimize'].deselect()
+        widgets = self.compression_widgets.get("TIFF", {})
+        if "type" in widgets:
+            widgets["type"].set(self.tiff_compression_type.get())
+        if "quality" in widgets:
+            widgets["quality"].set(self.tiff_quality.get())
+        if "optimize" in widgets:
+            widgets["optimize"].select() if self.tiff_optimize.get() else widgets[
+                "optimize"
+            ].deselect()
 
     def _on_png_optimize_change(self):
-        if hasattr(self, 'compression_widgets') and 'PNG' in self.compression_widgets:
-            widgets = self.compression_widgets['PNG']
-            if 'compress_level' in widgets and 'optimize' in widgets:
+        if hasattr(self, "compression_widgets") and "PNG" in self.compression_widgets:
+            widgets = self.compression_widgets["PNG"]
+            if "compress_level" in widgets and "optimize" in widgets:
                 if self.png_optimize.get():
-                    widgets['compress_level'].config(state="disabled")
+                    widgets["compress_level"].config(state="disabled")
                     self.png_compress_level.set(9)
                 else:
-                    widgets['compress_level'].config(state="normal")
+                    widgets["compress_level"].config(state="normal")
 
     def _on_webp_lossless_change(self):
-        if hasattr(self, 'compression_widgets') and 'WebP' in self.compression_widgets:
-            widgets = self.compression_widgets['WebP']
-            if 'quality' in widgets and 'alpha_quality' in widgets and 'lossless' in widgets:
+        if hasattr(self, "compression_widgets") and "WebP" in self.compression_widgets:
+            widgets = self.compression_widgets["WebP"]
+            if "quality" in widgets and "alpha_quality" in widgets and "lossless" in widgets:
                 if self.webp_lossless.get():
-                    widgets['quality'].config(state="disabled")
-                    widgets['alpha_quality'].config(state="disabled")
+                    widgets["quality"].config(state="disabled")
+                    widgets["alpha_quality"].config(state="disabled")
                 else:
-                    widgets['quality'].config(state="normal")
-                    widgets['alpha_quality'].config(state="normal")
+                    widgets["quality"].config(state="normal")
+                    widgets["alpha_quality"].config(state="normal")
 
     def _on_avif_lossless_change(self):
-        if hasattr(self, 'compression_widgets') and 'AVIF' in self.compression_widgets:
-            widgets = self.compression_widgets['AVIF']
-            if 'quality' in widgets and 'lossless' in widgets:
+        if hasattr(self, "compression_widgets") and "AVIF" in self.compression_widgets:
+            widgets = self.compression_widgets["AVIF"]
+            if "quality" in widgets and "lossless" in widgets:
                 if self.avif_lossless.get():
-                    widgets['quality'].config(state="disabled")
+                    widgets["quality"].config(state="disabled")
                 else:
-                    widgets['quality'].config(state="normal")
+                    widgets["quality"].config(state="normal")
 
     def _on_tiff_compression_type_change(self, *args):
-        if hasattr(self, 'compression_widgets') and 'TIFF' in self.compression_widgets:
-            widgets = self.compression_widgets['TIFF']
-            if 'type' in widgets and 'quality' in widgets and 'optimize' in widgets:
+        if hasattr(self, "compression_widgets") and "TIFF" in self.compression_widgets:
+            widgets = self.compression_widgets["TIFF"]
+            if "type" in widgets and "quality" in widgets and "optimize" in widgets:
                 compression_type = self.tiff_compression_type.get()
 
                 if compression_type == "none":
-                    widgets['quality'].config(state="disabled")
-                    widgets['optimize'].config(state="disabled")
+                    widgets["quality"].config(state="disabled")
+                    widgets["optimize"].config(state="disabled")
                 elif compression_type == "jpeg":
-                    widgets['quality'].config(state="normal")
-                    widgets['optimize'].config(state="normal")
+                    widgets["quality"].config(state="normal")
+                    widgets["optimize"].config(state="normal")
                 else:
-                    widgets['quality'].config(state="disabled")
-                    widgets['optimize'].config(state="normal")
+                    widgets["quality"].config(state="disabled")
+                    widgets["optimize"].config(state="normal")
 
 
 if __name__ == "__main__":
@@ -1230,7 +1385,9 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="TextureAtlas to GIF and Frames")
         parser.add_argument("--update", action="store_true", help="Run in update mode")
         parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
-        parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
+        parser.add_argument(
+            "--wait", type=int, default=3, help="Seconds to wait before starting update"
+        )
         args = parser.parse_args()
 
         if args.update:
@@ -1240,6 +1397,7 @@ if __name__ == "__main__":
             if args.wait > 0:
                 print(f"Waiting {args.wait} seconds...")
                 import time
+
                 time.sleep(args.wait)
 
             exe_mode = args.exe_mode or Utilities.is_compiled()
@@ -1264,17 +1422,21 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Fatal error during startup: {e}")
         import traceback
+
         traceback.print_exc()
 
         if Utilities.is_compiled():
             try:
                 root = tk.Tk()
                 root.withdraw()
-                messagebox.showerror("Startup Error",
-                                   f"The application failed to start:\n\n{str(e)}\n\nPlease check the console output for more details.")
+                messagebox.showerror(
+                    "Startup Error",
+                    f"The application failed to start:\n\n{str(e)}\n\nPlease check the console output for more details.",
+                )
                 root.destroy()
-            except:
+            except Exception:
                 pass
 
         import sys
+
         sys.exit(1)

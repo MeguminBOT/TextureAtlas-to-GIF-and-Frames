@@ -158,7 +158,7 @@ class UpdateWindow:
             self.console_text.config(state=tk.DISABLED)
 
             self.window.update_idletasks()
-        except:
+        except Exception:
             pass
 
     def set_progress(self, value, status_text=""):
@@ -171,7 +171,7 @@ class UpdateWindow:
             if status_text:
                 self.progress_label.config(text=status_text)
             self.window.update_idletasks()
-        except:
+        except Exception:
             pass
 
     def enable_restart(self, restart_callback):
@@ -181,7 +181,7 @@ class UpdateWindow:
     def _enable_restart_safe(self, restart_callback):
         try:
             self.restart_btn.config(state=tk.NORMAL, command=restart_callback)
-        except:
+        except Exception:
             pass
 
     def close(self):
@@ -189,7 +189,7 @@ class UpdateWindow:
             if hasattr(self, 'window') and self.window:
                 self.window.grab_release()
                 self.window.destroy()
-        except:
+        except Exception:
             pass
 
 
@@ -234,7 +234,7 @@ class UpdateUtilities:
         if not os.path.exists(file_path):
             return False
         try:
-            with open(file_path, 'r+b') as f:
+            with open(file_path, 'r+b'):
                 pass
             return False
         except (IOError, OSError, PermissionError):
@@ -329,7 +329,7 @@ class Updater:
         if self.use_gui:
             try:
                 self.console = UpdateWindow("TextureAtlas to GIF and Frames Updater", 650, 480)
-            except:
+            except Exception:
                 self.use_gui = False
                 print("Failed to create GUI, falling back to console mode")
         self._setup_log_file()
@@ -670,7 +670,7 @@ class Updater:
                 if os.path.exists(main_py):
                     try:
                         subprocess.Popen([sys.executable, main_py], cwd=os.path.dirname(main_py))
-                    except:
+                    except Exception:
                         pass
                 sys.exit(0)
 
@@ -828,7 +828,7 @@ class Updater:
                                 if os.path.exists(backup_name):
                                     try:
                                         os.remove(backup_name)
-                                    except:
+                                    except Exception:
                                         pass
                                 try:
                                     os.rename(dst_path, backup_name)
@@ -869,7 +869,7 @@ class Updater:
 
                 if main_exe:
                     try:
-                        self.log(f"Attempting to restart application...", "info")
+                        self.log("Attempting to restart application...", "info")
                         self.log(f"Executable: {main_exe}", "info")
                         self.log(f"Working directory: {app_root}", "info")
 
@@ -882,7 +882,7 @@ class Updater:
                             process = subprocess.Popen([main_exe], cwd=app_root)
                             self.log(f"Started process with PID: {process.pid}", "success")
 
-                        self.log(f"Application restart initiated successfully", "success")
+                        self.log("Application restart initiated successfully", "success")
 
                         # Give the process a moment to start
                         import time

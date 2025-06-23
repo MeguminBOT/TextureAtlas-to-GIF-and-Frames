@@ -51,7 +51,7 @@ class Utilities:
 
     @staticmethod
     def is_compiled():
-        if '__compiled__' in globals():
+        if "__compiled__" in globals():
             return True
         else:
             return False
@@ -62,11 +62,11 @@ class Utilities:
 
     @staticmethod
     def replace_invalid_chars(name):
-        return re.sub(r'[\\/:*?"<>|]', '_', name).rstrip()
+        return re.sub(r'[\\/:*?"<>|]', "_", name).rstrip()
 
     @staticmethod
     def strip_trailing_digits(name):
-        return re.sub(r'\d{1,4}(?:\.png)?$', '', name).rstrip()
+        return re.sub(r"\d{1,4}(?:\.png)?$", "", name).rstrip()
 
     @staticmethod
     def format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules):

@@ -57,16 +57,18 @@ class DependenciesChecker:
 
     @staticmethod
     def configure_imagemagick():
-        imagemagick_path = Utilities.find_root('ImageMagick')
+        imagemagick_path = Utilities.find_root("ImageMagick")
         if imagemagick_path is None:
             raise FileNotFoundError("Could not find 'ImageMagick' folder in any parent directory.")
-        dll_path = os.path.join(imagemagick_path, 'ImageMagick')
+        dll_path = os.path.join(imagemagick_path, "ImageMagick")
         if not os.path.isdir(dll_path):
-            raise FileNotFoundError(f"Expected ImageMagick folder but couldn't be found at: {dll_path}")
+            raise FileNotFoundError(
+                f"Expected ImageMagick folder but couldn't be found at: {dll_path}"
+            )
 
-        os.environ['PATH'] = dll_path + os.pathsep + os.environ.get('PATH', '')
-        os.environ['MAGICK_HOME'] = dll_path
-        os.environ['MAGICK_CODER_MODULE_PATH'] = dll_path
+        os.environ["PATH"] = dll_path + os.pathsep + os.environ.get("PATH", "")
+        os.environ["MAGICK_HOME"] = dll_path
+        os.environ["MAGICK_CODER_MODULE_PATH"] = dll_path
 
         print(f"Using bundled ImageMagick from: {dll_path}")
 
@@ -85,11 +87,16 @@ class DependenciesChecker:
             except Exception as e:
                 print(f"Failed to configure bundled ImageMagick: {e}")
 
-        msg = ("ImageMagick not found or failed to initialize.\n\nMake sure you followed install steps correctly.\n"
-               "If the issue persists, install ImageMagick manually.")
+        msg = (
+            "ImageMagick not found or failed to initialize.\n\nMake sure you followed install steps correctly.\n"
+            "If the issue persists, install ImageMagick manually."
+        )
         links = [
-            ("Installation Steps", "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation"),
-            ("Install ImageMagick", "https://imagemagick.org/script/download.php")
+            (
+                "Installation Steps",
+                "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation",
+            ),
+            ("Install ImageMagick", "https://imagemagick.org/script/download.php"),
         ]
         DependenciesChecker.show_error_popup_with_links(msg, links)
         raise Exception(msg)

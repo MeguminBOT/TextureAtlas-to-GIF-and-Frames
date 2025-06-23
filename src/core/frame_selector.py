@@ -31,21 +31,21 @@ class FrameSelector:
     @staticmethod
     def get_kept_frames(settings, single_frame, image_tuples):
         if single_frame:
-            return ['0']
+            return ["0"]
 
-        kept_frames = settings.get('frames')
+        kept_frames = settings.get("frames")
         if kept_frames is None:
-            kept_frames = 'All'
+            kept_frames = "All"
 
-        if kept_frames == 'All':
+        if kept_frames == "All":
             return [str(i) for i in range(len(image_tuples))]
-        elif kept_frames == 'First':
-            return ['0']
-        elif kept_frames == 'Last':
-            return ['-1']
-        elif kept_frames == 'First, Last':
-            return ['0', '-1']
-        elif kept_frames == 'No duplicates':
+        elif kept_frames == "First":
+            return ["0"]
+        elif kept_frames == "Last":
+            return ["-1"]
+        elif kept_frames == "First, Last":
+            return ["0", "-1"]
+        elif kept_frames == "No duplicates":
             unique_frames = []
             unique_indices = []
             for i, frame in enumerate(image_tuples):
@@ -54,23 +54,23 @@ class FrameSelector:
                     unique_indices.append(str(i))
             return unique_indices
         else:
-            return kept_frames.split(',')
+            return kept_frames.split(",")
 
     @staticmethod
     def get_kept_frame_indices(kept_frames, image_tuples):
         kept_frame_indices = set()
 
         if isinstance(kept_frames, str):
-            kept_frames = kept_frames.split(',')
+            kept_frames = kept_frames.split(",")
 
         for entry in kept_frames:
             entry = entry.strip()
 
-            if '--' in entry:  # Detect ranges like "-1--4"
+            if "--" in entry:  # Detect ranges like "-1--4"
                 try:
-                    split_index = entry[1:].find('-') + 1
+                    split_index = entry[1:].find("-") + 1
                     start = int(entry[:split_index])
-                    end = int(entry[split_index + 1:])
+                    end = int(entry[split_index + 1 :])
 
                     if start < 0:
                         start += len(image_tuples)
@@ -78,24 +78,32 @@ class FrameSelector:
                         end += len(image_tuples)
 
                     if start <= end:
-                        kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+                        kept_frame_indices.update(
+                            range(max(0, start), min(len(image_tuples), end + 1))
+                        )
                     else:
-                        kept_frame_indices.update(range(max(0, end), min(len(image_tuples), start + 1))[::-1])
+                        kept_frame_indices.update(
+                            range(max(0, end), min(len(image_tuples), start + 1))[::-1]
+                        )
                 except ValueError:
                     continue
 
-            elif '-' in entry and not entry.lstrip('-').isdigit():  # Detect ranges like "0-3"
+            elif "-" in entry and not entry.lstrip("-").isdigit():  # Detect ranges like "0-3"
                 try:
-                    start, end = map(int, entry.split('-'))
+                    start, end = map(int, entry.split("-"))
                     if start < 0:
                         start += len(image_tuples)
                     if end < 0:
                         end += len(image_tuples)
 
                     if start <= end:
-                        kept_frame_indices.update(range(max(0, start), min(len(image_tuples), end + 1)))
+                        kept_frame_indices.update(
+                            range(max(0, start), min(len(image_tuples), end + 1))
+                        )
                     else:
-                        kept_frame_indices.update(range(max(0, end), min(len(image_tuples), start + 1))[::-1])
+                        kept_frame_indices.update(
+                            range(max(0, end), min(len(image_tuples), start + 1))[::-1]
+                        )
                 except ValueError:
                     continue
 
