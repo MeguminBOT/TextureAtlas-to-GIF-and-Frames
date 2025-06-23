@@ -22,7 +22,7 @@ Version history and changelog for TextureAtlas to GIF and Frames.
 ## 📋 Current Version
 
 ### Version 1.9.5 (Current)
-Release date: **2025-06-17**
+Release date: **Not released yet**
 
 ---
 
@@ -31,18 +31,29 @@ Release date: **2025-06-17**
 ### Version 1.9.x
 
 #### Version 1.9.5
-
-
+- Bugfix: **Start process button can no longer be pressed if there's an extraction already started**
+- Bugfix: **CPU Thread amount is now properly using the value from AppConfig**
+- Enhancement: **Debug console can now be shown for .exe releases if started through Command Prompt / PowerShell**
+- Enhancement: **Added support for AVIF, BMP, DDS, TGA and TIFF for frame exporting**
+- Enhancement: **Extraction settings are now greyed out if it's unneeded or a format not supporting that specific setting**
+- Feature: **Added support for tooltips**
+    - **Currently only implemented on compression settings**
+- Feature: **Added compression settings for frame exporting.**
 - Feature: **Update system overhaul**
+    - **Show changelog on update notifications**
     - **App can now download updates and replace itself.**
-
+    - **Check for updates button in Menubar > Options**
+    - **Log update process to a logs folder**
 - Feature: **App configuration menu**: 
     - **Modify default extraction settings**
     - **Modify processing threads**
     - **Toggle Automatic update checks**
     - **Toggle Automatically install new updates**
-
-- Known issues: **GIF frame delays may round down too much, making GIFs look faster than they should**
+    - **Automatic config file migration between versions**
+- Tweak: **Updated in-app help menu**
+    - **Added missing option descriptions and the new ones**
+    - **FNF Settings advice updated**
+  
 
 #### Version 1.9.4
 - Bugfix: **Fixed "Invalid Palette Size" error for good by swapping GIF generation to Wand**
@@ -266,4 +277,4 @@ See [Developer Documentation](developer-docs.md) for detailed setup instructions
 *For installation instructions, see the [Installation Guide](installation-guide.md). For usage help, check the [User Manual](user-manual.md).*
 
 
-*Last updated: June 17, 2025 - Version 1.9.5 - Visit the [📚 Documentation →](docs/README.md) for more details*
+*Last updated: June 23, 2025 - Version 1.9.5 - Visit the [📚 Documentation →](docs/README.md) for more details*

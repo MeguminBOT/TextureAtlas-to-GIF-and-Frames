@@ -23,6 +23,8 @@ class OverrideSettingsWindow:
         app: Reference to the main application instance.
         fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry (tk.Entry):
             Entry widgets for each configurable setting.
+        frame_format_entry (ttk.Combobox): Combobox for frame format selection.
+        frame_scale_entry (tk.Entry): Entry widget for frame scale setting.
 
     Methods:
         store_input():
@@ -97,8 +99,21 @@ class OverrideSettingsWindow:
         self.frames_var = tk.StringVar(value=str(local_settings.get('frames', '')))
         self.frames_entry = ttk.Combobox(window, textvariable=self.frames_var)
         self.frames_entry.bind('<FocusIn>', lambda e: self.frames_var.set(settings.get('frames', '')) if (self.frames_var.get() == '') else None)
-        self.frames_entry['values'] = ("None", "All", "No duplicates", "First", "Last", "First, Last")
+        self.frames_entry['values'] = ("All", "No duplicates", "First", "Last", "First, Last")
         self.frames_entry.pack()
+
+        tk.Label(window, text="Frame format for " + name).pack()
+        self.frame_format_var = tk.StringVar(value=str(local_settings.get('frame_format', '')))
+        self.frame_format_entry = ttk.Combobox(window, textvariable=self.frame_format_var, state="readonly")
+        self.frame_format_entry.bind('<FocusIn>', lambda e: self.frame_format_var.set(settings.get('frame_format', '')) if (self.frame_format_var.get() == '') else None)
+        self.frame_format_entry['values'] = ("None", "AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP")
+        self.frame_format_entry.pack()
+
+        tk.Label(window, text="Frame scale for " + name).pack()
+        self.frame_scale_entry = tk.Entry(window)
+        self.frame_scale_entry.insert(0, str(local_settings.get('frame_scale', '')))
+        self.frame_scale_entry.bind('<FocusIn>', lambda e: self.frame_scale_entry.insert(0, str(settings.get('frame_scale', ''))) if (self.frame_scale_entry.get() == '') else None)
+        self.frame_scale_entry.pack()
 
         if settings_type == "animation":
             tk.Label(window, text="Filename for " + name).pack()
@@ -129,11 +144,15 @@ class OverrideSettingsWindow:
             self.on_store_callback(
                 self.window, self.name, self.settings_type,
                 self.fps_entry, self.delay_entry, self.period_entry,
-                self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry, self.filename_entry
+                self.scale_entry, self.threshold_entry, self.indices_entry,
+                self.frames_entry, self.filename_entry, self.frame_format_entry,
+                self.frame_scale_entry
             )
         else:
             self.on_store_callback(
                 self.window, self.name, self.settings_type,
                 self.fps_entry, self.delay_entry, self.period_entry,
-                self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry, None
+                self.scale_entry, self.threshold_entry, self.indices_entry,
+                self.frames_entry, None, self.frame_format_entry,
+                self.frame_scale_entry
             )

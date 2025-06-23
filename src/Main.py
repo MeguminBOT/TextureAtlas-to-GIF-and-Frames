@@ -25,11 +25,12 @@ from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
 from gui.gif_preview_window import GifPreviewWindow
 from gui.settings_window import SettingsWindow
+from gui.tooltip import Tooltip
 
 
 class TextureAtlasExtractorApp:
     """
-    A GUI application for extracting textures from a texture atlas and converting them to GIF and WebP formats.
+    A GUI application for extracting textures from a texture atlas and converting them to GIF, WebP, and APNG formats.
 
     Attributes:
         root (tk.Tk): The root window of the application.
@@ -78,9 +79,15 @@ class TextureAtlasExtractorApp:
         set_threshold (tk.DoubleVar): Alpha threshold variable.
         threshold_label (tk.Label): Label for alpha threshold.
         threshold_entry (tk.Entry): Entry for alpha threshold.
-        keep_frames (tk.StringVar): Option for keeping frames.
-        keepframes_label (tk.Label): Label for keep frames option.
-        keepframes_menu (ttk.Combobox): Combobox for keep frames option.
+        frame_selection (tk.StringVar): Option for keeping frames.
+        frame_selection_label (tk.Label): Label for keep frames option.
+        frame_selection_menu (ttk.Combobox): Combobox for keep frames option.
+        frame_scale (tk.DoubleVar): Scale variable for individual frame export.
+        frame_scale_label (tk.Label): Label for frame scale.
+        frame_scale_entry (tk.Entry): Entry for frame scale.
+        frame_compression (tk.StringVar): Compression level variable for frame export.
+        frame_compression_label (tk.Label): Label for frame compression.
+        frame_compression_menu (ttk.Combobox): Combobox for frame compression level selection.
         crop_option (tk.StringVar): Cropping method variable.
         crop_menu_label (tk.Label): Label for cropping method.
         crop_menu_menu (ttk.Combobox): Combobox for cropping method.
@@ -89,7 +96,14 @@ class TextureAtlasExtractorApp:
         prefix_entry (tk.Entry): Entry for filename prefix.
         filename_format (tk.StringVar): Filename format variable.
         filename_format_label (tk.Label): Label for filename format.
-        filename_format_menu (ttk.Combobox): Combobox for filename format.
+        filename_format_menu (ttk.Combobox): Combobox for filename format selection.
+        frame_format (tk.StringVar): Frame format variable for individual frame export formats (AVIF, BMP, DDS, PNG, TGA, TIFF, WebP).
+        frame_format_label (tk.Label): Label for frame format.
+        frame_format_menu (ttk.Combobox): Combobox for frame format selection.
+        frame_settings_frame (tk.Frame): Main frame containing the two-column layout for animation and frame settings.
+        animation_settings_frame (tk.Frame): Left column frame containing animation format settings.
+        frame_settings_frame (tk.Frame): Right column frame containing frame format settings.
+        replace_rules (list): List of find/replace rules for filename formatting.
         replace_button (tk.Button): Button to open find and replace window.
         button_frame (tk.Frame): Frame for bottom buttons.
         show_user_settings (tk.Button): Button to show user settings.
@@ -124,11 +138,15 @@ class TextureAtlasExtractorApp:
         on_closing(): Handles the event when the application is closing.
         start_process(): Prepares and starts the processing thread.
         run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
+        _re_enable_process_button(): Re-enables the process button after extraction completion.
+        _on_frame_format_change(event=None): Handles frame format selection changes and updates UI state.
+        _on_frame_compression_change(event=None): Handles frame compression selection changes and updates UI state based on format compatibility.
+        _on_animation_format_change(event=None): Handles animation format selection changes and updates UI state based on format capabilities.
     """
 
     def __init__(self, root):
         self.root = root
-        self.current_version = '1.9.4'
+        self.current_version = '1.9.5'
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
@@ -138,7 +156,7 @@ class TextureAtlasExtractorApp:
         self.fnf_char_json_directory = ""
 
         self.setup_gui()
-        self.root.after(1000, self.check_version)
+        self.root.after(250, self.check_version)
 
     def setup_gui(self):
         self.root.title(f"TextureAtlas to GIF and Frames v{self.current_version}")
@@ -169,9 +187,13 @@ class TextureAtlasExtractorApp:
         defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, 'get_extraction_defaults') else {}
 
         file_menu = tk.Menu(self.menubar, tearoff=0)
-        file_menu.add_command(label="Select directory", command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
-            and self.settings_manager.animation_settings.clear()
-            and self.settings_manager.spritesheet_settings.clear()
+        file_menu.add_command(
+            label="Select directory",
+            command=lambda: (
+                self.select_directory(self.input_dir, self.input_dir_label)
+                and self.settings_manager.animation_settings.clear()
+                and self.settings_manager.spritesheet_settings.clear()
+            )
         )
         file_menu.add_command(label="Select files", command=lambda: self.select_files_manually(self.input_dir, self.input_dir_label))
         file_menu.add_command(label="Clear filelist and user settings", command=self.clear_filelist)
@@ -244,59 +266,114 @@ class TextureAtlasExtractorApp:
 
         self.output_dir_label = tk.Label(self.root, text="No output directory selected")
         self.output_dir_label.pack(pady=2)
-        
-        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
 
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", pady=2)
+
+        self.frame_settings_frame = tk.Frame(self.root)
+        self.frame_settings_frame.pack(fill="x", pady=2)
+        self.animation_settings_frame = tk.Frame(self.frame_settings_frame)
+        self.animation_settings_frame.pack(side=tk.LEFT, fill="both", expand=True, padx=(0, 5))
+
+        # Animation settings
         self.animation_format = tk.StringVar(value=defaults.get("animation_format"))
-        self.animation_format_label = tk.Label(self.root, text="Animation format:")
+        self.animation_format_label = tk.Label(self.animation_settings_frame, text="Animation format:")
         self.animation_format_label.pack()
         self.animation_format_combobox = ttk.Combobox(
-            self.root,
+            self.animation_settings_frame,
             textvariable=self.animation_format,
             values=["None", "GIF", "WebP", "APNG"],
             state="readonly"
         )
-        self.animation_format_combobox.pack()
+        self.animation_format_combobox.bind('<<ComboboxSelected>>', self._on_animation_format_change)
+        self.animation_format_combobox.pack(pady=(0, 5))
 
         self.set_framerate = tk.DoubleVar(value=defaults.get("fps"))
-        self.frame_rate_label = tk.Label(self.root, text="Frame rate (fps):")
+        self.frame_rate_label = tk.Label(self.animation_settings_frame, text="Frame rate (fps):")
         self.frame_rate_label.pack()
-        self.frame_rate_entry = tk.Entry(self.root, textvariable=self.set_framerate)
-        self.frame_rate_entry.pack()
+        self.frame_rate_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_framerate)
+        self.frame_rate_entry.pack(pady=(0, 5))
 
         self.set_loopdelay = tk.DoubleVar(value=defaults.get("delay"))
-        self.loopdelay_label = tk.Label(self.root, text="Loop delay (ms):")
+        self.loopdelay_label = tk.Label(self.animation_settings_frame, text="Loop delay (ms):")
         self.loopdelay_label.pack()
-        self.loopdelay_entry = tk.Entry(self.root, textvariable=self.set_loopdelay)
-        self.loopdelay_entry.pack()
+        self.loopdelay_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_loopdelay)
+        self.loopdelay_entry.pack(pady=(0, 5))
 
         self.set_minperiod = tk.DoubleVar(value=defaults.get("period"))
-        self.minperiod_label = tk.Label(self.root, text="Minimum period (ms):")
+        self.minperiod_label = tk.Label(self.animation_settings_frame, text="Minimum period (ms):")
         self.minperiod_label.pack()
-        self.minperiod_entry = tk.Entry(self.root, textvariable=self.set_minperiod)
-        self.minperiod_entry.pack()
+        self.minperiod_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_minperiod)
+        self.minperiod_entry.pack(pady=(0, 5))
 
         self.set_scale = tk.DoubleVar(value=defaults.get("scale"))
-        self.scale_label = tk.Label(self.root, text="Scale:")
+        self.scale_label = tk.Label(self.animation_settings_frame, text="Scale:")
         self.scale_label.pack()
-        self.scale_entry = tk.Entry(self.root, textvariable=self.set_scale)
-        self.scale_entry.pack()
+        self.scale_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_scale)
+        self.scale_entry.pack(pady=(0, 5))
 
         self.set_threshold = tk.DoubleVar(value=defaults.get("threshold"))
-        self.threshold_label = tk.Label(self.root, text="Alpha threshold:")
+        self.threshold_label = tk.Label(self.animation_settings_frame, text="Alpha threshold:")
         self.threshold_label.pack()
-        self.threshold_entry = tk.Entry(self.root, textvariable=self.set_threshold)
-        self.threshold_entry.pack(pady=4)
+        self.threshold_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_threshold)
+        self.threshold_entry.pack(pady=(0, 5))
 
-        ttk.Separator(root, orient="horizontal").pack(fill="x", pady=2)
+        # Frame settings
+        self.frame_settings_frame = tk.Frame(self.frame_settings_frame)
+        self.frame_settings_frame.pack(side=tk.LEFT, fill="both", expand=True, padx=(5, 0))
 
-        self.keep_frames = tk.StringVar(value=defaults.get("keep_frames"))
-        self.keepframes_label = tk.Label(self.root, text="Keep individual frames:")
-        self.keepframes_label.pack()
-        self.keepframes_menu = ttk.Combobox(self.root, textvariable=self.keep_frames)
-        self.keepframes_menu['values'] = ("None", "All", "No duplicates", "First", "Last", "First, Last")
-        self.keepframes_menu.pack(pady=2)
+        self.frame_format = tk.StringVar(value=defaults.get("frame_format"))
+        self.frame_format_label = tk.Label(self.frame_settings_frame, text="Frame format:")
+        self.frame_format_label.pack()
+        self.frame_format_menu = ttk.Combobox(self.frame_settings_frame, textvariable=self.frame_format, state="readonly")
+        self.frame_format_menu['values'] = ("None", "AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP")
+        self.frame_format_menu.bind('<<ComboboxSelected>>', self._on_frame_format_change)
+        self.frame_format_menu.pack(pady=(0, 5))
 
+        self.frame_selection = tk.StringVar(value=defaults.get("frame_selection", "All"))
+        self.frame_selection_label = tk.Label(self.frame_settings_frame, text="Frame selection:")
+        self.frame_selection_label.pack()
+        self.frame_selection_menu = ttk.Combobox(self.frame_settings_frame, textvariable=self.frame_selection)
+        self.frame_selection_menu['values'] = ("All", "No duplicates", "First", "Last", "First, Last")
+        self.frame_selection_menu.pack(pady=(0, 5))
+
+        self.frame_scale = tk.DoubleVar(value=defaults.get("frame_scale", 1.0))
+        self.frame_scale_label = tk.Label(self.frame_settings_frame, text="Frame scale:")
+        self.frame_scale_label.pack()
+        self.frame_scale_entry = tk.Entry(self.frame_settings_frame, textvariable=self.frame_scale)
+        self.frame_scale_entry.pack(pady=(0, 5))
+
+        # Frame Compression settings
+        self.compression_frame = tk.Frame(self.frame_settings_frame)
+        self.compression_frame.pack(pady=(0, 5), fill="x")
+
+        self.frame_compression_label = tk.Label(self.compression_frame, text="Compression:")
+        self.frame_compression_label.pack()
+
+        self.compression_widgets = {}
+        self._setup_compression_widgets()
+
+        png_defaults = self.app_config.get_compression_defaults('png')
+        webp_defaults = self.app_config.get_compression_defaults('webp')
+        avif_defaults = self.app_config.get_compression_defaults('avif')
+        tiff_defaults = self.app_config.get_compression_defaults('tiff')
+
+        self.png_compress_level = tk.IntVar(value=png_defaults.get("compress_level", 9))
+        self.png_optimize = tk.BooleanVar(value=png_defaults.get("optimize", True))
+        self.webp_quality = tk.IntVar(value=webp_defaults.get("quality", 100))
+        self.webp_method = tk.IntVar(value=webp_defaults.get("method", 6))
+        self.webp_lossless = tk.BooleanVar(value=webp_defaults.get("lossless", True))
+        self.webp_alpha_quality = tk.IntVar(value=webp_defaults.get("alpha_quality", 100))
+        self.webp_exact = tk.BooleanVar(value=webp_defaults.get("exact", True))
+        self.avif_quality = tk.IntVar(value=avif_defaults.get("quality", 100))
+        self.avif_speed = tk.IntVar(value=avif_defaults.get("speed", 0))
+        self.avif_lossless = tk.BooleanVar(value=avif_defaults.get("lossless", True))
+        self.tiff_compression_type = tk.StringVar(value=tiff_defaults.get("compression_type", "lzw"))
+        self.tiff_compression_type.trace_add('write', self._on_tiff_compression_type_change)
+        self.tiff_quality = tk.IntVar(value=tiff_defaults.get("quality", 90))
+        self.tiff_optimize = tk.BooleanVar(value=tiff_defaults.get("optimize", True))
+
+        # General settings
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", pady=2)
         self.crop_option = tk.StringVar(value=defaults.get("crop_option"))
         self.crop_menu_label = tk.Label(self.root, text="Cropping method:")
         self.crop_menu_label.pack()
@@ -339,6 +416,10 @@ class TextureAtlasExtractorApp:
         self.link1 = tk.Label(self.root, text="If you wish to contribute to the project, click here!", fg="blue", cursor="hand2")
         self.link1.pack(side='bottom')
         self.link1.bind("<Button-1>", lambda e: self.contributeLink(self.linkSourceCode))
+
+        self._on_frame_format_change()
+        self._on_animation_format_change()
+        self._initialize_compression_defaults()
 
     def contributeLink(self, linkSourceCode):
         webbrowser.open_new(linkSourceCode)
@@ -482,7 +563,7 @@ class TextureAtlasExtractorApp:
     def show_gif_preview_window(self, gif_path, settings):
         GifPreviewWindow.show(gif_path, settings)
 
-    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry, filename_entry):
+    def store_input(self, window, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry, filename_entry, frame_format_entry=None, frame_scale_entry=None):
         settings = {}
         try:
             if fps_entry.get() != '':
@@ -501,9 +582,15 @@ class TextureAtlasExtractorApp:
                 indices = [int(ele) for ele in indices_entry.get().split(',')]
                 settings['indices'] = indices
             if frames_entry.get() != '':
-                settings['frames'] = frames_entry.get()
+                settings['frame_selection'] = frames_entry.get()
             if filename_entry and filename_entry.get() != '':
                 settings['filename'] = filename_entry.get()
+            if frame_format_entry and frame_format_entry.get() != '':
+                settings['frame_format'] = frame_format_entry.get()
+            if frame_scale_entry and frame_scale_entry.get() != '':
+                if float(frame_scale_entry.get()) == 0:
+                    raise ValueError("Frame scale cannot be zero")
+                settings['frame_scale'] = float(frame_scale_entry.get())
         except ValueError as e:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             window.lift()
@@ -521,6 +608,22 @@ class TextureAtlasExtractorApp:
         window.destroy()
 
     def update_global_settings(self):
+        compression_settings = {
+            'png_compress_level': self.png_compress_level.get(),
+            'png_optimize': self.png_optimize.get(),
+            'webp_lossless': self.webp_lossless.get(),
+            'webp_quality': self.webp_quality.get(),
+            'webp_method': self.webp_method.get(),
+            'webp_alpha_quality': self.webp_alpha_quality.get(),
+            'webp_exact': self.webp_exact.get(),
+            'avif_lossless': self.avif_lossless.get(),
+            'avif_quality': self.avif_quality.get(),
+            'avif_speed': self.avif_speed.get(),
+            'tiff_compression_type': self.tiff_compression_type.get(),
+            'tiff_quality': self.tiff_quality.get(),
+            'tiff_optimize': self.tiff_optimize.get(),
+        }
+
         self.settings_manager.set_global_settings(
             animation_format=self.animation_format.get(),
             fps=self.set_framerate.get(),
@@ -528,7 +631,10 @@ class TextureAtlasExtractorApp:
             period=self.set_minperiod.get(),
             scale=self.set_scale.get(),
             threshold=self.set_threshold.get(),
-            frames=self.keep_frames.get(),
+            frame_format=self.frame_format.get(),
+            frame_selection=self.frame_selection.get(),
+            frame_scale=self.frame_scale.get(),
+            compression_settings=compression_settings,
             crop_option=self.crop_option.get(),
             prefix=self.prefix.get(),
             filename_format=self.filename_format.get(),
@@ -550,20 +656,574 @@ class TextureAtlasExtractorApp:
             messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
             return
 
+        self.process_button.config(state="disabled", text="Processing...")
+
         process_thread = threading.Thread(target=self.run_extractor)
         process_thread.start()
 
     def run_extractor(self):
-        spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
+        try:
+            spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
 
-        extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager, app_config=self.app_config)
-        extractor.process_directory(
-            self.input_dir.get(),
-            self.output_dir.get(),
-            self.progress_var,
-            self.root,
-            spritesheet_list=spritesheet_list
+            extractor = Extractor(self.progress_bar, self.current_version, self.settings_manager, app_config=self.app_config)
+            extractor.process_directory(
+                self.input_dir.get(),
+                self.output_dir.get(),
+                self.progress_var,
+                self.root,
+                spritesheet_list=spritesheet_list
+            )
+        finally:
+            self.root.after(0, self._re_enable_process_button)
+
+    def _re_enable_process_button(self):
+        self.process_button.config(state="normal", text="Start process")
+
+    def _on_frame_compression_change(self, event=None):
+        frame_format = self.frame_format.get()
+
+        for widget_info in self.compression_widgets.values():
+            widget_info['frame'].pack_forget()
+
+        if frame_format == "PNG":
+            self._show_png_compression_widgets()
+        elif frame_format == "WebP":
+            self._show_webp_compression_widgets()
+        elif frame_format == "AVIF":
+            self._show_avif_compression_widgets()
+        elif frame_format == "TIFF":
+            self._show_tiff_compression_widgets()
+        elif frame_format in ["TGA", "BMP", "DDS"]:
+            self.frame_compression_label.config(state="disabled")
+            return
+        else:
+            self.frame_compression_label.config(state="disabled")
+            return
+
+        self.frame_compression_label.config(state="normal")
+
+    def _show_png_compression_widgets(self):
+        widgets = self.compression_widgets['PNG']
+        widgets['frame'].pack(fill="x", pady=2)
+
+        widgets['compress_level'].config(variable=self.png_compress_level)
+        widgets['optimize'].config(variable=self.png_optimize, command=self._on_png_optimize_change)
+        widgets['compress_level'].set(self.png_compress_level.get())
+        if self.png_optimize.get():
+            widgets['optimize'].select()
+        else:
+            widgets['optimize'].deselect()
+
+        self._on_png_optimize_change()
+
+    def _show_webp_compression_widgets(self):
+        widgets = self.compression_widgets['WebP']
+        widgets['frame'].pack(fill="x", pady=2)
+
+        widgets['lossless'].config(variable=self.webp_lossless, command=self._on_webp_lossless_change)
+        widgets['quality'].config(variable=self.webp_quality)
+        widgets['method'].config(variable=self.webp_method)
+        widgets['alpha_quality'].config(variable=self.webp_alpha_quality)
+        widgets['exact'].config(variable=self.webp_exact)
+
+        if self.webp_lossless.get():
+            widgets['lossless'].select()
+        else:
+            widgets['lossless'].deselect()
+
+        widgets['quality'].set(self.webp_quality.get())
+        widgets['method'].set(self.webp_method.get())
+        widgets['alpha_quality'].set(self.webp_alpha_quality.get())
+
+        if self.webp_exact.get():
+            widgets['exact'].select()
+        else:
+            widgets['exact'].deselect()
+
+        self._on_webp_lossless_change()
+
+    def _show_avif_compression_widgets(self):
+        widgets = self.compression_widgets['AVIF']
+        widgets['frame'].pack(fill="x", pady=2)
+
+        widgets['lossless'].config(variable=self.avif_lossless, command=self._on_avif_lossless_change)
+        widgets['quality'].config(variable=self.avif_quality)
+        widgets['speed'].config(variable=self.avif_speed)
+        if self.avif_lossless.get():
+            widgets['lossless'].select()
+        else:
+            widgets['lossless'].deselect()
+        widgets['quality'].set(self.avif_quality.get())
+        widgets['speed'].set(self.avif_speed.get())
+
+        self._on_avif_lossless_change()
+
+    def _show_tiff_compression_widgets(self):
+        widgets = self.compression_widgets['TIFF']
+        widgets['frame'].pack(fill="x", pady=2)
+
+        widgets['type'].config(textvariable=self.tiff_compression_type)
+        widgets['quality'].config(variable=self.tiff_quality)
+        widgets['optimize'].config(variable=self.tiff_optimize)
+        widgets['type'].set(self.tiff_compression_type.get())
+        widgets['quality'].set(self.tiff_quality.get())
+        if self.tiff_optimize.get():
+            widgets['optimize'].select()
+        else:
+            widgets['optimize'].deselect()
+
+        self._on_tiff_compression_type_change()
+
+    def _on_frame_format_change(self, event=None):
+        if self.frame_format.get() == "None":
+            self.frame_selection_label.config(state="disabled")
+            self.frame_selection_menu.config(state="disabled")
+            self.frame_scale_label.config(state="disabled")
+            self.frame_scale_entry.config(state="disabled")
+            self.frame_compression_label.config(state="disabled")
+
+            for widget_info in self.compression_widgets.values():
+                widget_info['frame'].pack_forget()
+        else:
+            self.frame_selection_label.config(state="normal")
+            self.frame_selection_menu.config(state="readonly")
+            self.frame_scale_label.config(state="normal")
+            self.frame_scale_entry.config(state="normal")
+            self._on_frame_compression_change()
+
+    def _on_animation_format_change(self, event=None):
+        animation_format = self.animation_format.get()
+
+        if animation_format == "None":
+            self.frame_rate_label.config(state="disabled")
+            self.frame_rate_entry.config(state="disabled")
+            self.loopdelay_label.config(state="disabled")
+            self.loopdelay_entry.config(state="disabled")
+            self.minperiod_label.config(state="disabled")
+            self.minperiod_entry.config(state="disabled")
+            self.scale_label.config(state="disabled")
+            self.scale_entry.config(state="disabled")
+            self.threshold_label.config(state="disabled")
+            self.threshold_entry.config(state="disabled")
+        else:
+            self.frame_rate_label.config(state="normal")
+            self.frame_rate_entry.config(state="normal")
+            self.loopdelay_label.config(state="normal")
+            self.loopdelay_entry.config(state="normal")
+            self.minperiod_label.config(state="normal")
+            self.minperiod_entry.config(state="normal")
+            self.scale_label.config(state="normal")
+            self.scale_entry.config(state="normal")
+
+            if animation_format.upper() == "GIF":
+                self.threshold_label.config(state="normal")
+                self.threshold_entry.config(state="normal")
+            else:
+                self.threshold_label.config(state="disabled")
+                self.threshold_entry.config(state="disabled")
+
+    def _setup_compression_widgets(self):
+        self.compression_widgets = {}
+
+        png_frame = tk.Frame(self.compression_frame)
+        png_compress_level_frame = tk.Frame(png_frame)
+        png_compress_level_frame.pack(fill="x", pady=2)
+        png_compress_level_label = tk.Label(png_compress_level_frame, text="Compress Level (0-9):")
+        png_compress_level_label.pack(side="left")
+        png_compress_level_scale = tk.Scale(png_compress_level_frame, from_=0, to=9, orient="horizontal")
+        png_compress_level_scale.pack(side="right", fill="x", expand=True)
+
+        png_optimize_frame = tk.Frame(png_frame)
+        png_optimize_frame.pack(fill="x", pady=2)
+        png_optimize_label = tk.Label(png_optimize_frame, text="Optimize:")
+        png_optimize_label.pack(side="left")
+        png_optimize_check = tk.Checkbutton(png_optimize_frame)
+        png_optimize_check.pack(side="right")
+
+        self.compression_widgets['PNG'] = {
+            'frame': png_frame,
+            'compress_level': png_compress_level_scale,
+            'optimize': png_optimize_check
+        }
+
+        Tooltip(
+            png_compress_level_label,
+            (
+                "PNG compression level (0-9):\n"
+                "• 0: No compression (fastest, largest file)\n"
+                "• 1-3: Low compression\n"
+                "• 4-6: Medium compression\n"
+                "• 7-9: High compression (slowest, smallest file)\n"
+                "This doesn't affect the quality of the image, only the file size"
+            )
         )
+        Tooltip(
+            png_compress_level_scale,
+            (
+                "PNG compression level (0-9):\n"
+                "• 0: No compression (fastest, largest file)\n"
+                "• 1-3: Low compression\n"
+                "• 4-6: Medium compression\n"
+                "• 7-9: High compression (slowest, smallest file)\n"
+                "This doesn't affect the quality of the image, only the file size"
+            )
+        )
+        Tooltip(
+            png_optimize_label,
+            (
+                "PNG optimize:\n"
+                "• Enabled: Uses additional compression techniques for smaller files\n"
+                "When enabled, compression level is automatically set to 9\n"
+                "Results in slower processing but better compression\n\n"
+                "This doesn't affect the quality of the image, only the file size"
+            )
+        )
+        Tooltip(
+            png_optimize_check,
+            (
+                "PNG optimize:\n"
+                "• Enabled: Uses additional compression techniques for smaller files\n"
+                "When enabled, compression level is automatically set to 9\n"
+                "Results in slower processing but better compression\n\n"
+                "This doesn't affect the quality of the image, only the file size"
+            )
+        )
+
+        webp_frame = tk.Frame(self.compression_frame)
+        webp_lossless_frame = tk.Frame(webp_frame)
+        webp_lossless_frame.pack(fill="x", pady=2)
+        webp_lossless_label = tk.Label(webp_lossless_frame, text="Lossless:")
+        webp_lossless_label.pack(side="left")
+        webp_lossless_check = tk.Checkbutton(webp_lossless_frame)
+        webp_lossless_check.pack(side="right")
+
+        webp_quality_frame = tk.Frame(webp_frame)
+        webp_quality_frame.pack(fill="x", pady=2)
+        webp_quality_label = tk.Label(webp_quality_frame, text="Quality (0-100):")
+        webp_quality_label.pack(side="left")
+        webp_quality_scale = tk.Scale(webp_quality_frame, from_=0, to=100, orient="horizontal")
+        webp_quality_scale.pack(side="right", fill="x", expand=True)
+
+        webp_method_frame = tk.Frame(webp_frame)
+        webp_method_frame.pack(fill="x", pady=2)
+        webp_method_label = tk.Label(webp_method_frame, text="Method (0-6):")
+        webp_method_label.pack(side="left")
+        webp_method_scale = tk.Scale(webp_method_frame, from_=0, to=6, orient="horizontal")
+        webp_method_scale.pack(side="right", fill="x", expand=True)
+
+        webp_alpha_quality_frame = tk.Frame(webp_frame)
+        webp_alpha_quality_frame.pack(fill="x", pady=2)
+        webp_alpha_quality_label = tk.Label(webp_alpha_quality_frame, text="Alpha Quality (0-100):")
+        webp_alpha_quality_label.pack(side="left")
+        webp_alpha_quality_scale = tk.Scale(webp_alpha_quality_frame, from_=0, to=100, orient="horizontal")
+        webp_alpha_quality_scale.pack(side="right", fill="x", expand=True)
+
+        webp_exact_frame = tk.Frame(webp_frame)
+        webp_exact_frame.pack(fill="x", pady=2)
+        webp_exact_label = tk.Label(webp_exact_frame, text="Exact:")
+        webp_exact_label.pack(side="left")
+        webp_exact_check = tk.Checkbutton(webp_exact_frame)
+        webp_exact_check.pack(side="right")
+
+        self.compression_widgets['WebP'] = {
+            'frame': webp_frame,
+            'lossless': webp_lossless_check,
+            'quality': webp_quality_scale,
+            'method': webp_method_scale,
+            'alpha_quality': webp_alpha_quality_scale,
+            'exact': webp_exact_check
+        }
+
+        Tooltip(
+            webp_lossless_label,
+            (
+                "WebP lossless mode:\n"
+                "• Enabled: Perfect quality preservation, larger file size\n"
+                "• Disabled: Lossy compression with adjustable quality\n"
+                "When enabled, quality sliders are disabled"
+            )
+        )
+        Tooltip(
+            webp_lossless_check,
+            (
+                "WebP lossless mode:\n"
+                "• Enabled: Perfect quality preservation, larger file size\n"
+                "• Disabled: Lossy compression with adjustable quality\n"
+                "When enabled, quality sliders are disabled"
+            )
+        )
+        Tooltip(
+            webp_quality_label,
+            (
+                "WebP quality (0-100):\n"
+                "• 0: Lowest quality, smallest file\n"
+                "• 75: Balanced quality/size\n"
+                "• 100: Highest quality, largest file\n"
+                "Only used in lossy mode"
+            )
+        )
+        Tooltip(
+            webp_quality_scale,
+            (
+                "WebP quality (0-100):\n"
+                "• 0: Lowest quality, smallest file\n"
+                "• 75: Balanced quality/size\n"
+                "• 100: Highest quality, largest file\n"
+                "Only used in lossy mode"
+            )
+        )
+        Tooltip(
+            webp_method_label,
+            (
+                "WebP compression method (0-6):\n"
+                "• 0: Fastest encoding, larger file\n"
+                "• 3: Balanced speed/compression\n"
+                "• 6: Slowest encoding, best compression\n"
+                "Higher values take more time but produce smaller files"
+            )
+        )
+        Tooltip(
+            webp_method_scale,
+            (
+                "WebP compression method (0-6):\n"
+                "• 0: Fastest encoding, larger file\n"
+                "• 3: Balanced speed/compression\n"
+                "• 6: Slowest encoding, best compression\n"
+                "Higher values take more time but produce smaller files"
+            )
+        )
+        Tooltip(
+            webp_alpha_quality_label,
+            (
+                "WebP alpha channel quality (0-100):\n"
+                "Controls transparency compression quality\n"
+                "• 0: Maximum alpha compression\n"
+                "• 100: Best alpha quality\n"
+                "Only used in lossy mode"
+            )
+        )
+        Tooltip(
+            webp_alpha_quality_scale,
+            (
+                "WebP alpha channel quality (0-100):\n"
+                "Controls transparency compression quality\n"
+                "• 0: Maximum alpha compression\n"
+                "• 100: Best alpha quality\n"
+                "Only used in lossy mode"
+            )
+        )
+        Tooltip(
+            webp_exact_label,
+            (
+                "WebP exact mode:\n"
+                "• Enabled: Preserves RGB values in transparent areas\n"
+                "• Disabled: Allows optimization of transparent pixels\n"
+                "Enable for better quality when transparency matters"
+            )
+        )
+        Tooltip(
+            webp_exact_check,
+            (
+                "WebP exact mode:\n"
+                "• Enabled: Preserves RGB values in transparent areas\n"
+                "• Disabled: Allows optimization of transparent pixels\n"
+                "Enable for better quality when transparency matters"
+            )
+        )
+
+        avif_frame = tk.Frame(self.compression_frame)
+        avif_lossless_frame = tk.Frame(avif_frame)
+        avif_lossless_frame.pack(fill="x", pady=2)
+        tk.Label(avif_lossless_frame, text="Lossless:").pack(side="left")
+        avif_lossless_check = tk.Checkbutton(avif_lossless_frame)
+        avif_lossless_check.pack(side="right")
+
+        avif_quality_frame = tk.Frame(avif_frame)
+        avif_quality_frame.pack(fill="x", pady=2)
+        tk.Label(avif_quality_frame, text="Quality (0-100):").pack(side="left")
+        avif_quality_scale = tk.Scale(avif_quality_frame, from_=0, to=100, orient="horizontal")
+        avif_quality_scale.pack(side="right", fill="x", expand=True)
+
+        avif_speed_frame = tk.Frame(avif_frame)
+        avif_speed_frame.pack(fill="x", pady=2)
+        tk.Label(avif_speed_frame, text="Speed (0-10):").pack(side="left")
+        avif_speed_scale = tk.Scale(avif_speed_frame, from_=0, to=10, orient="horizontal")
+        avif_speed_scale.pack(side="right", fill="x", expand=True)
+
+        self.compression_widgets['AVIF'] = {
+            'frame': avif_frame,
+            'lossless': avif_lossless_check,
+            'quality': avif_quality_scale,
+            'speed': avif_speed_scale
+        }
+
+        Tooltip(
+            avif_lossless_check,
+            (
+                "AVIF lossless mode:\n"
+                "• Enabled: Perfect quality preservation, larger file size\n"
+                "• Disabled: Lossy compression with adjustable quality\n"
+                "When enabled, quality slider is disabled"
+            )
+        )
+        Tooltip(
+            avif_quality_scale,
+            (
+                "AVIF quality (0-100):\n"
+                "• 0: Lowest quality, smallest file\n"
+                "• 100: Highest quality, largest file\n"
+                "Only used in lossy mode"
+            )
+        )
+        Tooltip(
+            avif_speed_scale,
+            (
+                "AVIF encoding speed (0-10):\n"
+                "• 0: Slowest encoding, best compression\n"
+                "• 5: Balanced speed/compression\n"
+                "• 10: Fastest encoding, larger file\n"
+                "Higher values encode faster but produce larger files.\nAVIF may take much longer to encode than other formats."
+            )
+        )
+
+        tiff_frame = tk.Frame(self.compression_frame)
+        tiff_type_frame = tk.Frame(tiff_frame)
+        tiff_type_frame.pack(fill="x", pady=2)
+        tk.Label(tiff_type_frame, text="Compression Type:").pack(side="left")
+        tiff_type_combo = ttk.Combobox(tiff_type_frame, values=["none", "lzw", "zip", "jpeg"], state="readonly")
+        tiff_type_combo.pack(side="right")
+
+        tiff_quality_frame = tk.Frame(tiff_frame)
+        tiff_quality_frame.pack(fill="x", pady=2)
+        tk.Label(tiff_quality_frame, text="Quality (JPEG, 0-100):").pack(side="left")
+        tiff_quality_scale = tk.Scale(tiff_quality_frame, from_=0, to=100, orient="horizontal")
+        tiff_quality_scale.pack(side="right", fill="x", expand=True)
+
+        tiff_optimize_frame = tk.Frame(tiff_frame)
+        tiff_optimize_frame.pack(fill="x", pady=2)
+        tk.Label(tiff_optimize_frame, text="Optimize:").pack(side="left")
+        tiff_optimize_check = tk.Checkbutton(tiff_optimize_frame)
+        tiff_optimize_check.pack(side="right")
+
+        self.compression_widgets['TIFF'] = {
+            'frame': tiff_frame,
+            'type': tiff_type_combo,
+            'quality': tiff_quality_scale,
+            'optimize': tiff_optimize_check
+        }
+
+        Tooltip(
+            tiff_type_combo,
+            (
+                "TIFF compression type:\n"
+                "• None: No compression (largest files, fastest)\n"
+                "• LZW: Lossless compression (good for graphics)\n"
+                "• ZIP: Lossless compression (good for photos)\n"
+                "• JPEG: Lossy compression (smallest files, adjustable quality)"
+            )
+        )
+        Tooltip(
+            tiff_quality_scale,
+            (
+                "TIFF JPEG quality (0-100):\n"
+                "Only used when compression type is JPEG\n"
+                "• 100: Highest quality, largest file"
+            )
+        )
+        Tooltip(
+            tiff_optimize_check,
+            (
+                "TIFF optimize:\n"
+                "• Enabled: Use additional optimization techniques\n"
+                "Results in better compression but slower processing\n"
+                "Not available when compression type is 'None'"
+            )
+        )
+
+        for widget_info in self.compression_widgets.values():
+            widget_info['frame'].pack_forget()
+
+    def _initialize_compression_defaults(self):
+        widgets = self.compression_widgets.get('PNG', {})
+        if 'compress_level' in widgets:
+            widgets['compress_level'].set(self.png_compress_level.get())
+        if 'optimize' in widgets:
+            widgets['optimize'].select() if self.png_optimize.get() else widgets['optimize'].deselect()
+
+        widgets = self.compression_widgets.get('WebP', {})
+        if 'lossless' in widgets:
+            widgets['lossless'].select() if self.webp_lossless.get() else widgets['lossless'].deselect()
+        if 'quality' in widgets:
+            widgets['quality'].set(self.webp_quality.get())
+        if 'method' in widgets:
+            widgets['method'].set(self.webp_method.get())
+        if 'alpha_quality' in widgets:
+            widgets['alpha_quality'].set(self.webp_alpha_quality.get())
+        if 'exact' in widgets:
+            widgets['exact'].select() if self.webp_exact.get() else widgets['exact'].deselect()
+
+        widgets = self.compression_widgets.get('AVIF', {})
+        if 'lossless' in widgets:
+            widgets['lossless'].select() if self.avif_lossless.get() else widgets['lossless'].deselect()
+        if 'quality' in widgets:
+            widgets['quality'].set(self.avif_quality.get())
+        if 'speed' in widgets:
+            widgets['speed'].set(self.avif_speed.get())
+
+        widgets = self.compression_widgets.get('TIFF', {})
+        if 'type' in widgets:
+            widgets['type'].set(self.tiff_compression_type.get())
+        if 'quality' in widgets:
+            widgets['quality'].set(self.tiff_quality.get())
+        if 'optimize' in widgets:
+            widgets['optimize'].select() if self.tiff_optimize.get() else widgets['optimize'].deselect()
+
+    def _on_png_optimize_change(self):
+        if hasattr(self, 'compression_widgets') and 'PNG' in self.compression_widgets:
+            widgets = self.compression_widgets['PNG']
+            if 'compress_level' in widgets and 'optimize' in widgets:
+                if self.png_optimize.get():
+                    widgets['compress_level'].config(state="disabled")
+                    self.png_compress_level.set(9)
+                else:
+                    widgets['compress_level'].config(state="normal")
+
+    def _on_webp_lossless_change(self):
+        if hasattr(self, 'compression_widgets') and 'WebP' in self.compression_widgets:
+            widgets = self.compression_widgets['WebP']
+            if 'quality' in widgets and 'alpha_quality' in widgets and 'lossless' in widgets:
+                if self.webp_lossless.get():
+                    widgets['quality'].config(state="disabled")
+                    widgets['alpha_quality'].config(state="disabled")
+                else:
+                    widgets['quality'].config(state="normal")
+                    widgets['alpha_quality'].config(state="normal")
+
+    def _on_avif_lossless_change(self):
+        if hasattr(self, 'compression_widgets') and 'AVIF' in self.compression_widgets:
+            widgets = self.compression_widgets['AVIF']
+            if 'quality' in widgets and 'lossless' in widgets:
+                if self.avif_lossless.get():
+                    widgets['quality'].config(state="disabled")
+                else:
+                    widgets['quality'].config(state="normal")
+
+    def _on_tiff_compression_type_change(self, *args):
+        if hasattr(self, 'compression_widgets') and 'TIFF' in self.compression_widgets:
+            widgets = self.compression_widgets['TIFF']
+            if 'type' in widgets and 'quality' in widgets and 'optimize' in widgets:
+                compression_type = self.tiff_compression_type.get()
+
+                if compression_type == "none":
+                    widgets['quality'].config(state="disabled")
+                    widgets['optimize'].config(state="disabled")
+                elif compression_type == "jpeg":
+                    widgets['quality'].config(state="normal")
+                    widgets['optimize'].config(state="normal")
+                else:
+                    widgets['quality'].config(state="disabled")
+                    widgets['optimize'].config(state="normal")
+
 
 if __name__ == "__main__":
     try:

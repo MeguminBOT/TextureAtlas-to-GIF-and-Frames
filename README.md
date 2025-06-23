@@ -33,10 +33,11 @@ Perfect for creating showcases and galleries of game sprites.
 
 ## ✨ Features
 
-- ✅ **Multiple output formats**: GIF, WebP, APNG animations + individual PNG frames
+- ✅ **Multiple output formats**: GIF, WebP, APNG animations + individual frames (PNG, WebP, AVIF, BMP, DDS, TGA, TIFF)
 - ✅ **Batch processing**: Extract multiple animations and spritesheets simultaneously
 - ✅ **Organized** Sort frames from spritesheets into individual folders.
 - ✅ **Advanced controls**: Customizable frame rate, loop delay, scale, frame selection, and alpha transparency threshold
+- ✅ **Compression control**: Lossless and lossy compression methods.
 - ✅ **Smart cropping**: Animation-based and frame-based cropping options
 - ✅ **Find/Replace rules**: Customize output filenames with pattern matching
 - ✅ **Auto-update system**: Automatic checking and installation of updates
@@ -103,4 +104,4 @@ For Windows users, all necessary ImageMagick libraries are included with the rel
 
 ---
 
-*Last updated: June 17, 2025 - Visit the [📚 Documentation →](docs/README.md) for more details*
+*Last updated: June 23, 2025 - Visit the [📚 Documentation →](docs/README.md) for more details*

@@ -4,6 +4,7 @@ colorama
 idna
 numpy
 pillow
+pillow-avif-plugin
 psutil
 py7zr
 requests

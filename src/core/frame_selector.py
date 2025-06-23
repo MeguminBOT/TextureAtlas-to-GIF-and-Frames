@@ -11,7 +11,7 @@ class FrameSelector:
         get_kept_frames(settings, single_frame, image_tuples):
             Returns a list of frame indices (as strings) to keep, based on the provided settings and whether
             the sequence is a single frame. Supports options like 'All', 'First', 'Last', 'First, Last',
-            'None', 'No duplicates', or a comma-separated list of indices.
+            'No duplicates', or a comma-separated list of indices.
 
         get_kept_frame_indices(kept_frames, image_tuples):
             Converts a list of kept frame specifiers (indices, ranges, or keywords) into a sorted list of
@@ -45,8 +45,6 @@ class FrameSelector:
             return ['-1']
         elif kept_frames == 'First, Last':
             return ['0', '-1']
-        elif kept_frames == 'None':
-            return []
         elif kept_frames == 'No duplicates':
             unique_frames = []
             unique_indices = []
