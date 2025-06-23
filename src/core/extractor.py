@@ -59,12 +59,20 @@ class Extractor:
 
         cpu_threads = os.cpu_count() // 4
         if self.app_config:
-            cpu_cores_val = self.app_config.get("cpu_cores", "auto")
+            resource_limits = self.app_config.get("resource_limits", {})
+            cpu_cores_val = resource_limits.get("cpu_cores", "auto")
+            print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
             try:
                 if cpu_cores_val != "auto":
                     cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
+                    print(f"[Extractor] Using {cpu_threads} CPU threads (from config)")
+                else:
+                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto: {os.cpu_count()}//4)")
             except Exception:
                 cpu_threads = os.cpu_count() // 4
+                print(f"[Extractor] Error reading CPU config, defaulting to {cpu_threads} threads")
+        else:
+            print(f"[Extractor] No app config found, using default {cpu_threads} CPU threads")
 
         start_time = time.time()
 
