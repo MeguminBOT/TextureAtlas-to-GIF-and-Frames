@@ -1,5 +1,6 @@
 import tkinter as tk
 
+
 class SettingsWindow:
     """
     A window for displaying user-overridden animation and spritesheet settings.

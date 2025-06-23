@@ -16,7 +16,7 @@ from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
 from utils.utilities import Utilities
 from utils.fnf_utilities import FnfUtilities
-from parsers.xml_parser import XmlParser 
+from parsers.xml_parser import XmlParser
 from parsers.txt_parser import TxtParser
 from core.extractor import Extractor
 from gui.app_config_window import AppConfigWindow
@@ -25,6 +25,7 @@ from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
 from gui.gif_preview_window import GifPreviewWindow
 from gui.settings_window import SettingsWindow
+
 
 class TextureAtlasExtractorApp:
     """
@@ -221,14 +222,14 @@ class TextureAtlasExtractorApp:
 
         self.scrollbar_png.config(command=self.listbox_png.yview)
         self.scrollbar_xml.config(command=self.listbox_data.yview)
-        
+
         self.listbox_png_menu = tk.Menu(self.root, tearoff=0)
         self.listbox_png_menu.add_command(label="Delete", command=self.delete_selected_spritesheet)
         self.listbox_png.bind("<Button-3>", self.show_listbox_png_menu)
-    
+
         self.input_dir = tk.StringVar()
         self.input_button = tk.Button(self.root, text="Select directory with spritesheets", cursor="hand2",
-            command=lambda: self.select_directory(self.input_dir, self.input_dir_label) 
+            command=lambda: self.select_directory(self.input_dir, self.input_dir_label)
             and self.settings_manager.animation_settings.clear()
             and self.settings_manager.spritesheet_settings.clear()
         )
@@ -322,7 +323,7 @@ class TextureAtlasExtractorApp:
         self.replace_rules = []
         self.replace_button = tk.Button(self.root, text="Find and replace", cursor="hand2", command=lambda: self.create_find_and_replace_window())
         self.replace_button.pack(pady=2)
-        
+
         self.button_frame = tk.Frame(self.root)
         self.button_frame.pack(pady=8)
 
@@ -341,7 +342,7 @@ class TextureAtlasExtractorApp:
 
     def contributeLink(self, linkSourceCode):
         webbrowser.open_new(linkSourceCode)
-        
+
     def check_version(self, force=False):
         try:
             update_settings = self.app_config.get("update_settings", self.app_config.DEFAULTS["update_settings"])
@@ -351,10 +352,10 @@ class TextureAtlasExtractorApp:
                 UpdateChecker.check_for_updates(self.current_version, auto_update=auto_update, parent_window=self.root)
         except Exception as e:
             print(f"Update check failed: {e}")
-            
+
     def check_dependencies(self):
         DependenciesChecker.check_and_configure_imagemagick()
-        
+
     def create_app_config_window(self):
         AppConfigWindow(self.root, self.app_config)
 
@@ -443,7 +444,7 @@ class TextureAtlasExtractorApp:
         new_window = tk.Toplevel()
         new_window.geometry("360x400")
         self.create_override_settings_window(new_window, full_anim_name, "animation")
-        
+
     def show_listbox_png_menu(self, event):
         try:
             index = self.listbox_png.nearest(event.y)
@@ -518,7 +519,7 @@ class TextureAtlasExtractorApp:
             settings_method(name, **settings)
 
         window.destroy()
-        
+
     def update_global_settings(self):
         self.settings_manager.set_global_settings(
             animation_format=self.animation_format.get(),
@@ -536,12 +537,12 @@ class TextureAtlasExtractorApp:
             fnf_idle_loop=self.fnf_idle_loop.get(),
         )
         print("Global settings updated:", self.settings_manager.global_settings)
-        
+
     def on_closing(self):
         if self.temp_dir and os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
         self.root.destroy()
-        
+
     def start_process(self):
         self.update_global_settings()
 
@@ -571,26 +572,26 @@ if __name__ == "__main__":
         parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
         parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
         args = parser.parse_args()
-        
+
         if args.update:
             from utils.update_installer import Updater, UpdateUtilities
-            
+
             print("Starting update process...")
             if args.wait > 0:
                 print(f"Waiting {args.wait} seconds...")
                 import time
                 time.sleep(args.wait)
-            
+
             exe_mode = args.exe_mode or Utilities.is_compiled()
             updater = Updater(use_gui=True, exe_mode=exe_mode)
-            
+
             if exe_mode:
                 print("Running executable update...")
                 updater.update_exe()
             else:
                 print("Running source update...")
                 updater.update_source()
-            
+
             if updater.use_gui and updater.console:
                 updater.console.window.mainloop()
         else:
@@ -599,21 +600,21 @@ if __name__ == "__main__":
             app = TextureAtlasExtractorApp(root)
             print("Application initialized successfully.")
             root.mainloop()
-            
+
     except Exception as e:
         print(f"Fatal error during startup: {e}")
         import traceback
         traceback.print_exc()
-        
+
         if Utilities.is_compiled():
             try:
                 root = tk.Tk()
                 root.withdraw()
-                messagebox.showerror("Startup Error", 
+                messagebox.showerror("Startup Error",
                                    f"The application failed to start:\n\n{str(e)}\n\nPlease check the console output for more details.")
                 root.destroy()
             except:
                 pass
-        
+
         import sys
         sys.exit(1)

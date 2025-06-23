@@ -3,6 +3,7 @@ from PIL import Image
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class SpriteProcessor:
     """
     A class for processing sprite data from an atlas image.
@@ -44,7 +45,7 @@ class SpriteProcessor:
             rotated = sprite.get('rotated', False)
 
             print(f"Processing sprite: {name}")
-            
+
             sprite_image = self.atlas.crop((x, y, x + width, y + height))
             if rotated:
                 sprite_image = sprite_image.rotate(90, expand=True)

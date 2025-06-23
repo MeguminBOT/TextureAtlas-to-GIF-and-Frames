@@ -4,7 +4,9 @@ import multiprocessing
 import platform
 import subprocess
 
+# Import our own modules
 from core.exception_handler import ExceptionHandler
+
 
 class AppConfigWindow:
     """
@@ -35,7 +37,7 @@ class AppConfigWindow:
         _on_linux_scroll(event):
             Handle mouse scroll events on Linux systems.
         reset_to_defaults():
-            Reset all fields, to the application's initial defaults.
+            Reset all fields to the application's initial defaults.
         save_config():
             Validate and save user settings to the app config.
         parse_value(key, val, expected_type):
@@ -110,26 +112,26 @@ class AppConfigWindow:
         tk.Label(resource_frame, text=f"CPU threads to use (max: {self.max_threads}):").grid(row=0, column=0, sticky="w")
         resource_limits = self.app_config.get("resource_limits", {})
         default_threads = (self.max_threads + 1) // 4
-        
+
         cpu_default = resource_limits.get("cpu_cores", "auto")
         if cpu_default is None or cpu_default == "auto":
             cpu_default = str(default_threads)
-        
+
         self.cpu_var = tk.StringVar(value=str(cpu_default))
         self.cpu_entry = tk.Entry(resource_frame, textvariable=self.cpu_var, width=10)
         self.cpu_entry.grid(row=0, column=1, sticky="w", padx=(8,0))
 
         # Memory limit is not actually implemented in the app yet as it requires vast code changes but we add it for future use
-        tk.Label(resource_frame, text=f"Memory limit (MB, max: {self.max_memory_mb}):").grid(row=1, column=0, sticky="w", pady=(4,0))
+        tk.Label(resource_frame, text=f"Memory limit (MB, max: {self.max_memory_mb}):").grid(row=1, column=0, sticky="w", pady=(4, 0))
         default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
         mem_default = resource_limits.get("memory_limit_mb", 0)
-        
+
         if mem_default is None or mem_default == 0:
             mem_default = str(default_mem)
-        
+
         self.mem_var = tk.StringVar(value=str(mem_default))
-        self.mem_entry = tk.Entry(resource_frame, textvariable=self.mem_var, width=10, state="disabled") # Disabled until implemented
-        self.mem_entry.grid(row=1, column=1, sticky="w", padx=(8,0))
+        self.mem_entry = tk.Entry(resource_frame, textvariable=self.mem_var, width=10, state="disabled")  # Disabled until implemented
+        self.mem_entry.grid(row=1, column=1, sticky="w", padx=(8, 0))
 
         resource_frame.update_idletasks()
         req_width = resource_frame.winfo_reqwidth() + 3
@@ -168,7 +170,7 @@ class AppConfigWindow:
             canvas_width = event.width
             extraction_canvas.itemconfig(canvas_window, width=canvas_width)
         extraction_canvas.bind("<Configure>", _on_canvas_configure)
-        
+
         def _on_mousewheel(event):
             extraction_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
@@ -198,7 +200,7 @@ class AppConfigWindow:
             "variable_delay": (tk.BooleanVar, None),
             "fnf_idle_loop": (tk.BooleanVar, None),
         }
-        
+
         self.extraction_vars = {}
         option_row = 0
         for key, (var_type, options) in self.extraction_fields.items():
@@ -207,13 +209,13 @@ class AppConfigWindow:
             default_val = defaults.get(key, "" if var_type is tk.StringVar else False)
             if var_type is tk.BooleanVar:
                 self.extraction_vars[key] = var_type(value=default_val)
-                tk.Checkbutton(extraction_frame, variable=self.extraction_vars[key]).grid(row=option_row, column=1, sticky="w", padx=(8,0))
+                tk.Checkbutton(extraction_frame, variable=self.extraction_vars[key]).grid(row=option_row, column=1, sticky="w", padx=(8, 0))
             elif options:
                 self.extraction_vars[key] = var_type(value=default_val)
-                tk.OptionMenu(extraction_frame, self.extraction_vars[key], *options).grid(row=option_row, column=1, sticky="w", padx=(8,0))
+                tk.OptionMenu(extraction_frame, self.extraction_vars[key], *options).grid(row=option_row, column=1, sticky="w", padx=(8, 0))
             else:
                 self.extraction_vars[key] = var_type(value=str(default_val))
-                tk.Entry(extraction_frame, textvariable=self.extraction_vars[key], width=10).grid(row=option_row, column=1, sticky="w", padx=(8,0))
+                tk.Entry(extraction_frame, textvariable=self.extraction_vars[key], width=10).grid(row=option_row, column=1, sticky="w", padx=(8, 0))
             option_row += 1
 
         row += 1

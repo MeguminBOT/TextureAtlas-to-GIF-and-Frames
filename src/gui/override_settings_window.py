@@ -5,6 +5,7 @@ from tkinter import ttk
 from gui.gif_preview_window import GifPreviewWindow
 from utils.utilities import Utilities
 
+
 class OverrideSettingsWindow:
     """
     A window for overriding animation or spritesheet settings.
@@ -115,11 +116,11 @@ class OverrideSettingsWindow:
             self.filename_entry.pack()
 
         tk.Button(window, text="OK", command=self.store_input).pack()
-        
+
         if settings_type == "animation":
             tk.Button(window, text="Preview as GIF", command=lambda: GifPreviewWindow.preview(
-                self.app, self.name, self.settings_type, 
-                self.fps_entry, self.delay_entry, self.period_entry, 
+                self.app, self.name, self.settings_type,
+                self.fps_entry, self.delay_entry, self.period_entry,
                 self.scale_entry, self.threshold_entry, self.indices_entry, self.frames_entry
             )).pack(pady=6)
 

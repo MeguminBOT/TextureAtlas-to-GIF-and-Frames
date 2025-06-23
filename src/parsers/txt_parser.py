@@ -4,6 +4,7 @@ import tkinter as tk
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class TxtParser:
     """
     A class to parse TXT files and extract sprite data.

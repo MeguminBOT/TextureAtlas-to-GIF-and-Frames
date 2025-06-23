@@ -5,6 +5,7 @@ import tkinter as tk
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class XmlParser:
     """
     A class to parse XML files and extract sprite data.

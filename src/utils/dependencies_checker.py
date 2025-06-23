@@ -7,6 +7,7 @@ import webbrowser
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class DependenciesChecker:
     """
     A class to check and configure dependencies.

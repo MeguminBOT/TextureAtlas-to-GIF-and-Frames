@@ -7,6 +7,7 @@ from core.frame_selector import FrameSelector
 from core.frame_exporter import FrameExporter
 from core.animation_exporter import AnimationExporter
 
+
 class AnimationProcessor:
     """
     A class to process animations from a texture atlas.

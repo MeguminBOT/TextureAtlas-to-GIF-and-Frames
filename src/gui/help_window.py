@@ -1,9 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 
+
 class HelpWindow:
     """
-    A window class for displaying help and documentation for the application.
+    A window class for displaying quick help and documentation for the application.
 
     This class provides static methods to create scrollable help windows with detailed instructions
     and guidance for using the application, including special advice for FNF (Friday Night Funkin') sprites.

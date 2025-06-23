@@ -70,7 +70,7 @@ class FrameSelector:
 
             if '--' in entry:  # Detect ranges like "-1--4"
                 try:
-                    split_index = entry[1:].find('-') + 1 
+                    split_index = entry[1:].find('-') + 1
                     start = int(entry[:split_index])
                     end = int(entry[split_index + 1:])
 

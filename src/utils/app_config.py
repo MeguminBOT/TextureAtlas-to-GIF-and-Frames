@@ -1,6 +1,7 @@
 import os
 import json
 
+
 class AppConfig:
     """
     A class for managing persistent application configuration settings.
@@ -115,7 +116,7 @@ class AppConfig:
 
     def migrate(self):
         needs_migration = False
-        
+
         def merge_defaults(current, defaults):
             nonlocal needs_migration
             for key, default_value in defaults.items():
@@ -127,7 +128,7 @@ class AppConfig:
                     merge_defaults(current[key], default_value)
         
         merge_defaults(self.settings, self.DEFAULTS)
-        
+
         if needs_migration:
             self.save()
             print("[Config] Configuration migration completed successfully.")

@@ -7,11 +7,12 @@ from tkinter import filedialog
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class FnfUtilities:
     """
     A utility class for importing Friday Night Funkin' (FNF) character data.
 
-    Supports characters from: 
+    Supports characters from:
         Kade Engine, Psych Engine, Codename Engine
 
     Attributes:
@@ -28,7 +29,7 @@ class FnfUtilities:
 
     def __init__(self):
         self.fnf_char_json_directory = ""
-     
+
     def detect_engine(self, file_path):
         if file_path.endswith('.json'):
             with open(file_path, 'r') as file:
@@ -140,7 +141,7 @@ class FnfUtilities:
                     full_anim_name = f"{png_filename}/{anim_name}"
                     settings = {"fps": fps}
 
-                    if scale != 1: 
+                    if scale != 1:
                         settings["scale"] = scale
                     if indices:
                         settings["indices"] = indices
@@ -168,7 +169,7 @@ class FnfUtilities:
                     full_anim_name = f"{png_filename}/{anim_name}"
                     settings = {"fps": fps}
 
-                    if scale != 1: 
+                    if scale != 1:
                         settings["scale"] = scale
                     if indices:
                         settings["indices"] = [int(i) for i in indices.split("..")] if ".." in indices else [int(i) for i in indices.split(",")]

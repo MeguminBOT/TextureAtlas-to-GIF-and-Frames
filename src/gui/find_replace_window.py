@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+
 class FindReplaceWindow:
     """
     A window for managing find-and-replace rules for filenames.
@@ -29,7 +30,7 @@ class FindReplaceWindow:
         self.replace_rules = replace_rules
         self.on_store_callback = on_store_callback
 
-        add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find":"","replace":"","regex":False}))
+        add_button = tk.Button(self.replace_window, text='Add rule', command=lambda: self.add_replace_rule({"find": "", "replace": "", "regex": False}))
         add_button.pack()
         for rule in self.replace_rules:
             self.add_replace_rule(rule)

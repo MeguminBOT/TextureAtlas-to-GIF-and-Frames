@@ -4,6 +4,7 @@ from PIL.PngImagePlugin import PngInfo
 # Import our own modules
 from utils.utilities import Utilities
 
+
 class FrameExporter:
     """
     Exports individual frames from a spritesheet as PNG images.

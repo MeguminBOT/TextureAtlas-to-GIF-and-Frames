@@ -9,7 +9,7 @@ from tkinter import messagebox
 from PIL import Image
 import tempfile
 
-## Import our own modules
+# Import our own modules
 from core.atlas_processor import AtlasProcessor
 from core.sprite_processor import SpriteProcessor
 from core.frame_selector import FrameSelector
@@ -17,6 +17,7 @@ from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
+
 
 class Extractor:
     """
@@ -103,7 +104,7 @@ class Extractor:
                     messagebox.showerror("Error", f"Something went wrong!!\n{str(e)}")
                     if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
                         sys.exit()
-                        
+
                 tk_root.after(0, progress_var.set, progress_var.get() + 1)
                 tk_root.after(0, tk_root.update_idletasks)
                 gc.collect()

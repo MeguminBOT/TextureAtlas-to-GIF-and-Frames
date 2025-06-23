@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageSequence
 
+
 class GifPreviewWindow:
     """
     A window class for previewing GIF animations.
@@ -56,6 +57,7 @@ class GifPreviewWindow:
 
         slider_frame = tk.Frame(preview_win)
         slider_frame.pack(pady=4)
+
         def on_slider(val):
             idx = int(float(val))
             current_frame[0] = idx
@@ -120,6 +122,7 @@ class GifPreviewWindow:
         bg_slider_frame = tk.Frame(preview_win)
         bg_slider_frame.pack(pady=4)
         bg_value = tk.IntVar(value=127)
+
         def on_bg_change(val):
             clear_cache_for_bg()
             show_frame(current_frame[0])
@@ -254,6 +257,7 @@ class GifPreviewWindow:
 
         def play():
             playing[0] = True
+
             def loop():
                 if playing[0]:
                     next_frame()

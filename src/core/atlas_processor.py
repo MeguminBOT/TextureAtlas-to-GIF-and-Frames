@@ -4,6 +4,7 @@ from PIL import Image
 from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
 
+
 class AtlasProcessor:
     """
     A class to process texture atlases and their metadata.

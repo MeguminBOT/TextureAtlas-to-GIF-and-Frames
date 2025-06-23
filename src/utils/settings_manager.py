@@ -37,7 +37,7 @@ class SettingsManager:
 
         if self.animation_settings[animation_name] == {}:
             del self.animation_settings[animation_name]
-        
+
     def delete_spritesheet_settings(self, spritesheet_name):
         if spritesheet_name in self.spritesheet_settings:
             del self.spritesheet_settings[spritesheet_name]
@@ -55,5 +55,5 @@ class SettingsManager:
         if animation_name:
             animation_settings = self.animation_settings.get(animation_name, {})
             settings.update(animation_settings)
-        
+
         return settings
