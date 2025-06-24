@@ -30,11 +30,15 @@ Perfect for creating showcases and galleries of game sprites.
 - ✅ **Sparrow** (XML format)
 - ✅ **Starling** (XML format)  
 - ✅ **Packer TXT** (TXT format)
+- 🟨 (*) **Unknown/Unsupported** (Attempts to extract sprites despite missing official support)
+
+(*) = *Feature may have bad results or are not fully stable yet*
 
 ## ✨ Features
 
 - ✅ **Multiple output formats**: GIF, WebP, APNG animations + individual frames (PNG, WebP, AVIF, BMP, DDS, TGA, TIFF)
 - ✅ **Batch processing**: Extract multiple animations and spritesheets simultaneously
+- ✅ **Automatic sprite detection**: Process image files without metadata using intelligent boundary detection
 - ✅ **Organized** Sort frames from spritesheets into individual folders.
 - ✅ **Advanced controls**: Customizable frame rate, loop delay, scale, frame selection, and alpha transparency threshold
 - ✅ **Compression control**: Lossless and lossy compression methods.

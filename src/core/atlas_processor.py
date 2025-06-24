@@ -3,6 +3,7 @@ from PIL import Image
 # Import our own modules
 from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
+from parsers.unknown_parser import UnknownParser
 
 
 class AtlasProcessor:
@@ -22,18 +23,26 @@ class AtlasProcessor:
                 tuple: A tuple containing the opened atlas image and the parsed sprite data.
     """
 
-    def __init__(self, atlas_path, metadata_path):
+    def __init__(self, atlas_path, metadata_path, parent_window=None):
         self.atlas_path = atlas_path
         self.metadata_path = metadata_path
+        self.parent_window = parent_window
         self.atlas, self.sprites = self.open_atlas_and_parse_metadata()
 
     def open_atlas_and_parse_metadata(self):
         print(f"Opening atlas: {self.atlas_path}")
         atlas = Image.open(self.atlas_path)
-        if self.metadata_path.endswith(".xml"):
+          # Check if metadata_path is None or points to an image file (unknown spritesheet)
+        if (self.metadata_path is None or 
+            self.metadata_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
+            print(f"Parsing unknown spritesheet: {self.atlas_path}")
+            sprites = UnknownParser.parse_unknown_image(self.atlas_path, self.parent_window)
+        elif self.metadata_path.endswith(".xml"):
             print(f"Parsing XML metadata: {self.metadata_path}")
             sprites = XmlParser.parse_xml_data(self.metadata_path)
         elif self.metadata_path.endswith(".txt"):
             print(f"Parsing TXT metadata: {self.metadata_path}")
             sprites = TxtParser.parse_txt_packer(self.metadata_path)
+        else:
+            raise ValueError(f"Unsupported metadata file format: {self.metadata_path}")
         return atlas, sprites

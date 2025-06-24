@@ -19,6 +19,7 @@ from utils.utilities import Utilities
 from utils.fnf_utilities import FnfUtilities
 from parsers.xml_parser import XmlParser
 from parsers.txt_parser import TxtParser
+from parsers.unknown_parser import UnknownParser
 from core.extractor import Extractor
 from gui.app_config_window import AppConfigWindow
 from gui.help_window import HelpWindow
@@ -27,6 +28,9 @@ from gui.override_settings_window import OverrideSettingsWindow
 from gui.gif_preview_window import GifPreviewWindow
 from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
+from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
+from gui.background_keying_dialog import BackgroundKeyingDialog
+from gui.background_color_detection_window import BackgroundColorDetectionWindow
 
 
 class TextureAtlasExtractorApp:
@@ -161,8 +165,8 @@ class TextureAtlasExtractorApp:
 
     def setup_gui(self):
         self.root.title(f"TextureAtlas to GIF and Frames v{self.current_version}")
-        self.root.geometry("900x720")
-        self.root.resizable(False, False)
+        self.root.geometry("900x770")
+        self.root.resizable(False, True)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         try:
@@ -544,12 +548,31 @@ class TextureAtlasExtractorApp:
             label.config(text=directory)
             if variable == self.input_dir:
                 self.clear_filelist()
+                processed_files = set()
+
                 for filename in os.listdir(directory):
                     if filename.endswith(".xml") or filename.endswith(".txt"):
-                        self.listbox_png.insert(tk.END, os.path.splitext(filename)[0] + ".png")
+                        base_name = os.path.splitext(filename)[0]
+                        png_filename = base_name + ".png"
+                        if os.path.isfile(os.path.join(directory, png_filename)):
+                            self.listbox_png.insert(tk.END, png_filename)
+                            processed_files.add(png_filename)
+
+                for filename in os.listdir(directory):
+                    if (filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')) 
+                        and filename not in processed_files):
+                        self.listbox_png.insert(tk.END, filename)
+                
                 self.listbox_png.bind("<<ListboxSelect>>", self.on_select_spritesheet)
                 self.listbox_png.bind("<Double-1>", self.on_double_click_spritesheet)
                 self.listbox_data.bind("<Double-1>", self.on_double_click_animation)
+                
+                # Detect background colors in unknown spritesheets and get user preference
+                background_choice = self.detect_and_handle_background_colors()
+                if background_choice:
+                    # Store the user's choice for later use during processing
+                    BackgroundKeyingDialog._user_choice = background_choice
+                    print(f"Background handling preference set to: {background_choice}")
         return directory
 
     def select_files_manually(self, variable, label):
@@ -606,6 +629,12 @@ class TextureAtlasExtractorApp:
         elif os.path.isfile(os.path.join(directory, txt_filename)):
             txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
             txt_parser.get_data()
+        else:
+            # Attempt using a generic parser for images with missing metadata
+            image_path = os.path.join(directory, png_filename)
+            if os.path.isfile(image_path):
+                unknown_parser = UnknownParser(directory, png_filename, self.listbox_data)
+                unknown_parser.get_data()
 
     def on_double_click_spritesheet(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
@@ -781,12 +810,58 @@ class TextureAtlasExtractorApp:
             shutil.rmtree(self.temp_dir)
         self.root.destroy()
 
+    def check_for_unknown_atlases(self, spritesheet_list):
+        unknown_atlases = []
+        input_directory = self.input_dir.get()
+
+        for filename in spritesheet_list:
+            base_filename = filename.rsplit(".", 1)[0]
+            xml_path = os.path.join(input_directory, base_filename + ".xml")
+            txt_path = os.path.join(input_directory, base_filename + ".txt")
+            image_path = os.path.join(input_directory, filename)
+
+            # Check if this is an unknown atlas (no metadata file but is an image)
+            if (
+                not os.path.isfile(xml_path)
+                and not os.path.isfile(txt_path)
+                and os.path.isfile(image_path)
+                and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
+            ):
+                unknown_atlases.append(filename)
+
+        return len(unknown_atlases) > 0, unknown_atlases
+
+    def show_unknown_atlas_warning(self, unknown_atlases):
+        return UnknownAtlasWarningWindow.show_warning(self.root, unknown_atlases)
+
+    def filter_unknown_atlases(self, unknown_atlases):
+        for unknown_atlas in unknown_atlases:
+            for i in range(self.listbox_png.size()):
+                if self.listbox_png.get(i) == unknown_atlas:
+                    self.listbox_png.delete(i)
+                    break
+
+        self.listbox_data.delete(0, tk.END)
+
     def start_process(self):
         self.update_global_settings()
+        
+        # Reset the background keying dialog state for new batch processing
+        BackgroundKeyingDialog.reset_batch_state()
 
         if any(char in self.settings_manager.global_settings["prefix"] for char in r'\/:*?"<>|'):
             messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
             return
+
+        spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
+        has_unknown, unknown_atlases = self.check_for_unknown_atlases(spritesheet_list)
+
+        if has_unknown:
+            action = self.show_unknown_atlas_warning(unknown_atlases)
+            if action == 'cancel':
+                return
+            elif action == 'skip':
+                self.filter_unknown_atlases(unknown_atlases)
 
         self.process_button.config(state="disabled", text="Processing...")
 
@@ -1379,6 +1454,70 @@ class TextureAtlasExtractorApp:
                     widgets["quality"].config(state="disabled")
                     widgets["optimize"].config(state="normal")
 
+    def detect_and_handle_background_colors(self):
+        """
+        Detect background colors in unknown spritesheets and show the detection dialog.
+        
+        Returns:
+            str: User's choice for handling background colors, or None if no detection needed
+        """
+        try:
+            spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
+            input_directory = self.input_dir.get()
+            
+            detection_results = []
+            
+            for filename in spritesheet_list:
+                base_filename = filename.rsplit(".", 1)[0]
+                xml_path = os.path.join(input_directory, base_filename + ".xml")
+                txt_path = os.path.join(input_directory, base_filename + ".txt")
+                image_path = os.path.join(input_directory, filename)
+                
+                # Check if this is an unknown atlas (no metadata file but is an image)
+                if (
+                    not os.path.isfile(xml_path)
+                    and not os.path.isfile(txt_path)
+                    and os.path.isfile(image_path)
+                    and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
+                ):
+                    # Detect background colors for this unknown atlas
+                    try:
+                        from PIL import Image
+                        image = Image.open(image_path)
+                        
+                        if image.mode != "RGBA":
+                            image = image.convert("RGBA")
+                        
+                        has_transparency = UnknownParser._has_transparency(image)
+                        detected_colors = []
+                        
+                        if not has_transparency:
+                            detected_colors = UnknownParser._detect_background_colors(image, max_colors=3)
+                        
+                        if detected_colors or not has_transparency:
+                            detection_results.append({
+                                'filename': filename,
+                                'colors': detected_colors,
+                                'has_transparency': has_transparency
+                            })
+                            
+                    except Exception as e:
+                        print(f"Error detecting background colors for {filename}: {e}")
+                        # Add to results with no colors detected
+                        detection_results.append({
+                            'filename': filename,
+                            'colors': [],
+                            'has_transparency': False
+                        })
+            
+            if detection_results:
+                return BackgroundColorDetectionWindow.show_detection_results(self.root, detection_results)
+                
+            return None
+            
+        except Exception as e:
+            print(f"Error in background color detection: {e}")
+            return None
 
 if __name__ == "__main__":
     try:
