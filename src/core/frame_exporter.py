@@ -19,11 +19,14 @@ class FrameExporter:
             Function to scale images before saving.
 
     Methods:
-        save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings) -> int
+        save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings, is_unknown_spritesheet=False) -> int
             Saves selected frames, applying cropping and scaling as specified in settings.
+            The is_unknown_spritesheet parameter determines whether to apply extra cropping.
             Returns the number of frames successfully exported.
         _save_frame_to_image(image, filename, frame_format)
             Saves the frames in the specified format.
+        _apply_extra_crop_pass(image)
+            Applies extra cropping to remove excessive whitespace around the sprite.
     """
 
     def __init__(self, output_dir, current_version, scale_image_func):
@@ -31,9 +34,7 @@ class FrameExporter:
         self.current_version = current_version
         self.scale_image = scale_image_func
 
-    def save_frames(
-        self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings
-    ):
+    def save_frames(self, image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings, is_unknown_spritesheet=False):
         frames_generated = 0
         if len(image_tuples) == 0:
             return frames_generated
@@ -90,14 +91,38 @@ class FrameExporter:
                 if bbox:
                     if crop_option == "Frame based":
                         cropped_frame = frame_image.crop(bbox)
-                        final_frame_image = self.scale_image(cropped_frame, frame_scale)
+                        if is_unknown_spritesheet:
+                            extra_cropped_frame = self._apply_extra_crop_pass(cropped_frame)
+                            final_frame_image = self.scale_image(
+                                extra_cropped_frame, frame_scale
+                            )
+                        else:
+                            final_frame_image = self.scale_image(
+                                cropped_frame, frame_scale
+                            )
 
                     elif crop_option == "Animation based":
                         cropped_frame = frame_image.crop((min_x, min_y, max_x, max_y))
-                        final_frame_image = self.scale_image(cropped_frame, frame_scale)
+                        if is_unknown_spritesheet:
+                            extra_cropped_frame = self._apply_extra_crop_pass(cropped_frame)
+                            final_frame_image = self.scale_image(
+                                extra_cropped_frame, frame_scale
+                            )
+                        else:
+                            final_frame_image = self.scale_image(
+                                cropped_frame, frame_scale
+                            )
 
                     else:
-                        final_frame_image = self.scale_image(frame_image, frame_scale)
+                        if is_unknown_spritesheet:
+                            extra_cropped_frame = self._apply_extra_crop_pass(frame_image)
+                            final_frame_image = self.scale_image(
+                                extra_cropped_frame, frame_scale
+                            )
+                        else:
+                            final_frame_image = self.scale_image(
+                                frame_image, frame_scale
+                            )
 
                     self._save_frame_to_image(
                         final_frame_image,
@@ -135,18 +160,24 @@ class FrameExporter:
             )
             save_kwargs["pnginfo"] = metadata
             save_kwargs["format"] = "PNG"
-            save_kwargs["compress_level"] = compression_settings.get("png_compress_level", 9)
+            save_kwargs["compress_level"] = compression_settings.get(
+                "png_compress_level", 9
+            )
             save_kwargs["optimize"] = compression_settings.get("png_optimize", True)
 
         elif frame_format == "TGA":
             save_kwargs["format"] = "TGA"
-            save_kwargs["compression"] = compression_settings.get("tga_compression", "tga_rle")
+            save_kwargs["compression"] = compression_settings.get(
+                "tga_compression", "tga_rle"
+            )
 
         elif frame_format == "TIFF":
             save_kwargs["format"] = "TIFF"
 
             compression_type = compression_settings.get("tiff_compression_type", "lzw")
-            save_kwargs["compression"] = compression_type if compression_type != "none" else None
+            save_kwargs["compression"] = (
+                compression_type if compression_type != "none" else None
+            )
 
             if compression_type == "jpeg":
                 save_kwargs["quality"] = compression_settings.get("tiff_quality", 90)
@@ -182,8 +213,40 @@ class FrameExporter:
                     f"PNG generated by TextureAtlas to GIF and Frames v{self.current_version}",
                 )
                 image.save(
-                    png_filename, format="PNG", pnginfo=metadata, compress_level=9, optimize=True
+                    png_filename,
+                    format="PNG",
+                    pnginfo=metadata,
+                    compress_level=9,
+                    optimize=True,
                 )
                 print(f"Fallback: Successfully saved {png_filename} as PNG")
             except Exception as fallback_e:
                 print(f"Critical error: Could not save image even as PNG: {fallback_e}")
+
+    def _apply_extra_crop_pass(self, image):
+        try:
+            bbox = image.getbbox()
+            if bbox:
+                padding = 2
+                left, top, right, bottom = bbox
+                width, height = image.size
+
+                left = max(0, left - padding)
+                top = max(0, top - padding)
+                right = min(width, right + padding)
+                bottom = min(height, bottom + padding)
+
+                # Only crop if it would actually reduce the canvas size significantly
+                # (avoid cropping if the reduction is minimal)
+                new_width = right - left
+                new_height = bottom - top
+                original_area = width * height
+                new_area = new_width * new_height
+
+                if new_area < original_area * 0.75:
+                    return image.crop((left, top, right, bottom))
+
+            return image
+        except Exception as e:
+            print(f"Warning: Extra crop failed, using original image: {e}")
+            return image

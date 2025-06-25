@@ -20,8 +20,9 @@ class AnimationProcessor:
         quant_frames (dict): A dictionary to store quantized frames for optimized GIF generation.
 
     Methods:
-        process_animations():
-            Processes the animations and saves the frames and animations.
+        process_animations(is_unknown_spritesheet=False):
+            Processes the animations and saves the frames and animations. 
+            is_unknown_spritesheet parameter determines whether to apply extra cropping for unknown spritesheets.
         scale_image(img, size):
             Scales the image by the given size factor, optionally flipping it horizontally.
     """
@@ -33,12 +34,14 @@ class AnimationProcessor:
         self.settings_manager = settings_manager
         self.current_version = current_version
         self.quant_frames = {}
-        self.frame_exporter = FrameExporter(self.output_dir, self.current_version, self.scale_image)
+        self.frame_exporter = FrameExporter(
+            self.output_dir, self.current_version, self.scale_image
+        )
         self.animation_exporter = AnimationExporter(
             self.output_dir, self.current_version, self.scale_image, self.quant_frames
         )
 
-    def process_animations(self):
+    def process_animations(self, is_unknown_spritesheet=False):
         frames_generated = 0
         anims_generated = 0
 
@@ -55,12 +58,18 @@ class AnimationProcessor:
 
             indices = settings.get("indices")
             if indices:
-                indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
+                indices = list(
+                    filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices)
+                )
                 image_tuples = [image_tuples[i] for i in indices]
             single_frame = FrameSelector.is_single_frame(image_tuples)
 
-            kept_frames = FrameSelector.get_kept_frames(settings, single_frame, image_tuples)
-            kept_frame_indices = FrameSelector.get_kept_frame_indices(kept_frames, image_tuples)
+            kept_frames = FrameSelector.get_kept_frames(
+                settings, single_frame, image_tuples
+            )
+            kept_frame_indices = FrameSelector.get_kept_frame_indices(
+                kept_frames, image_tuples
+            )
 
             if settings.get("fnf_idle_loop") and "idle" in animation_name.lower():
                 settings["delay"] = 0
@@ -73,6 +82,7 @@ class AnimationProcessor:
                     animation_name,
                     scale,
                     settings,
+                    is_unknown_spritesheet,
                 )
 
             animation_format = settings.get("animation_format")

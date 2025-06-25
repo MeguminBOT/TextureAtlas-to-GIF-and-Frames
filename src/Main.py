@@ -30,7 +30,6 @@ from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
 from gui.background_keying_dialog import BackgroundKeyingDialog
-from gui.background_color_detection_window import BackgroundColorDetectionWindow
 
 
 class TextureAtlasExtractorApp:
@@ -566,13 +565,6 @@ class TextureAtlasExtractorApp:
                 self.listbox_png.bind("<<ListboxSelect>>", self.on_select_spritesheet)
                 self.listbox_png.bind("<Double-1>", self.on_double_click_spritesheet)
                 self.listbox_data.bind("<Double-1>", self.on_double_click_animation)
-                
-                # Detect background colors in unknown spritesheets and get user preference
-                background_choice = self.detect_and_handle_background_colors()
-                if background_choice:
-                    # Store the user's choice for later use during processing
-                    BackgroundKeyingDialog._user_choice = background_choice
-                    print(f"Background handling preference set to: {background_choice}")
         return directory
 
     def select_files_manually(self, variable, label):
@@ -1453,71 +1445,6 @@ class TextureAtlasExtractorApp:
                 else:
                     widgets["quality"].config(state="disabled")
                     widgets["optimize"].config(state="normal")
-
-    def detect_and_handle_background_colors(self):
-        """
-        Detect background colors in unknown spritesheets and show the detection dialog.
-        
-        Returns:
-            str: User's choice for handling background colors, or None if no detection needed
-        """
-        try:
-            spritesheet_list = [self.listbox_png.get(i) for i in range(self.listbox_png.size())]
-            input_directory = self.input_dir.get()
-            
-            detection_results = []
-            
-            for filename in spritesheet_list:
-                base_filename = filename.rsplit(".", 1)[0]
-                xml_path = os.path.join(input_directory, base_filename + ".xml")
-                txt_path = os.path.join(input_directory, base_filename + ".txt")
-                image_path = os.path.join(input_directory, filename)
-                
-                # Check if this is an unknown atlas (no metadata file but is an image)
-                if (
-                    not os.path.isfile(xml_path)
-                    and not os.path.isfile(txt_path)
-                    and os.path.isfile(image_path)
-                    and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
-                ):
-                    # Detect background colors for this unknown atlas
-                    try:
-                        from PIL import Image
-                        image = Image.open(image_path)
-                        
-                        if image.mode != "RGBA":
-                            image = image.convert("RGBA")
-                        
-                        has_transparency = UnknownParser._has_transparency(image)
-                        detected_colors = []
-                        
-                        if not has_transparency:
-                            detected_colors = UnknownParser._detect_background_colors(image, max_colors=3)
-                        
-                        if detected_colors or not has_transparency:
-                            detection_results.append({
-                                'filename': filename,
-                                'colors': detected_colors,
-                                'has_transparency': has_transparency
-                            })
-                            
-                    except Exception as e:
-                        print(f"Error detecting background colors for {filename}: {e}")
-                        # Add to results with no colors detected
-                        detection_results.append({
-                            'filename': filename,
-                            'colors': [],
-                            'has_transparency': False
-                        })
-            
-            if detection_results:
-                return BackgroundColorDetectionWindow.show_detection_results(self.root, detection_results)
-                
-            return None
-            
-        except Exception as e:
-            print(f"Error in background color detection: {e}")
-            return None
 
 if __name__ == "__main__":
     try:

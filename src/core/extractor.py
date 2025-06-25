@@ -76,6 +76,9 @@ class Extractor:
 
         start_time = time.time()
 
+        # Handle background color detection for unknown spritesheets before processing
+        self._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, tk_root)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
             futures = []
 
@@ -84,19 +87,33 @@ class Extractor:
                 base_filename = filename.rsplit(".", 1)[0]
                 xml_path = os.path.join(input_dir, base_filename + ".xml")
                 txt_path = os.path.join(input_dir, base_filename + ".txt")
+                image_path = os.path.join(input_dir, filename)
+
+                sprite_output_dir = os.path.join(output_dir, base_filename)
+                os.makedirs(sprite_output_dir, exist_ok=True)
+
+                settings = self.settings_manager.get_settings(filename)
 
                 if os.path.isfile(xml_path) or os.path.isfile(txt_path):
-                    sprite_output_dir = os.path.join(output_dir, base_filename)
-                    os.makedirs(sprite_output_dir, exist_ok=True)
-
-                    settings = self.settings_manager.get_settings(filename)
-
                     future = executor.submit(
                         self.extract_sprites,
                         os.path.join(input_dir, filename),
                         xml_path if os.path.isfile(xml_path) else txt_path,
                         sprite_output_dir,
                         settings,
+                        tk_root,
+                    )
+                    futures.append(future)
+
+                # Fallback if no metadata file is found or if the spritesheet is not officially supported.
+                elif (os.path.isfile(image_path) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
+                    future = executor.submit(
+                        self.extract_sprites,
+                        image_path,
+                        None,
+                        sprite_output_dir,
+                        settings,
+                        tk_root,
                     )
                     futures.append(future)
 
@@ -132,20 +149,22 @@ class Extractor:
             f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
         )
 
-    def extract_sprites(self, atlas_path, metadata_path, output_dir, settings):
+    def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
 
         try:
-            atlas_processor = AtlasProcessor(atlas_path, metadata_path)
+            is_unknown_spritesheet = metadata_path is None
+            
+            atlas_processor = AtlasProcessor(atlas_path, metadata_path, parent_window)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
             animation_processor = AnimationProcessor(
                 animations, atlas_path, output_dir, self.settings_manager, self.current_version
             )
 
-            frames_generated, anims_generated = animation_processor.process_animations()
+            frames_generated, anims_generated = animation_processor.process_animations(is_unknown_spritesheet)
             return {
                 "frames_generated": frames_generated,
                 "anims_generated": anims_generated,
@@ -157,7 +176,7 @@ class Extractor:
             raise ET.ParseError(f"Badly formatted XML file:\n\n{metadata_path}")
 
         except Exception as e:
-            ExceptionHandler.handle_exception(e, metadata_path, sprites_failed)
+            ExceptionHandler.handle_exception(e, metadata_path if metadata_path else atlas_path, sprites_failed)
 
     def generate_temp_gif_for_preview(self, atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
         try:
@@ -222,3 +241,70 @@ class Extractor:
         except Exception as e:
             print(f"Preview GIF generation error: {e}")
             return None
+
+    def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, tk_root):
+        try:
+            unknown_spritesheets = []
+
+            for filename in spritesheet_list:
+                base_filename = filename.rsplit(".", 1)[0]
+                xml_path = os.path.join(input_dir, base_filename + ".xml")
+                txt_path = os.path.join(input_dir, base_filename + ".txt")
+                image_path = os.path.join(input_dir, filename)
+
+                if (not os.path.isfile(xml_path) and 
+                    not os.path.isfile(txt_path) and 
+                    os.path.isfile(image_path) and 
+                    filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
+                    unknown_spritesheets.append(filename)
+
+            if not unknown_spritesheets:
+                return
+
+            print(f"Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors...")
+
+            from parsers.unknown_parser import UnknownParser
+            from gui.background_color_detection_window import BackgroundColorDetectionWindow
+            from gui.background_keying_dialog import BackgroundKeyingDialog
+            from PIL import Image
+
+            BackgroundKeyingDialog.reset_batch_state()
+
+            detection_results = []
+
+            for filename in unknown_spritesheets:
+                image_path = os.path.join(input_dir, filename)
+                try:
+                    image = Image.open(image_path)
+                    if image.mode != "RGBA":
+                        image = image.convert("RGBA")
+
+                    has_transparency = UnknownParser._has_transparency(image)
+                    detected_colors = []
+
+                    if not has_transparency:
+                        detected_colors = UnknownParser._detect_background_colors(image, max_colors=3)
+
+                    if detected_colors or not has_transparency:
+                        detection_results.append({
+                            'filename': filename,
+                            'colors': detected_colors,
+                            'has_transparency': has_transparency
+                        })
+
+                except Exception as e:
+                    print(f"Error detecting background colors for {filename}: {e}")
+                    detection_results.append({
+                        'filename': filename,
+                        'colors': [],
+                        'has_transparency': False
+                    })
+
+            if detection_results:
+                user_choice = BackgroundColorDetectionWindow.show_detection_results(tk_root, detection_results)
+                if user_choice:
+                    BackgroundKeyingDialog._user_choice = user_choice
+                    print(f"Background handling preference set to: {user_choice}")
+
+        except Exception as e:
+            print(f"Error in background color detection: {e}")
