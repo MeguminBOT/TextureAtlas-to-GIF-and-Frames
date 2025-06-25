@@ -22,7 +22,7 @@ class UnknownParser:
         get_data(): Analyzes the image and populates the listbox with detected sprite names.
         extract_names(): Detects sprites in the image and returns their names.
         get_names(names): Populates the listbox with the given names.
-        parse_unknown_image(file_path, parent_window=None): Static method to analyze an image and return sprite information.
+        parse_unknown_image(file_path, parent_window=None): Static method to analyze an image and return both processed image and sprite information.
         _find_connected_regions(alpha_mask): Static method to find connected regions in an alpha mask.
         _get_bounding_box(region_coords): Static method to calculate the bounding box of a region.
         _detect_background_color(image): Static method to detect the most common background color.
@@ -57,27 +57,26 @@ class UnknownParser:
             parent_window (tk.Tk, optional): Parent window for displaying dialogs
 
         Returns:
-            list: List of sprite dictionaries with keys: name, x, y, width, height
+            tuple: (processed_image, sprite_list) where:
+                - processed_image (PIL.Image): The image after background removal (if applied)
+                - sprite_list (list): List of sprite dictionaries with keys: name, x, y, width, height
         """
         try:
             image = Image.open(file_path)
 
             if image.mode != "RGBA":
-                image = image.convert("RGBA")            # Detect and apply background color keying if the image doesn't have full transparency
+                image = image.convert("RGBA")
             if not UnknownParser._has_transparency(image):
                 background_colors = UnknownParser._detect_background_colors(image, max_colors=3)
                 if background_colors:
-                    # Check if user choice has been pre-determined (from the batch detection dialog)
-                    keying_action = "key_background"  # Default action
+                    keying_action = "key_background"
 
-                    # Import the dialog class to check for stored user choice
                     try:
                         from gui.background_keying_dialog import BackgroundKeyingDialog
                         if hasattr(BackgroundKeyingDialog, '_user_choice') and BackgroundKeyingDialog._user_choice:
                             keying_action = BackgroundKeyingDialog._user_choice
                             print(f"Using pre-determined user choice: {keying_action}")
                         else:
-                            # Fallback to individual dialog if no batch choice was made
                             # For display purposes, show the primary background color in the dialog
                             primary_bg_color = background_colors[0]
                             bg_color_display = f"{primary_bg_color}"
@@ -104,7 +103,7 @@ class UnknownParser:
 
                     if keying_action == "cancel":
                         print("User cancelled processing of unknown atlas")
-                        return []
+                        return image, []
                     elif keying_action == "key_background":
                         print(
                             f"Applying multi-color keying to remove {len(background_colors)} background color(s)..."
@@ -114,7 +113,7 @@ class UnknownParser:
                         print(
                             f"Processing sprites while excluding {len(background_colors)} background color(s)..."
                         )
-                        return UnknownParser._parse_excluding_multiple_backgrounds(
+                        return image, UnknownParser._parse_excluding_multiple_backgrounds(
                             image, file_path, background_colors
                         )
 
@@ -151,11 +150,18 @@ class UnknownParser:
                 )
 
             print(f"Detected {len(sprites)} sprites in unknown spritesheet: {file_path}")
-            return sprites
+            return image, sprites
 
         except Exception as e:
             print(f"Error parsing unknown image {file_path}: {str(e)}")
-            return []
+            # Return the original image and empty sprite list on error
+            try:
+                original_image = Image.open(file_path)
+                if original_image.mode != "RGBA":
+                    original_image = original_image.convert("RGBA")
+                return original_image, []
+            except Exception:
+                return None, []
 
     @staticmethod
     def _find_connected_regions(alpha_mask):
@@ -770,7 +776,8 @@ class UnknownParser:
 
         except Exception as e:
             print(f"Error parsing with background exclusion: {str(e)}")
-            return UnknownParser.parse_unknown_image(file_path)
+            _, sprites = UnknownParser.parse_unknown_image(file_path)
+            return sprites
 
     @staticmethod
     def _parse_excluding_multiple_backgrounds(image, file_path, background_colors, tolerance=30):
@@ -788,7 +795,8 @@ class UnknownParser:
         """
         try:
             if not background_colors:
-                return UnknownParser.parse_unknown_image(file_path)
+                _, sprites = UnknownParser.parse_unknown_image(file_path)
+                return sprites
 
             if image.mode != "RGBA":
                 image = image.convert("RGBA")
@@ -868,7 +876,8 @@ class UnknownParser:
 
         except Exception as e:
             print(f"Error parsing with multi-background exclusion: {str(e)}")
-            return UnknownParser.parse_unknown_image(file_path)
+            _, sprites = UnknownParser.parse_unknown_image(file_path)
+            return sprites
 
     @staticmethod
     def _crop_sprite_precisely(image, x, y, width, height, padding=1):

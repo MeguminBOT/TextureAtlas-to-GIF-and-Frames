@@ -32,11 +32,15 @@ class AtlasProcessor:
     def open_atlas_and_parse_metadata(self):
         print(f"Opening atlas: {self.atlas_path}")
         atlas = Image.open(self.atlas_path)
-          # Check if metadata_path is None or points to an image file (unknown spritesheet)
+
+        # Check if metadata_path is None or points to an image file (unknown spritesheet)
         if (self.metadata_path is None or 
             self.metadata_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
             print(f"Parsing unknown spritesheet: {self.atlas_path}")
-            sprites = UnknownParser.parse_unknown_image(self.atlas_path, self.parent_window)
+            processed_atlas, sprites = UnknownParser.parse_unknown_image(self.atlas_path, self.parent_window)
+            if processed_atlas is not None:
+                atlas = processed_atlas
+
         elif self.metadata_path.endswith(".xml"):
             print(f"Parsing XML metadata: {self.metadata_path}")
             sprites = XmlParser.parse_xml_data(self.metadata_path)
