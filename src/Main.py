@@ -832,7 +832,7 @@ class TextureAtlasExtractorApp:
         return len(unknown_atlases) > 0, unknown_atlases
 
     def show_unknown_atlas_warning(self, unknown_atlases):
-        return UnknownAtlasWarningWindow.show_warning(self.root, unknown_atlases)
+        return UnknownAtlasWarningWindow.show_warning(self.root, unknown_atlases, self.input_dir.get())
 
     def filter_unknown_atlases(self, unknown_atlases):
         for unknown_atlas in unknown_atlases:

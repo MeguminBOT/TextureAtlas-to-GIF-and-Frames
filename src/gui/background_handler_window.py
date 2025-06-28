@@ -27,13 +27,35 @@ class BackgroundHandlerWindow:
                 - 'key_background': Apply color keying (remove background)
                 - 'exclude_background': Exclude background during sprite detection
                 - 'skip': Skip processing this file
+                - {'_cancelled': True}: User cancelled the dialog (stops extraction)
         """
-        
-        print(f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results")
-        
-        if not detection_results:
-            print("[BackgroundHandlerWindow] No detection results, returning empty dict")
-            return {}
+
+        print(
+            f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results"
+        )
+
+        # Filter out images that already have transparency
+        filtered_results = [
+            result
+            for result in detection_results
+            if not result.get("has_transparency", False)
+        ]
+
+        # For images with transparency, automatically set them to skip background processing
+        result = {}
+        for detection_result in detection_results:
+            if detection_result.get("has_transparency", False):
+                result[detection_result["filename"]] = "exclude_background"
+
+        if not filtered_results:
+            print(
+                "[BackgroundHandlerWindow] No images need background processing, returning auto-handled results"
+            )
+            return result
+
+        print(
+            f"[BackgroundHandlerWindow] Filtered to {len(filtered_results)} images needing background processing"
+        )
 
         print("[BackgroundHandlerWindow] Creating dialog window...")
         dialog = tk.Toplevel(parent_window)
@@ -69,7 +91,7 @@ class BackgroundHandlerWindow:
 
         # Description
         description = (
-            f"Found {len(detection_results)} unknown spritesheet(s) with background colors.\n"
+            f"Found {len(filtered_results)} unknown spritesheet(s) with background colors.\n"
             f"Check the box next to each file to remove its background color during processing:"
         )
 
@@ -123,8 +145,8 @@ class BackgroundHandlerWindow:
         scrollbar.pack(side="right", fill="y")
 
         # Add detection results to scrollable frame
-        for i, result in enumerate(detection_results):
-            checkbox_var = tk.BooleanVar(value=True)  # Default to checked
+        for i, result in enumerate(filtered_results):
+            checkbox_var = tk.BooleanVar(value=True)
             checkbox_vars[result["filename"]] = checkbox_var
             BackgroundHandlerWindow._add_spritesheet_entry(
                 scrollable_frame, result, i, checkbox_var
@@ -163,8 +185,9 @@ class BackgroundHandlerWindow:
             dialog.destroy()
 
         def on_cancel():
-            for filename in checkbox_vars.keys():
-                result[filename] = "skip"
+            # Return special value to indicate cancellation
+            result.clear()
+            result["_cancelled"] = True
             dialog.destroy()
 
         # Button frame
@@ -183,6 +206,7 @@ class BackgroundHandlerWindow:
         apply_btn.focus_set()
         dialog.bind("<Return>", lambda e: on_apply())
         dialog.bind("<Escape>", lambda e: on_cancel())
+        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
 
         # Bind mousewheel to canvas
         def _on_mousewheel(event):
@@ -236,77 +260,65 @@ class BackgroundHandlerWindow:
         colors_frame = tk.Frame(row_frame, bg=bg_color)
         colors_frame.pack(fill="x", padx=30, pady=(0, 5))
 
-        if result["has_transparency"]:
-            transparency_label = tk.Label(
-                colors_frame,
-                text="✓ Image already has transparency",
+        colors_label = tk.Label(
+            colors_frame,
+            text="Detected background colors:",
+            font=("Arial", 9),
+            bg=bg_color,
+        )
+        colors_label.pack(anchor="w")
+
+        # Color samples frame
+        for color_index, color in enumerate(result["colors"][:3]):  # Show max 3 colors
+            color_sample_frame = tk.Frame(colors_frame, bg=bg_color)
+            color_sample_frame.pack(fill="x", pady=1)
+
+            # Color sample (small colored rectangle)
+            sample_canvas = tk.Canvas(
+                color_sample_frame,
+                width=20,
+                height=20,
+                highlightthickness=1,
+                highlightbackground="black",
+            )
+            sample_canvas.pack(side="left", padx=(10, 5))
+
+            # Create color sample
+            hex_color = f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+            sample_canvas.create_rectangle(1, 1, 19, 19, fill=hex_color, outline="")
+
+            # RGB values
+            rgb_text = f"RGB({color[0]}, {color[1]}, {color[2]})"
+            priority_text = (
+                "Primary" if color_index == 0 else f"Secondary {color_index}"
+            )
+
+            color_info_label = tk.Label(
+                color_sample_frame,
+                text=f"{priority_text}: {rgb_text}",
                 font=("Arial", 9),
                 bg=bg_color,
-                fg="green",
             )
-            transparency_label.pack(anchor="w")
-        else:
-            colors_label = tk.Label(
+            color_info_label.pack(side="left")
+
+        # Show if there are more colors
+        if len(result["colors"]) > 3:
+            more_colors_label = tk.Label(
                 colors_frame,
-                text="Detected background colors:",
-                font=("Arial", 9),
+                text=f"... and {len(result['colors']) - 3} more colors",
+                font=("Arial", 8),
                 bg=bg_color,
+                fg="gray",
             )
-            colors_label.pack(anchor="w")
-
-            # Color samples frame
-            for color_index, color in enumerate(
-                result["colors"][:3]
-            ):  # Show max 3 colors
-                color_sample_frame = tk.Frame(colors_frame, bg=bg_color)
-                color_sample_frame.pack(fill="x", pady=1)
-
-                # Color sample (small colored rectangle)
-                sample_canvas = tk.Canvas(
-                    color_sample_frame,
-                    width=20,
-                    height=20,
-                    highlightthickness=1,
-                    highlightbackground="black",
-                )
-                sample_canvas.pack(side="left", padx=(10, 5))
-
-                # Create color sample
-                hex_color = f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
-                sample_canvas.create_rectangle(1, 1, 19, 19, fill=hex_color, outline="")
-
-                # RGB values
-                rgb_text = f"RGB({color[0]}, {color[1]}, {color[2]})"
-                priority_text = (
-                    "Primary" if color_index == 0 else f"Secondary {color_index}"
-                )
-
-                color_info_label = tk.Label(
-                    color_sample_frame,
-                    text=f"{priority_text}: {rgb_text}",
-                    font=("Arial", 9),
-                    bg=bg_color,
-                )
-                color_info_label.pack(side="left")
-
-            # Show if there are more colors
-            if len(result["colors"]) > 3:
-                more_colors_label = tk.Label(
-                    colors_frame,
-                    text=f"... and {len(result['colors']) - 3} more colors",
-                    font=("Arial", 8),
-                    bg=bg_color,
-                    fg="gray",
-                )
-                more_colors_label.pack(anchor="w", padx=(10, 0))
+            more_colors_label.pack(anchor="w", padx=(10, 0))
 
     @staticmethod
     def reset_batch_state():
         """
-        Reset any batch processing state. 
+        Reset any batch processing state.
         Provided for compatibility with existing code.
         """
         # Clear any previous file choices
-        if hasattr(BackgroundHandlerWindow, '_file_choices'):
+        if hasattr(BackgroundHandlerWindow, "_file_choices"):
             BackgroundHandlerWindow._file_choices = {}
         print("[BackgroundHandlerWindow] Batch state reset for new processing")
