@@ -40,7 +40,9 @@ class UnknownParser:
         self.get_names(names)
 
     def extract_names(self):
-        names = {f"unsupported spritesheet - {os.path.splitext(self.image_filename)[0]}"}
+        names = {
+            f"unsupported spritesheet - {os.path.splitext(self.image_filename)[0]}"
+        }
         return names
 
     def get_names(self, names):
@@ -67,26 +69,40 @@ class UnknownParser:
             if image.mode != "RGBA":
                 image = image.convert("RGBA")
             if not UnknownParser._has_transparency(image):
-                background_colors = UnknownParser._detect_background_colors(image, max_colors=3)
+                background_colors = UnknownParser._detect_background_colors(
+                    image, max_colors=3
+                )
                 if background_colors:
                     keying_action = "key_background"
 
                     try:
-                        from gui.background_handler_window import BackgroundHandlerWindow
+                        from gui.background_handler_window import (
+                            BackgroundHandlerWindow,
+                        )
 
                         # Check if we have individual file choices from the batch dialog
                         filename = os.path.basename(file_path)
-                        if (hasattr(BackgroundHandlerWindow, '_file_choices') and 
-                            BackgroundHandlerWindow._file_choices and 
-                            filename in BackgroundHandlerWindow._file_choices):
-                            keying_action = BackgroundHandlerWindow._file_choices[filename]
-                            print(f"Using pre-determined user choice for {filename}: {keying_action}")
+                        if (
+                            hasattr(BackgroundHandlerWindow, "_file_choices")
+                            and BackgroundHandlerWindow._file_choices
+                            and filename in BackgroundHandlerWindow._file_choices
+                        ):
+                            keying_action = BackgroundHandlerWindow._file_choices[
+                                filename
+                            ]
+                            print(
+                                f"Using pre-determined user choice for {filename}: {keying_action}"
+                            )
                         else:
                             # Fallback to default behavior - apply keying
-                            print(f"No specific choice found for {filename}, defaulting to key_background")
+                            print(
+                                f"No specific choice found for {filename}, defaulting to key_background"
+                            )
                             keying_action = "key_background"
                     except ImportError:
-                        print("Background keying dialog not available - defaulting to automatic multi-color keying")
+                        print(
+                            "Background keying dialog not available - defaulting to automatic multi-color keying"
+                        )
 
                     if keying_action == "cancel":
                         print("User cancelled processing of unknown atlas")
@@ -95,13 +111,18 @@ class UnknownParser:
                         print(
                             f"Applying multi-color keying to remove {len(background_colors)} background color(s)..."
                         )
-                        image = UnknownParser._apply_multi_color_keying(image, background_colors)
+                        image = UnknownParser._apply_multi_color_keying(
+                            image, background_colors
+                        )
                     elif keying_action == "exclude_background":
                         print(
                             f"Processing sprites while excluding {len(background_colors)} background color(s)..."
                         )
-                        return image, UnknownParser._parse_excluding_multiple_backgrounds(
-                            image, file_path, background_colors
+                        return (
+                            image,
+                            UnknownParser._parse_excluding_multiple_backgrounds(
+                                image, file_path, background_colors
+                            ),
                         )
 
             img_array = np.array(image)
@@ -127,16 +148,24 @@ class UnknownParser:
                     continue
 
                 # Apply precise cropping to remove remaining background/transparent areas
-                cropped_x, cropped_y, cropped_width, cropped_height = UnknownParser._crop_sprite_precisely(
-                    image, x, y, width, height
+                cropped_x, cropped_y, cropped_width, cropped_height = (
+                    UnknownParser._crop_sprite_precisely(image, x, y, width, height)
                 )
 
                 sprite_name = f"unsupported spritesheet - {base_name} - {i + 1:04d}"
                 sprites.append(
-                    {"name": sprite_name, "x": cropped_x, "y": cropped_y, "width": cropped_width, "height": cropped_height}
+                    {
+                        "name": sprite_name,
+                        "x": cropped_x,
+                        "y": cropped_y,
+                        "width": cropped_width,
+                        "height": cropped_height,
+                    }
                 )
 
-            print(f"Detected {len(sprites)} sprites in unknown spritesheet: {file_path}")
+            print(
+                f"Detected {len(sprites)} sprites in unknown spritesheet: {file_path}"
+            )
             return image, sprites
 
         except Exception as e:
@@ -325,7 +354,9 @@ class UnknownParser:
                 return []
 
             # Sort colors by frequency
-            sorted_colors = sorted(color_counts.items(), key=lambda x: x[1], reverse=True)
+            sorted_colors = sorted(
+                color_counts.items(), key=lambda x: x[1], reverse=True
+            )
 
             background_colors = []
             total_edge_pixels = len(edge_colors)
@@ -374,10 +405,14 @@ class UnknownParser:
                 if regions:
                     largest_region_size = max(len(region) for region in regions)
                     largest_region_ratio = (
-                        largest_region_size / total_occurrences if total_occurrences > 0 else 0
+                        largest_region_size / total_occurrences
+                        if total_occurrences > 0
+                        else 0
                     )
                     total_large_regions = sum(
-                        1 for region in regions if len(region) > min(100, total_occurrences * 0.1)
+                        1
+                        for region in regions
+                        if len(region) > min(100, total_occurrences * 0.1)
                     )
                 else:
                     largest_region_ratio = 0
@@ -389,7 +424,9 @@ class UnknownParser:
                 # 3. Colors with many medium-sized regions might be background too (e.g., fragmented by grid)
                 is_background = False
 
-                if overall_dominance > 0.5:  # Very dominant color is probably background
+                if (
+                    overall_dominance > 0.5
+                ):  # Very dominant color is probably background
                     is_background = True
                     reason = "dominant color"
                 elif (
@@ -664,7 +701,9 @@ class UnknownParser:
 
                 keyed_count = np.sum(bg_mask)
                 total_keyed += keyed_count
-                print(f"Basic keying - Color {i + 1} {bg_color}: {keyed_count} pixels keyed")
+                print(
+                    f"Basic keying - Color {i + 1} {bg_color}: {keyed_count} pixels keyed"
+                )
 
             # Set alpha to 0 for all background pixels
             img_array[combined_mask, 3] = 0
@@ -719,7 +758,9 @@ class UnknownParser:
             # Create mask for non-background pixels
             # This includes pixels that don't match the background color AND have some opacity
             alpha_channel = img_array[:, :, 3]
-            non_background_mask = (color_distance > tolerance) & (alpha_channel >= int(255 * 0.01))
+            non_background_mask = (color_distance > tolerance) & (
+                alpha_channel >= int(255 * 0.01)
+            )
 
             # Find connected regions in the non-background mask
             regions = UnknownParser._find_connected_regions(non_background_mask)
@@ -740,13 +781,19 @@ class UnknownParser:
                     continue
 
                 # Apply precise cropping to remove remaining background/transparent areas
-                cropped_x, cropped_y, cropped_width, cropped_height = UnknownParser._crop_sprite_precisely(
-                    image, x, y, width, height
+                cropped_x, cropped_y, cropped_width, cropped_height = (
+                    UnknownParser._crop_sprite_precisely(image, x, y, width, height)
                 )
 
                 sprite_name = f"unsupported spritesheet - {base_name} - {i + 1:04d}"
                 sprites.append(
-                    {"name": sprite_name, "x": cropped_x, "y": cropped_y, "width": cropped_width, "height": cropped_height}
+                    {
+                        "name": sprite_name,
+                        "x": cropped_x,
+                        "y": cropped_y,
+                        "width": cropped_width,
+                        "height": cropped_height,
+                    }
                 )
 
             background_count = np.sum(color_distance <= tolerance)
@@ -767,7 +814,9 @@ class UnknownParser:
             return sprites
 
     @staticmethod
-    def _parse_excluding_multiple_backgrounds(image, file_path, background_colors, tolerance=30):
+    def _parse_excluding_multiple_backgrounds(
+        image, file_path, background_colors, tolerance=30
+    ):
         """
         Parse sprites while excluding multiple background color pixels from sprite detection.
 
@@ -813,12 +862,16 @@ class UnknownParser:
 
                 excluded_count = np.sum(bg_mask)
                 total_excluded += excluded_count
-                print(f"Background color {i + 1} {bg_color}: {excluded_count} pixels excluded")
+                print(
+                    f"Background color {i + 1} {bg_color}: {excluded_count} pixels excluded"
+                )
 
             # Create mask for non-background pixels
             # This includes pixels that don't match any background color AND have some opacity
             alpha_channel = img_array[:, :, 3]
-            non_background_mask = (~combined_background_mask) & (alpha_channel >= int(255 * 0.01))
+            non_background_mask = (~combined_background_mask) & (
+                alpha_channel >= int(255 * 0.01)
+            )
 
             # Find connected regions in the non-background mask
             regions = UnknownParser._find_connected_regions(non_background_mask)
@@ -839,13 +892,19 @@ class UnknownParser:
                     continue
 
                 # Apply precise cropping to remove remaining background/transparent areas
-                cropped_x, cropped_y, cropped_width, cropped_height = UnknownParser._crop_sprite_precisely(
-                    image, x, y, width, height
+                cropped_x, cropped_y, cropped_width, cropped_height = (
+                    UnknownParser._crop_sprite_precisely(image, x, y, width, height)
                 )
 
                 sprite_name = f"unsupported spritesheet - {base_name} - {i + 1:04d}"
                 sprites.append(
-                    {"name": sprite_name, "x": cropped_x, "y": cropped_y, "width": cropped_width, "height": cropped_height}
+                    {
+                        "name": sprite_name,
+                        "x": cropped_x,
+                        "y": cropped_y,
+                        "width": cropped_width,
+                        "height": cropped_height,
+                    }
                 )
 
             # Count how many pixels were excluded
@@ -870,28 +929,30 @@ class UnknownParser:
     def _crop_sprite_precisely(image, x, y, width, height, padding=1):
         """
         Crop a sprite more precisely by finding the actual content boundaries.
-        
+
         Args:
             image (PIL.Image): The source image (should have transparent background)
             x, y, width, height (int): Initial bounding box
             padding (int): Extra pixels to add around the content
-            
+
         Returns:
             tuple: (new_x, new_y, new_width, new_height) - optimized bounding box
         """
         try:
             # Extract the region of interest with some padding
             padded_x = max(0, x - padding)
-            padded_y = max(0, y - padding) 
+            padded_y = max(0, y - padding)
             padded_width = min(image.width - padded_x, width + 2 * padding)
             padded_height = min(image.height - padded_y, height + 2 * padding)
-            
+
             # Crop the region from the image
-            region = image.crop((padded_x, padded_y, padded_x + padded_width, padded_y + padded_height))
-            
+            region = image.crop(
+                (padded_x, padded_y, padded_x + padded_width, padded_y + padded_height)
+            )
+
             # Convert to numpy array and find actual content bounds
             region_array = np.array(region)
-            
+
             if region_array.shape[2] >= 4:  # Has alpha channel
                 # Find pixels with significant alpha (not transparent)
                 alpha_channel = region_array[:, :, 3]
@@ -901,47 +962,49 @@ class UnknownParser:
                 # Assume white/near-white is background
                 rgb_sum = np.sum(region_array[:, :, :3], axis=2)
                 content_mask = rgb_sum < (255 * 3 * 0.95)  # Not near-white
-            
+
             # Find the actual content boundaries
             content_rows = np.any(content_mask, axis=1)
             content_cols = np.any(content_mask, axis=0)
-            
+
             if not np.any(content_rows) or not np.any(content_cols):
                 # No content found, return original bounds
                 return x, y, width, height
-            
+
             # Find the tight bounding box around content
             content_y_indices = np.where(content_rows)[0]
             content_x_indices = np.where(content_cols)[0]
-            
+
             content_top = content_y_indices[0]
             content_bottom = content_y_indices[-1]
             content_left = content_x_indices[0]
             content_right = content_x_indices[-1]
-            
+
             # Calculate new bounds (relative to original image coordinates)
             new_x = padded_x + content_left
             new_y = padded_y + content_top
             new_width = content_right - content_left + 1
             new_height = content_bottom - content_top + 1
-            
+
             # Add minimal padding back
-            final_x = max(0, new_x - padding//2)
-            final_y = max(0, new_y - padding//2)
+            final_x = max(0, new_x - padding // 2)
+            final_y = max(0, new_y - padding // 2)
             final_width = min(image.width - final_x, new_width + padding)
             final_height = min(image.height - final_y, new_height + padding)
-            
+
             # Only use the new bounds if they're significantly smaller
             original_area = width * height
             new_area = final_width * final_height
             area_reduction = (original_area - new_area) / original_area
-            
+
             if area_reduction > 0.1:  # At least 10% reduction to make it worthwhile
-                print(f"  Cropped sprite: {width}x{height} -> {final_width}x{final_height} ({area_reduction:.1%} reduction)")
+                print(
+                    f"  Cropped sprite: {width}x{height} -> {final_width}x{final_height} ({area_reduction:.1%} reduction)"
+                )
                 return final_x, final_y, final_width, final_height
             else:
                 return x, y, width, height
-                
+
         except Exception as e:
             print(f"Error cropping sprite: {str(e)}")
             return x, y, width, height
