@@ -30,6 +30,7 @@ from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
 from gui.background_handler_window import BackgroundHandlerWindow
+from gui.contributors_window import ContributorsWindow
 
 
 class TextureAtlasExtractorApp:
@@ -230,6 +231,13 @@ class TextureAtlasExtractorApp:
             label="FNF: GIF/WebP settings advice", command=HelpWindow.create_fnf_help_window
         )
         self.menubar.add_cascade(label="Help", menu=help_menu)
+
+        contributors_menu = tk.Menu(self.menubar, tearoff=0)
+        contributors_menu.add_command(
+            label="View Contributors",
+            command=ContributorsWindow.create_contributors_window
+        )
+        self.menubar.add_cascade(label="Contributors", menu=contributors_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
         self.variable_delay = tk.BooleanVar(value=defaults.get("variable_delay"))
