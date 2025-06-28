@@ -72,32 +72,19 @@ class UnknownParser:
                     keying_action = "key_background"
 
                     try:
-                        from gui.background_keying_dialog import BackgroundKeyingDialog
-                        if hasattr(BackgroundKeyingDialog, '_user_choice') and BackgroundKeyingDialog._user_choice:
-                            keying_action = BackgroundKeyingDialog._user_choice
-                            print(f"Using pre-determined user choice: {keying_action}")
-                        else:
-                            # For display purposes, show the primary background color in the dialog
-                            primary_bg_color = background_colors[0]
-                            bg_color_display = f"{primary_bg_color}"
-                            if len(background_colors) > 1:
-                                bg_color_display += f" (+ {len(background_colors) - 1} additional colors)"
+                        from gui.background_handler_window import BackgroundHandlerWindow
 
-                            if GUI_AVAILABLE and parent_window:
-                                try:
-                                    keying_action = BackgroundKeyingDialog.show_dialog(
-                                        parent_window, os.path.basename(file_path), bg_color_display
-                                    )
-                                except Exception as e:
-                                    print(f"Error showing background keying dialog: {e}")
-                                    print("Defaulting to automatic multi-color keying")
-                            else:
-                                print(
-                                    f"Detected {len(background_colors)} background color(s) in {file_path}: {background_colors}"
-                                )
-                                print(
-                                    "GUI not available or no parent window - defaulting to automatic multi-color keying"
-                                )
+                        # Check if we have individual file choices from the batch dialog
+                        filename = os.path.basename(file_path)
+                        if (hasattr(BackgroundHandlerWindow, '_file_choices') and 
+                            BackgroundHandlerWindow._file_choices and 
+                            filename in BackgroundHandlerWindow._file_choices):
+                            keying_action = BackgroundHandlerWindow._file_choices[filename]
+                            print(f"Using pre-determined user choice for {filename}: {keying_action}")
+                        else:
+                            # Fallback to default behavior - apply keying
+                            print(f"No specific choice found for {filename}, defaulting to key_background")
+                            keying_action = "key_background"
                     except ImportError:
                         print("Background keying dialog not available - defaulting to automatic multi-color keying")
 

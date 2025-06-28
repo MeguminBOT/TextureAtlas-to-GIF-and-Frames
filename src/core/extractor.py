@@ -245,6 +245,7 @@ class Extractor:
     def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, tk_root):
         try:
             unknown_spritesheets = []
+            print(f"[Extractor] Checking {len(spritesheet_list)} spritesheets for unknown files...")
 
             for filename in spritesheet_list:
                 base_filename = filename.rsplit(".", 1)[0]
@@ -257,18 +258,19 @@ class Extractor:
                     os.path.isfile(image_path) and 
                     filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
                     unknown_spritesheets.append(filename)
+                    print(f"[Extractor] Found unknown spritesheet: {filename}")
 
             if not unknown_spritesheets:
+                print("[Extractor] No unknown spritesheets found")
                 return
 
-            print(f"Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors...")
+            print(f"[Extractor] Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors...")
 
             from parsers.unknown_parser import UnknownParser
-            from gui.background_color_detection_window import BackgroundColorDetectionWindow
-            from gui.background_keying_dialog import BackgroundKeyingDialog
+            from gui.background_handler_window import BackgroundHandlerWindow
             from PIL import Image
 
-            BackgroundKeyingDialog.reset_batch_state()
+            BackgroundHandlerWindow.reset_batch_state()
 
             detection_results = []
 
@@ -285,12 +287,12 @@ class Extractor:
                     if not has_transparency:
                         detected_colors = UnknownParser._detect_background_colors(image, max_colors=3)
 
-                    if detected_colors or not has_transparency:
-                        detection_results.append({
-                            'filename': filename,
-                            'colors': detected_colors,
-                            'has_transparency': has_transparency
-                        })
+                    # Always add unknown spritesheets to detection results
+                    detection_results.append({
+                        'filename': filename,
+                        'colors': detected_colors,
+                        'has_transparency': has_transparency
+                    })
 
                 except Exception as e:
                     print(f"Error detecting background colors for {filename}: {e}")
@@ -300,11 +302,22 @@ class Extractor:
                         'has_transparency': False
                     })
 
+            print(f"[Extractor] Detection results: {len(detection_results)} entries")
+            for result in detection_results:
+                print(f"  - {result['filename']}: {len(result['colors'])} colors, transparency: {result['has_transparency']}")
+
             if detection_results:
-                user_choice = BackgroundColorDetectionWindow.show_detection_results(tk_root, detection_results)
-                if user_choice:
-                    BackgroundKeyingDialog._user_choice = user_choice
-                    print(f"Background handling preference set to: {user_choice}")
+                print("[Extractor] Showing background handler window...")
+                background_choices = BackgroundHandlerWindow.show_background_options(tk_root, detection_results)
+                print(f"[Extractor] User choices: {background_choices}")
+                if background_choices:
+                    # Store the individual choices for each file
+                    if not hasattr(BackgroundHandlerWindow, '_file_choices'):
+                        BackgroundHandlerWindow._file_choices = {}
+                    BackgroundHandlerWindow._file_choices.update(background_choices)
+                    print(f"Background handling preferences set for {len(background_choices)} files")
+            else:
+                print("[Extractor] No detection results to show")
 
         except Exception as e:
             print(f"Error in background color detection: {e}")

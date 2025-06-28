@@ -29,7 +29,7 @@ from gui.gif_preview_window import GifPreviewWindow
 from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
-from gui.background_keying_dialog import BackgroundKeyingDialog
+from gui.background_handler_window import BackgroundHandlerWindow
 
 
 class TextureAtlasExtractorApp:
@@ -837,9 +837,6 @@ class TextureAtlasExtractorApp:
 
     def start_process(self):
         self.update_global_settings()
-        
-        # Reset the background keying dialog state for new batch processing
-        BackgroundKeyingDialog.reset_batch_state()
 
         if any(char in self.settings_manager.global_settings["prefix"] for char in r'\/:*?"<>|'):
             messagebox.showerror("Invalid Prefix", "The prefix contains invalid characters.")
