@@ -1,6 +1,14 @@
 import tkinter as tk
 from tkinter import ttk
 
+# Import debug window functionality
+try:
+    from gui.debug_window import print_to_ui
+except ImportError:
+    # Fallback if debug window not available
+    def print_to_ui(message, level="info"):
+        print(message)
+
 
 class BackgroundHandlerWindow:
     """
@@ -30,8 +38,9 @@ class BackgroundHandlerWindow:
                 - {'_cancelled': True}: User cancelled the dialog (stops extraction)
         """
 
-        print(
-            f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results"
+        print_to_ui(
+            f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results",
+            "info"
         )
 
         # Filter out images that already have transparency
@@ -48,16 +57,18 @@ class BackgroundHandlerWindow:
                 result[detection_result["filename"]] = "exclude_background"
 
         if not filtered_results:
-            print(
-                "[BackgroundHandlerWindow] No images need background processing, returning auto-handled results"
+            print_to_ui(
+                "[BackgroundHandlerWindow] No images need background processing, returning auto-handled results",
+                "info"
             )
             return result
 
-        print(
-            f"[BackgroundHandlerWindow] Filtered to {len(filtered_results)} images needing background processing"
+        print_to_ui(
+            f"[BackgroundHandlerWindow] Filtered to {len(filtered_results)} images needing background processing",
+            "info"
         )
 
-        print("[BackgroundHandlerWindow] Creating dialog window...")
+        print_to_ui("[BackgroundHandlerWindow] Creating dialog window...", "info")
         dialog = tk.Toplevel(parent_window)
         dialog.title("Background Color Options")
         dialog.geometry("800x600")
@@ -73,7 +84,7 @@ class BackgroundHandlerWindow:
 
         result = {}
         checkbox_vars = {}
-        print("[BackgroundHandlerWindow] Dialog setup complete, entering main loop...")
+        print_to_ui("[BackgroundHandlerWindow] Dialog setup complete, entering main loop...", "info")
 
         main_frame = tk.Frame(dialog, padx=20, pady=20)
         main_frame.pack(fill="both", expand=True)
@@ -321,4 +332,4 @@ class BackgroundHandlerWindow:
         # Clear any previous file choices
         if hasattr(BackgroundHandlerWindow, "_file_choices"):
             BackgroundHandlerWindow._file_choices = {}
-        print("[BackgroundHandlerWindow] Batch state reset for new processing")
+        print_to_ui("[BackgroundHandlerWindow] Batch state reset for new processing", "info")

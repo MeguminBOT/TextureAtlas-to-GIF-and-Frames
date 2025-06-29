@@ -84,6 +84,9 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "ui_settings": {
+            "show_debug_window": False,
+        },
     }
 
     TYPE_MAP = {
@@ -115,6 +118,7 @@ class AppConfig:
         "tiff_compression_type": str,
         "tiff_quality": int,
         "tiff_optimize": bool,
+        "show_debug_window": bool,
     }
 
     def __init__(self, config_path=None):

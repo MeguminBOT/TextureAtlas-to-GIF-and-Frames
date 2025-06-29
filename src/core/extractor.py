@@ -18,6 +18,14 @@ from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
 
+# Import debug window functionality
+try:
+    from gui.debug_window import print_to_ui
+except ImportError:
+    # Fallback if debug window not available
+    def print_to_ui(message, level="info"):
+        print(message)
+
 
 class Extractor:
     """
@@ -62,24 +70,24 @@ class Extractor:
         if self.app_config:
             resource_limits = self.app_config.get("resource_limits", {})
             cpu_cores_val = resource_limits.get("cpu_cores", "auto")
-            print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
+            print_to_ui(f"[Extractor] CPU cores setting from config: {cpu_cores_val}", "info")
             try:
                 if cpu_cores_val != "auto":
                     cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
-                    print(f"[Extractor] Using {cpu_threads} CPU threads (from config)")
+                    print_to_ui(f"[Extractor] Using {cpu_threads} CPU threads (from config)", "info")
                 else:
-                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto: {os.cpu_count()} / 4)")
+                    print_to_ui(f"[Extractor] Using {cpu_threads} CPU threads (auto: {os.cpu_count()} / 4)", "info")
             except Exception:
                 cpu_threads = os.cpu_count() // 4
-                print(f"[Extractor] Error reading CPU config, defaulting to {cpu_threads} threads")
+                print_to_ui(f"[Extractor] Error reading CPU config, defaulting to {cpu_threads} threads", "warning")
         else:
-            print(f"[Extractor] No app config found, using default {cpu_threads} CPU threads")
+            print_to_ui(f"[Extractor] No app config found, using default {cpu_threads} CPU threads", "info")
 
         start_time = time.time()
 
         # Handle background color detection for unknown spritesheets before processing
         if self._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, tk_root):
-            print("[Extractor] Background detection was cancelled - stopping processing")
+            print_to_ui("[Extractor] Background detection was cancelled - stopping processing", "warning")
             return
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
@@ -242,7 +250,7 @@ class Extractor:
             return None
 
         except Exception as e:
-            print(f"Preview GIF generation error: {e}")
+            print_to_ui(f"Preview GIF generation error: {e}", "error")
             return None
 
     def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, tk_root):
@@ -259,8 +267,9 @@ class Extractor:
         """
         try:
             unknown_spritesheets = []
-            print(
-                f"[Extractor] Checking {len(spritesheet_list)} spritesheets for unknown files..."
+            print_to_ui(
+                f"[Extractor] Checking {len(spritesheet_list)} spritesheets for unknown files...",
+                "info"
             )
 
             for filename in spritesheet_list:
@@ -278,14 +287,15 @@ class Extractor:
                     )
                 ):
                     unknown_spritesheets.append(filename)
-                    print(f"[Extractor] Found unknown spritesheet: {filename}")
+                    print_to_ui(f"[Extractor] Found unknown spritesheet: {filename}", "warning")
 
             if not unknown_spritesheets:
-                print("[Extractor] No unknown spritesheets found")
+                print_to_ui("[Extractor] No unknown spritesheets found", "info")
                 return
 
-            print(
-                f"[Extractor] Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors..."
+            print_to_ui(
+                f"[Extractor] Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors...",
+                "info"
             )
 
             from parsers.unknown_parser import UnknownParser
@@ -321,28 +331,30 @@ class Extractor:
                     )
 
                 except Exception as e:
-                    print(f"Error detecting background colors for {filename}: {e}")
+                    print_to_ui(f"Error detecting background colors for {filename}: {e}", "error")
                     detection_results.append(
                         {"filename": filename, "colors": [], "has_transparency": False}
                     )
 
-            print(f"[Extractor] Detection results: {len(detection_results)} entries")
+            print_to_ui(f"[Extractor] Detection results: {len(detection_results)} entries", "info")
             for result in detection_results:
-                print(
-                    f"  - {result['filename']}: {len(result['colors'])} colors, transparency: {result['has_transparency']}"
+                print_to_ui(
+                    f"  - {result['filename']}: {len(result['colors'])} colors, transparency: {result['has_transparency']}",
+                    "info"
                 )
 
             if detection_results:
-                print("[Extractor] Showing background handler window...")
+                print_to_ui("[Extractor] Showing background handler window...", "info")
                 background_choices = BackgroundHandlerWindow.show_background_options(
                     tk_root, detection_results
                 )
-                print(f"[Extractor] User choices: {background_choices}")
+                print_to_ui(f"[Extractor] User choices: {background_choices}", "info")
 
                 # Check if user cancelled the background handler dialog
                 if background_choices.get("_cancelled", False):
-                    print(
-                        "[Extractor] Background handler was cancelled by user - stopping extraction"
+                    print_to_ui(
+                        "[Extractor] Background handler was cancelled by user - stopping extraction",
+                        "warning"
                     )
                     return True
 
@@ -351,13 +363,14 @@ class Extractor:
                     if not hasattr(BackgroundHandlerWindow, "_file_choices"):
                         BackgroundHandlerWindow._file_choices = {}
                     BackgroundHandlerWindow._file_choices.update(background_choices)
-                    print(
-                        f"Background handling preferences set for {len(background_choices)} files"
+                    print_to_ui(
+                        f"Background handling preferences set for {len(background_choices)} files",
+                        "success"
                     )
             else:
-                print("[Extractor] No detection results to show")
+                print_to_ui("[Extractor] No detection results to show", "info")
 
         except Exception as e:
-            print(f"Error in background color detection: {e}")
+            print_to_ui(f"Error in background color detection: {e}", "error")
 
         return False

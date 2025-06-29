@@ -7,6 +7,7 @@ import subprocess
 
 # Import our own modules
 from core.exception_handler import ExceptionHandler
+from gui.debug_window import print_to_ui
 
 
 class AppConfigWindow:
@@ -31,6 +32,7 @@ class AppConfigWindow:
         compression_vars (dict): Dictionary of Tkinter variables for compression settings.
         check_updates_var (tk.BooleanVar): Tkinter variable for the 'Check for updates on startup' checkbox.
         auto_update_var (tk.BooleanVar): Tkinter variable for the 'Auto-download and install updates' checkbox.
+        show_debug_window_var (tk.BooleanVar): Tkinter variable for the 'Show debug window by default' checkbox.
 
     Methods:
         __init__(parent, app_config):
@@ -435,6 +437,35 @@ class AppConfigWindow:
         on_check_updates_change()
 
         row += 1
+        tk.Label(content_frame, text="UI settings", font=("Arial", 10, "bold")).grid(
+            row=row, column=0, sticky="w", pady=(16, 2), columnspan=2
+        )
+        row += 1
+
+        ui_outer_frame = tk.Frame(
+            content_frame,
+            borderwidth=1,
+            relief="solid",
+            highlightthickness=1,
+            highlightbackground="#888",
+        )
+        ui_outer_frame.grid(
+            row=row, column=0, columnspan=2, sticky="ew", padx=(0, 0), pady=(0, 10)
+        )
+
+        ui_settings = self.app_config.get(
+            "ui_settings", self.app_config.DEFAULTS["ui_settings"]
+        )
+        self.show_debug_window_var = tk.BooleanVar(
+            value=ui_settings.get("show_debug_window", False)
+        )
+
+        self.show_debug_window_cb = tk.Checkbutton(
+            ui_outer_frame, text="Show debug window by default", variable=self.show_debug_window_var
+        )
+        self.show_debug_window_cb.pack(anchor="w", padx=4, pady=4)
+
+        row += 1
         tk.Label(content_frame, text="Compression defaults", font=("Arial", 10, "bold")).grid(
             row=row, column=0, sticky="w", pady=(16, 2), columnspan=2
         )
@@ -753,7 +784,10 @@ class AppConfigWindow:
             compression_defaults.get("tiff", {}).get("optimize", True)
         )
 
-        print("[Config] Configuration has been reset to defaults.")
+        ui_defaults = self.app_config.DEFAULTS["ui_settings"]
+        self.show_debug_window_var.set(ui_defaults.get("show_debug_window", False))
+
+        print_to_ui("[Config] Configuration has been reset to defaults.")
 
     def save_config(self):
         cpu_val = self.cpu_var.get().strip().lower()
@@ -827,6 +861,11 @@ class AppConfigWindow:
             else False,
         }
         self.app_config.set("update_settings", update_settings)
+
+        ui_settings = {
+            "show_debug_window": self.show_debug_window_var.get(),
+        }
+        self.app_config.set("ui_settings", ui_settings)
 
         self.app_config.set_compression_defaults(
             "png",

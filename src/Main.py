@@ -31,6 +31,7 @@ from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
 from gui.background_handler_window import BackgroundHandlerWindow
 from gui.contributors_window import ContributorsWindow
+from gui.debug_window import create_debug_window, close_debug_window, is_debug_window_open, print_to_ui
 
 
 class TextureAtlasExtractorApp:
@@ -144,6 +145,9 @@ class TextureAtlasExtractorApp:
         start_process(): Prepares and starts the processing thread.
         run_extractor(): Starts the process of extracting textures and converting them to GIF and WebP formats.
         _re_enable_process_button(): Re-enables the process button after extraction completion.
+        toggle_debug_window(): Toggles the debug window open/closed.
+        _initialize_debug_window(): Initialize debug window based on user settings.
+        _open_debug_window(): Open the debug window.
         _on_frame_format_change(event=None): Handles frame format selection changes and updates UI state.
         _on_frame_compression_change(event=None): Handles frame compression selection changes and updates UI state based on format compatibility.
         _on_animation_format_change(event=None): Handles animation format selection changes and updates UI state based on format capabilities.
@@ -503,6 +507,26 @@ class TextureAtlasExtractorApp:
         )
         self.process_button.pack(side=tk.LEFT, padx=2)
 
+        # Debug window toggle button
+        self.debug_toggle_button = tk.Button(
+            self.button_frame,
+            text="🐛",  # Bug emoji for debug
+            cursor="hand2",
+            command=self.toggle_debug_window,
+            width=3,
+            height=1
+        )
+        self.debug_toggle_button.pack(side=tk.LEFT, padx=2)
+        
+        # Initialize debug window based on user settings
+        self._initialize_debug_window()
+        
+        # Add tooltip to debug button
+        Tooltip(
+            self.debug_toggle_button,
+            "Toggle debug console window\nShows real-time processing information"
+        )
+
         self.author_label = tk.Label(self.root, text="Project started by AutisticLulu")
         self.author_label.pack(side="bottom")
         self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
@@ -534,13 +558,41 @@ class TextureAtlasExtractorApp:
                     self.current_version, auto_update=auto_update, parent_window=self.root
                 )
         except Exception as e:
-            print(f"Update check failed: {e}")
+            print_to_ui(f"Update check failed: {e}", "error")
 
     def check_dependencies(self):
         DependenciesChecker.check_and_configure_imagemagick()
 
     def create_app_config_window(self):
         AppConfigWindow(self.root, self.app_config)
+
+    def _initialize_debug_window(self):
+        """Initialize debug window based on user settings."""
+        ui_settings = self.app_config.get("ui_settings", self.app_config.DEFAULTS["ui_settings"])
+        show_by_default = ui_settings.get("show_debug_window", False)
+        
+        if show_by_default and not is_debug_window_open():
+            self._open_debug_window()
+
+    def toggle_debug_window(self):
+        """Toggle the debug window open/closed."""
+        if is_debug_window_open():
+            close_debug_window()
+            print_to_ui("Debug window closed", "info")
+        else:
+            self._open_debug_window()
+
+    def _open_debug_window(self):
+        """Open the debug window."""
+        try:
+            debug_window = create_debug_window(self.root, "TextureAtlas Debug Console")
+            if debug_window:
+                print_to_ui("Debug window opened", "success")
+                print_to_ui("Debug window opened - process information will appear here")
+            else:
+                print_to_ui("Failed to create debug window", "error")
+        except Exception as e:
+            print_to_ui(f"Error opening debug window: {e}", "error")
 
     def clear_filelist(self):
         self.listbox_png.delete(0, tk.END)
@@ -672,7 +724,7 @@ class TextureAtlasExtractorApp:
                 del self.data_dict[keys[selection[0]]]
 
             self.settings_manager.delete_spritesheet_settings(spritesheet_name)
-            # print(f"Removed: {spritesheet_name}")
+            print_to_ui(f"Removed: {spritesheet_name} from processing list")
 
             prefix = spritesheet_name + "/"
             anims_to_delete = [
@@ -803,7 +855,7 @@ class TextureAtlasExtractorApp:
             var_delay=self.variable_delay.get(),
             fnf_idle_loop=self.fnf_idle_loop.get(),
         )
-        print("Global settings updated:", self.settings_manager.global_settings)
+        print_to_ui("Global settings updated:", self.settings_manager.global_settings)
 
     def on_closing(self):
         if self.temp_dir and os.path.exists(self.temp_dir):

@@ -5,6 +5,14 @@ from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
 from parsers.unknown_parser import UnknownParser
 
+# Import debug window functionality
+try:
+    from gui.debug_window import print_to_ui
+except ImportError:
+    # Fallback if debug window not available
+    def print_to_ui(message, level="info"):
+        print(message)
+
 
 class AtlasProcessor:
     """
@@ -30,22 +38,22 @@ class AtlasProcessor:
         self.atlas, self.sprites = self.open_atlas_and_parse_metadata()
 
     def open_atlas_and_parse_metadata(self):
-        print(f"Opening atlas: {self.atlas_path}")
+        print_to_ui(f"Opening atlas: {self.atlas_path}", "info")
         atlas = Image.open(self.atlas_path)
 
         # Check if metadata_path is None or points to an image file (unknown spritesheet)
         if (self.metadata_path is None or 
             self.metadata_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
-            print(f"Parsing unknown spritesheet: {self.atlas_path}")
+            print_to_ui(f"Parsing unknown spritesheet: {self.atlas_path}", "warning")
             processed_atlas, sprites = UnknownParser.parse_unknown_image(self.atlas_path, self.parent_window)
             if processed_atlas is not None:
                 atlas = processed_atlas
 
         elif self.metadata_path.endswith(".xml"):
-            print(f"Parsing XML metadata: {self.metadata_path}")
+            print_to_ui(f"Parsing XML metadata: {self.metadata_path}", "info")
             sprites = XmlParser.parse_xml_data(self.metadata_path)
         elif self.metadata_path.endswith(".txt"):
-            print(f"Parsing TXT metadata: {self.metadata_path}")
+            print_to_ui(f"Parsing TXT metadata: {self.metadata_path}", "info")
             sprites = TxtParser.parse_txt_packer(self.metadata_path)
         else:
             raise ValueError(f"Unsupported metadata file format: {self.metadata_path}")

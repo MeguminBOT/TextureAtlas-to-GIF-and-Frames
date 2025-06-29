@@ -3,6 +3,9 @@ import tkinter as tk
 from PIL import Image
 import numpy as np
 
+from gui.debug_window import print_to_ui
+
+
 GUI_AVAILABLE = True  # We'll check for specific dialog availability in the code
 
 
@@ -90,33 +93,38 @@ class UnknownParser:
                             keying_action = BackgroundHandlerWindow._file_choices[
                                 filename
                             ]
-                            print(
-                                f"Using pre-determined user choice for {filename}: {keying_action}"
+                            print_to_ui(
+                                f"Using pre-determined user choice for {filename}: {keying_action}",
+                                "info"
                             )
                         else:
                             # Fallback to default behavior - apply keying
-                            print(
-                                f"No specific choice found for {filename}, defaulting to key_background"
+                            print_to_ui(
+                                f"No specific choice found for {filename}, defaulting to key_background",
+                                "info"
                             )
                             keying_action = "key_background"
                     except ImportError:
-                        print(
-                            "Background keying dialog not available - defaulting to automatic multi-color keying"
+                        print_to_ui(
+                            "Background keying dialog not available - defaulting to automatic multi-color keying",
+                            "warning"
                         )
 
                     if keying_action == "cancel":
-                        print("User cancelled processing of unknown atlas")
+                        print_to_ui("User cancelled processing of unknown atlas", "info")
                         return image, []
                     elif keying_action == "key_background":
-                        print(
-                            f"Applying multi-color keying to remove {len(background_colors)} background color(s)..."
+                        print_to_ui(
+                            f"Applying multi-color keying to remove {len(background_colors)} background color(s)...",
+                            "info"
                         )
                         image = UnknownParser._apply_multi_color_keying(
                             image, background_colors
                         )
                     elif keying_action == "exclude_background":
-                        print(
-                            f"Processing sprites while excluding {len(background_colors)} background color(s)..."
+                        print_to_ui(
+                            f"Processing sprites while excluding {len(background_colors)} background color(s)...",
+                            "info"
                         )
                         return (
                             image,
@@ -163,13 +171,14 @@ class UnknownParser:
                     }
                 )
 
-            print(
-                f"Detected {len(sprites)} sprites in unknown spritesheet: {file_path}"
+            print_to_ui(
+                f"Detected {len(sprites)} sprites in unknown spritesheet: {file_path}",
+                "success"
             )
             return image, sprites
 
         except Exception as e:
-            print(f"Error parsing unknown image {file_path}: {str(e)}")
+            print_to_ui(f"Error parsing unknown image {file_path}: {str(e)}", "error")
             # Return the original image and empty sprite list on error
             try:
                 original_image = Image.open(file_path)
@@ -367,8 +376,9 @@ class UnknownParser:
                 # More strict thresholds for detecting background vs sprite colors
                 if i == 0 and dominance > 0.25:
                     background_colors.append(color)
-                    print(
-                        f"Primary background color detected: {color} (dominance: {dominance:.2%})"
+                    print_to_ui(
+                        f"Primary background color detected: {color} (dominance: {dominance:.2%})",
+                        "info"
                     )
                 elif i > 0 and dominance > 0.08:
                     # Check if this color is different enough from already detected colors
@@ -383,8 +393,9 @@ class UnknownParser:
 
                     if is_different and len(background_colors) < max_colors:
                         background_colors.append(color)
-                        print(
-                            f"Secondary background color detected: {color} (dominance: {dominance:.2%})"
+                        print_to_ui(
+                            f"Secondary background color detected: {color} (dominance: {dominance:.2%})",
+                            "info"
                         )
                 else:
                     if dominance <= 0.08:
@@ -447,18 +458,20 @@ class UnknownParser:
 
                 if is_background:
                     validated_colors.append(color)
-                    print(
-                        f"Validated background color {color}: {overall_dominance:.2%} of total image, largest region: {largest_region_ratio:.1%} ({reason})"
+                    print_to_ui(
+                        f"Validated background color {color}: {overall_dominance:.2%} of total image, largest region: {largest_region_ratio:.1%} ({reason})",
+                        "success"
                     )
                 else:
-                    print(
-                        f"Rejected background color {color}: {overall_dominance:.2%} of total image, largest region: {largest_region_ratio:.1%} (likely sprite color)"
+                    print_to_ui(
+                        f"Rejected background color {color}: {overall_dominance:.2%} of total image, largest region: {largest_region_ratio:.1%} (likely sprite color)",
+                        "warning"
                     )
 
             return validated_colors
 
         except Exception as e:
-            print(f"Error detecting background colors: {str(e)}")
+            print_to_ui(f"Error detecting background colors: {str(e)}", "error")
             return []
 
     @staticmethod
@@ -517,14 +530,15 @@ class UnknownParser:
             total_pixels = width * height
             percentage = (transparent_count / total_pixels) * 100
 
-            print(
-                f"Color keying applied: {transparent_count}/{total_pixels} pixels ({percentage:.1f}%) made transparent"
+            print_to_ui(
+                f"Color keying applied: {transparent_count}/{total_pixels} pixels ({percentage:.1f}%) made transparent",
+                "success"
             )
 
             return keyed_image
 
         except Exception as e:
-            print(f"Error applying color keying: {str(e)}")
+            print_to_ui(f"Error applying color keying: {str(e)}", "error")
             return image
 
     @staticmethod
@@ -576,8 +590,9 @@ class UnknownParser:
 
                 keyed_count = np.sum(bg_mask)
                 total_keyed += keyed_count
-                print(
-                    f"Color {i + 1} {bg_color}: {keyed_count} pixels keyed (tolerance: {adaptive_tolerance})"
+                print_to_ui(
+                    f"Color {i + 1} {bg_color}: {keyed_count} pixels keyed (tolerance: {adaptive_tolerance})",
+                    "info"
                 )
 
             # Additional pass: detect and key out pixels that are "close enough" to any background color
@@ -628,7 +643,7 @@ class UnknownParser:
 
                 cleanup_count = np.sum(additional_cleanup)
                 if cleanup_count > 0:
-                    print(f"Edge cleanup: {cleanup_count} additional pixels keyed")
+                    print_to_ui(f"Edge cleanup: {cleanup_count} additional pixels keyed", "info")
                     total_keyed += cleanup_count
 
             # Set alpha to 0 for all background pixels
@@ -640,14 +655,15 @@ class UnknownParser:
             total_pixels = width * height
             percentage = (total_keyed / total_pixels) * 100
 
-            print(
-                f"Enhanced multi-color keying applied: {total_keyed}/{total_pixels} pixels ({percentage:.1f}%) made transparent"
+            print_to_ui(
+                f"Enhanced multi-color keying applied: {total_keyed}/{total_pixels} pixels ({percentage:.1f}%) made transparent",
+                "success"
             )
 
             return keyed_image
 
         except Exception as e:
-            print(f"Error applying multi-color keying: {str(e)}")
+            print_to_ui(f"Error applying multi-color keying: {str(e)}", "error")
             # Fall back to basic multi-color keying without edge cleanup
             try:
                 return UnknownParser._apply_basic_multi_color_keying(
@@ -701,8 +717,9 @@ class UnknownParser:
 
                 keyed_count = np.sum(bg_mask)
                 total_keyed += keyed_count
-                print(
-                    f"Basic keying - Color {i + 1} {bg_color}: {keyed_count} pixels keyed"
+                print_to_ui(
+                    f"Basic keying - Color {i + 1} {bg_color}: {keyed_count} pixels keyed",
+                    "info"
                 )
 
             # Set alpha to 0 for all background pixels
@@ -714,14 +731,15 @@ class UnknownParser:
             total_pixels = width * height
             percentage = (total_keyed / total_pixels) * 100
 
-            print(
-                f"Basic multi-color keying applied: {total_keyed}/{total_pixels} pixels ({percentage:.1f}%) made transparent"
+            print_to_ui(
+                f"Basic multi-color keying applied: {total_keyed}/{total_pixels} pixels ({percentage:.1f}%) made transparent",
+                "success"
             )
 
             return keyed_image
 
         except Exception as e:
-            print(f"Error applying basic multi-color keying: {str(e)}")
+            print_to_ui(f"Error applying basic multi-color keying: {str(e)}", "error")
             return image
 
     @staticmethod
@@ -800,16 +818,18 @@ class UnknownParser:
             total_pixels = width * height
             percentage = (background_count / total_pixels) * 100
 
-            print(
-                f"Background exclusion applied: {background_count}/{total_pixels} pixels ({percentage:.1f}%) excluded as background"
+            print_to_ui(
+                f"Background exclusion applied: {background_count}/{total_pixels} pixels ({percentage:.1f}%) excluded as background",
+                "info"
             )
-            print(
-                f"Detected {len(sprites)} sprites in unknown spritesheet (excluding background): {file_path}"
+            print_to_ui(
+                f"Detected {len(sprites)} sprites in unknown spritesheet (excluding background): {file_path}",
+                "success"
             )
             return sprites
 
         except Exception as e:
-            print(f"Error parsing with background exclusion: {str(e)}")
+            print_to_ui(f"Error parsing with background exclusion: {str(e)}", "error")
             _, sprites = UnknownParser.parse_unknown_image(file_path)
             return sprites
 
@@ -862,8 +882,9 @@ class UnknownParser:
 
                 excluded_count = np.sum(bg_mask)
                 total_excluded += excluded_count
-                print(
-                    f"Background color {i + 1} {bg_color}: {excluded_count} pixels excluded"
+                print_to_ui(
+                    f"Background color {i + 1} {bg_color}: {excluded_count} pixels excluded",
+                    "info"
                 )
 
             # Create mask for non-background pixels
@@ -911,17 +932,19 @@ class UnknownParser:
             total_pixels = width * height
             percentage = (total_excluded / total_pixels) * 100
 
-            print(
-                f"Multi-background exclusion applied: {total_excluded}/{total_pixels} pixels ({percentage:.1f}%) excluded as background"
+            print_to_ui(
+                f"Multi-background exclusion applied: {total_excluded}/{total_pixels} pixels ({percentage:.1f}%) excluded as background",
+                "info"
             )
-            print(
-                f"Detected {len(sprites)} sprites in unknown spritesheet (excluding multiple backgrounds): {file_path}"
+            print_to_ui(
+                f"Detected {len(sprites)} sprites in unknown spritesheet (excluding multiple backgrounds): {file_path}",
+                "success"
             )
 
             return sprites
 
         except Exception as e:
-            print(f"Error parsing with multi-background exclusion: {str(e)}")
+            print_to_ui(f"Error parsing with multi-background exclusion: {str(e)}", "error")
             _, sprites = UnknownParser.parse_unknown_image(file_path)
             return sprites
 
@@ -998,13 +1021,14 @@ class UnknownParser:
             area_reduction = (original_area - new_area) / original_area
 
             if area_reduction > 0.1:  # At least 10% reduction to make it worthwhile
-                print(
-                    f"  Cropped sprite: {width}x{height} -> {final_width}x{final_height} ({area_reduction:.1%} reduction)"
+                print_to_ui(
+                    f"  Cropped sprite: {width}x{height} -> {final_width}x{final_height} ({area_reduction:.1%} reduction)",
+                    "info"
                 )
                 return final_x, final_y, final_width, final_height
             else:
                 return x, y, width, height
 
         except Exception as e:
-            print(f"Error cropping sprite: {str(e)}")
+            print_to_ui(f"Error cropping sprite: {str(e)}", "error")
             return x, y, width, height
