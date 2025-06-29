@@ -34,10 +34,11 @@ class AnimationExporter:
             Saves the animation as an APNG file.
     """
 
-    def __init__(self, output_dir, current_version, scale_image_func):
+    def __init__(self, output_dir, current_version, scale_image_func, quant_frames=None):
         self.output_dir = output_dir
         self.current_version = current_version
         self.scale_image = scale_image_func
+        self.quant_frames = quant_frames or {}
 
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
         anims_generated = 0
