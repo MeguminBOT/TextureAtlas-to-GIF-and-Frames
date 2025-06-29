@@ -36,23 +36,31 @@ Release date: **Not released yet**
 - Enhancement: **Debug console can now be shown for .exe releases if started through Command Prompt / PowerShell**
 - Enhancement: **Added support for AVIF, BMP, DDS, TGA and TIFF for frame exporting**
 - Enhancement: **Extraction settings are now greyed out if it's unneeded or a format not supporting that specific setting**
-- Feature: **Added support for tooltips**
-    - **Currently only implemented on compression settings**
 - Feature: **Added compression settings for frame exporting.**
-- Feature: **Update system overhaul**
-    - **Show changelog on update notifications**
-    - **App can now download updates and replace itself.**
-    - **Check for updates button in Menubar > Options**
-    - **Log update process to a logs folder**
+- Feature: **Attempt to extract unsupported spritesheets**
+    - *App can now in **theory** extract any spritesheet type despite not officially supporting them*
+    - *Background keying for non transparent images*
+    - *Warns if unsupported spritesheet is detected*
+    - *Warns if non transparent background is detected*
+    - *NOTE: This feature only supports exporting as frames and not animations due to limitations*
+- Feature: **Added support for tooltips**
+    - *Currently only implemented on compression settings*
+- Feature/Tweak: **Update system overhaul**
+    - *Show changelog on update notifications*
+    - *App can now download updates and replace itself*
+    - *Check for updates button in Menubar > Options*
+    - *Log update process to a logs folder*
 - Feature: **App configuration menu**: 
-    - **Modify default extraction settings**
-    - **Modify processing threads**
-    - **Toggle Automatic update checks**
-    - **Toggle Automatically install new updates**
-    - **Automatic config file migration between versions**
+    - *Modify default extraction settings*
+    - *Modify processing threads*
+    - *Toggle Automatic update checks*
+    - *Toggle Automatically install new updates*
+    - *Automatic config file migration between versions*
 - Tweak: **Updated in-app help menu**
-    - **Added missing option descriptions and the new ones**
-    - **FNF Settings advice updated**
+    - *Added missing option descriptions and the new ones**
+    - *FNF Settings advice updated*
+- Misc: **Contributors Menu**
+- Misc: **New app icon by [Julnz](https://www.julnz.com/)**
   
 
 #### Version 1.9.4
