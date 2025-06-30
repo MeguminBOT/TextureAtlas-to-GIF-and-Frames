@@ -199,14 +199,12 @@ class Extractor:
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
 
-            quant_frames = {}
             animation_exporter = AnimationExporter(
                 temp_dir,
                 self.current_version,
                 lambda img, size: img.resize(
                     (round(img.width * abs(size)), round(img.height * abs(size))), Image.NEAREST
                 ),
-                quant_frames,
             )
 
             for anim_name, image_tuples in animations.items():

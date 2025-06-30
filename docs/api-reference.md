@@ -118,7 +118,7 @@ Exports animations in various formats (GIF, WebP, APNG).
 
 ```python
 class AnimationExporter:
-    def __init__(self, output_dir, current_version, scale_image_func, quant_frames)
+    def __init__(self, output_dir, current_version, scale_image_func)
 ```
 
 #### Methods

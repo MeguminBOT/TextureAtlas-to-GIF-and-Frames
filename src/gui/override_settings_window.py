@@ -126,11 +126,11 @@ class OverrideSettingsWindow:
         self.indices_entry.pack()
 
         tk.Label(window, text="Keep frames for " + name).pack()
-        self.frames_var = tk.StringVar(value=str(local_settings.get("frames", "")))
+        self.frames_var = tk.StringVar(value=str(local_settings.get("frame_selection", "")))
         self.frames_entry = ttk.Combobox(window, textvariable=self.frames_var)
         self.frames_entry.bind(
             "<FocusIn>",
-            lambda e: self.frames_var.set(settings.get("frames", ""))
+            lambda e: self.frames_var.set(settings.get("frame_selection", ""))
             if (self.frames_var.get() == "")
             else None,
         )

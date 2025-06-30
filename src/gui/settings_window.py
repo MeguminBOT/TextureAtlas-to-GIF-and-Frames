@@ -18,7 +18,7 @@ class SettingsWindow:
 
     def __init__(self, parent, settings_manager):
         self.settings_window = tk.Toplevel(parent)
-        self.settings_window.geometry("400x300")
+        self.settings_window.geometry("500x300")
         settings_canvas = tk.Canvas(self.settings_window)
         settings_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         settings_scrollbar = tk.Scrollbar(
