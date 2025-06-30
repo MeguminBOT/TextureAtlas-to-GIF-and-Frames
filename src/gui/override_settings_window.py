@@ -39,6 +39,8 @@ class OverrideSettingsWindow:
         self.on_store_callback = on_store_callback
         self.app = app
 
+        window.title(name)
+
         local_settings = {}
 
         if settings_type == "animation":
@@ -53,7 +55,7 @@ class OverrideSettingsWindow:
 
         settings = self.settings_manager.get_settings(spritesheet_name, animation_name)
 
-        tk.Label(window, text="FPS for " + name).pack()
+        tk.Label(window, text="FPS").pack()
         self.fps_entry = tk.Entry(window)
         self.fps_entry.insert(0, str(local_settings.get("fps", "")))
         self.fps_entry.bind(
@@ -64,7 +66,7 @@ class OverrideSettingsWindow:
         )
         self.fps_entry.pack()
 
-        tk.Label(window, text="Delay for " + name).pack()
+        tk.Label(window, text="Delay").pack()
         self.delay_entry = tk.Entry(window)
         self.delay_entry.insert(0, str(local_settings.get("delay", "")))
         self.delay_entry.bind(
@@ -75,7 +77,7 @@ class OverrideSettingsWindow:
         )
         self.delay_entry.pack()
 
-        tk.Label(window, text="Min period for " + name).pack()
+        tk.Label(window, text="Min period").pack()
         self.period_entry = tk.Entry(window)
         self.period_entry.insert(0, str(local_settings.get("period", "")))
         self.period_entry.bind(
@@ -86,7 +88,7 @@ class OverrideSettingsWindow:
         )
         self.period_entry.pack()
 
-        tk.Label(window, text="Scale for " + name).pack()
+        tk.Label(window, text="Scale").pack()
         self.scale_entry = tk.Entry(window)
         self.scale_entry.insert(0, str(local_settings.get("scale", "")))
         self.scale_entry.bind(
@@ -97,7 +99,7 @@ class OverrideSettingsWindow:
         )
         self.scale_entry.pack()
 
-        tk.Label(window, text="Threshold for " + name).pack()
+        tk.Label(window, text="Threshold").pack()
         self.threshold_entry = tk.Entry(window)
         self.threshold_entry.insert(0, str(local_settings.get("threshold", "")))
         self.threshold_entry.bind(
@@ -108,7 +110,7 @@ class OverrideSettingsWindow:
         )
         self.threshold_entry.pack()
 
-        tk.Label(window, text="Indices for " + name).pack()
+        tk.Label(window, text="Indices").pack()
         self.indices_entry = tk.Entry(window)
         indices_val = local_settings.get("indices", "")
         if isinstance(indices_val, list):
@@ -125,7 +127,7 @@ class OverrideSettingsWindow:
         )
         self.indices_entry.pack()
 
-        tk.Label(window, text="Keep frames for " + name).pack()
+        tk.Label(window, text="Keep frames").pack()
         self.frames_var = tk.StringVar(value=str(local_settings.get("frame_selection", "")))
         self.frames_entry = ttk.Combobox(window, textvariable=self.frames_var)
         self.frames_entry.bind(
@@ -137,7 +139,7 @@ class OverrideSettingsWindow:
         self.frames_entry["values"] = ("All", "No duplicates", "First", "Last", "First, Last")
         self.frames_entry.pack()
 
-        tk.Label(window, text="Frame format for " + name).pack()
+        tk.Label(window, text="Frame format").pack()
         self.frame_format_var = tk.StringVar(value=str(local_settings.get("frame_format", "")))
         self.frame_format_entry = ttk.Combobox(
             window, textvariable=self.frame_format_var, state="readonly"
@@ -160,7 +162,7 @@ class OverrideSettingsWindow:
         )
         self.frame_format_entry.pack()
 
-        tk.Label(window, text="Frame scale for " + name).pack()
+        tk.Label(window, text="Frame scale").pack()
         self.frame_scale_entry = tk.Entry(window)
         self.frame_scale_entry.insert(0, str(local_settings.get("frame_scale", "")))
         self.frame_scale_entry.bind(
@@ -172,7 +174,7 @@ class OverrideSettingsWindow:
         self.frame_scale_entry.pack()
 
         if settings_type == "animation":
-            tk.Label(window, text="Filename for " + name).pack()
+            tk.Label(window, text="Filename").pack()
             self.filename_entry = tk.Entry(window)
             self.filename_entry.insert(0, local_settings.get("filename", ""))
             filename = str(
