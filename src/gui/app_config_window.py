@@ -652,9 +652,7 @@ class AppConfigWindow:
             self.compression_vars["tiff_compression_type"],
             "lzw",
             "jpeg",
-            "tiff_adobe_deflate",
-            "tiff_deflate",
-            "raw",
+            "zip",
         ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
         comp_row += 1
 
