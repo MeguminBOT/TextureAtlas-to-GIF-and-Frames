@@ -5,10 +5,9 @@ from PIL import Image, ImageTk, ImageSequence
 
 try:
     from PIL.Image import Resampling
-
     NEAREST = Resampling.NEAREST
 except ImportError:
-    NEAREST = Image.NEAREST
+    NEAREST = Image.NEAREST # type: ignore
 
 
 class AnimationPreviewWindow:
@@ -237,7 +236,7 @@ class AnimationPreviewWindow:
         label.pack()
 
         composited_cache = {}
-        fixed_size = [None]
+        fixed_size = [None]  # type: list[tuple[int, int] | None]
         scale_factor = [1.0]
 
         def precompute_composited_frames():
@@ -271,19 +270,19 @@ class AnimationPreviewWindow:
         def clear_cache_for_bg():
             precompute_composited_frames()
 
-        tk_img_holder = [None]
+        tk_img_holder = [None]  # type: list[ImageTk.PhotoImage | None]
 
         def show_frame(idx):
             img = get_composited_frame(idx)
             if tk_img_holder[0] is None:
                 tk_img = ImageTk.PhotoImage(img)
                 label.config(image=tk_img)
-                label.image = tk_img
+                setattr(label, 'image', tk_img)
                 tk_img_holder[0] = tk_img
             else:
                 tk_img_holder[0].paste(img)
                 label.config(image=tk_img_holder[0])
-                label.image = tk_img_holder[0]
+                setattr(label, 'image', tk_img_holder[0])
             frame_counter_label.config(text=f"Frame {idx} / {frame_count - 1}")
 
             if fixed_size[0] is None:
@@ -309,7 +308,7 @@ class AnimationPreviewWindow:
                     if tk_img_holder[0] is not None:
                         tk_img_holder[0] = ImageTk.PhotoImage(img2)
                         label.config(image=tk_img_holder[0])
-                        label.image = tk_img_holder[0]
+                        setattr(label, 'image', tk_img_holder[0])
                     width = img2.width
                     height = img2.height + extra_height
 

@@ -56,19 +56,22 @@ class Extractor:
         total_files = Utilities.count_spritesheets(spritesheet_list)
         self.progress_bar["maximum"] = total_files
 
-        cpu_threads = os.cpu_count() // 4
+        cpu_count = os.cpu_count()
+        if cpu_count is None:
+            cpu_count = 1
+        cpu_threads = cpu_count // 4 if cpu_count > 1 else 1
         if self.app_config:
             resource_limits = self.app_config.get("resource_limits", {})
             cpu_cores_val = resource_limits.get("cpu_cores", "auto")
             print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
             try:
                 if cpu_cores_val != "auto":
-                    cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
+                    cpu_threads = max(1, min(int(cpu_cores_val), cpu_count))
                     print(f"[Extractor] Using {cpu_threads} CPU threads (from config)")
                 else:
-                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto: {os.cpu_count()} / 4)")
+                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto: {cpu_count} / 4)")
             except Exception:
-                cpu_threads = os.cpu_count() // 4
+                cpu_threads = cpu_count // 4 if cpu_count > 1 else 1
                 print(f"[Extractor] Error reading CPU config, defaulting to {cpu_threads} threads")
         else:
             print(f"[Extractor] No app config found, using default {cpu_threads} CPU threads")
@@ -83,7 +86,7 @@ class Extractor:
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
             futures = []
 
-            filenames = spritesheet_list
+            filenames = spritesheet_list if spritesheet_list is not None else []
             for filename in filenames:
                 base_filename = filename.rsplit(".", 1)[0]
                 xml_path = os.path.join(input_dir, base_filename + ".xml")
@@ -202,7 +205,7 @@ class Extractor:
                 temp_dir,
                 self.current_version,
                 lambda img, size: img.resize(
-                    (round(img.width * abs(size)), round(img.height * abs(size))), Image.NEAREST
+                    (round(img.width * abs(size)), round(img.height * abs(size))), Image.Resampling.NEAREST
                 ),
                 quant_frames,
             )

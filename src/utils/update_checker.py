@@ -162,7 +162,8 @@ class UpdateDialog:
         update_btn.pack(side=tk.RIGHT, padx=(5, 10))
         update_btn.focus_set()
 
-        self.window.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        if self.window:
+            self.window.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
     def show(self):
         if self.window:
@@ -171,11 +172,12 @@ class UpdateDialog:
 
     def _on_update(self):
         self.result = True
-        self.window.destroy()
-
+        if self.window:
+            self.window.destroy()
     def _on_cancel(self):
         self.result = False
-        self.window.destroy()
+        if self.window:
+            self.window.destroy()
 
 
 class UpdateChecker:
@@ -305,8 +307,9 @@ class UpdateChecker:
                 try:
                     import tkinter as tk
 
-                    root = tk._default_root
-                    if root:
+                    # Get the default root window and close it
+                    root = getattr(tk, '_default_root', None)
+                    if root and hasattr(root, 'winfo_exists') and root.winfo_exists():
                         root.quit()
                         root.destroy()
                 except Exception:
@@ -339,8 +342,8 @@ class UpdateChecker:
                 try:
                     import tkinter as tk
 
-                    root = tk._default_root
-                    if root:
+                    root = getattr(tk, '_default_root', None)
+                    if root and hasattr(root, 'winfo_exists') and root.winfo_exists():
                         root.quit()
                         root.destroy()
                 except Exception:

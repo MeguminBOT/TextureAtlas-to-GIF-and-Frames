@@ -9,6 +9,8 @@ class BackgroundHandlerWindow:
     This window displays detected background colors for unknown spritesheets with individual checkboxes
     to control whether background removal should be applied to each spritesheet.
     """
+    
+    _file_choices = {}
 
     @staticmethod
     def show_background_options(parent_window, detection_results):

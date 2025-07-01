@@ -65,11 +65,24 @@ class FindReplaceWindow:
         rules = []
         for rule in self.rules_frame.winfo_children():
             rule_settings = rule.winfo_children()
+            find_entry = None
+            replace_entry = None
+            regex_checkbox = None
+            
+            for widget in rule_settings:
+                if isinstance(widget, tk.Entry):
+                    if find_entry is None:
+                        find_entry = widget
+                    else:
+                        replace_entry = widget
+                elif isinstance(widget, ttk.Checkbutton):
+                    regex_checkbox = widget
+            
             rules.append(
                 {
-                    "find": rule_settings[0].get(),
-                    "replace": rule_settings[1].get(),
-                    "regex": "selected" in rule_settings[2].state(),
+                    "find": find_entry.get() if find_entry else "",
+                    "replace": replace_entry.get() if replace_entry else "",
+                    "regex": "selected" in regex_checkbox.state() if regex_checkbox else False,
                 }
             )
         self.on_store_callback(rules)

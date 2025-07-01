@@ -100,4 +100,4 @@ class AnimationProcessor:
         new_height_float = img.height * abs(size)
         new_width = round(new_width_float)
         new_height = round(new_height_float)
-        return img.resize((new_width, new_height), Image.NEAREST)
+        return img.resize((new_width, new_height), Image.Resampling.NEAREST)

@@ -10,7 +10,6 @@ from tkinter import filedialog, ttk, messagebox
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
-
 DependenciesChecker.check_and_configure_imagemagick()
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
@@ -29,7 +28,6 @@ from gui.animation_preview_window import AnimationPreviewWindow
 from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
-from gui.background_handler_window import BackgroundHandlerWindow
 from gui.contributors_window import ContributorsWindow
 
 
@@ -163,6 +161,13 @@ class TextureAtlasExtractorApp:
         self.setup_gui()
         self.root.after(250, self.check_version)
 
+    def _safe_get(self, dictionary, key, default=None):
+        """Safely get a value from a dictionary with proper type handling."""
+        try:
+            return dictionary.get(key, default) if dictionary else default
+        except (AttributeError, TypeError):
+            return default
+
     def setup_gui(self):
         self.root.title(f"TextureAtlas to GIF and Frames v{self.current_version}")
         self.root.geometry("900x770")
@@ -172,14 +177,18 @@ class TextureAtlasExtractorApp:
         try:
             current_os = platform.system()
             assets_path = Utilities.find_root("assets")
+            if assets_path is None:
+                raise FileNotFoundError(
+                    "Could not find 'assets' folder in any parent directory."
+                )
             if current_os == "Windows":
-                if assets_path is None:
-                    raise FileNotFoundError(
-                        "Could not find 'assets' folder in any parent directory."
-                    )
-                self.root.iconbitmap(os.path.join(assets_path, "assets", "icon.ico"))
+                self.root.iconbitmap(
+                    os.path.join(assets_path, "assets", "icon.ico")
+                )
             else:
-                icon = tk.PhotoImage(file=os.path.join(assets_path, "assets", "icon.png"))
+                icon = tk.PhotoImage(
+                    file=os.path.join(assets_path, "assets", "icon.png")
+                )
                 self.root.iconphoto(True, icon)
         except Exception:
             pass
@@ -196,6 +205,7 @@ class TextureAtlasExtractorApp:
             if hasattr(self.app_config, "get_extraction_defaults")
             else {}
         )
+        defaults = dict(defaults) if defaults else {}
 
         file_menu = tk.Menu(self.menubar, tearoff=0)
         file_menu.add_command(
@@ -240,8 +250,8 @@ class TextureAtlasExtractorApp:
         self.menubar.add_cascade(label="Contributors", menu=contributors_menu)
 
         advanced_menu = tk.Menu(self.menubar, tearoff=0)
-        self.variable_delay = tk.BooleanVar(value=defaults.get("variable_delay"))
-        self.fnf_idle_loop = tk.BooleanVar(value=defaults.get("fnf_idle_loop"))
+        self.variable_delay = tk.BooleanVar(value=self._safe_get(defaults, "variable_delay", False))
+        self.fnf_idle_loop = tk.BooleanVar(value=self._safe_get(defaults, "fnf_idle_loop", False))
         advanced_menu.add_checkbutton(label="Variable delay", variable=self.variable_delay)
         advanced_menu.add_checkbutton(
             label="FNF: Set loop delay on idle animations to 0", variable=self.fnf_idle_loop
@@ -262,6 +272,8 @@ class TextureAtlasExtractorApp:
             if hasattr(self.app_config, "get_extraction_defaults")
             else {}
         )
+        defaults = dict(defaults) if defaults else {}
+
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(self.root, length=865, variable=self.progress_var)
         self.progress_bar.pack(pady=8)
@@ -321,7 +333,7 @@ class TextureAtlasExtractorApp:
         self.animation_settings_frame.pack(side=tk.LEFT, fill="both", expand=True, padx=(0, 5))
 
         # Animation settings
-        self.animation_format = tk.StringVar(value=defaults.get("animation_format"))
+        self.animation_format = tk.StringVar(value=self._safe_get(defaults, "animation_format", "None"))
         self.animation_format_label = tk.Label(
             self.animation_settings_frame, text="Animation format:"
         )
@@ -337,7 +349,7 @@ class TextureAtlasExtractorApp:
         )
         self.animation_format_combobox.pack(pady=(0, 5))
 
-        self.set_framerate = tk.DoubleVar(value=defaults.get("fps"))
+        self.set_framerate = tk.DoubleVar(value=self._safe_get(defaults, "fps", 24))
         self.frame_rate_label = tk.Label(self.animation_settings_frame, text="Frame rate (fps):")
         self.frame_rate_label.pack()
         self.frame_rate_entry = tk.Entry(
@@ -345,7 +357,7 @@ class TextureAtlasExtractorApp:
         )
         self.frame_rate_entry.pack(pady=(0, 5))
 
-        self.set_loopdelay = tk.DoubleVar(value=defaults.get("delay"))
+        self.set_loopdelay = tk.DoubleVar(value=self._safe_get(defaults, "delay", 250))
         self.loopdelay_label = tk.Label(self.animation_settings_frame, text="Loop delay (ms):")
         self.loopdelay_label.pack()
         self.loopdelay_entry = tk.Entry(
@@ -353,7 +365,7 @@ class TextureAtlasExtractorApp:
         )
         self.loopdelay_entry.pack(pady=(0, 5))
 
-        self.set_minperiod = tk.DoubleVar(value=defaults.get("period"))
+        self.set_minperiod = tk.DoubleVar(value=self._safe_get(defaults, "period", 0))
         self.minperiod_label = tk.Label(self.animation_settings_frame, text="Minimum period (ms):")
         self.minperiod_label.pack()
         self.minperiod_entry = tk.Entry(
@@ -361,13 +373,13 @@ class TextureAtlasExtractorApp:
         )
         self.minperiod_entry.pack(pady=(0, 5))
 
-        self.set_scale = tk.DoubleVar(value=defaults.get("scale"))
+        self.set_scale = tk.DoubleVar(value=self._safe_get(defaults, "scale", 1.0))
         self.scale_label = tk.Label(self.animation_settings_frame, text="Scale:")
         self.scale_label.pack()
         self.scale_entry = tk.Entry(self.animation_settings_frame, textvariable=self.set_scale)
         self.scale_entry.pack(pady=(0, 5))
 
-        self.set_threshold = tk.DoubleVar(value=defaults.get("threshold"))
+        self.set_threshold = tk.DoubleVar(value=self._safe_get(defaults, "threshold", 0.5))
         self.threshold_label = tk.Label(self.animation_settings_frame, text="Alpha threshold:")
         self.threshold_label.pack()
         self.threshold_entry = tk.Entry(
@@ -379,7 +391,7 @@ class TextureAtlasExtractorApp:
         self.frame_settings_frame = tk.Frame(self.frame_settings_frame)
         self.frame_settings_frame.pack(side=tk.LEFT, fill="both", expand=True, padx=(5, 0))
 
-        self.frame_format = tk.StringVar(value=defaults.get("frame_format"))
+        self.frame_format = tk.StringVar(value=self._safe_get(defaults, "frame_format", "PNG"))
         self.frame_format_label = tk.Label(self.frame_settings_frame, text="Frame format:")
         self.frame_format_label.pack()
         self.frame_format_menu = ttk.Combobox(
@@ -398,7 +410,7 @@ class TextureAtlasExtractorApp:
         self.frame_format_menu.bind("<<ComboboxSelected>>", self._on_frame_format_change)
         self.frame_format_menu.pack(pady=(0, 5))
 
-        self.frame_selection = tk.StringVar(value=defaults.get("frame_selection", "All"))
+        self.frame_selection = tk.StringVar(value=self._safe_get(defaults, "frame_selection", "All"))
         self.frame_selection_label = tk.Label(self.frame_settings_frame, text="Frame selection:")
         self.frame_selection_label.pack()
         self.frame_selection_menu = ttk.Combobox(
@@ -413,7 +425,7 @@ class TextureAtlasExtractorApp:
         )
         self.frame_selection_menu.pack(pady=(0, 5))
 
-        self.frame_scale = tk.DoubleVar(value=defaults.get("frame_scale", 1.0))
+        self.frame_scale = tk.DoubleVar(value=self._safe_get(defaults, "frame_scale", 1.0))
         self.frame_scale_label = tk.Label(self.frame_settings_frame, text="Frame scale:")
         self.frame_scale_label.pack()
         self.frame_scale_entry = tk.Entry(self.frame_settings_frame, textvariable=self.frame_scale)
@@ -433,27 +445,33 @@ class TextureAtlasExtractorApp:
         webp_defaults = self.app_config.get_compression_defaults("webp")
         avif_defaults = self.app_config.get_compression_defaults("avif")
         tiff_defaults = self.app_config.get_compression_defaults("tiff")
+        
+        # Type cast to ensure proper dictionary types
+        png_defaults = dict(png_defaults) if png_defaults else {}
+        webp_defaults = dict(webp_defaults) if webp_defaults else {}
+        avif_defaults = dict(avif_defaults) if avif_defaults else {}
+        tiff_defaults = dict(tiff_defaults) if tiff_defaults else {}
 
-        self.png_compress_level = tk.IntVar(value=png_defaults.get("compress_level", 9))
-        self.png_optimize = tk.BooleanVar(value=png_defaults.get("optimize", True))
-        self.webp_quality = tk.IntVar(value=webp_defaults.get("quality", 100))
-        self.webp_method = tk.IntVar(value=webp_defaults.get("method", 6))
-        self.webp_lossless = tk.BooleanVar(value=webp_defaults.get("lossless", True))
-        self.webp_alpha_quality = tk.IntVar(value=webp_defaults.get("alpha_quality", 100))
-        self.webp_exact = tk.BooleanVar(value=webp_defaults.get("exact", True))
-        self.avif_quality = tk.IntVar(value=avif_defaults.get("quality", 100))
-        self.avif_speed = tk.IntVar(value=avif_defaults.get("speed", 0))
-        self.avif_lossless = tk.BooleanVar(value=avif_defaults.get("lossless", True))
+        self.png_compress_level = tk.IntVar(value=self._safe_get(png_defaults, "compress_level", 9))
+        self.png_optimize = tk.BooleanVar(value=self._safe_get(png_defaults, "optimize", True))
+        self.webp_quality = tk.IntVar(value=self._safe_get(webp_defaults, "quality", 100))
+        self.webp_method = tk.IntVar(value=self._safe_get(webp_defaults, "method", 6))
+        self.webp_lossless = tk.BooleanVar(value=self._safe_get(webp_defaults, "lossless", True))
+        self.webp_alpha_quality = tk.IntVar(value=self._safe_get(webp_defaults, "alpha_quality", 100))
+        self.webp_exact = tk.BooleanVar(value=self._safe_get(webp_defaults, "exact", True))
+        self.avif_quality = tk.IntVar(value=self._safe_get(avif_defaults, "quality", 100))
+        self.avif_speed = tk.IntVar(value=self._safe_get(avif_defaults, "speed", 0))
+        self.avif_lossless = tk.BooleanVar(value=self._safe_get(avif_defaults, "lossless", True))
         self.tiff_compression_type = tk.StringVar(
-            value=tiff_defaults.get("compression_type", "lzw")
+            value=self._safe_get(tiff_defaults, "compression_type", "lzw")
         )
         self.tiff_compression_type.trace_add("write", self._on_tiff_compression_type_change)
-        self.tiff_quality = tk.IntVar(value=tiff_defaults.get("quality", 90))
-        self.tiff_optimize = tk.BooleanVar(value=tiff_defaults.get("optimize", True))
+        self.tiff_quality = tk.IntVar(value=self._safe_get(tiff_defaults, "quality", 90))
+        self.tiff_optimize = tk.BooleanVar(value=self._safe_get(tiff_defaults, "optimize", True))
 
         # General settings
         ttk.Separator(self.root, orient="horizontal").pack(fill="x", pady=2)
-        self.crop_option = tk.StringVar(value=defaults.get("crop_option"))
+        self.crop_option = tk.StringVar(value=self._safe_get(defaults, "crop_option", "Animation based"))
         self.crop_menu_label = tk.Label(self.root, text="Cropping method:")
         self.crop_menu_label.pack()
         self.crop_menu_menu = ttk.Combobox(
@@ -468,7 +486,7 @@ class TextureAtlasExtractorApp:
         self.prefix_entry = tk.Entry(self.root, textvariable=self.prefix)
         self.prefix_entry.pack()
 
-        self.filename_format = tk.StringVar(value=defaults.get("filename_format"))
+        self.filename_format = tk.StringVar(value=self._safe_get(defaults, "filename_format", "Standardized"))
         self.filename_format_label = tk.Label(self.root, text="Filename format:")
         self.filename_format_label.pack()
         self.filename_format_menu = ttk.Combobox(self.root, textvariable=self.filename_format)
@@ -527,8 +545,8 @@ class TextureAtlasExtractorApp:
             update_settings = self.app_config.get(
                 "update_settings", self.app_config.DEFAULTS["update_settings"]
             )
-            check_on_startup = update_settings.get("check_updates_on_startup", True)
-            auto_update = update_settings.get("auto_download_updates", False)
+            check_on_startup = bool(self._safe_get(update_settings, "check_updates_on_startup", True))
+            auto_update = bool(self._safe_get(update_settings, "auto_download_updates", False))
             if force or check_on_startup:
                 UpdateChecker.check_for_updates(
                     self.current_version, auto_update=auto_update, parent_window=self.root
@@ -1467,7 +1485,7 @@ if __name__ == "__main__":
         args = parser.parse_args()
 
         if args.update:
-            from utils.update_installer import Updater, UpdateUtilities
+            from utils.update_installer import Updater
 
             print("Starting update process...")
             if args.wait > 0:

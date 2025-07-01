@@ -135,7 +135,8 @@ class AppConfig:
         self.migrate()
 
     def get_extraction_defaults(self):
-        return dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
+        extraction_defaults = self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"])
+        return dict(extraction_defaults or self.DEFAULTS["extraction_defaults"])
 
     def set_extraction_defaults(self, **kwargs):
         defaults = self.get_extraction_defaults()
@@ -217,9 +218,9 @@ class AppConfig:
         )
 
         if format_name:
-            return dict(compression_defaults.get(format_name, {}))
+            return dict((compression_defaults or {}).get(format_name, {}))
 
-        return dict(compression_defaults)
+        return dict(compression_defaults or {})
 
     def set_compression_defaults(self, format_name, **kwargs):
         compression_defaults = self.get_compression_defaults()
