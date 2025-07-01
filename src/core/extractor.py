@@ -36,10 +36,8 @@ class Extractor:
             Returns early without processing if the user cancels background color detection dialogs.
         extract_sprites(atlas_path, metadata_path, output_dir, settings):
             Extracts sprites from a given atlas and metadata file, and processes the animations.
-        extract_preview_gif_frames(atlas_path, metadata_path, settings, animation_name=None):
-            Extracts frames for a single animation for preview purposes.
-        generate_temp_gif_for_preview(atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
-            Generates a temporary GIF file using the actual AnimationExporter.save_gif logic.
+        generate_temp_animation_for_preview(atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
+            Generates a temporary animated image file for preview purposes.
     """
 
     def __init__(self, progress_bar, current_version, settings_manager, app_config=None):
@@ -181,7 +179,7 @@ class Extractor:
         except Exception as e:
             ExceptionHandler.handle_exception(e, metadata_path if metadata_path else atlas_path, sprites_failed)
 
-    def generate_temp_gif_for_preview(self, atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
+    def generate_temp_animation_for_preview(self, atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
         try:
             atlas_processor = AtlasProcessor(atlas_path, metadata_path)
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
@@ -215,7 +213,11 @@ class Extractor:
                     spritesheet_name, f"{spritesheet_name}/{anim_name}"
                 )
                 merged_settings = {**preview_settings, **settings}
-                merged_settings["animation_format"] = "GIF"
+
+                animation_format = merged_settings.get("animation_format", "GIF")
+                if animation_format == "None":
+                    animation_format = "GIF"
+                merged_settings["animation_format"] = animation_format
 
                 indices = merged_settings.get("indices")
                 if indices:
@@ -236,13 +238,20 @@ class Extractor:
                     image_tuples, spritesheet_name, anim_name, merged_settings
                 )
 
+                file_extensions = {
+                    "GIF": ".gif",
+                    "WebP": ".webp", 
+                    "APNG": ".png"
+                }
+                target_extension = file_extensions.get(animation_format, ".gif")
+
                 for file in os.listdir(temp_dir):
-                    if file.endswith(".gif"):
+                    if file.endswith(target_extension):
                         return os.path.join(temp_dir, file)
             return None
 
         except Exception as e:
-            print(f"Preview GIF generation error: {e}")
+            print(f"Preview animation generation error: {e}")
             return None
 
     def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, tk_root):

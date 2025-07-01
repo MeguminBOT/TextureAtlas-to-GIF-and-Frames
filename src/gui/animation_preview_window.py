@@ -3,19 +3,26 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageSequence
 
+try:
+    from PIL.Image import Resampling
 
-class GifPreviewWindow:
+    NEAREST = Resampling.NEAREST
+except ImportError:
+    NEAREST = Image.NEAREST
+
+
+class AnimationPreviewWindow:
     """
-    A window class for previewing GIF animations.
+    A window class for previewing animations.
 
     Methods:
-        show(gif_path, settings):
-            Opens a preview window for the specified GIF file with the given settings.
+        show(animation_path, settings):
+            Opens a preview window for the specified animation file with the given settings.
 
     Attributes (within the preview window context):
-        gif (PIL.Image): The loaded GIF image.
-        pil_frames (list): List of PIL Image frames extracted from the GIF.
-        frame_count (int): Total number of frames in the GIF.
+        animation (PIL.Image): The loaded animation image.
+        pil_frames (list): List of PIL Image frames extracted from the animation.
+        frame_count (int): Total number of frames in the animation.
         durations (list): List of per-frame delays in milliseconds.
         composited_cache (dict): Cache for composited frames with background and scaling applied.
         current_frame (list): Mutable integer tracking the current frame index.
@@ -27,30 +34,97 @@ class GifPreviewWindow:
     """
 
     @staticmethod
-    def show(gif_path, settings):
+    def show(animation_path, settings):
         preview_win = tk.Toplevel()
-        preview_win.title("GIF Preview")
 
-        gif = Image.open(gif_path)
-        pil_frames = [frame.copy() for frame in ImageSequence.Iterator(gif)]
-        frame_count = len(pil_frames)
-        current_frame = [0]
+        file_ext = os.path.splitext(animation_path)[1].lower()
+        format_name = {".gif": "GIF", ".webp": "WebP"}.get(file_ext, "Animation")
 
-        durations = []
+        preview_win.title(f"{format_name} Preview")
+
         try:
-            for frame in ImageSequence.Iterator(gif):
-                duration = frame.info.get("duration", 0)
-                durations.append(duration)
-        except Exception:
-            pass
+            animation = Image.open(animation_path)
 
-        fps = settings.get("fps", 24)
-        delay_setting = settings.get("delay", 250)
-        base_delay = round(1000 / fps, -1)
+            if file_ext == ".webp":
+                pil_frames = []
+                try:
+                    while True:
+                        pil_frames.append(animation.copy())
+                        animation.seek(animation.tell() + 1)
+                except EOFError:
+                    pass
+                animation.seek(0)
+            else:
+                pil_frames = [
+                    frame.copy() for frame in ImageSequence.Iterator(animation)
+                ]
+
+            frame_count = len(pil_frames)
+            current_frame = [0]
+
+            durations = []
+            try:
+                fps = settings.get("fps", 24)
+                delay_setting = settings.get("delay", 250)
+                period = settings.get("period", 0)
+                var_delay = settings.get("var_delay", False)
+
+                if var_delay:
+                    if file_ext == ".webp":
+                        for index in range(frame_count):
+                            duration = round((index + 1) * 1000 / fps) - round(
+                                index * 1000 / fps
+                            )
+                            durations.append(int(duration))
+                    else:
+                        for index in range(frame_count):
+                            duration = round((index + 1) * 1000 / fps, -1) - round(
+                                index * 1000 / fps, -1
+                            )
+                            durations.append(int(duration))
+                else:
+                    if file_ext == ".webp":
+                        durations = [int(round(1000 / fps))] * frame_count
+                    else:
+                        durations = [int(round(1000 / fps, -1))] * frame_count
+
+                if durations:
+                    if file_ext == ".webp":
+                        durations[-1] += int(delay_setting)
+                        durations[-1] += max(int(period) - sum(durations), 0)
+                    else:
+                        durations[-1] += int(delay_setting)
+                        durations[-1] += max(int(round(period, -1)) - sum(durations), 0)
+
+            except Exception:
+                try:
+                    if file_ext == ".webp":
+                        animation.seek(0)
+                        for i in range(frame_count):
+                            try:
+                                animation.seek(i)
+                                duration = animation.info.get("duration", 0)
+                                durations.append(int(duration) if duration else 42)
+                            except EOFError:
+                                break
+                    else:
+                        for frame in ImageSequence.Iterator(animation):
+                            duration = frame.info.get("duration", 0)
+                            durations.append(int(duration) if duration else 42)
+                except Exception:
+                    pass
+
+        except Exception as e:
+            messagebox.showerror("Preview Error", f"Could not load animation file: {e}")
+            preview_win.destroy()
+            return
 
         if not durations or len(durations) != frame_count:
+            fps = settings.get("fps", 24)
+            delay_setting = settings.get("delay", 250)
+            base_delay = int(round(1000 / fps, -1))
             durations = [base_delay] * frame_count
-            durations[-1] += delay_setting
+            durations[-1] += int(delay_setting)
 
         frame_counter_label = tk.Label(preview_win, text=f"Frame 0 / {frame_count - 1}")
         frame_counter_label.pack()
@@ -69,7 +143,7 @@ class GifPreviewWindow:
             to=frame_count - 1,
             orient=tk.HORIZONTAL,
             length=300,
-            showvalue=0,
+            showvalue=False,
             command=on_slider,
         )
         slider.pack()
@@ -79,7 +153,9 @@ class GifPreviewWindow:
         slider_frame_width = slider_frame.winfo_reqwidth()
         preview_win_width = preview_win.winfo_width()
         if preview_win_width > slider_frame_width:
-            slider_frame.pack_configure(padx=(preview_win_width - slider_frame_width) // 2)
+            slider_frame.pack_configure(
+                padx=(preview_win_width - slider_frame_width) // 2
+            )
 
         delays_canvas = tk.Canvas(preview_win, height=40)
         delays_canvas.pack(fill="x", expand=False)
@@ -106,12 +182,16 @@ class GifPreviewWindow:
 
         btn_frame = tk.Frame(preview_win)
         btn_frame.pack()
-        tk.Button(btn_frame, text="Prev", command=lambda: prev_frame()).pack(side=tk.LEFT)
+        tk.Button(btn_frame, text="Prev", command=lambda: prev_frame()).pack(
+            side=tk.LEFT
+        )
         tk.Button(btn_frame, text="Play", command=lambda: play()).pack(side=tk.LEFT)
         tk.Button(btn_frame, text="Stop", command=lambda: stop()).pack(side=tk.LEFT)
-        tk.Button(btn_frame, text="Next", command=lambda: next_frame()).pack(side=tk.LEFT)
+        tk.Button(btn_frame, text="Next", command=lambda: next_frame()).pack(
+            side=tk.LEFT
+        )
 
-        def open_external(path=gif_path):
+        def open_external(path=animation_path):
             import subprocess
             import platform
 
@@ -125,12 +205,13 @@ class GifPreviewWindow:
                     subprocess.Popen(["xdg-open", path])
             except Exception as e:
                 messagebox.showerror(
-                    "Open External", f"Could not open GIF in external program:\n{e}"
+                    "Open External",
+                    f"Could not open animation in external program:\n{e}",
                 )
 
-        tk.Button(btn_frame, text="Open GIF externally", command=open_external).pack(
-            side=tk.LEFT, padx=(12, 0)
-        )
+        tk.Button(
+            btn_frame, text=f"Open {format_name} externally", command=open_external
+        ).pack(side=tk.LEFT, padx=(12, 0))
 
         bg_slider_frame = tk.Frame(preview_win)
         bg_slider_frame.pack(pady=4)
@@ -167,7 +248,7 @@ class GifPreviewWindow:
                 img = frame.convert("RGBA")
                 if scale != 1.0:
                     new_size = (int(img.width * scale), int(img.height * scale))
-                    img = img.resize(new_size, Image.NEAREST)
+                    img = img.resize(new_size, NEAREST)
                 bg_img = Image.new("RGBA", img.size, (bg, bg, bg, 255))
                 composited = Image.alpha_composite(bg_img, img)
                 composited_cache[(idx, bg, scale)] = composited.convert("RGB")
@@ -181,7 +262,7 @@ class GifPreviewWindow:
             img = pil_frames[idx].convert("RGBA")
             if scale != 1.0:
                 new_size = (int(img.width * scale), int(img.height * scale))
-                img = img.resize(new_size, Image.NEAREST)
+                img = img.resize(new_size, NEAREST)
             bg_img = Image.new("RGBA", img.size, (bg, bg, bg, 255))
             composited = Image.alpha_composite(bg_img, img)
             composited_cache[cache_key] = composited.convert("RGB")
@@ -280,7 +361,7 @@ class GifPreviewWindow:
             def loop():
                 if playing[0]:
                     next_frame()
-                    delay = durations[current_frame[0]]
+                    delay = max(1, int(durations[current_frame[0]]))
                     preview_win.after(delay, loop)
 
             loop()
@@ -291,18 +372,18 @@ class GifPreviewWindow:
         precompute_composited_frames()
         show_frame(0)
 
-        def cleanup_temp_gif():
+        def cleanup_temp_animation():
             try:
-                gif.close()
-                if os.path.isfile(gif_path):
-                    os.remove(gif_path)
+                animation.close()
+                if os.path.isfile(animation_path):
+                    os.remove(animation_path)
             except Exception:
                 pass
             preview_win.destroy()
 
-        preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_gif)
+        preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_animation)
 
-        note_text = "Playback speed of GIFs may not be accurately depicted in this preview window. Open the GIF externally for accurate playback."
+        note_text = f"Playback speed of {format_name} animations may not be accurately depicted in this preview window. Open the animation externally for accurate playback."
         note_label = tk.Label(
             preview_win, text=note_text, font=("Arial", 9, "italic"), fg="#333333"
         )
@@ -318,9 +399,23 @@ class GifPreviewWindow:
             preview_win.minsize(note_width + margin, win_height)
 
     @staticmethod
-    def preview(app, name, settings_type, fps_entry, delay_entry, period_entry, scale_entry, threshold_entry, indices_entry, frames_entry):
+    def preview(
+        app,
+        name,
+        settings_type,
+        animation_format_entry,
+        fps_entry,
+        delay_entry,
+        period_entry,
+        scale_entry,
+        threshold_entry,
+        indices_entry,
+        frames_entry,
+    ):
         settings = {}
         try:
+            if animation_format_entry and animation_format_entry.get() != "":
+                settings["animation_format"] = animation_format_entry.get()
             if fps_entry.get() != "":
                 settings["fps"] = float(fps_entry.get())
             if delay_entry.get() != "":
@@ -338,6 +433,16 @@ class GifPreviewWindow:
             messagebox.showerror("Invalid input", f"Error: {str(e)}")
             return
 
+        # Check if APNG format is selected and block preview
+        animation_format = settings.get("animation_format", "")
+        if animation_format == "APNG":
+            messagebox.showinfo(
+                "Preview Not Available",
+                "Preview is not available for APNG format due to display limitations.\n\n"
+                "You can still export APNG animations and view them externally.",
+            )
+            return
+
         if settings_type == "animation":
             spritesheet_name, animation_name = name.split("/", 1)
         else:
@@ -353,15 +458,21 @@ class GifPreviewWindow:
         try:
             from core.extractor import Extractor
 
+            app.update_global_settings()
+
             extractor = Extractor(None, app.current_version, app.settings_manager)
-            gif_path = extractor.generate_temp_gif_for_preview(
+            animation_path = extractor.generate_temp_animation_for_preview(
                 png_path, metadata_path, settings, animation_name, temp_dir=app.temp_dir
             )
-            if not gif_path or not os.path.isfile(gif_path):
-                messagebox.showerror("Preview Error", "Could not generate preview GIF.")
+            if not animation_path or not os.path.isfile(animation_path):
+                messagebox.showerror(
+                    "Preview Error", "Could not generate preview animation."
+                )
                 return
         except Exception as e:
-            messagebox.showerror("Preview Error", f"Error generating preview GIF: {e}")
+            messagebox.showerror(
+                "Preview Error", f"Error generating preview animation: {e}"
+            )
             return
 
-        app.show_gif_preview_window(gif_path, settings)
+        app.show_animation_preview_window(animation_path, settings)

@@ -25,7 +25,7 @@ from gui.app_config_window import AppConfigWindow
 from gui.help_window import HelpWindow
 from gui.find_replace_window import FindReplaceWindow
 from gui.override_settings_window import OverrideSettingsWindow
-from gui.gif_preview_window import GifPreviewWindow
+from gui.animation_preview_window import AnimationPreviewWindow
 from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
@@ -136,8 +136,8 @@ class TextureAtlasExtractorApp:
         on_double_click_animation(evt): Handles the event when an animation is double-clicked in the listbox.
         show_listbox_png_menu(event): Shows the context menu for the PNG listbox.
         delete_selected_spritesheet(): Deletes the selected spritesheet and related settings.
-        preview_gif_window(...): Generates and displays a preview GIF.
-        show_gif_preview_window(gif_path, settings): Displays the preview GIF in a new window.
+        preview_animation_window(...): Generates and displays a preview animation.
+        show_animation_preview_window(animation_path, settings): Displays the preview animation in a new window.
         store_input(...): Stores the input from the override settings window.
         update_global_settings(): Updates the global settings from the GUI.
         on_closing(): Handles the event when the application is closing.
@@ -681,10 +681,11 @@ class TextureAtlasExtractorApp:
             for anim in anims_to_delete:
                 self.settings_manager.delete_animation_settings(anim)
 
-    def preview_gif_window(
+    def preview_animation_window(
         self,
         name,
         settings_type,
+        animation_format_entry,
         fps_entry,
         delay_entry,
         period_entry,
@@ -693,10 +694,11 @@ class TextureAtlasExtractorApp:
         indices_entry,
         frames_entry,
     ):
-        GifPreviewWindow.preview(
+        AnimationPreviewWindow.preview(
             self,
             name,
             settings_type,
+            animation_format_entry,
             fps_entry,
             delay_entry,
             period_entry,
@@ -706,14 +708,15 @@ class TextureAtlasExtractorApp:
             frames_entry,
         )
 
-    def show_gif_preview_window(self, gif_path, settings):
-        GifPreviewWindow.show(gif_path, settings)
+    def show_animation_preview_window(self, animation_path, settings):
+        AnimationPreviewWindow.show(animation_path, settings)
 
     def store_input(
         self,
         window,
         name,
         settings_type,
+        animation_format_entry,
         fps_entry,
         delay_entry,
         period_entry,
@@ -727,6 +730,8 @@ class TextureAtlasExtractorApp:
     ):
         settings = {}
         try:
+            if animation_format_entry and animation_format_entry.get() != "":
+                settings["animation_format"] = animation_format_entry.get()
             if fps_entry.get() != "":
                 settings["fps"] = float(fps_entry.get())
             if delay_entry.get() != "":
