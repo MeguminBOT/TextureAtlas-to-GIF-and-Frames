@@ -33,7 +33,7 @@ class FrameSelector:
         if single_frame:
             return ["0"]
 
-        kept_frames = settings.get("frames")
+        kept_frames = settings.get("frame_selection")
         if kept_frames is None:
             kept_frames = "All"
 
