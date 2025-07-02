@@ -17,7 +17,6 @@ class AnimationProcessor:
         output_dir (str): The directory where the output frames and animations will be saved.
         settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
         current_version (str): The current version of the application.
-        quant_frames (dict): A dictionary to store quantized frames for optimized GIF generation.
 
     Methods:
         process_animations(is_unknown_spritesheet=False):
@@ -33,12 +32,11 @@ class AnimationProcessor:
         self.output_dir = output_dir
         self.settings_manager = settings_manager
         self.current_version = current_version
-        self.quant_frames = {}
         self.frame_exporter = FrameExporter(
             self.output_dir, self.current_version, self.scale_image
         )
         self.animation_exporter = AnimationExporter(
-            self.output_dir, self.current_version, self.scale_image, self.quant_frames
+            self.output_dir, self.current_version, self.scale_image
         )
 
     def process_animations(self, is_unknown_spritesheet=False):
