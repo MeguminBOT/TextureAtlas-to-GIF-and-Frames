@@ -151,7 +151,7 @@ class TextureAtlasExtractorApp:
 
     def __init__(self, root):
         self.root = root
-        self.current_version = "1.9.5"
+        self.current_version = "1.9.5.1"
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
