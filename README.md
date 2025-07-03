@@ -80,6 +80,9 @@ Perfect for creating showcases and galleries of game sprites.
 ### 🔗 SourceForge
 [![Download TextureAtlas Extractor and GIF Generator](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/textureatlas-to-gif-and-frames/)
 
+### Itch.io
+[![Download TextureAtlas Extractor and GIF Generator Itchio](https://static.itch.io/images/badge-color.svg)](https://autisticlulu.itch.io/textureatlas-to-gif-and-frames)
+
 ### 🎮 GameBanana
 [![Download TextureAtlas Extractor and GIF Generator GB](https://gamebanana.com/tools/embeddables/16621?type=large)](https://gamebanana.com/tools/16621)
 
