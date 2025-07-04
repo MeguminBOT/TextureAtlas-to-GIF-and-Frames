@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide will walk you through installing and setting up TextureAtlas-to-GIF-and-Frames on your system. **Regular users should follow the Quick Start section first** - advanced users and developers can refer to the detailed manual installation sections.
+This guide will walk you through installing and setting up TextureAtlas-to-GIF-and-Frames on your system. Mac OS X and Linux users or developers can refer to the detailed manual installation sections.
 
 **This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
 
@@ -10,9 +10,6 @@ This guide will walk you through installing and setting up TextureAtlas-to-GIF-a
   - [Minimum Requirements](#minimum-requirements)
   - [Recommended Requirements](#recommended-requirements)
 - [🚀 Normal Install (Windows only)](#normal-install-windows-only)
-  - [Step 1: Download the Application](#step-1-download-the-application)
-  - [Step 2: Quick Setup](#step-2-quick-setup)
-  - [Step 3: Run the Application](#step-3-run-the-application)
 - [🚀 Manual Installation](#manual-installation)
   - [Python Installation](#python-installation)
     - [Windows](#windows)
