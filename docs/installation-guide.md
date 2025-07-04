@@ -61,35 +61,10 @@ This guide will walk you through installing and setting up TextureAtlas-to-GIF-a
 
 ## Normal Install (Windows only)
 
-**Windows Only**
-
-### Step 1: Download the Application
-
 1. Go to the [GitHub Releases page](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases).
 2. Download the latest release ZIP or 7z file.
 3. Extract all files to a folder of your choice (e.g., `C:\TextureAtlas-to-GIF-and-Frames`).
-
-### Step 2: Quick Setup
-
-**Windows Users:**
-1. Make sure you have Python 3.10+ installed from [python.org](https://www.python.org/downloads/) with "Add Python to PATH" checked during installation.
-2. Double-click or run `setup/setup_windows.bat` from the extracted project folder. This will automatically:
-   - Install all required Python packages
-   - Set up ImageMagick if needed
-   - Verify your installation
-
-### Step 3: Run the Application
-
-1. Open a terminal or command prompt.
-2. Navigate to the `src` directory:
-   ```bash
-   cd src
-   ```
-3. Start the application:
-   ```bash
-   python Main.py
-   ```
-   - On Windows, you may also double-click `Main.py` if Python is associated with `.py` files.
+4. Run "TextureAtlas to GIF and Frames.exe"
 
 **That's it!** If you encounter any issues, check the [Troubleshooting section](#-troubleshooting-installation--common-errors) below.
 
