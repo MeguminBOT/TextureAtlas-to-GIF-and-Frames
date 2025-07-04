@@ -4,6 +4,7 @@ from PIL import Image
 from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
 from parsers.unknown_parser import UnknownParser
+from parsers.animate_parser import AnimateParser
 
 
 class AtlasProcessor:
@@ -47,6 +48,13 @@ class AtlasProcessor:
         elif self.metadata_path.endswith(".txt"):
             print(f"Parsing TXT metadata: {self.metadata_path}")
             sprites = TxtParser.parse_txt_packer(self.metadata_path)
+        elif self.metadata_path.endswith(".json"):
+            # Check if it's an Adobe Animate JSON file
+            if AnimateParser.is_animate_json(self.metadata_path):
+                print(f"Parsing Adobe Animate JSON metadata: {self.metadata_path}")
+                sprites = AnimateParser.parse_animate_data(self.metadata_path)
+            else:
+                raise ValueError(f"Unsupported JSON format (not Adobe Animate): {self.metadata_path}")
         else:
             raise ValueError(f"Unsupported metadata file format: {self.metadata_path}")
         return atlas, sprites

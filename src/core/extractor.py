@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import concurrent.futures
 import time
 import gc
@@ -17,6 +18,7 @@ from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
+from parsers.spritemap_parser import SpritlemapParser
 
 
 class Extractor:
@@ -41,6 +43,22 @@ class Extractor:
     """
 
     def __init__(self, progress_bar, current_version, settings_manager, app_config=None):
+        """
+        Initialize the Extractor with required components and configuration.
+
+        Args:
+            progress_bar: Progress bar widget for displaying extraction progress
+            current_version: Current version of the application
+            settings_manager: Manager for handling application settings
+            app_config (optional): Application configuration object. Defaults to None.
+
+        Attributes:
+            settings_manager: Stores the settings manager instance
+            progress_bar: Stores the progress bar widget
+            current_version: Stores the current application version
+            app_config: Stores the application configuration
+            fnf_idle_loop: Boolean variable for FNF idle loop functionality
+        """
         self.settings_manager = settings_manager
         self.progress_bar = progress_bar
         self.current_version = current_version
@@ -86,6 +104,23 @@ class Extractor:
             filenames = spritesheet_list
             for filename in filenames:
                 base_filename = filename.rsplit(".", 1)[0]
+                
+                # Special handling for spritemap directories
+                if filename == "spritemap1.png" and SpritlemapParser.is_spritemap_directory(input_dir):
+                    settings = self.settings_manager.get_settings(filename)
+                    
+                    future = executor.submit(
+                        self.extract_sprites,
+                        input_dir,  # Pass the directory, not the individual file
+                        "spritemap",  # Special marker for spritemap
+                        output_dir,  # Output to the main output directory
+                        settings,
+                        tk_root,
+                    )
+                    futures.append(future)
+                    continue
+                
+                # Regular atlas processing
                 xml_path = os.path.join(input_dir, base_filename + ".xml")
                 txt_path = os.path.join(input_dir, base_filename + ".txt")
                 image_path = os.path.join(input_dir, filename)
@@ -156,6 +191,12 @@ class Extractor:
         sprites_failed = 0
 
         try:
+            # Check if this is a spritemap directory
+            if metadata_path and metadata_path == "spritemap":
+                # Handle spritemap extraction - atlas_path is the directory
+                if SpritlemapParser.is_spritemap_directory(atlas_path):
+                    return self.extract_spritemap_sprites(atlas_path, output_dir, settings, parent_window)
+            
             is_unknown_spritesheet = metadata_path is None
             
             atlas_processor = AtlasProcessor(atlas_path, metadata_path, parent_window)
@@ -274,11 +315,18 @@ class Extractor:
                 base_filename = filename.rsplit(".", 1)[0]
                 xml_path = os.path.join(input_dir, base_filename + ".xml")
                 txt_path = os.path.join(input_dir, base_filename + ".txt")
+                json_path = os.path.join(input_dir, base_filename + ".json")
                 image_path = os.path.join(input_dir, filename)
+
+                # Skip spritemap directories - they have their own processing workflow
+                if filename == "spritemap1.png" and SpritlemapParser.is_spritemap_directory(input_dir):
+                    print(f"[Extractor] Skipping {filename} - detected as spritemap directory")
+                    continue
 
                 if (
                     not os.path.isfile(xml_path)
                     and not os.path.isfile(txt_path)
+                    and not os.path.isfile(json_path)
                     and os.path.isfile(image_path)
                     and filename.lower().endswith(
                         (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
@@ -368,3 +416,142 @@ class Extractor:
             print(f"Error in background color detection: {e}")
 
         return False
+
+    def extract_spritemap_sprites(self, spritemap_dir, output_dir, settings, parent_window=None):
+        """
+        Extract sprites from a spritemap directory by rendering timelines and processing them
+        through the regular TextureAtlas workflow.
+        
+        Args:
+            spritemap_dir (str): Directory containing spritemap files
+            output_dir (str): Output directory for extracted sprites
+            settings (dict): Settings for the extraction
+            parent_window: Parent window for GUI updates
+            
+        Returns:
+            dict: Results containing frames_generated, anims_generated, sprites_failed
+        """
+        frames_generated = 0
+        anims_generated = 0
+        sprites_failed = 0
+        
+        try:
+            print(f"[Extractor] Processing spritemap directory: {spritemap_dir}")
+            
+            # Load animation data to get timeline names
+            animation_json_path = os.path.join(spritemap_dir, "Animation.json")
+            with open(animation_json_path, "r", encoding='utf-8-sig') as f:
+                animation_json = json.load(f)
+            
+            # Extract timeline names using the same logic as the parser
+            spritemap_parser = SpritlemapParser(spritemap_dir, None)
+            timeline_names = list(spritemap_parser.extract_names(animation_json))
+            print(f"[Extractor] Found {len(timeline_names)} timelines: {timeline_names}")
+            
+            # Create a temporary directory for rendered atlases
+            with tempfile.TemporaryDirectory() as temp_dir:
+                print(f"[Extractor] Using temporary directory: {temp_dir}")
+                
+                # Process each timeline separately
+                for timeline_name in timeline_names:
+                    try:
+                        print(f"[Extractor] Processing timeline: {timeline_name}")
+                        
+                        # Render the timeline frames
+                        sprite_data = SpritlemapParser.parse_spritemap_data(spritemap_dir, timeline_name)
+                        print(f"[Extractor] Rendered {len(sprite_data) if sprite_data else 0} frames for {timeline_name}")
+                        
+                        if sprite_data:
+                            # Create temporary atlas for this timeline
+                            atlas_path, metadata_path = SpritlemapParser.create_temporary_atlas(sprite_data, temp_dir)
+                            print(f"[Extractor] Created temporary atlas: {atlas_path}")
+                            
+                            if atlas_path and metadata_path:
+                                # Create output directory for this timeline
+                                timeline_output_dir = os.path.join(output_dir, timeline_name)
+                                os.makedirs(timeline_output_dir, exist_ok=True)
+                                print(f"[Extractor] Output directory: {timeline_output_dir}")
+                                
+                                # Process through regular TextureAtlas workflow
+                                atlas_processor = AtlasProcessor(atlas_path, metadata_path, parent_window)
+                                sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
+                                animations = sprite_processor.process_sprites()
+                                animation_processor = AnimationProcessor(
+                                    animations, atlas_path, timeline_output_dir, self.settings_manager, self.current_version
+                                )
+                                
+                                timeline_frames, timeline_anims = animation_processor.process_animations(False)
+                                frames_generated += timeline_frames
+                                anims_generated += timeline_anims
+                                print(f"[Extractor] Timeline {timeline_name}: {timeline_frames} frames, {timeline_anims} animations")
+                        else:
+                            print(f"[Extractor] No sprite data generated for timeline: {timeline_name}")
+                                
+                    except Exception as e:
+                        print(f"[Extractor] Error processing timeline {timeline_name}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        sprites_failed += 1
+                        continue
+            
+            print(f"[Extractor] Spritemap processing complete: {frames_generated} frames, {anims_generated} animations, {sprites_failed} failed")
+            return {
+                "frames_generated": frames_generated,
+                "anims_generated": anims_generated,
+                "sprites_failed": sprites_failed,
+            }
+            
+        except Exception as e:
+            sprites_failed += 1
+            raise Exception(f"Error processing spritemap directory {spritemap_dir}: {str(e)}")
+
+    def extract_spritemap_single_animation(self, spritemap_dir, animation_name, output_dir, settings, parent_window=None):
+        """
+        Extract a single animation from a spritemap directory.
+        
+        Args:
+            spritemap_dir (str): Directory containing spritemap files
+            animation_name (str): Name of the specific animation to extract
+            output_dir (str): Output directory for extracted sprites
+            settings (dict): Settings for the extraction
+            parent_window: Parent window for GUI updates
+            
+        Returns:
+            dict: Results containing frames_generated, anims_generated, sprites_failed
+        """
+        frames_generated = 0
+        anims_generated = 0
+        sprites_failed = 0
+        
+        try:
+            # Create a temporary directory for rendered atlas
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Render the specific symbol frames
+                sprite_data = SpritlemapParser.parse_spritemap_data(spritemap_dir, animation_name)
+                
+                if sprite_data:
+                    # Create temporary atlas for this symbol
+                    atlas_path, metadata_path = SpritlemapParser.create_temporary_atlas(sprite_data, temp_dir)
+                    
+                    if atlas_path and metadata_path:
+                        # Process through regular TextureAtlas workflow
+                        atlas_processor = AtlasProcessor(atlas_path, metadata_path, parent_window)
+                        sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
+                        animations = sprite_processor.process_sprites()
+                        animation_processor = AnimationProcessor(
+                            animations, atlas_path, output_dir, self.settings_manager, self.current_version
+                        )
+                        
+                        frames_generated, anims_generated = animation_processor.process_animations(False)
+                else:
+                    print(f"No sprite data found for animation: {animation_name}")
+            
+            return {
+                "frames_generated": frames_generated,
+                "anims_generated": anims_generated,
+                "sprites_failed": sprites_failed,
+            }
+            
+        except Exception as e:
+            sprites_failed += 1
+            raise Exception(f"Error processing spritemap animation {animation_name}: {str(e)}")

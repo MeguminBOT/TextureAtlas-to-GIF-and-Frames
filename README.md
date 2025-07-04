@@ -30,6 +30,7 @@ Perfect for creating showcases and galleries of game sprites.
 - ✅ **Sparrow** (XML format)
 - ✅ **Starling** (XML format)  
 - ✅ **Packer TXT** (TXT format)
+- ✅ **Adobe Animate** (JSON format, 2021+)
 - 🟨 (*) **Unknown/Unsupported** (Attempts to extract sprites despite missing official support)
 
 (*) = *Feature may have bad results or are not fully stable yet*

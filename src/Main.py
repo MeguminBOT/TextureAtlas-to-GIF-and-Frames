@@ -20,6 +20,8 @@ from utils.fnf_utilities import FnfUtilities
 from parsers.xml_parser import XmlParser
 from parsers.txt_parser import TxtParser
 from parsers.unknown_parser import UnknownParser
+from parsers.animate_parser import AnimateParser
+from parsers.spritemap_parser import SpritlemapParser
 from core.extractor import Extractor
 from gui.app_config_window import AppConfigWindow
 from gui.help_window import HelpWindow
@@ -557,18 +559,26 @@ class TextureAtlasExtractorApp:
                 self.clear_filelist()
                 processed_files = set()
 
-                for filename in os.listdir(directory):
-                    if filename.endswith(".xml") or filename.endswith(".txt"):
-                        base_name = os.path.splitext(filename)[0]
-                        png_filename = base_name + ".png"
-                        if os.path.isfile(os.path.join(directory, png_filename)):
-                            self.listbox_png.insert(tk.END, png_filename)
-                            processed_files.add(png_filename)
+                # Check if this is a spritemap directory
+                if SpritlemapParser.is_spritemap_directory(directory):
+                    # Add a special entry for spritemap
+                    self.listbox_png.insert(tk.END, "spritemap1.png")
+                    processed_files.add("spritemap1.png")
+                    self.data_dict["spritemap1.png"] = "spritemap"  # Mark as spritemap
+                else:
+                    # Regular atlas processing
+                    for filename in os.listdir(directory):
+                        if filename.endswith(".xml") or filename.endswith(".txt") or filename.endswith(".json"):
+                            base_name = os.path.splitext(filename)[0]
+                            png_filename = base_name + ".png"
+                            if os.path.isfile(os.path.join(directory, png_filename)):
+                                self.listbox_png.insert(tk.END, png_filename)
+                                processed_files.add(png_filename)
 
-                for filename in os.listdir(directory):
-                    if (filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')) 
-                        and filename not in processed_files):
-                        self.listbox_png.insert(tk.END, filename)
+                    for filename in os.listdir(directory):
+                        if (filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')) 
+                            and filename not in processed_files):
+                            self.listbox_png.insert(tk.END, filename)
                 
                 self.listbox_png.bind("<<ListboxSelect>>", self.on_select_spritesheet)
                 self.listbox_png.bind("<Double-1>", self.on_double_click_spritesheet)
@@ -576,7 +586,7 @@ class TextureAtlasExtractorApp:
         return directory
 
     def select_files_manually(self, variable, label):
-        data_files = filedialog.askopenfilenames(filetypes=[("XML and TXT files", "*.xml *.txt")])
+        data_files = filedialog.askopenfilenames(filetypes=[("Metadata files", "*.xml *.txt *.json")])
         png_files = filedialog.askopenfilenames(filetypes=[("PNG files", "*.png")])
         variable.set(self.temp_dir)
         label.config(text=self.temp_dir)
@@ -618,23 +628,43 @@ class TextureAtlasExtractorApp:
 
         png_filename = self.listbox_png.get(self.listbox_png.curselection())
         base_filename = os.path.splitext(png_filename)[0]
-        xml_filename = base_filename + ".xml"
-        txt_filename = base_filename + ".txt"
-
+        
         directory = self.input_dir.get()
 
-        if os.path.isfile(os.path.join(directory, xml_filename)):
-            xml_parser = XmlParser(directory, xml_filename, self.listbox_data)
-            xml_parser.get_data()
-        elif os.path.isfile(os.path.join(directory, txt_filename)):
-            txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
-            txt_parser.get_data()
+        # Check if this is a spritemap directory
+        if png_filename == "spritemap1.png" and SpritlemapParser.is_spritemap_directory(directory):
+            spritemap_parser = SpritlemapParser(directory, self.listbox_data)
+            spritemap_parser.get_data()
         else:
-            # Attempt using a generic parser for images with missing metadata
-            image_path = os.path.join(directory, png_filename)
-            if os.path.isfile(image_path):
-                unknown_parser = UnknownParser(directory, png_filename, self.listbox_data)
-                unknown_parser.get_data()
+            # Regular atlas processing
+            xml_filename = base_filename + ".xml"
+            txt_filename = base_filename + ".txt"
+            json_filename = base_filename + ".json"
+
+            if os.path.isfile(os.path.join(directory, xml_filename)):
+                xml_parser = XmlParser(directory, xml_filename, self.listbox_data)
+                xml_parser.get_data()
+            elif os.path.isfile(os.path.join(directory, txt_filename)):
+                txt_parser = TxtParser(directory, txt_filename, self.listbox_data)
+                txt_parser.get_data()
+            elif os.path.isfile(os.path.join(directory, json_filename)):
+                # Check if it's an Adobe Animate JSON file
+                json_path = os.path.join(directory, json_filename)
+                if AnimateParser.is_animate_json(json_path):
+                    animate_parser = AnimateParser(directory, json_filename, self.listbox_data)
+                    animate_parser.get_data()
+                else:
+                    # If not Adobe Animate JSON, fall back to unknown parser
+                    image_path = os.path.join(directory, png_filename)
+                    if os.path.isfile(image_path):
+                        unknown_parser = UnknownParser(directory, png_filename, self.listbox_data)
+                        unknown_parser.get_data()
+            else:
+                # Attempt using a generic parser for images with missing metadata
+                image_path = os.path.join(directory, png_filename)
+                if os.path.isfile(image_path):
+                    unknown_parser = UnknownParser(directory, png_filename, self.listbox_data)
+                    unknown_parser.get_data()
 
     def on_double_click_spritesheet(self, evt):
         spritesheet_name = self.listbox_png.get(self.listbox_png.curselection())
@@ -823,12 +853,14 @@ class TextureAtlasExtractorApp:
             base_filename = filename.rsplit(".", 1)[0]
             xml_path = os.path.join(input_directory, base_filename + ".xml")
             txt_path = os.path.join(input_directory, base_filename + ".txt")
+            json_path = os.path.join(input_directory, base_filename + ".json")
             image_path = os.path.join(input_directory, filename)
 
             # Check if this is an unknown atlas (no metadata file but is an image)
             if (
                 not os.path.isfile(xml_path)
                 and not os.path.isfile(txt_path)
+                and not os.path.isfile(json_path)
                 and os.path.isfile(image_path)
                 and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
             ):
