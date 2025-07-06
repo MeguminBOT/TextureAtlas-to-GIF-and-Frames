@@ -410,6 +410,8 @@ class TextureAtlasExtractorApp:
             "First",
             "Last",
             "First, Last",
+            "None",
+            #"Choose",
         )
         self.frame_selection_menu.pack(pady=(0, 5))
 
@@ -1004,7 +1006,7 @@ class TextureAtlasExtractorApp:
                 widget_info["frame"].pack_forget()
         else:
             self.frame_selection_label.config(state="normal")
-            self.frame_selection_menu.config(state="readonly")
+            self.frame_selection_menu.config(state="normal")
             self.frame_scale_label.config(state="normal")
             self.frame_scale_entry.config(state="normal")
             self._on_frame_compression_change()
