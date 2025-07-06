@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery - TextureAtlas to GIF and Frames</title>
+    <meta name="description" content="Gallery showcasing examples and results from TextureAtlas to GIF and Frames">
+    <meta name="keywords" content="texture atlas, gif, webp, apng, sprite extraction, gallery, examples, showcase">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/navigation.css">
+    <link rel="stylesheet" href="css/footer.css">
+    <link rel="stylesheet" href="css/gallery.css">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/app.svg">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <header class="site-header">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <a href="index.html">
+                        <img src="assets/icons/app.svg" alt="TextureAtlas to GIF and Frames" class="logo-icon">
+                        TextureAtlas to GIF and Frames
+                    </a>
+                </div>
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="index.html" class="nav-link">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="download.html" class="nav-link">Download</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="documentation.html" class="nav-link">Documentation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="gallery.html" class="nav-link active">Gallery</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="about.html" class="nav-link">About</a>
+                    </li>
+                </ul>
+                <div class="nav-controls">
+                    <!-- Theme toggle will be added here by JavaScript -->
+                </div>
+                <div class="hamburger">
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <section class="hero-section">
+            <div class="container">
+                <h1>🖼️ Gallery</h1>
+                <p class="hero-description">
+                    Showcase of animations and sprite extractions created with TextureAtlas to GIF and Frames
+                    <br>This is currently empty but will soon have examples of animations extracted from texture atlases, including game sprites, UI elements, and special effects.
+                    <br>Check back later for updates!
+                </p>
+            </div>
+        </section>
+
+        <section class="gallery-section">
+            <div class="container">
+                <div class="gallery-categories">
+                    <div class="category-buttons">
+                        <button class="category-btn active" data-category="all">All Examples</button>
+                        <button class="category-btn" data-category="game-sprites">Game Sprites</button>
+                        <button class="category-btn" data-category="fnf">Friday Night Funkin'</button>
+                        <button class="category-btn" data-category="ui-elements">UI Elements</button>
+                        <button class="category-btn" data-category="effects">Effects</button>
+                    </div>
+                </div>
+
+                <div class="gallery-grid">
+                    <!-- Game Sprites Examples -->
+                    <div class="gallery-item" data-category="game-sprites">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">🎮</span>
+                                    <p>Character Walk Cycle</p>
+                                    <small>Sparrow XML → GIF</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Character Animation</h3>
+                                <p>8-frame character walk cycle extracted from a game sprite sheet using Sparrow XML format.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Sparrow</span>
+                                    <span class="meta-tag">GIF</span>
+                                    <span class="meta-tag">24 FPS</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gallery-item" data-category="game-sprites">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">⚔️</span>
+                                    <p>Attack Animation</p>
+                                    <small>Starling XML → WebP</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Combat Animation</h3>
+                                <p>Sword attack animation sequence with motion blur effects, optimized as WebP.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Starling</span>
+                                    <span class="meta-tag">WebP</span>
+                                    <span class="meta-tag">30 FPS</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Friday Night Funkin' Examples -->
+                    <div class="gallery-item" data-category="fnf">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">🎵</span>
+                                    <p>Boyfriend Idle</p>
+                                    <small>FNF Sparrow → GIF</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>FNF Character Idle</h3>
+                                <p>Boyfriend's idle animation from Friday Night Funkin', perfectly looped and timed.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">FNF</span>
+                                    <span class="meta-tag">Sparrow</span>
+                                    <span class="meta-tag">APNG</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gallery-item" data-category="fnf">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">🎤</span>
+                                    <p>Girlfriend Dance</p>
+                                    <small>FNF Sparrow → GIF</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>FNF Dance Animation</h3>
+                                <p>Girlfriend's signature dance moves extracted with precise timing for web display.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">FNF</span>
+                                    <span class="meta-tag">Sparrow</span>
+                                    <span class="meta-tag">GIF</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UI Elements Examples -->
+                    <div class="gallery-item" data-category="ui-elements">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">🔘</span>
+                                    <p>Button States</p>
+                                    <small>Packer TXT → PNG Frames</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Interactive Button</h3>
+                                <p>Button state transitions (normal, hover, pressed) extracted as individual frames.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Packer</span>
+                                    <span class="meta-tag">PNG</span>
+                                    <span class="meta-tag">UI</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gallery-item" data-category="ui-elements">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">⏳</span>
+                                    <p>Loading Spinner</p>
+                                    <small>Custom → WebP</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Loading Animation</h3>
+                                <p>Smooth loading spinner animation optimized for web with WebP compression.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Custom</span>
+                                    <span class="meta-tag">WebP</span>
+                                    <span class="meta-tag">60 FPS</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Effects Examples -->
+                    <div class="gallery-item" data-category="effects">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">💥</span>
+                                    <p>Explosion Effect</p>
+                                    <small>Starling XML → APNG</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Particle Explosion</h3>
+                                <p>Dynamic explosion effect with particle system, preserved with APNG quality.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Starling</span>
+                                    <span class="meta-tag">APNG</span>
+                                    <span class="meta-tag">Effects</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gallery-item" data-category="effects">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">✨</span>
+                                    <p>Magic Sparkles</p>
+                                    <small>Sparrow XML → GIF</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Magical Effects</h3>
+                                <p>Enchanting sparkle effect with transparency, perfect for overlay animations.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Sparrow</span>
+                                    <span class="meta-tag">GIF</span>
+                                    <span class="meta-tag">Alpha</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Examples -->
+                    <div class="gallery-item" data-category="game-sprites">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">🏃</span>
+                                    <p>Run Cycle</p>
+                                    <small>Auto-detected → GIF</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Auto-detected Sprites</h3>
+                                <p>Running animation extracted using intelligent boundary detection without metadata.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Auto-detect</span>
+                                    <span class="meta-tag">GIF</span>
+                                    <span class="meta-tag">Smart Crop</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gallery-item" data-category="ui-elements">
+                        <div class="gallery-card">
+                            <div class="gallery-image-placeholder">
+                                <div class="placeholder-content">
+                                    <span class="placeholder-icon">📊</span>
+                                    <p>Progress Bar</p>
+                                    <small>Packer TXT → WebP</small>
+                                </div>
+                            </div>
+                            <div class="gallery-info">
+                                <h3>Animated Progress</h3>
+                                <p>Smooth progress bar fill animation with gradient effects.</p>
+                                <div class="gallery-meta">
+                                    <span class="meta-tag">Packer</span>
+                                    <span class="meta-tag">WebP</span>
+                                    <span class="meta-tag">UI</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features-showcase">
+            <div class="container">
+                <h2>🎯 Extraction Features Demonstrated</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <h3>Perfect Quality</h3>
+                        <p>Lossless extraction maintains original sprite quality with support for transparency and high color depth.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Optimized Output</h3>
+                        <p>Smart compression and format selection ensures the best balance between quality and file size.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3>Precise Timing</h3>
+                        <p>Frame timing and loop points are preserved exactly as intended by the original animator.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">📐</div>
+                        <h3>Smart Cropping</h3>
+                        <p>Automatic and manual cropping options remove unnecessary whitespace while preserving animation integrity.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="contribution-section">
+            <div class="container">
+                <h2>📸 Submit Your Examples</h2>
+                <p>Have great results to share? We'd love to feature your work in our gallery!</p>
+                
+                <div class="submission-info">
+                    <div class="submission-card">
+                        <h3>🚀 How to Submit</h3>
+                        <ol>
+                            <li>Create amazing animations with our tool</li>
+                            <li>Take screenshots or export your results</li>
+                            <li>Share on <a href="https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a></li>
+                            <li>Use the "Gallery Submission" category</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="submission-card">
+                        <h3>📋 Submission Guidelines</h3>
+                        <ul>
+                            <li>Include source format information</li>
+                            <li>Mention output settings used</li>
+                            <li>Provide brief description</li>
+                            <li>Ensure you have rights to share the content</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <img src="assets/icons/app.svg" alt="TextureAtlas to GIF and Frames" class="footer-logo-icon">
+                        <div>
+                            <h3>TextureAtlas to GIF and Frames</h3>
+                            <p>Free and open-source texture atlas extraction tool</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Gallery</h4>
+                    <ul>
+                        <li><a href="#game-sprites">Game Sprites</a></li>
+                        <li><a href="#fnf">Friday Night Funkin'</a></li>
+                        <li><a href="#ui-elements">UI Elements</a></li>
+                        <li><a href="#effects">Effects</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Community</h4>
+                    <ul>
+                        <li><a href="https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames" target="_blank">GitHub</a></li>
+                        <li><a href="https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/discussions" target="_blank">Submit Examples</a></li>
+                        <li><a href="documentation.html">Documentation</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 TextureAtlas to GIF and Frames. Licensed under AGPL-3.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+    <script>
+        // Gallery filtering functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const categoryButtons = document.querySelectorAll('.category-btn');
+            const galleryItems = document.querySelectorAll('.gallery-item');
+            
+            categoryButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Update active button
+                    categoryButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // Filter gallery items
+                    const category = button.getAttribute('data-category');
+                    
+                    galleryItems.forEach(item => {
+                        if (category === 'all' || item.getAttribute('data-category') === category) {
+                            item.style.display = 'block';
+                            setTimeout(() => {
+                                item.classList.add('fade-in-up');
+                            }, 50);
+                        } else {
+                            item.style.display = 'none';
+                            item.classList.remove('fade-in-up');
+                        }
+                    });
+                });
+            });
+            
+            // Initialize with fade-in animation
+            galleryItems.forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.add('fade-in-up');
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>
