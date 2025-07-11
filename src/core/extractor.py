@@ -3,11 +3,11 @@ import sys
 import concurrent.futures
 import time
 import gc
-import tkinter as tk
 import xml.etree.ElementTree as ET
-from tkinter import messagebox
 from PIL import Image
 import tempfile
+
+from PySide6.QtWidgets import QMessageBox, QApplication
 
 # Import our own modules
 from core.atlas_processor import AtlasProcessor
@@ -19,19 +19,75 @@ from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
 
 
+def show_error_message(title, message, parent=None):
+    """Show an error message using Qt."""
+    # Find the main window if parent is not provided
+    if parent is None:
+        app = QApplication.instance()
+        if app:
+            for widget in app.topLevelWidgets():
+                if widget.isMainWindow():
+                    parent = widget
+                    break
+    
+    msg_box = QMessageBox(parent)
+    msg_box.setIcon(QMessageBox.Icon.Critical)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.exec()
+
+
+def show_question_message(title, message, parent=None):
+    """Show a yes/no question using Qt."""
+    # Find the main window if parent is not provided
+    if parent is None:
+        app = QApplication.instance()
+        if app:
+            for widget in app.topLevelWidgets():
+                if widget.isMainWindow():
+                    parent = widget
+                    break
+    
+    msg_box = QMessageBox(parent)
+    msg_box.setIcon(QMessageBox.Icon.Question)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+    result = msg_box.exec()
+    return result == QMessageBox.StandardButton.Yes
+
+
+def show_info_message(title, message, parent=None):
+    """Show an info message using Qt."""
+    # Find the main window if parent is not provided
+    if parent is None:
+        app = QApplication.instance()
+        if app:
+            for widget in app.topLevelWidgets():
+                if widget.isMainWindow():
+                    parent = widget
+                    break
+    
+    msg_box = QMessageBox(parent)
+    msg_box.setIcon(QMessageBox.Icon.Information)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(message)
+    msg_box.exec()
+
+
 class Extractor:
     """
     A class to extract sprites from a directory of spritesheets and their corresponding metadata files.
 
     Attributes:
-        progress_bar (tkinter.Progressbar): The progress bar to update during processing.
+        progress_callback (callable): Callback function to update progress during processing.
         current_version (str): The current version of the extractor.
         settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
         app_config (AppConfig): Configuration for resource limits (CPU/memory).
-        fnf_idle_loop (tk.BooleanVar): A flag to determine if idle animations should have a loop delay of 0.
+        fnf_idle_loop (bool): A flag to determine if idle animations should have a loop delay of 0.
 
     Methods:
-        process_directory(input_dir, output_dir, progress_var, tk_root, spritesheet_list=None):
+        process_directory(input_dir, output_dir, progress_callback, parent_window=None, spritesheet_list=None):
             Processes the given directory of spritesheets and metadata files, extracting sprites and generating animations.
             Returns early without processing if the user cancels background color detection dialogs.
         extract_sprites(atlas_path, metadata_path, output_dir, settings):
@@ -40,21 +96,33 @@ class Extractor:
             Generates a temporary animated image file for preview purposes.
     """
 
-    def __init__(self, progress_bar, current_version, settings_manager, app_config=None):
+    def __init__(self, progress_callback, current_version, settings_manager, app_config=None):
         self.settings_manager = settings_manager
-        self.progress_bar = progress_bar
+        self.progress_callback = progress_callback
         self.current_version = current_version
         self.app_config = app_config
-        self.fnf_idle_loop = tk.BooleanVar()
+        self.fnf_idle_loop = False  # Changed from tk.BooleanVar to simple boolean
 
-    def process_directory(self, input_dir, output_dir, progress_var, tk_root, spritesheet_list=None):
+    def process_directory(self, input_dir, output_dir, progress_callback=None, parent_window=None, spritesheet_list=None):
+        """
+        Process a directory of spritesheets and metadata files.
+        
+        Args:
+            input_dir: Input directory path
+            output_dir: Output directory path 
+            progress_callback: Callback function for progress updates (optional)
+            parent_window: Parent window for dialogs (optional)
+            spritesheet_list: List of specific files to process (optional)
+        """
         total_frames_generated = 0
         total_anims_generated = 0
         total_sprites_failed = 0
 
-        progress_var.set(0)
         total_files = Utilities.count_spritesheets(spritesheet_list)
-        self.progress_bar["maximum"] = total_files
+        
+        # Call progress callback if provided
+        if progress_callback:
+            progress_callback(0, total_files)
 
         cpu_threads = os.cpu_count() // 4
         if self.app_config:
@@ -76,10 +144,11 @@ class Extractor:
         start_time = time.time()
 
         # Handle background color detection for unknown spritesheets before processing
-        if self._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, tk_root):
+        if self._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, parent_window):
             print("[Extractor] Background detection was cancelled - stopping processing")
             return
 
+        current_file = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
             futures = []
 
@@ -102,7 +171,7 @@ class Extractor:
                         xml_path if os.path.isfile(xml_path) else txt_path,
                         sprite_output_dir,
                         settings,
-                        tk_root,
+                        parent_window,
                     )
                     futures.append(future)
 
@@ -114,7 +183,7 @@ class Extractor:
                         None,
                         sprite_output_dir,
                         settings,
-                        tk_root,
+                        parent_window,
                     )
                     futures.append(future)
 
@@ -127,27 +196,27 @@ class Extractor:
 
                 except Exception as e:
                     total_sprites_failed += 1
-                    messagebox.showerror("Error", f"Something went wrong!!\n{str(e)}")
-                    if not messagebox.askyesno("Continue?", "Do you want to try continue processing?"):
+                    show_error_message("Error", f"Something went wrong!!\n{str(e)}", parent_window)
+                    if not show_question_message("Continue?", "Do you want to try continue processing?", parent_window):
                         sys.exit()
 
-                tk_root.after(0, progress_var.set, progress_var.get() + 1)
-                tk_root.after(0, tk_root.update_idletasks)
+                current_file += 1
+                if progress_callback:
+                    progress_callback(current_file, total_files)
                 gc.collect()
 
         end_time = time.time()
         duration = end_time - start_time
         minutes, seconds = divmod(duration, 60)
 
-        tk_root.after(
-            0,
-            messagebox.showinfo,
+        show_info_message(
             "Information",
             f"Finished processing all files.\n\n"
             f"Frames Generated: {total_frames_generated}\n"
             f"Animations Generated: {total_anims_generated}\n"
             f"Sprites Failed: {total_sprites_failed}\n\n"
             f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
+            parent_window
         )
 
     def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None):
@@ -252,14 +321,14 @@ class Extractor:
             print(f"Preview animation generation error: {e}")
             return None
 
-    def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, tk_root):
+    def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, parent_window):
         """
         Handle background color detection for unknown spritesheets.
 
         Args:
             input_dir (str): The input directory containing spritesheets
             spritesheet_list (list): List of spritesheet filenames
-            tk_root: The tkinter root window
+            parent_window: The Qt parent window
 
         Returns:
             bool: True if the user cancelled the dialog, False otherwise
@@ -289,14 +358,14 @@ class Extractor:
 
             if not unknown_spritesheets:
                 print("[Extractor] No unknown spritesheets found")
-                return
+                return False
 
             print(
                 f"[Extractor] Found {len(unknown_spritesheets)} unknown spritesheet(s), checking for background colors..."
             )
 
             from parsers.unknown_parser import UnknownParser
-            from gui.background_handler_window import BackgroundHandlerWindow
+            from gui.background_handler_window_qt import BackgroundHandlerWindow
             from PIL import Image
 
             BackgroundHandlerWindow.reset_batch_state()
@@ -342,7 +411,7 @@ class Extractor:
             if detection_results:
                 print("[Extractor] Showing background handler window...")
                 background_choices = BackgroundHandlerWindow.show_background_options(
-                    tk_root, detection_results
+                    parent_window, detection_results
                 )
                 print(f"[Extractor] User choices: {background_choices}")
 
