@@ -124,6 +124,8 @@ call nuitka ^
  --deployment %NUITKA_COMPILER%^
  --follow-imports^
  --enable-plugin=tk-inter^
+ --include-qt-plugins=qml^
+ --enable-plugin=pyside6^
  --windows-console-mode=attach^
  --include-data-dir=assets=assets^
  --include-data-dir=docs=docs^
@@ -168,6 +170,8 @@ if %errorlevel%==0 (
      --include-data-files=LICENSE=LICENSE^
      --include-data-files=README.md=README.md^
      --include-package=src^
+     --include-qt-plugins=qml^
+     --enable-plugin=pyside6^
      --windows-icon-from-ico=assets\icon.ico^
      --company-name="AutisticLulu"^
      --product-name="TextureAtlas to GIF and Frames"^
