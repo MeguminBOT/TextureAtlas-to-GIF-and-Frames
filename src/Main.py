@@ -277,14 +277,20 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def select_directory(self):
         """Opens a directory selection dialog and populates the spritesheet list."""
+        # Start from the last used directory or default to empty
+        start_directory = self.app_config.get_last_input_directory()
+        
         directory = QFileDialog.getExistingDirectory(
             self,
             "Select Input Directory",
-            "",
+            start_directory,
             QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
 
         if directory:
+            # Save the selected directory for next time
+            self.app_config.set_last_input_directory(directory)
+            
             self.ui.input_dir_label.setText(directory)
             self.populate_spritesheet_list(directory)
 
@@ -294,23 +300,37 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def select_output_directory(self):
         """Opens a directory selection dialog for output directory."""
+        # Start from the last used directory or default to empty
+        start_directory = self.app_config.get_last_output_directory()
+        
         directory = QFileDialog.getExistingDirectory(
             self,
             "Select Output Directory",
-            "",
+            start_directory,
             QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
 
         if directory:
+            # Save the selected directory for next time
+            self.app_config.set_last_output_directory(directory)
             self.ui.output_dir_label.setText(directory)
 
     def select_files_manually(self):
         """Opens a file selection dialog for manual file selection."""
+        # Start from the last used input directory or default to empty
+        start_directory = self.app_config.get_last_input_directory()
+        
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Files", "", "Image files (*.png *.jpg *.jpeg);;All files (*.*)"
+            self, "Select Files", start_directory, "Image files (*.png *.jpg *.jpeg);;All files (*.*)"
         )
 
         if files:
+            # Save the directory of the first selected file for next time
+            if files:
+                import os
+                first_file_dir = os.path.dirname(files[0])
+                self.app_config.set_last_input_directory(first_file_dir)
+            
             # Clean up previous manual selection temp directory if exists
             if self.manual_selection_temp_dir:
                 try:
@@ -639,12 +659,20 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def fnf_import_settings(self):
         """Imports settings from FNF character data file."""
+        # Start from the last used input directory for FNF files
+        start_directory = self.app_config.get_last_input_directory()
+        
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select FNF Character Data File", "", "JSON files (*.json);;All files (*.*)"
+            self, "Select FNF Character Data File", start_directory, "JSON files (*.json);;All files (*.*)"
         )
 
         if file_path:
             try:
+                # Save the directory of the selected file for next time
+                import os
+                file_dir = os.path.dirname(file_path)
+                self.app_config.set_last_input_directory(file_dir)
+                
                 # Use the existing FNF utilities
                 self.fnf_utilities.import_character_settings(file_path)
                 QMessageBox.information(self, "Success", "FNF settings imported successfully!")

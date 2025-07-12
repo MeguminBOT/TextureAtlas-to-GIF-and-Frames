@@ -5,7 +5,7 @@ from PIL import Image
 import tempfile
 from threading import Lock
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, QCoreApplication
 
 # Import our own modules
 from core.atlas_processor import AtlasProcessor
@@ -75,22 +75,32 @@ class Extractor:
         if callback_to_use:
             callback_to_use(0, total_files, "Initializing...")
 
-        cpu_threads = os.cpu_count() // 4
+        # Get CPU thread setting from app config
+        cpu_threads = max(1, os.cpu_count() // 2)  # Default fallback, minimum 1 thread
+        
         if self.app_config:
-            resource_limits = self.app_config.get("resource_limits", {})
-            cpu_cores_val = resource_limits.get("cpu_cores", "auto")
-            print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
             try:
+                # Access the settings properly
+                resource_limits = self.app_config.settings.get("resource_limits", {})
+                cpu_cores_val = resource_limits.get("cpu_cores", "auto")
+                print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
+                
                 if cpu_cores_val != "auto":
-                    cpu_threads = max(1, min(int(cpu_cores_val), os.cpu_count()))
-                    print(f"[Extractor] Using {cpu_threads} CPU threads (from config)")
+                    # Use the configured value, but ensure it's within reasonable bounds
+                    configured_threads = int(cpu_cores_val)
+                    cpu_threads = max(1, min(configured_threads, os.cpu_count()))
+                    print(f"[Extractor] Using {cpu_threads} CPU threads (from config: {cpu_cores_val})")
                 else:
-                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto: {os.cpu_count()} / 4)")
-            except Exception:
-                cpu_threads = os.cpu_count() // 4
-                print(f"[Extractor] Error reading CPU config, defaulting to {cpu_threads} threads")
+                    # Auto mode: use half of available cores, minimum 1
+                    cpu_threads = max(1, os.cpu_count() // 2)
+                    print(f"[Extractor] Using {cpu_threads} CPU threads (auto mode: {os.cpu_count()} cores / 2)")
+                    
+            except (ValueError, TypeError, KeyError) as e:
+                # Fallback if config is invalid
+                cpu_threads = max(1, os.cpu_count() // 2)
+                print(f"[Extractor] Error reading CPU config ({e}), using fallback: {cpu_threads} threads")
         else:
-            print(f"[Extractor] No app config found, using default {cpu_threads} CPU threads")
+            print(f"[Extractor] No app config available, using default {cpu_threads} CPU threads")
 
         start_time = time.time()
 
@@ -103,27 +113,46 @@ class Extractor:
         filenames = spritesheet_list
         self.remaining_files = filenames.copy()
         
-        # Determine optimal number of threads
+        # Determine optimal number of threads (limited by config and available files)
         max_threads = min(cpu_threads, len(filenames))
         
-        print(f"[Extractor] Starting processing with {max_threads} threads for {len(filenames)} files")
+        print("[Extractor] Processing configuration:")
+        print(f"  - CPU threads configured: {cpu_threads}")
+        print(f"  - Files to process: {len(filenames)}")
+        print(f"  - Workers to start: {max_threads}")
         
         # Store start time for duration calculation
         self.start_time = start_time
         
         # Start initial batch of workers
-        for _ in range(min(max_threads, len(filenames))):
+        for i in range(min(max_threads, len(filenames))):
+            print(f"[process_directory] Starting initial worker {i+1}/{max_threads}")
             self._start_next_worker(input_dir, output_dir, parent_window, callback_to_use, total_files)
+            
+        print(f"[process_directory] Started {len(self.active_workers)} initial workers")
+        print(f"[process_directory] Remaining files after initial start: {len(self.remaining_files)}")
         
-        # Wait for all workers to complete
-        while self.active_workers:
+        # Wait for all workers to complete using Qt's event system
+        while self.active_workers or self.remaining_files:
+            QCoreApplication.processEvents()
+            time.sleep(0.01)  # Small delay to prevent busy waiting
+            
+            # Clean up finished workers
             for worker in self.active_workers[:]:  # Copy list to avoid modification during iteration
                 if worker.isFinished():
                     worker.wait()
+                    worker.deleteLater()
                     self.active_workers.remove(worker)
-            
-            # Small delay to prevent busy waiting
             time.sleep(0.01)
+            
+        # Process any remaining Qt events after all workers finish
+        QCoreApplication.processEvents()
+        
+        # Give a small additional delay to ensure all signals are processed
+        time.sleep(0.1)
+        QCoreApplication.processEvents()
+        
+        print(f"[process_directory] All workers finished. Final totals before completion: F:{self.total_frames_generated}, A:{self.total_anims_generated}, S:{self.total_sprites_failed}")
 
         end_time = time.time()
         duration = end_time - self.start_time
@@ -137,14 +166,17 @@ class Extractor:
         
         # Final statistics update
         if self.statistics_callback:
+            print(f"[process_directory] Final statistics callback: F:{self.total_frames_generated}, A:{self.total_anims_generated}, S:{self.total_sprites_failed}")
             self.statistics_callback(self.total_frames_generated, self.total_anims_generated, self.total_sprites_failed)
     
     def _start_next_worker(self, input_dir, output_dir, parent_window, callback_to_use, total_files):
         """Start the next worker thread if files remain."""
         if not self.remaining_files:
+            print("[_start_next_worker] No remaining files")
             return
             
         filename = self.remaining_files.pop(0)
+        print(f"[_start_next_worker] Starting worker for {filename}, {len(self.remaining_files)} files left")
         worker = FileProcessorWorker(filename, input_dir, output_dir, parent_window, self)
         
         # Connect signals
@@ -152,8 +184,12 @@ class Extractor:
         worker.file_failed.connect(self._on_file_failed)
         worker.finished.connect(lambda: self._worker_finished(worker, input_dir, output_dir, parent_window, callback_to_use, total_files))
         
+        print(f"[_start_next_worker] Started worker for {filename}, connected signals, {len(self.active_workers)} workers active before adding")
+        
         self.active_workers.append(worker)
         worker.start()
+        
+        print(f"[_start_next_worker] Now have {len(self.active_workers)} active workers")
         
         # Update progress with list of currently processing files
         if callback_to_use:
@@ -217,8 +253,14 @@ class Extractor:
     
     def _worker_finished(self, worker, input_dir, output_dir, parent_window, callback_to_use, total_files):
         """Handle worker thread completion and start next worker if needed."""
-        # Start next worker if files remain
-        self._start_next_worker(input_dir, output_dir, parent_window, callback_to_use, total_files)
+        print(f"[_worker_finished] Worker for {getattr(worker, 'filename', 'unknown')} finished")
+        
+        # Start next worker if files remain and we're not at max capacity
+        if self.remaining_files:
+            print(f"[_worker_finished] Starting next worker, {len(self.remaining_files)} files remaining")
+            self._start_next_worker(input_dir, output_dir, parent_window, callback_to_use, total_files)
+        else:
+            print("[_worker_finished] No more files to process")
         
         # Update progress with current processing files
         if callback_to_use:
@@ -478,7 +520,10 @@ class FileProcessorWorker(QThread):
     def run(self):
         """Process a single file in this thread."""
         try:
-            print(f"[FileProcessorWorker] Starting processing of {self.filename}")
+            import threading
+            thread_id = threading.get_ident()
+            print(f"[FileProcessorWorker] Starting processing of {self.filename} on thread {thread_id} at {time.time():.3f}")
+            
             base_filename = self.filename.rsplit(".", 1)[0]
             xml_path = os.path.join(self.input_dir, base_filename + ".xml")
             txt_path = os.path.join(self.input_dir, base_filename + ".txt")
@@ -490,6 +535,8 @@ class FileProcessorWorker(QThread):
             # Get settings for this file
             settings = self.extractor.settings_manager.get_settings(self.filename)
             
+            print(f"[FileProcessorWorker] {self.filename} about to start extract_sprites on thread {thread_id}")
+            
             # Process the file
             if os.path.isfile(xml_path) or os.path.isfile(txt_path):
                 print(f"[FileProcessorWorker] Processing {self.filename} with metadata")
@@ -500,7 +547,7 @@ class FileProcessorWorker(QThread):
                     settings,
                     None,  # No parent window for worker threads to avoid Qt threading issues
                 )
-                print(f"[FileProcessorWorker] {self.filename} completed with result: {result}")
+                print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
                 self.file_completed.emit(self.filename, result)
                 
             elif (os.path.isfile(image_path) and 
@@ -513,7 +560,7 @@ class FileProcessorWorker(QThread):
                     settings,
                     None,  # No parent window for worker threads to avoid Qt threading issues
                 )
-                print(f"[FileProcessorWorker] {self.filename} completed with result: {result}")
+                print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
                 self.file_completed.emit(self.filename, result)
             else:
                 print(f"[FileProcessorWorker] No valid processing path found for {self.filename}")

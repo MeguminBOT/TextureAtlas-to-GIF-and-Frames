@@ -84,6 +84,10 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "ui_state": {
+            "last_input_directory": "",
+            "last_output_directory": "",
+        },
     }
 
     TYPE_MAP = {
@@ -115,6 +119,8 @@ class AppConfig:
         "tiff_compression_type": str,
         "tiff_quality": int,
         "tiff_optimize": bool,
+        "last_input_directory": str,
+        "last_output_directory": str,
     }
 
     def __init__(self, config_path=None):
@@ -261,3 +267,25 @@ class AppConfig:
             }
 
         return {}
+
+    def get_last_input_directory(self):
+        """Get the last used input directory."""
+        return self.settings.get("ui_state", {}).get("last_input_directory", "")
+
+    def set_last_input_directory(self, directory):
+        """Set the last used input directory and save."""
+        if "ui_state" not in self.settings:
+            self.settings["ui_state"] = {}
+        self.settings["ui_state"]["last_input_directory"] = directory
+        self.save()
+
+    def get_last_output_directory(self):
+        """Get the last used output directory."""
+        return self.settings.get("ui_state", {}).get("last_output_directory", "")
+
+    def set_last_output_directory(self, directory):
+        """Set the last used output directory and save."""
+        if "ui_state" not in self.settings:
+            self.settings["ui_state"] = {}
+        self.settings["ui_state"]["last_output_directory"] = directory
+        self.save()
