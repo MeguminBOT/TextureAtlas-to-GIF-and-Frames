@@ -1,229 +1,219 @@
-import tkinter as tk
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QWidget,
+    QPushButton,
+    QFrame,
+    QGridLayout,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QPixmap
 
 try:
-    from PIL import Image, ImageTk
+    from PIL import Image
 
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
 
 
-class UnknownAtlasWarningWindow:
+class UnknownAtlasWarningWindow(QDialog):
     """
-    A GUI window that displays a warning about unknown atlases and provides options for handling them.
+    A Qt dialog that displays a warning about unknown atlases and provides options for handling them.
 
     This window shows a list of detected unknown atlases and explains their limitations,
     then allows the user to choose whether to proceed, skip, or cancel the operation.
     """
 
-    @staticmethod
-    def show_warning(parent_window, unknown_atlases, input_directory=None):
-        """
-        Show the unknown atlas warning dialog.
+    def __init__(self, parent, unknown_atlases, input_directory=None):
+        super().__init__(parent)
+        self.unknown_atlases = unknown_atlases
+        self.input_directory = input_directory
+        self.result = "cancel"
 
-        Args:
-            parent_window: The parent tkinter window
-            unknown_atlases: List of unknown atlas filenames
-            input_directory: Directory containing the atlas files (for thumbnails)
+        self.setWindowTitle("Unknown Atlas Warning")
+        self.setModal(True)
+        self.resize(650, 750)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
-        Returns:
-            str: User's choice - 'proceed', 'skip', or 'cancel'
-        """
+        self.setup_ui()
 
-        unknown_list = "\n".join([f"• {sheet}" for sheet in unknown_atlases[:10]])
-        if len(unknown_atlases) > 10:
-            unknown_list += f"\n... and {len(unknown_atlases) - 10} more"
+    def setup_ui(self):
+        """Set up the dialog UI."""
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
 
-        dialog = tk.Toplevel(parent_window)
-        dialog.title("Unknown Atlas Warning")
-        dialog.geometry("600x700")
-        dialog.resizable(False, False)
-        dialog.transient(parent_window)
-        dialog.grab_set()
+        # Title section with warning icon
+        title_layout = QHBoxLayout()
 
-        dialog.geometry(
-            "+%d+%d"
-            % (parent_window.winfo_rootx() + 50, parent_window.winfo_rooty() + 50)
-        )
+        warning_label = QLabel("⚠️")
+        warning_label.setFont(QFont("Arial", 24))
+        title_layout.addWidget(warning_label)
 
-        result = {"action": "cancel"}
+        title_text = QLabel("Unknown Atlas Warning")
+        title_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
 
-        main_frame = tk.Frame(dialog, padx=20, pady=20)
-        main_frame.pack(fill="both", expand=True)
+        main_layout.addLayout(title_layout)
 
-        title_frame = tk.Frame(main_frame)
-        title_frame.pack(fill="x", pady=(0, 15))
-
-        warning_label = tk.Label(title_frame, text="⚠️", font=("Arial", 24))
-        warning_label.pack(side="left")
-        title_label = tk.Label(
-            title_frame, text="Unknown Atlas Warning", font=("Arial", 14, "bold")
-        )
-        title_label.pack(side="left", padx=(10, 0))
-
-        content_frame = tk.Frame(main_frame)
-        content_frame.pack(fill="both", expand=True, pady=(0, 20))
-
+        # Warning message
         message_text = (
-            f"Warning: {len(unknown_atlases)} unknown atlas type(s) detected:\n\n"
+            f"Warning: {len(self.unknown_atlases)} unknown atlas type(s) detected:\n\n"
             f"This means either the metadata file is missing or is unsupported.\n\n"
             f"The tool can attempt to extract the unknown atlas(es) but has these limitations:\n"
             f"• Animation export is not supported\n"
             f"• Cropping may be inconsistent\n"
             f"• Sprite detection may miss or incorrectly identify sprites\n"
-            f"• Output may not be usable in rare cases\n"
+            f"• Output may not be usable in rare cases\n\n"
             f"What would you like to do?"
         )
 
-        message_label = tk.Label(
-            content_frame,
-            text=message_text,
-            justify="left",
-            wraplength=550,
-            font=("Arial", 10),
-        )
-        message_label.pack(anchor="w", pady=(0, 15))
+        message_label = QLabel(message_text)
+        message_label.setWordWrap(True)
+        message_label.setFont(QFont("Arial", 10))
+        message_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        message_label.setStyleSheet("QLabel { margin-bottom: 15px; }")
+        main_layout.addWidget(message_label)
 
-        files_label = tk.Label(
-            content_frame, text="Affected files:", font=("Arial", 10, "bold")
-        )
-        files_label.pack(anchor="w", pady=(0, 5))
+        # Affected files section
+        files_label = QLabel("Affected files:")
+        files_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        main_layout.addWidget(files_label)
 
-        UnknownAtlasWarningWindow._create_thumbnail_section(
-            content_frame, unknown_atlases, input_directory
-        )
+        # Create thumbnail section
+        self.create_thumbnail_section(main_layout)
 
-        button_frame = tk.Frame(main_frame)
-        button_frame.pack(fill="x")
+        # Button section
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
 
-        def on_proceed():
-            result["action"] = "proceed"
-            dialog.destroy()
+        proceed_btn = QPushButton("Proceed anyway")
+        proceed_btn.clicked.connect(self.on_proceed)
+        proceed_btn.setMinimumWidth(120)
+        proceed_btn.setDefault(True)
+        button_layout.addWidget(proceed_btn)
 
-        def on_skip():
-            result["action"] = "skip"
-            dialog.destroy()
+        skip_btn = QPushButton("Skip unknown")
+        skip_btn.clicked.connect(self.on_skip)
+        skip_btn.setMinimumWidth(120)
+        button_layout.addWidget(skip_btn)
 
-        def on_cancel():
-            result["action"] = "cancel"
-            dialog.destroy()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.on_cancel)
+        cancel_btn.setMinimumWidth(120)
+        button_layout.addWidget(cancel_btn)
 
-        cancel_btn = tk.Button(button_frame, text="Cancel", command=on_cancel, width=12)
-        cancel_btn.pack(side="right", padx=(5, 0))
+        main_layout.addLayout(button_layout)
 
-        skip_btn = tk.Button(
-            button_frame, text="Skip unknown", command=on_skip, width=12
-        )
-        skip_btn.pack(side="right", padx=(5, 0))
+        # Set up keyboard shortcuts
+        proceed_btn.setShortcut("Return")
+        cancel_btn.setShortcut("Escape")
 
-        proceed_btn = tk.Button(
-            button_frame, text="Proceed anyway", command=on_proceed, width=15
-        )
-        proceed_btn.pack(side="right", padx=(5, 0))
+    def create_thumbnail_section(self, main_layout):
+        """Create the thumbnail display section."""
+        # Create scroll area for thumbnails
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(250)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        proceed_btn.focus_set()
-        dialog.bind("<Return>", lambda e: on_proceed())
-        dialog.bind("<Escape>", lambda e: on_cancel())
-        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
-        dialog.wait_window()
+        # Create widget to hold thumbnails
+        thumbnail_widget = QWidget()
+        thumbnail_layout = QGridLayout(thumbnail_widget)
+        thumbnail_layout.setSpacing(10)
 
-        return result["action"]
-
-    @staticmethod
-    def _create_thumbnail_section(parent, unknown_atlases, input_directory):
-        thumb_frame = tk.Frame(parent)
-        thumb_frame.pack(fill="both", expand=True)
-
-        canvas = tk.Canvas(thumb_frame, height=200, bg="white")
-        scrollbar = tk.Scrollbar(thumb_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
+        # Add thumbnails in grid layout
+        max_cols = 3
         row = 0
         col = 0
-        max_cols = 3
 
-        for i, atlas_name in enumerate(unknown_atlases[:12]):
-            thumb_frame_item = tk.Frame(
-                scrollable_frame, relief="solid", bd=1, bg="white"
-            )
-            thumb_frame_item.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
-
-            thumbnail = UnknownAtlasWarningWindow._create_thumbnail(
-                atlas_name, input_directory
-            )
-
-            if thumbnail:
-                thumb_label = tk.Label(thumb_frame_item, image=thumbnail, bg="white")
-                thumb_label.image = thumbnail
-                thumb_label.pack(pady=2)
-            else:
-                placeholder = tk.Label(
-                    thumb_frame_item, text="📷", font=("Arial", 20), bg="white"
-                )
-                placeholder.pack(pady=2)
-
-            name_label = tk.Label(
-                thumb_frame_item,
-                text=atlas_name,
-                font=("Arial", 8),
-                bg="white",
-                wraplength=150,
-            )
-            name_label.pack(pady=2)
+        for i, atlas_name in enumerate(self.unknown_atlases[:12]):
+            thumb_frame = self.create_thumbnail_frame(atlas_name)
+            thumbnail_layout.addWidget(thumb_frame, row, col)
 
             col += 1
             if col >= max_cols:
                 col = 0
                 row += 1
 
-        if len(unknown_atlases) > 12:
-            more_frame = tk.Frame(scrollable_frame, bg="white")
-            more_frame.grid(row=row, column=col, padx=5, pady=5)
-            more_label = tk.Label(
-                more_frame,
-                text=f"... and {len(unknown_atlases) - 12} more",
-                font=("Arial", 10, "italic"),
-                bg="white",
-            )
-            more_label.pack(pady=20)
+        # Show "and more" if there are additional files
+        if len(self.unknown_atlases) > 12:
+            more_label = QLabel(f"... and {len(self.unknown_atlases) - 12} more")
+            more_label.setFont(QFont("Arial", 10, QFont.Weight.ExtraLight))
+            more_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            more_label.setStyleSheet("QLabel { color: #666; padding: 20px; }")
+            thumbnail_layout.addWidget(more_label, row, col)
 
+        # Set column stretch
         for i in range(max_cols):
-            scrollable_frame.columnconfigure(i, weight=1)
+            thumbnail_layout.setColumnStretch(i, 1)
 
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        scroll_area.setWidget(thumbnail_widget)
+        main_layout.addWidget(scroll_area)
 
-        def _bind_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    def create_thumbnail_frame(self, atlas_name):
+        """Create a frame with thumbnail and filename for an atlas."""
+        frame = QFrame()
+        frame.setFrameStyle(QFrame.Shape.Box)
+        frame.setLineWidth(1)
+        frame.setStyleSheet("QFrame { background-color: white; border: 1px solid #ccc; }")
+        frame.setFixedSize(160, 140)
 
-        def _unbind_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
+        layout = QVBoxLayout(frame)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(5)
+        layout.setContentsMargins(5, 5, 5, 5)
 
-        canvas.bind("<Enter>", _bind_mousewheel)
-        canvas.bind("<Leave>", _unbind_mousewheel)
+        # Create thumbnail
+        thumbnail_label = QLabel()
+        thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        thumbnail_label.setFixedSize(80, 80)
 
-    @staticmethod
-    def _create_thumbnail(filename, input_directory):
-        if not PIL_AVAILABLE or not input_directory:
+        thumbnail_pixmap = self.create_thumbnail(atlas_name)
+        if thumbnail_pixmap:
+            thumbnail_label.setPixmap(thumbnail_pixmap)
+        else:
+            # Placeholder for failed thumbnails
+            thumbnail_label.setText("📷")
+            thumbnail_label.setFont(QFont("Arial", 20))
+            thumbnail_label.setStyleSheet(
+                "QLabel { border: 1px solid #ddd; background-color: #f5f5f5; }"
+            )
+
+        layout.addWidget(thumbnail_label)
+
+        # Filename label
+        name_label = QLabel(atlas_name)
+        name_label.setFont(QFont("Arial", 8))
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setWordWrap(True)
+        name_label.setMaximumWidth(150)
+        layout.addWidget(name_label)
+
+        return frame
+
+    def create_thumbnail(self, filename):
+        """Create a thumbnail pixmap for the given filename."""
+        if not PIL_AVAILABLE or not self.input_directory:
             return None
 
         try:
-            file_path = os.path.join(input_directory, filename)
+            file_path = os.path.join(self.input_directory, filename)
             if not os.path.exists(file_path):
                 return None
 
             with Image.open(file_path) as img:
+                # Handle transparency
                 if img.mode in ("RGBA", "LA", "P"):
                     background = Image.new("RGB", img.size, (255, 255, 255))
                     if img.mode == "P":
@@ -236,10 +226,63 @@ class UnknownAtlasWarningWindow:
                 elif img.mode != "RGB":
                     img = img.convert("RGB")
 
+                # Create thumbnail
                 img.thumbnail((80, 80), Image.Resampling.LANCZOS)
 
-                return ImageTk.PhotoImage(img)
+                # Convert to Qt pixmap
+                img_path = os.path.join(os.environ.get("TEMP", "/tmp"), f"thumb_{filename}.png")
+                img.save(img_path)
+                pixmap = QPixmap(img_path)
+
+                # Clean up temp file
+                try:
+                    os.remove(img_path)
+                except Exception:
+                    pass
+
+                return pixmap.scaled(
+                    80,
+                    80,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
 
         except Exception as e:
             print(f"Failed to create thumbnail for {filename}: {e}")
             return None
+
+    def on_proceed(self):
+        """Handle proceed button click."""
+        self.result = "proceed"
+        self.accept()
+
+    def on_skip(self):
+        """Handle skip button click."""
+        self.result = "skip"
+        self.accept()
+
+    def on_cancel(self):
+        """Handle cancel button click."""
+        self.result = "cancel"
+        self.reject()
+
+    def get_result(self):
+        """Get the user's choice."""
+        return self.result
+
+    @staticmethod
+    def show_warning(parent_window, unknown_atlases, input_directory=None):
+        """
+        Show the unknown atlas warning dialog.
+
+        Args:
+            parent_window: The parent Qt widget
+            unknown_atlases: List of unknown atlas filenames
+            input_directory: Directory containing the atlas files (for thumbnails)
+
+        Returns:
+            str: User's choice - 'proceed', 'skip', or 'cancel'
+        """
+        dialog = UnknownAtlasWarningWindow(parent_window, unknown_atlases, input_directory)
+        dialog.exec()
+        return dialog.get_result()

@@ -1,402 +1,487 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-import tkinter as tk
-from tkinter import messagebox
-from PIL import Image, ImageTk, ImageSequence
+import subprocess
+import platform
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QWidget,
+    QPushButton,
+    QSlider,
+    QGridLayout,
+    QMessageBox,
+)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QPixmap, QImage
 
 try:
+    from PIL import Image, ImageSequence
     from PIL.Image import Resampling
 
     NEAREST = Resampling.NEAREST
+    PIL_AVAILABLE = True
 except ImportError:
-    NEAREST = Image.NEAREST
+    PIL_AVAILABLE = False
+    try:
+        from PIL import Image, ImageSequence
+
+        NEAREST = Image.NEAREST
+    except ImportError:
+        PIL_AVAILABLE = False
 
 
-class AnimationPreviewWindow:
+class AnimationPreviewWindow(QDialog):
     """
-    A window class for previewing animations.
+    A window class for previewing animations in Qt.
 
-    Methods:
-        show(animation_path, settings):
-            Opens a preview window for the specified animation file with the given settings.
-
-    Attributes (within the preview window context):
-        animation (PIL.Image): The loaded animation image.
-        pil_frames (list): List of PIL Image frames extracted from the animation.
-        frame_count (int): Total number of frames in the animation.
-        durations (list): List of per-frame delays in milliseconds.
-        composited_cache (dict): Cache for composited frames with background and scaling applied.
-        current_frame (list): Mutable integer tracking the current frame index.
-        playing (list): Mutable boolean indicating if playback is active.
-        scale_factor (list): Mutable float for the current image scaling factor.
-        fixed_size (list): Mutable tuple for the fixed window size after scaling.
-        bg_value (tk.IntVar): Tkinter variable for the background color slider.
-        tk_img_holder (list): Holds the current Tkinter PhotoImage for display.
+    This window allows users to preview animations with controls for
+    playback, frame navigation, background color adjustment, and external viewing.
     """
 
-    @staticmethod
-    def show(animation_path, settings):
-        preview_win = tk.Toplevel()
+    def __init__(self, parent, animation_path, settings):
+        super().__init__(parent)
+        self.animation_path = animation_path
+        self.settings = settings
+        self.pil_frames = []
+        self.durations = []
+        self.frame_count = 0
+        self.current_frame = 0
+        self.playing = False
+        self.scale_factor = 1.0
+        self.composited_cache = {}
+        self.bg_value = 127
 
+        # Get file format
         file_ext = os.path.splitext(animation_path)[1].lower()
-        format_name = {".gif": "GIF", ".webp": "WebP"}.get(file_ext, "Animation")
+        self.format_name = {".gif": "GIF", ".webp": "WebP"}.get(file_ext, "Animation")
 
-        preview_win.title(f"{format_name} Preview")
+        self.setWindowTitle(f"{self.format_name} Preview")
+        self.setModal(True)
+
+        # Timer for animation playback
+        self.playback_timer = QTimer()
+        self.playback_timer.timeout.connect(self.next_frame)
+
+        if not self.load_animation():
+            return
+
+        self.setup_ui()
+        self.precompute_composited_frames()
+        self.show_frame(0)
+
+    def load_animation(self):
+        """Load the animation file and extract frames."""
+        if not PIL_AVAILABLE:
+            QMessageBox.critical(self, "Error", "PIL/Pillow is required for animation preview.")
+            self.reject()
+            return False
 
         try:
-            animation = Image.open(animation_path)
+            animation = Image.open(self.animation_path)
+
+            file_ext = os.path.splitext(self.animation_path)[1].lower()
 
             if file_ext == ".webp":
-                pil_frames = []
+                # Handle WebP animations
+                self.pil_frames = []
                 try:
                     while True:
-                        pil_frames.append(animation.copy())
+                        self.pil_frames.append(animation.copy())
                         animation.seek(animation.tell() + 1)
                 except EOFError:
                     pass
                 animation.seek(0)
             else:
-                pil_frames = [
-                    frame.copy() for frame in ImageSequence.Iterator(animation)
-                ]
+                # Handle GIF and other formats
+                self.pil_frames = [frame.copy() for frame in ImageSequence.Iterator(animation)]
 
-            frame_count = len(pil_frames)
-            current_frame = [0]
+            self.frame_count = len(self.pil_frames)
 
-            durations = []
-            try:
-                fps = settings.get("fps", 24)
-                delay_setting = settings.get("delay", 250)
-                period = settings.get("period", 0)
-                var_delay = settings.get("var_delay", False)
+            # Calculate durations
+            self.calculate_durations(animation, file_ext)
 
-                if var_delay:
-                    if file_ext == ".webp":
-                        for index in range(frame_count):
-                            duration = round((index + 1) * 1000 / fps) - round(
-                                index * 1000 / fps
-                            )
-                            durations.append(int(duration))
-                    else:
-                        for index in range(frame_count):
-                            duration = round((index + 1) * 1000 / fps, -1) - round(
-                                index * 1000 / fps, -1
-                            )
-                            durations.append(int(duration))
-                else:
-                    if file_ext == ".webp":
-                        durations = [int(round(1000 / fps))] * frame_count
-                    else:
-                        durations = [int(round(1000 / fps, -1))] * frame_count
-
-                if durations:
-                    if file_ext == ".webp":
-                        durations[-1] += int(delay_setting)
-                        durations[-1] += max(int(period) - sum(durations), 0)
-                    else:
-                        durations[-1] += int(delay_setting)
-                        durations[-1] += max(int(round(period, -1)) - sum(durations), 0)
-
-            except Exception:
-                try:
-                    if file_ext == ".webp":
-                        animation.seek(0)
-                        for i in range(frame_count):
-                            try:
-                                animation.seek(i)
-                                duration = animation.info.get("duration", 0)
-                                durations.append(int(duration) if duration else 42)
-                            except EOFError:
-                                break
-                    else:
-                        for frame in ImageSequence.Iterator(animation):
-                            duration = frame.info.get("duration", 0)
-                            durations.append(int(duration) if duration else 42)
-                except Exception:
-                    pass
+            animation.close()
+            return True
 
         except Exception as e:
-            messagebox.showerror("Preview Error", f"Could not load animation file: {e}")
-            preview_win.destroy()
+            QMessageBox.critical(self, "Preview Error", f"Could not load animation file: {e}")
+            self.reject()
+            return False
+
+    def calculate_durations(self, animation, file_ext):
+        """Calculate frame durations based on settings."""
+        self.durations = []
+
+        try:
+            fps = self.settings.get("fps", 24)
+            delay_setting = self.settings.get("delay", 250)
+            period = self.settings.get("period", 0)
+            var_delay = self.settings.get("var_delay", False)
+
+            if var_delay:
+                if file_ext == ".webp":
+                    for index in range(self.frame_count):
+                        duration = round((index + 1) * 1000 / fps) - round(index * 1000 / fps)
+                        self.durations.append(int(duration))
+                else:
+                    for index in range(self.frame_count):
+                        duration = round((index + 1) * 1000 / fps, -1) - round(
+                            index * 1000 / fps, -1
+                        )
+                        self.durations.append(int(duration))
+            else:
+                if file_ext == ".webp":
+                    self.durations = [int(round(1000 / fps))] * self.frame_count
+                else:
+                    self.durations = [int(round(1000 / fps, -1))] * self.frame_count
+
+            if self.durations:
+                if file_ext == ".webp":
+                    self.durations[-1] += int(delay_setting)
+                    self.durations[-1] += max(int(period) - sum(self.durations), 0)
+                else:
+                    self.durations[-1] += int(delay_setting)
+                    self.durations[-1] += max(int(round(period, -1)) - sum(self.durations), 0)
+
+        except Exception:
+            # Fallback: try to get durations from the animation
+            try:
+                if file_ext == ".webp":
+                    animation.seek(0)
+                    for i in range(self.frame_count):
+                        try:
+                            animation.seek(i)
+                            duration = animation.info.get("duration", 0)
+                            self.durations.append(int(duration) if duration else 42)
+                        except EOFError:
+                            break
+                else:
+                    for frame in ImageSequence.Iterator(animation):
+                        duration = frame.info.get("duration", 0)
+                        self.durations.append(int(duration) if duration else 42)
+            except Exception:
+                pass
+
+        # Final fallback
+        if not self.durations or len(self.durations) != self.frame_count:
+            fps = self.settings.get("fps", 24)
+            delay_setting = self.settings.get("delay", 250)
+            base_delay = int(round(1000 / fps, -1))
+            self.durations = [base_delay] * self.frame_count
+            self.durations[-1] += int(delay_setting)
+
+    def setup_ui(self):
+        """Set up the user interface."""
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(5)
+
+        # Frame counter
+        self.frame_counter = QLabel(f"Frame 0 / {self.frame_count - 1}")
+        self.frame_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.frame_counter)
+
+        # Frame slider
+        slider_layout = QHBoxLayout()
+        self.frame_slider = QSlider(Qt.Orientation.Horizontal)
+        self.frame_slider.setMinimum(0)
+        self.frame_slider.setMaximum(self.frame_count - 1)
+        self.frame_slider.setValue(0)
+        self.frame_slider.setMinimumWidth(300)
+        self.frame_slider.valueChanged.connect(self.on_slider_change)
+
+        slider_layout.addStretch()
+        slider_layout.addWidget(self.frame_slider)
+        slider_layout.addStretch()
+        main_layout.addLayout(slider_layout)
+
+        # Delays display
+        self.setup_delays_display(main_layout)
+
+        # Control buttons
+        self.setup_control_buttons(main_layout)
+
+        # Background color slider
+        self.setup_background_slider(main_layout)
+
+        # Image display label
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setStyleSheet("QLabel { border: 1px solid gray; }")
+        main_layout.addWidget(self.image_label)
+
+        # Note text
+        note_text = (
+            f"Playback speed of {self.format_name} animations may not be "
+            "accurately depicted in this preview window. Open the animation "
+            "externally for accurate playback."
+        )
+        note_label = QLabel(note_text)
+        note_label.setFont(QFont("Arial", 9, QFont.Weight.ExtraLight))
+        note_label.setStyleSheet("QLabel { color: #333333; }")
+        note_label.setWordWrap(True)
+        note_label.setMargin(8)
+        main_layout.addWidget(note_label)
+
+    def setup_delays_display(self, main_layout):
+        """Set up the delays display area."""
+        delays_scroll = QScrollArea()
+        delays_scroll.setMaximumHeight(60)
+        delays_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        delays_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        delays_widget = QWidget()
+        delays_layout = QGridLayout(delays_widget)
+        delays_layout.setSpacing(2)
+
+        self.delay_labels = []
+        for i, duration in enumerate(self.durations):
+            # Frame index
+            idx_label = QLabel(str(i))
+            idx_label.setFont(QFont("Arial", 8))
+            idx_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            delays_layout.addWidget(idx_label, 0, i)
+
+            # Duration
+            ms_label = QLabel(f"{duration} ms")
+            ms_label.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
+            ms_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            delays_layout.addWidget(ms_label, 1, i)
+
+            self.delay_labels.append(ms_label)
+
+        delays_scroll.setWidget(delays_widget)
+        main_layout.addWidget(delays_scroll)
+
+    def setup_control_buttons(self, main_layout):
+        """Set up playback control buttons."""
+        button_layout = QHBoxLayout()
+
+        prev_btn = QPushButton("Prev")
+        prev_btn.clicked.connect(self.prev_frame)
+        button_layout.addWidget(prev_btn)
+
+        self.play_btn = QPushButton("Play")
+        self.play_btn.clicked.connect(self.toggle_play)
+        button_layout.addWidget(self.play_btn)
+
+        stop_btn = QPushButton("Stop")
+        stop_btn.clicked.connect(self.stop_animation)
+        button_layout.addWidget(stop_btn)
+
+        next_btn = QPushButton("Next")
+        next_btn.clicked.connect(self.next_frame)
+        button_layout.addWidget(next_btn)
+
+        # External open button
+        external_btn = QPushButton(f"Open {self.format_name} externally")
+        external_btn.clicked.connect(self.open_external)
+        button_layout.addWidget(external_btn)
+
+        main_layout.addLayout(button_layout)
+
+    def setup_background_slider(self, main_layout):
+        """Set up the background color slider."""
+        bg_layout = QHBoxLayout()
+
+        bg_label = QLabel("Background:")
+        bg_layout.addWidget(bg_label)
+
+        self.bg_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_slider.setMinimum(0)
+        self.bg_slider.setMaximum(255)
+        self.bg_slider.setValue(127)
+        self.bg_slider.setMinimumWidth(200)
+        self.bg_slider.valueChanged.connect(self.on_bg_change)
+        bg_layout.addWidget(self.bg_slider)
+
+        bg_layout.addStretch()
+        main_layout.addLayout(bg_layout)
+
+    def precompute_composited_frames(self):
+        """Precompute all composited frames for better performance."""
+        self.composited_cache.clear()
+
+        for idx, frame in enumerate(self.pil_frames):
+            img = frame.convert("RGBA")
+
+            # Scale if needed
+            if self.scale_factor != 1.0:
+                new_size = (int(img.width * self.scale_factor), int(img.height * self.scale_factor))
+                img = img.resize(new_size, NEAREST)
+
+            # Composite with background
+            bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
+            composited = Image.alpha_composite(bg_img, img)
+            self.composited_cache[idx] = composited.convert("RGB")
+
+    def get_composited_frame(self, idx):
+        """Get a composited frame, creating it if not cached."""
+        if idx in self.composited_cache:
+            return self.composited_cache[idx]
+
+        frame = self.pil_frames[idx]
+        img = frame.convert("RGBA")
+
+        if self.scale_factor != 1.0:
+            new_size = (int(img.width * self.scale_factor), int(img.height * self.scale_factor))
+            img = img.resize(new_size, NEAREST)
+
+        bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
+        composited = Image.alpha_composite(bg_img, img)
+        self.composited_cache[idx] = composited.convert("RGB")
+        return self.composited_cache[idx]
+
+    def show_frame(self, idx):
+        """Display the specified frame."""
+        if idx < 0 or idx >= self.frame_count:
             return
 
-        if not durations or len(durations) != frame_count:
-            fps = settings.get("fps", 24)
-            delay_setting = settings.get("delay", 250)
-            base_delay = int(round(1000 / fps, -1))
-            durations = [base_delay] * frame_count
-            durations[-1] += int(delay_setting)
+        self.current_frame = idx
 
-        frame_counter_label = tk.Label(preview_win, text=f"Frame 0 / {frame_count - 1}")
-        frame_counter_label.pack()
+        # Get composited frame
+        pil_img = self.get_composited_frame(idx)
 
-        slider_frame = tk.Frame(preview_win)
-        slider_frame.pack(pady=4)
+        # Convert to QPixmap
+        img_data = pil_img.tobytes("raw", "RGB")
+        qimg = QImage(img_data, pil_img.width, pil_img.height, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qimg)
 
-        def on_slider(val):
-            idx = int(float(val))
-            current_frame[0] = idx
-            show_frame(idx)
+        # Auto-scale window on first frame
+        if not hasattr(self, "_window_sized"):
+            self._window_sized = True
+            self.auto_scale_window(pil_img.size)
 
-        slider = tk.Scale(
-            slider_frame,
-            from_=0,
-            to=frame_count - 1,
-            orient=tk.HORIZONTAL,
-            length=300,
-            showvalue=False,
-            command=on_slider,
-        )
-        slider.pack()
-        slider.set(0)
+        # Update image display
+        self.image_label.setPixmap(pixmap)
 
-        preview_win.update_idletasks()
-        slider_frame_width = slider_frame.winfo_reqwidth()
-        preview_win_width = preview_win.winfo_width()
-        if preview_win_width > slider_frame_width:
-            slider_frame.pack_configure(
-                padx=(preview_win_width - slider_frame_width) // 2
+        # Update frame counter
+        self.frame_counter.setText(f"Frame {idx} / {self.frame_count - 1}")
+
+        # Update slider
+        self.frame_slider.setValue(idx)
+
+        # Highlight current delay
+        self.highlight_current_delay(idx)
+
+    def auto_scale_window(self, img_size):
+        """Auto-scale the window based on image size and screen size."""
+        extra_height = 300  # For controls
+        width = img_size[0]
+        height = img_size[1] + extra_height
+
+        # Get screen size
+        screen = self.screen().availableGeometry()
+        max_width = int(screen.width() * 0.9)
+        max_height = int(screen.height() * 0.9)
+
+        # Scale if necessary
+        if width > max_width or height > max_height:
+            scale_w = max_width / width
+            scale_h = max_height / height
+            self.scale_factor = min(scale_w, scale_h, 1.0)
+
+            self.precompute_composited_frames()
+            width = int(img_size[0] * self.scale_factor)
+            height = int(img_size[1] * self.scale_factor) + extra_height
+
+        self.resize(width, height)
+        self.setMinimumSize(width, height)
+
+    def highlight_current_delay(self, idx):
+        """Highlight the current frame's delay in the delays display."""
+        for i, label in enumerate(self.delay_labels):
+            if i == idx:
+                label.setStyleSheet("QLabel { background-color: #e0e0e0; }")
+            else:
+                label.setStyleSheet("")
+
+    def on_slider_change(self, value):
+        """Handle frame slider value change."""
+        self.show_frame(value)
+
+    def on_bg_change(self, value):
+        """Handle background color slider change."""
+        self.bg_value = value
+        self.precompute_composited_frames()
+        self.show_frame(self.current_frame)
+
+    def prev_frame(self):
+        """Go to previous frame."""
+        new_frame = (self.current_frame - 1) % self.frame_count
+        self.show_frame(new_frame)
+
+    def next_frame(self):
+        """Go to next frame."""
+        new_frame = (self.current_frame + 1) % self.frame_count
+        self.show_frame(new_frame)
+
+    def toggle_play(self):
+        """Toggle animation playback."""
+        if self.playing:
+            self.stop_animation()
+        else:
+            self.play_animation()
+
+    def play_animation(self):
+        """Start animation playback."""
+        self.playing = True
+        self.play_btn.setText("Pause")
+
+        # Start timer with current frame's duration
+        delay = max(1, self.durations[self.current_frame])
+        self.playback_timer.start(delay)
+
+    def stop_animation(self):
+        """Stop animation playback."""
+        self.playing = False
+        self.play_btn.setText("Play")
+        self.playback_timer.stop()
+
+    def open_external(self):
+        """Open the animation in an external program."""
+        try:
+            current_os = platform.system().lower()
+            if current_os == "windows":
+                os.startfile(self.animation_path)
+            elif current_os == "darwin":
+                subprocess.Popen(["open", self.animation_path])
+            else:
+                subprocess.Popen(["xdg-open", self.animation_path])
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Open External", f"Could not open animation in external program:\n{e}"
             )
 
-        delays_canvas = tk.Canvas(preview_win, height=40)
-        delays_canvas.pack(fill="x", expand=False)
-        delays_scrollbar = tk.Scrollbar(
-            preview_win, orient="horizontal", command=delays_canvas.xview
-        )
-        delays_scrollbar.pack(fill="x")
-        delays_canvas.configure(xscrollcommand=delays_scrollbar.set)
+    def closeEvent(self, event):
+        """Handle window close event."""
+        self.stop_animation()
 
-        delays_frame = tk.Frame(delays_canvas)
-        delays_canvas.create_window((0, 0), window=delays_frame, anchor="nw")
+        # Clean up temp file if it exists
+        try:
+            if os.path.isfile(self.animation_path):
+                os.remove(self.animation_path)
+        except Exception:
+            pass
 
-        delay_labels = []
-        for i, d in enumerate(durations):
-            ms = f"{d} ms"
-            lbl = tk.Label(delays_frame, text=ms, font=("Arial", 8, "italic"))
-            lbl.grid(row=1, column=i, padx=1)
-            idx_lbl = tk.Label(delays_frame, text=str(i), font=("Arial", 8))
-            idx_lbl.grid(row=0, column=i, padx=1)
-            delay_labels.append(lbl)
+        event.accept()
 
-        delays_frame.update_idletasks()
-        delays_canvas.config(scrollregion=delays_canvas.bbox("all"))
+    @staticmethod
+    def show(animation_path, settings):
+        """
+        Static method to show an animation preview window.
 
-        btn_frame = tk.Frame(preview_win)
-        btn_frame.pack()
-        tk.Button(btn_frame, text="Prev", command=lambda: prev_frame()).pack(
-            side=tk.LEFT
-        )
-        tk.Button(btn_frame, text="Play", command=lambda: play()).pack(side=tk.LEFT)
-        tk.Button(btn_frame, text="Stop", command=lambda: stop()).pack(side=tk.LEFT)
-        tk.Button(btn_frame, text="Next", command=lambda: next_frame()).pack(
-            side=tk.LEFT
-        )
-
-        def open_external(path=animation_path):
-            import subprocess
-            import platform
-
-            try:
-                current_os = platform.system().lower()
-                if current_os == "windows":
-                    os.startfile(path)
-                elif current_os == "darwin":
-                    subprocess.Popen(["open", path])
-                else:
-                    subprocess.Popen(["xdg-open", path])
-            except Exception as e:
-                messagebox.showerror(
-                    "Open External",
-                    f"Could not open animation in external program:\n{e}",
-                )
-
-        tk.Button(
-            btn_frame, text=f"Open {format_name} externally", command=open_external
-        ).pack(side=tk.LEFT, padx=(12, 0))
-
-        bg_slider_frame = tk.Frame(preview_win)
-        bg_slider_frame.pack(pady=4)
-        bg_value = tk.IntVar(value=127)
-
-        def on_bg_change(val):
-            clear_cache_for_bg()
-            show_frame(current_frame[0])
-
-        tk.Label(bg_slider_frame, text="Background:").pack(side=tk.LEFT, padx=(0, 8))
-        bg_slider = tk.Scale(
-            bg_slider_frame,
-            from_=0,
-            to=255,
-            orient=tk.HORIZONTAL,
-            variable=bg_value,
-            command=on_bg_change,
-            length=200,
-        )
-        bg_slider.pack(side=tk.LEFT)
-
-        label = tk.Label(preview_win)
-        label.pack()
-
-        composited_cache = {}
-        fixed_size = [None]
-        scale_factor = [1.0]
-
-        def precompute_composited_frames():
-            composited_cache.clear()
-            bg = bg_value.get()
-            scale = scale_factor[0]
-            for idx, frame in enumerate(pil_frames):
-                img = frame.convert("RGBA")
-                if scale != 1.0:
-                    new_size = (int(img.width * scale), int(img.height * scale))
-                    img = img.resize(new_size, NEAREST)
-                bg_img = Image.new("RGBA", img.size, (bg, bg, bg, 255))
-                composited = Image.alpha_composite(bg_img, img)
-                composited_cache[(idx, bg, scale)] = composited.convert("RGB")
-
-        def get_composited_frame(idx):
-            bg = bg_value.get()
-            scale = scale_factor[0]
-            cache_key = (idx, bg, scale)
-            if cache_key in composited_cache:
-                return composited_cache[cache_key]
-            img = pil_frames[idx].convert("RGBA")
-            if scale != 1.0:
-                new_size = (int(img.width * scale), int(img.height * scale))
-                img = img.resize(new_size, NEAREST)
-            bg_img = Image.new("RGBA", img.size, (bg, bg, bg, 255))
-            composited = Image.alpha_composite(bg_img, img)
-            composited_cache[cache_key] = composited.convert("RGB")
-            return composited_cache[cache_key]
-
-        def clear_cache_for_bg():
-            precompute_composited_frames()
-
-        tk_img_holder = [None]
-
-        def show_frame(idx):
-            img = get_composited_frame(idx)
-            if tk_img_holder[0] is None:
-                tk_img = ImageTk.PhotoImage(img)
-                label.config(image=tk_img)
-                label.image = tk_img
-                tk_img_holder[0] = tk_img
-            else:
-                tk_img_holder[0].paste(img)
-                label.config(image=tk_img_holder[0])
-                label.image = tk_img_holder[0]
-            frame_counter_label.config(text=f"Frame {idx} / {frame_count - 1}")
-
-            if fixed_size[0] is None:
-                extra_height = 240
-                width = img.width
-                height = img.height + extra_height
-
-                screen_width = preview_win.winfo_screenwidth()
-                screen_height = preview_win.winfo_screenheight()
-
-                max_width = int(screen_width * 0.9)
-                max_height = int(screen_height * 0.9)
-
-                scale = 1.0
-                if width > max_width or height > max_height:
-                    scale_w = (max_width) / width
-                    scale_h = (max_height) / height
-                    scale = min(scale_w, scale_h, 1.0)
-                    scale_factor[0] = scale
-
-                    precompute_composited_frames()
-                    img2 = get_composited_frame(idx)
-                    if tk_img_holder[0] is not None:
-                        tk_img_holder[0] = ImageTk.PhotoImage(img2)
-                        label.config(image=tk_img_holder[0])
-                        label.image = tk_img_holder[0]
-                    width = img2.width
-                    height = img2.height + extra_height
-
-                preview_win.geometry(f"{width}x{height}")
-                preview_win.minsize(width, height)
-                fixed_size[0] = (width, height)
-
-            for i, label_widget in enumerate(delay_labels):
-                if i == idx:
-                    label_widget.config(bg="#e0e0e0")
-                else:
-                    label_widget.config(bg=preview_win.cget("bg"))
-
-            try:
-                label_widget = delay_labels[idx]
-                delays_canvas.update_idletasks()
-
-                label_x = label_widget.winfo_x()
-                label_w = label_widget.winfo_width()
-                canvas_w = delays_canvas.winfo_width()
-
-                scroll_to = max(0, label_x + label_w // 2 - canvas_w // 2)
-
-                scrollregion = delays_canvas.cget("scrollregion")
-                if scrollregion:
-                    _, _, scrollregion_w, _ = map(int, scrollregion.split())
-                    if scrollregion_w > canvas_w:
-                        xview = scroll_to / (scrollregion_w - canvas_w)
-                        xview = min(max(xview, 0), 1)
-                        delays_canvas.xview_moveto(xview)
-            except Exception:
-                pass
-
-        def next_frame():
-            current_frame[0] = (current_frame[0] + 1) % frame_count
-            show_frame(current_frame[0])
-            slider.set(current_frame[0])
-
-        def prev_frame():
-            current_frame[0] = (current_frame[0] - 1) % frame_count
-            show_frame(current_frame[0])
-            slider.set(current_frame[0])
-
-        playing = [False]
-
-        def play():
-            playing[0] = True
-
-            def loop():
-                if playing[0]:
-                    next_frame()
-                    delay = max(1, int(durations[current_frame[0]]))
-                    preview_win.after(delay, loop)
-
-            loop()
-
-        def stop():
-            playing[0] = False
-
-        precompute_composited_frames()
-        show_frame(0)
-
-        def cleanup_temp_animation():
-            try:
-                animation.close()
-                if os.path.isfile(animation_path):
-                    os.remove(animation_path)
-            except Exception:
-                pass
-            preview_win.destroy()
-
-        preview_win.protocol("WM_DELETE_WINDOW", cleanup_temp_animation)
-
-        note_text = f"Playback speed of {format_name} animations may not be accurately depicted in this preview window. Open the animation externally for accurate playback."
-        note_label = tk.Label(
-            preview_win, text=note_text, font=("Arial", 9, "italic"), fg="#333333"
-        )
-        note_label.pack(side=tk.BOTTOM, pady=(8, 4))
-
-        preview_win.update_idletasks()
-        note_width = note_label.winfo_reqwidth()
-        win_width = preview_win.winfo_width()
-        win_height = preview_win.winfo_height()
-        margin = 32
-        if note_width + margin > win_width:
-            preview_win.geometry(f"{note_width + margin}x{win_height}")
-            preview_win.minsize(note_width + margin, win_height)
+        Args:
+            animation_path: Path to the animation file
+            settings: Settings dictionary containing preview configuration
+        """
+        # This would be called from the main application
+        # The parent window would be passed when creating the dialog
+        pass
 
     @staticmethod
     def preview(
@@ -412,31 +497,37 @@ class AnimationPreviewWindow:
         indices_entry,
         frames_entry,
     ):
+        """
+        Static method to generate and preview an animation from the settings window.
+
+        This mirrors the functionality from the original tkinter version.
+        """
         settings = {}
         try:
-            if animation_format_entry and animation_format_entry.get() != "":
-                settings["animation_format"] = animation_format_entry.get()
-            if fps_entry.get() != "":
-                settings["fps"] = float(fps_entry.get())
-            if delay_entry.get() != "":
-                settings["delay"] = int(float(delay_entry.get()))
-            if period_entry.get() != "":
-                settings["period"] = int(float(period_entry.get()))
-            if scale_entry.get() != "":
-                settings["scale"] = float(scale_entry.get())
-            if threshold_entry.get() != "":
-                settings["threshold"] = min(max(float(threshold_entry.get()), 0), 1)
-            if indices_entry.get() != "":
-                indices = [int(ele) for ele in indices_entry.get().split(",")]
+            if animation_format_entry and animation_format_entry.text() != "":
+                settings["animation_format"] = animation_format_entry.text()
+            if fps_entry.text() != "":
+                settings["fps"] = float(fps_entry.text())
+            if delay_entry.text() != "":
+                settings["delay"] = int(float(delay_entry.text()))
+            if period_entry.text() != "":
+                settings["period"] = int(float(period_entry.text()))
+            if scale_entry.text() != "":
+                settings["scale"] = float(scale_entry.text())
+            if threshold_entry.text() != "":
+                settings["threshold"] = min(max(float(threshold_entry.text()), 0), 1)
+            if indices_entry.text() != "":
+                indices = [int(ele) for ele in indices_entry.text().split(",")]
                 settings["indices"] = indices
         except ValueError as e:
-            messagebox.showerror("Invalid input", f"Error: {str(e)}")
+            QMessageBox.critical(None, "Invalid input", f"Error: {str(e)}")
             return
 
         # Check if APNG format is selected and block preview
         animation_format = settings.get("animation_format", "")
         if animation_format == "APNG":
-            messagebox.showinfo(
+            QMessageBox.information(
+                None,
                 "Preview Not Available",
                 "Preview is not available for APNG format due to display limitations.\n\n"
                 "You can still export APNG animations and view them externally.",
@@ -465,14 +556,10 @@ class AnimationPreviewWindow:
                 png_path, metadata_path, settings, animation_name, temp_dir=app.temp_dir
             )
             if not animation_path or not os.path.isfile(animation_path):
-                messagebox.showerror(
-                    "Preview Error", "Could not generate preview animation."
-                )
+                QMessageBox.critical(None, "Preview Error", "Could not generate preview animation.")
                 return
         except Exception as e:
-            messagebox.showerror(
-                "Preview Error", f"Error generating preview animation: {e}"
-            )
+            QMessageBox.critical(None, "Preview Error", f"Error generating preview animation: {e}")
             return
 
         app.show_animation_preview_window(animation_path, settings)

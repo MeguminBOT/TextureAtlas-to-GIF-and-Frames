@@ -1,8 +1,22 @@
-import tkinter as tk
-from tkinter import ttk
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QWidget,
+    QPushButton,
+    QFrame,
+    QCheckBox,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QColor, QPainter
 
 
-class BackgroundHandlerWindow:
+class BackgroundHandlerWindow(QDialog):
     """
     A class that handles background color detection and keying options for unknown spritesheets.
 
@@ -10,13 +24,253 @@ class BackgroundHandlerWindow:
     to control whether background removal should be applied to each spritesheet.
     """
 
+    def __init__(self, parent, detection_results):
+        super().__init__(parent)
+        self.detection_results = detection_results
+        self.result = {}
+        self.checkbox_vars = {}
+
+        self.setWindowTitle("Background Color Options")
+        self.setModal(True)
+        self.resize(850, 650)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+
+        # Filter out images that already have transparency
+        self.filtered_results = [
+            result for result in detection_results if not result.get("has_transparency", False)
+        ]
+
+        # For images with transparency, automatically set them to exclude background processing
+        for detection_result in detection_results:
+            if detection_result.get("has_transparency", False):
+                self.result[detection_result["filename"]] = "exclude_background"
+
+        if not self.filtered_results:
+            print("[BackgroundHandlerWindow] No images need background processing")
+            self.accept()
+            return
+
+        print(
+            f"[BackgroundHandlerWindow] Filtered to {len(self.filtered_results)} images needing background processing"
+        )
+
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the dialog UI."""
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Title section with icon
+        title_layout = QHBoxLayout()
+
+        icon_label = QLabel("🎨")
+        icon_label.setFont(QFont("Arial", 24))
+        title_layout.addWidget(icon_label)
+
+        title_text = QLabel("Background Color Options")
+        title_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
+
+        main_layout.addLayout(title_layout)
+
+        # Description
+        description = (
+            f"Found {len(self.filtered_results)} unknown spritesheet(s) with background colors.\n"
+            f"Check the box next to each file to remove its background color during processing:"
+        )
+
+        desc_label = QLabel(description)
+        desc_label.setFont(QFont("Arial", 10))
+        desc_label.setWordWrap(True)
+        main_layout.addWidget(desc_label)
+
+        # Global controls
+        global_layout = QHBoxLayout()
+
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.clicked.connect(self.select_all)
+        select_all_btn.setMaximumWidth(100)
+        global_layout.addWidget(select_all_btn)
+
+        select_none_btn = QPushButton("Select None")
+        select_none_btn.clicked.connect(self.select_none)
+        select_none_btn.setMaximumWidth(100)
+        global_layout.addWidget(select_none_btn)
+
+        global_layout.addStretch()
+        main_layout.addLayout(global_layout)
+
+        # Scrollable area for spritesheet entries
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.setSpacing(5)
+
+        # Add spritesheet entries
+        for i, result in enumerate(self.filtered_results):
+            entry_widget = self.create_spritesheet_entry(result, i)
+            content_layout.addWidget(entry_widget)
+
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area)
+
+        # Options explanation
+        options_frame = QFrame()
+        options_layout = QVBoxLayout(options_frame)
+
+        options_label = QLabel("Processing Options:")
+        options_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        options_layout.addWidget(options_label)
+
+        option_text = (
+            "• Checked: Remove background colors (apply color keying)\n"
+            "• Unchecked: Keep background colors but exclude them during sprite detection"
+        )
+
+        options_desc = QLabel(option_text)
+        options_desc.setFont(QFont("Arial", 9))
+        options_desc.setStyleSheet("QLabel { margin-left: 10px; }")
+        options_layout.addWidget(options_desc)
+
+        main_layout.addWidget(options_frame)
+
+        # Button section
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.on_apply)
+        apply_btn.setMinimumWidth(120)
+        apply_btn.setDefault(True)
+        button_layout.addWidget(apply_btn)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.on_cancel)
+        cancel_btn.setMinimumWidth(120)
+        button_layout.addWidget(cancel_btn)
+
+        main_layout.addLayout(button_layout)
+
+        # Set up keyboard shortcuts
+        apply_btn.setShortcut("Return")
+        cancel_btn.setShortcut("Escape")
+
+    def create_spritesheet_entry(self, result, index):
+        """Create a widget for a single spritesheet entry."""
+        # Alternating background colors
+        bg_color = "#f0f0f0" if index % 2 == 0 else "#ffffff"
+
+        entry_frame = QFrame()
+        entry_frame.setFrameStyle(QFrame.Shape.Box)
+        entry_frame.setLineWidth(1)
+        entry_frame.setStyleSheet(
+            f"QFrame {{ background-color: {bg_color}; border: 1px solid #ccc; }}"
+        )
+
+        layout = QVBoxLayout(entry_frame)
+        layout.setSpacing(5)
+        layout.setContentsMargins(10, 5, 10, 5)
+
+        # Header with checkbox and filename
+        header_layout = QHBoxLayout()
+
+        checkbox = QCheckBox()
+        checkbox.setChecked(True)  # Default to checked
+        self.checkbox_vars[result["filename"]] = checkbox
+        header_layout.addWidget(checkbox)
+
+        filename_label = QLabel(f"📄 {result['filename']}")
+        filename_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        header_layout.addWidget(filename_label)
+        header_layout.addStretch()
+
+        layout.addLayout(header_layout)
+
+        # Colors section
+        colors_label = QLabel("Detected background colors:")
+        colors_label.setFont(QFont("Arial", 9))
+        colors_label.setStyleSheet("QLabel { margin-left: 20px; }")
+        layout.addWidget(colors_label)
+
+        # Show up to 3 colors
+        for color_index, color in enumerate(result["colors"][:3]):
+            color_layout = self.create_color_sample(color, color_index)
+            layout.addLayout(color_layout)
+
+        # Show if there are more colors
+        if len(result["colors"]) > 3:
+            more_label = QLabel(f"... and {len(result['colors']) - 3} more colors")
+            more_label.setFont(QFont("Arial", 8))
+            more_label.setStyleSheet("QLabel { margin-left: 30px; color: gray; }")
+            layout.addWidget(more_label)
+
+        return entry_frame
+
+    def create_color_sample(self, color, color_index):
+        """Create a layout showing a color sample and its RGB values."""
+        layout = QHBoxLayout()
+        layout.setContentsMargins(30, 1, 0, 1)
+
+        # Color sample widget
+        color_sample = ColorSampleWidget(color)
+        color_sample.setFixedSize(20, 20)
+        layout.addWidget(color_sample)
+
+        # RGB text
+        rgb_text = f"RGB({color[0]}, {color[1]}, {color[2]})"
+        priority_text = "Primary" if color_index == 0 else f"Secondary {color_index}"
+
+        color_info = QLabel(f"{priority_text}: {rgb_text}")
+        color_info.setFont(QFont("Arial", 9))
+        layout.addWidget(color_info)
+        layout.addStretch()
+
+        return layout
+
+    def select_all(self):
+        """Select all checkboxes."""
+        for checkbox in self.checkbox_vars.values():
+            checkbox.setChecked(True)
+
+    def select_none(self):
+        """Unselect all checkboxes."""
+        for checkbox in self.checkbox_vars.values():
+            checkbox.setChecked(False)
+
+    def on_apply(self):
+        """Handle apply button click."""
+        for filename, checkbox in self.checkbox_vars.items():
+            if checkbox.isChecked():
+                self.result[filename] = "key_background"
+            else:
+                self.result[filename] = "exclude_background"
+        self.accept()
+
+    def on_cancel(self):
+        """Handle cancel button click."""
+        self.result.clear()
+        self.result["_cancelled"] = True
+        self.reject()
+
+    def get_result(self):
+        """Get the processing results."""
+        return self.result
+
     @staticmethod
     def show_background_options(parent_window, detection_results):
         """
         Show the background handling options dialog with individual controls.
 
         Args:
-            parent_window: The parent tkinter window
+            parent_window: The parent Qt widget
             detection_results: List of dictionaries with keys:
                 - 'filename': Name of the spritesheet file
                 - 'colors': List of RGB tuples for detected background colors
@@ -29,288 +283,11 @@ class BackgroundHandlerWindow:
                 - 'skip': Skip processing this file
                 - {'_cancelled': True}: User cancelled the dialog (stops extraction)
         """
+        print(f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results")
 
-        print(
-            f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results"
-        )
-
-        # Filter out images that already have transparency
-        filtered_results = [
-            result
-            for result in detection_results
-            if not result.get("has_transparency", False)
-        ]
-
-        # For images with transparency, automatically set them to skip background processing
-        result = {}
-        for detection_result in detection_results:
-            if detection_result.get("has_transparency", False):
-                result[detection_result["filename"]] = "exclude_background"
-
-        if not filtered_results:
-            print(
-                "[BackgroundHandlerWindow] No images need background processing, returning auto-handled results"
-            )
-            return result
-
-        print(
-            f"[BackgroundHandlerWindow] Filtered to {len(filtered_results)} images needing background processing"
-        )
-
-        print("[BackgroundHandlerWindow] Creating dialog window...")
-        dialog = tk.Toplevel(parent_window)
-        dialog.title("Background Color Options")
-        dialog.geometry("800x600")
-        dialog.resizable(True, True)
-        dialog.transient(parent_window)
-        dialog.grab_set()
-
-        # Center the dialog relative to parent window
-        dialog.geometry(
-            "+%d+%d"
-            % (parent_window.winfo_rootx() + 50, parent_window.winfo_rooty() + 50)
-        )
-
-        result = {}
-        checkbox_vars = {}
-        print("[BackgroundHandlerWindow] Dialog setup complete, entering main loop...")
-
-        main_frame = tk.Frame(dialog, padx=20, pady=20)
-        main_frame.pack(fill="both", expand=True)
-
-        # Title frame with icon
-        title_frame = tk.Frame(main_frame)
-        title_frame.pack(fill="x", pady=(0, 15))
-
-        warning_label = tk.Label(title_frame, text="🎨", font=("Arial", 24))
-        warning_label.pack(side="left")
-        title_label = tk.Label(
-            title_frame, text="Background Color Options", font=("Arial", 14, "bold")
-        )
-        title_label.pack(side="left", padx=(10, 0))
-
-        # Description
-        description = (
-            f"Found {len(filtered_results)} unknown spritesheet(s) with background colors.\n"
-            f"Check the box next to each file to remove its background color during processing:"
-        )
-
-        desc_label = tk.Label(
-            main_frame,
-            text=description,
-            font=("Arial", 10),
-            justify="left",
-            wraplength=750,
-        )
-        desc_label.pack(fill="x", pady=(0, 10))
-
-        # Global controls frame
-        global_frame = tk.Frame(main_frame)
-        global_frame.pack(fill="x", pady=(0, 10))
-
-        def select_all():
-            for var in checkbox_vars.values():
-                var.set(True)
-
-        def select_none():
-            for var in checkbox_vars.values():
-                var.set(False)
-
-        select_all_btn = tk.Button(
-            global_frame, text="Select All", command=select_all, width=12
-        )
-        select_all_btn.pack(side="left", padx=(0, 5))
-
-        select_none_btn = tk.Button(
-            global_frame, text="Select None", command=select_none, width=12
-        )
-        select_none_btn.pack(side="left")
-
-        # Scrollable frame for the detection results
-        canvas_frame = tk.Frame(main_frame)
-        canvas_frame.pack(fill="both", expand=True, pady=(0, 15))
-
-        canvas = tk.Canvas(canvas_frame, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Add detection results to scrollable frame
-        for i, result in enumerate(filtered_results):
-            checkbox_var = tk.BooleanVar(value=True)
-            checkbox_vars[result["filename"]] = checkbox_var
-            BackgroundHandlerWindow._add_spritesheet_entry(
-                scrollable_frame, result, i, checkbox_var
-            )
-
-        # Options explanation
-        options_frame = tk.Frame(main_frame)
-        options_frame.pack(fill="x", pady=(0, 15))
-
-        options_label = tk.Label(
-            options_frame, text="Processing Options:", font=("Arial", 11, "bold")
-        )
-        options_label.pack(anchor="w")
-
-        option_text = (
-            "• Checked: Remove background colors (apply color keying)\n"
-            "• Unchecked: Keep background colors but exclude them during sprite detection"
-        )
-
-        options_desc = tk.Label(
-            options_frame,
-            text=option_text,
-            font=("Arial", 9),
-            justify="left",
-            anchor="w",
-        )
-        options_desc.pack(fill="x", padx=(10, 0))
-
-        # Button callbacks
-        def on_apply():
-            for filename, var in checkbox_vars.items():
-                if var.get():
-                    result[filename] = "key_background"
-                else:
-                    result[filename] = "exclude_background"
-            dialog.destroy()
-
-        def on_cancel():
-            # Return special value to indicate cancellation
-            result.clear()
-            result["_cancelled"] = True
-            dialog.destroy()
-
-        # Button frame
-        button_frame = tk.Frame(main_frame)
-        button_frame.pack(fill="x")
-
-        cancel_btn = tk.Button(button_frame, text="Cancel", command=on_cancel, width=12)
-        cancel_btn.pack(side="right", padx=(5, 0))
-
-        apply_btn = tk.Button(
-            button_frame, text="Apply Settings", command=on_apply, width=16
-        )
-        apply_btn.pack(side="right", padx=(5, 0))
-
-        # Set focus and keyboard bindings
-        apply_btn.focus_set()
-        dialog.bind("<Return>", lambda e: on_apply())
-        dialog.bind("<Escape>", lambda e: on_cancel())
-        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
-
-        # Bind mousewheel to canvas
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
-        dialog.wait_window()
-
-        # Unbind mousewheel when dialog closes
-        canvas.unbind_all("<MouseWheel>")
-
-        return result
-
-    @staticmethod
-    def _add_spritesheet_entry(parent_frame, result, index, checkbox_var):
-        """
-        Add a single spritesheet entry with checkbox to the scrollable frame.
-
-        Args:
-            parent_frame: The parent frame to add the entry to
-            result: Dictionary with spritesheet detection results
-            index: Index for alternating row colors
-            checkbox_var: BooleanVar for the checkbox state
-        """
-
-        # Row frame with alternating background color
-        bg_color = "#f0f0f0" if index % 2 == 0 else "#ffffff"
-        row_frame = tk.Frame(parent_frame, bg=bg_color, relief="solid", bd=1)
-        row_frame.pack(fill="x", padx=5, pady=2)
-
-        # Header frame with checkbox and filename
-        header_frame = tk.Frame(row_frame, bg=bg_color)
-        header_frame.pack(fill="x", padx=10, pady=(5, 2))
-
-        # Checkbox for this spritesheet
-        checkbox = tk.Checkbutton(header_frame, variable=checkbox_var, bg=bg_color)
-        checkbox.pack(side="left")
-
-        # Filename
-        filename_label = tk.Label(
-            header_frame,
-            text=f"📄 {result['filename']}",
-            font=("Arial", 10, "bold"),
-            bg=bg_color,
-            anchor="w",
-        )
-        filename_label.pack(side="left", padx=(5, 0))
-
-        # Colors frame
-        colors_frame = tk.Frame(row_frame, bg=bg_color)
-        colors_frame.pack(fill="x", padx=30, pady=(0, 5))
-
-        colors_label = tk.Label(
-            colors_frame,
-            text="Detected background colors:",
-            font=("Arial", 9),
-            bg=bg_color,
-        )
-        colors_label.pack(anchor="w")
-
-        # Color samples frame
-        for color_index, color in enumerate(result["colors"][:3]):  # Show max 3 colors
-            color_sample_frame = tk.Frame(colors_frame, bg=bg_color)
-            color_sample_frame.pack(fill="x", pady=1)
-
-            # Color sample (small colored rectangle)
-            sample_canvas = tk.Canvas(
-                color_sample_frame,
-                width=20,
-                height=20,
-                highlightthickness=1,
-                highlightbackground="black",
-            )
-            sample_canvas.pack(side="left", padx=(10, 5))
-
-            # Create color sample
-            hex_color = f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
-            sample_canvas.create_rectangle(1, 1, 19, 19, fill=hex_color, outline="")
-
-            # RGB values
-            rgb_text = f"RGB({color[0]}, {color[1]}, {color[2]})"
-            priority_text = (
-                "Primary" if color_index == 0 else f"Secondary {color_index}"
-            )
-
-            color_info_label = tk.Label(
-                color_sample_frame,
-                text=f"{priority_text}: {rgb_text}",
-                font=("Arial", 9),
-                bg=bg_color,
-            )
-            color_info_label.pack(side="left")
-
-        # Show if there are more colors
-        if len(result["colors"]) > 3:
-            more_colors_label = tk.Label(
-                colors_frame,
-                text=f"... and {len(result['colors']) - 3} more colors",
-                font=("Arial", 8),
-                bg=bg_color,
-                fg="gray",
-            )
-            more_colors_label.pack(anchor="w", padx=(10, 0))
+        dialog = BackgroundHandlerWindow(parent_window, detection_results)
+        dialog.exec()
+        return dialog.get_result()
 
     @staticmethod
     def reset_batch_state():
@@ -318,7 +295,22 @@ class BackgroundHandlerWindow:
         Reset any batch processing state.
         Provided for compatibility with existing code.
         """
-        # Clear any previous file choices
-        if hasattr(BackgroundHandlerWindow, "_file_choices"):
-            BackgroundHandlerWindow._file_choices = {}
         print("[BackgroundHandlerWindow] Batch state reset for new processing")
+
+
+class ColorSampleWidget(QWidget):
+    """A widget that displays a color sample."""
+
+    def __init__(self, rgb_color):
+        super().__init__()
+        self.color = QColor(rgb_color[0], rgb_color[1], rgb_color[2])
+
+    def paintEvent(self, event):
+        """Paint the color sample."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw border
+        painter.setPen(QColor(0, 0, 0))
+        painter.setBrush(self.color)
+        painter.drawRect(1, 1, self.width() - 2, self.height() - 2)

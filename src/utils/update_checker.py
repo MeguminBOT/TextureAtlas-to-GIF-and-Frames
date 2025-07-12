@@ -164,7 +164,7 @@ class UpdateChecker:
         """
         try:
             # URL to check for latest version
-            api_url = "https://api.github.com/repos/CuckyDev/TextureAtlas-to-GIF-and-Frames/releases/latest"
+            api_url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
             
             response = requests.get(api_url, timeout=10)
             response.raise_for_status()

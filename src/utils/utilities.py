@@ -66,7 +66,8 @@ class Utilities:
 
     @staticmethod
     def strip_trailing_digits(name):
-        return re.sub(r"\d{1,4}(?:\.png)?$", "", name).rstrip()
+        # Strip trailing digits and optional .png extension, then strip any trailing underscores
+        return re.sub(r"[_\s]*\d{1,4}(?:\.png)?$", "", name).rstrip("_").rstrip()
 
     @staticmethod
     def format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules):

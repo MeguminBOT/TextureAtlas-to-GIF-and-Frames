@@ -12,25 +12,69 @@ import webbrowser
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QMenu
-from PySide6.QtCore import QThread, Signal, QTimer
+from PySide6.QtCore import QThread, Signal, QTimer, Qt
 from PySide6.QtGui import QIcon, QAction
 
-# Import our own modules
+# Import our own modules - dependencies checker must be first
 from utils.dependencies_checker import DependenciesChecker
-
-# Check and configure ImageMagick
 DependenciesChecker.check_and_configure_imagemagick()
+
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
 from utils.fnf_utilities import FnfUtilities
 from core.extractor import Extractor
 from gui.app_ui import Ui_MainWindow
-from gui.app_config_window_qt import AppConfigWindow
-from gui.find_replace_window_qt import FindReplaceWindow
-from gui.settings_window_qt import SettingsWindow
-from gui.override_settings_window_qt import OverrideSettingsWindow
 from gui.enhanced_list_widget import EnhancedListWidget
+from gui.settings_window import SettingsWindow
+
+# Try to import Qt versions of windows, fall back to placeholders if not available
+try:
+    from gui.app_config_window import AppConfigWindow
+except ImportError:
+    # Placeholder class for missing Qt component
+    class AppConfigWindow:
+        def __init__(self, parent, config):
+            self.parent = parent
+
+        def exec(self):
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(
+                self.parent, "Not Available", "App Config window not yet implemented."
+            )
+
+
+try:
+    from gui.find_replace_window import FindReplaceWindow
+except ImportError:
+    # Placeholder class for missing Qt component
+    class FindReplaceWindow:
+        def __init__(self, parent, callback, rules):
+            self.parent = parent
+
+        def exec(self):
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(
+                self.parent, "Not Available", "Find/Replace window not yet implemented."
+            )
+
+
+try:
+    from gui.override_settings_window import OverrideSettingsWindow
+except ImportError:
+    # Placeholder class for missing Qt component
+    class OverrideSettingsWindow:
+        def __init__(self, parent, name, type_name, settings_manager, callback, main_window):
+            self.parent = parent
+
+        def exec(self):
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(
+                self.parent, "Not Available", "Override Settings window not yet implemented."
+            )
 
 
 class ExtractorWorker(QThread):
@@ -299,6 +343,22 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.listbox_data.clear()
 
         if spritesheet_name not in self.data_dict:
+            # If no data files found, try to use the unknown parser
+            try:
+                from parsers.unknown_parser import UnknownParser
+                # Get the spritesheet file path from the listbox
+                current_item = self.ui.listbox_png.currentItem()
+                if current_item:
+                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
+                    if spritesheet_path:
+                        unknown_parser = UnknownParser(
+                            directory=str(Path(spritesheet_path).parent),
+                            png_filename=Path(spritesheet_path).name,
+                            listbox_data=self.ui.listbox_data
+                        )
+                        unknown_parser.get_data()
+            except Exception as e:
+                print(f"Error using unknown parser: {e}")
             return
 
         data_files = self.data_dict[spritesheet_name]
@@ -306,38 +366,73 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Parse XML files for animations
         if "xml" in data_files:
             try:
-                # This would need to use the actual XML parser from the original code
-                # For now, this is a placeholder
-                self.ui.listbox_data.add_item(
-                    "Animation 1 (XML)", {"type": "xml", "file": data_files["xml"]}
+                from parsers.xml_parser import XmlParser
+                xml_parser = XmlParser(
+                    directory=str(Path(data_files["xml"]).parent),
+                    xml_filename=Path(data_files["xml"]).name,
+                    listbox_data=self.ui.listbox_data
                 )
-                self.ui.listbox_data.add_item(
-                    "Animation 2 (XML)", {"type": "xml", "file": data_files["xml"]}
-                )
+                xml_parser.get_data()
             except Exception as e:
                 print(f"Error parsing XML: {e}")
 
-        # Parse TXT files for animations
-        if "txt" in data_files:
+        # Parse TXT files for animations (only if no XML found)
+        elif "txt" in data_files:
             try:
-                # This would need to use the actual TXT parser from the original code
-                # For now, this is a placeholder
-                self.ui.listbox_data.add_item(
-                    "Animation 1 (TXT)", {"type": "txt", "file": data_files["txt"]}
+                from parsers.txt_parser import TxtParser
+                txt_parser = TxtParser(
+                    directory=str(Path(data_files["txt"]).parent),
+                    txt_filename=Path(data_files["txt"]).name,
+                    listbox_data=self.ui.listbox_data
                 )
+                txt_parser.get_data()
             except Exception as e:
                 print(f"Error parsing TXT: {e}")
+        
+        # If no data files found, try to use the unknown parser
+        else:
+            try:
+                from parsers.unknown_parser import UnknownParser
+                # Get the spritesheet file path from the listbox
+                current_item = self.ui.listbox_png.currentItem()
+                if current_item:
+                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
+                    if spritesheet_path:
+                        unknown_parser = UnknownParser(
+                            directory=str(Path(spritesheet_path).parent),
+                            png_filename=Path(spritesheet_path).name,
+                            listbox_data=self.ui.listbox_data
+                        )
+                        unknown_parser.get_data()
+            except Exception as e:
+                print(f"Error using unknown parser: {e}")
 
     def on_double_click_animation(self, item):
         """Handles the event when an animation is double-clicked in the listbox."""
         if not item:
             return
 
-        animation_name = item.text()
-        # animation_data = item.data(item.data())  # This should get the data from UserRole
+        # Get the selected spritesheet
+        current_spritesheet_item = self.ui.listbox_png.currentItem()
+        if not current_spritesheet_item:
+            QMessageBox.information(self, "Info", "Please select a spritesheet first.")
+            return
 
-        # Show animation preview or settings
-        QMessageBox.information(self, "Animation Selected", f"Selected: {animation_name}")
+        spritesheet_name = current_spritesheet_item.text()
+        animation_name = item.text()
+        full_anim_name = f"{spritesheet_name}/{animation_name}"
+
+        def store_settings(settings):
+            """Callback to store animation settings."""
+            self.settings_manager.animation_settings[full_anim_name] = settings
+
+        try:
+            dialog = OverrideSettingsWindow(
+                self, full_anim_name, "animation", self.settings_manager, store_settings, self
+            )
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open animation settings: {str(e)}")
 
     def show_listbox_png_menu(self, position):
         """Shows the context menu for the PNG listbox."""
