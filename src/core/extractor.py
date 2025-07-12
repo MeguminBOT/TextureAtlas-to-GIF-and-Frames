@@ -1,13 +1,9 @@
 import os
-import sys
-import concurrent.futures
 import time
 import gc
 import xml.etree.ElementTree as ET
 from PIL import Image
 import tempfile
-
-from PySide6.QtWidgets import QMessageBox, QApplication
 
 # Import our own modules
 from core.atlas_processor import AtlasProcessor
@@ -17,62 +13,6 @@ from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
 from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
-
-
-def show_error_message(title, message, parent=None):
-    """Show an error message using Qt."""
-    # Find the main window if parent is not provided
-    if parent is None:
-        app = QApplication.instance()
-        if app:
-            for widget in app.topLevelWidgets():
-                if widget.isMainWindow():
-                    parent = widget
-                    break
-    
-    msg_box = QMessageBox(parent)
-    msg_box.setIcon(QMessageBox.Icon.Critical)
-    msg_box.setWindowTitle(title)
-    msg_box.setText(message)
-    msg_box.exec()
-
-
-def show_question_message(title, message, parent=None):
-    """Show a yes/no question using Qt."""
-    # Find the main window if parent is not provided
-    if parent is None:
-        app = QApplication.instance()
-        if app:
-            for widget in app.topLevelWidgets():
-                if widget.isMainWindow():
-                    parent = widget
-                    break
-    
-    msg_box = QMessageBox(parent)
-    msg_box.setIcon(QMessageBox.Icon.Question)
-    msg_box.setWindowTitle(title)
-    msg_box.setText(message)
-    msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-    result = msg_box.exec()
-    return result == QMessageBox.StandardButton.Yes
-
-
-def show_info_message(title, message, parent=None):
-    """Show an info message using Qt."""
-    # Find the main window if parent is not provided
-    if parent is None:
-        app = QApplication.instance()
-        if app:
-            for widget in app.topLevelWidgets():
-                if widget.isMainWindow():
-                    parent = widget
-                    break
-    
-    msg_box = QMessageBox(parent)
-    msg_box.setIcon(QMessageBox.Icon.Information)
-    msg_box.setWindowTitle(title)
-    msg_box.setText(message)
-    msg_box.exec()
 
 
 class Extractor:
@@ -96,9 +36,10 @@ class Extractor:
             Generates a temporary animated image file for preview purposes.
     """
 
-    def __init__(self, progress_callback, current_version, settings_manager, app_config=None):
+    def __init__(self, progress_callback, current_version, settings_manager, app_config=None, statistics_callback=None):
         self.settings_manager = settings_manager
         self.progress_callback = progress_callback
+        self.statistics_callback = statistics_callback
         self.current_version = current_version
         self.app_config = app_config
         self.fnf_idle_loop = False  # Changed from tk.BooleanVar to simple boolean
@@ -120,9 +61,12 @@ class Extractor:
 
         total_files = Utilities.count_spritesheets(spritesheet_list)
         
-        # Call progress callback if provided
-        if progress_callback:
-            progress_callback(0, total_files)
+        # Use the instance progress callback, fallback to parameter if provided
+        callback_to_use = self.progress_callback if self.progress_callback else progress_callback
+        
+        # Call progress callback if available
+        if callback_to_use:
+            callback_to_use(0, total_files, "Initializing...")
 
         cpu_threads = os.cpu_count() // 4
         if self.app_config:
@@ -149,75 +93,77 @@ class Extractor:
             return
 
         current_file = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_threads) as executor:
-            futures = []
+        # Process files sequentially to avoid Qt threading issues
+        filenames = spritesheet_list
+        
+        for filename in filenames:
+            base_filename = filename.rsplit(".", 1)[0]
+            xml_path = os.path.join(input_dir, base_filename + ".xml")
+            txt_path = os.path.join(input_dir, base_filename + ".txt")
+            image_path = os.path.join(input_dir, filename)
 
-            filenames = spritesheet_list
-            for filename in filenames:
-                base_filename = filename.rsplit(".", 1)[0]
-                xml_path = os.path.join(input_dir, base_filename + ".xml")
-                txt_path = os.path.join(input_dir, base_filename + ".txt")
-                image_path = os.path.join(input_dir, filename)
+            sprite_output_dir = os.path.join(output_dir, base_filename)
+            os.makedirs(sprite_output_dir, exist_ok=True)
 
-                sprite_output_dir = os.path.join(output_dir, base_filename)
-                os.makedirs(sprite_output_dir, exist_ok=True)
+            settings = self.settings_manager.get_settings(filename)
 
-                settings = self.settings_manager.get_settings(filename)
-
+            try:
                 if os.path.isfile(xml_path) or os.path.isfile(txt_path):
-                    future = executor.submit(
-                        self.extract_sprites,
+                    result = self.extract_sprites(
                         os.path.join(input_dir, filename),
                         xml_path if os.path.isfile(xml_path) else txt_path,
                         sprite_output_dir,
                         settings,
                         parent_window,
                     )
-                    futures.append(future)
+                    total_frames_generated += result["frames_generated"]
+                    total_anims_generated += result["anims_generated"]
+                    total_sprites_failed += result["sprites_failed"]
 
                 # Fallback if no metadata file is found or if the spritesheet is not officially supported.
                 elif (os.path.isfile(image_path) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
-                    future = executor.submit(
-                        self.extract_sprites,
+                    result = self.extract_sprites(
                         image_path,
                         None,
                         sprite_output_dir,
                         settings,
                         parent_window,
                     )
-                    futures.append(future)
-
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    result = future.result()
                     total_frames_generated += result["frames_generated"]
                     total_anims_generated += result["anims_generated"]
                     total_sprites_failed += result["sprites_failed"]
 
-                except Exception as e:
-                    total_sprites_failed += 1
-                    show_error_message("Error", f"Something went wrong!!\n{str(e)}", parent_window)
-                    if not show_question_message("Continue?", "Do you want to try continue processing?", parent_window):
-                        sys.exit()
+            except Exception as e:
+                total_sprites_failed += 1
+                print(f"Error processing {filename}: {str(e)}")
+                
+                # Update statistics even when there's an error
+                if self.statistics_callback:
+                    self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
 
-                current_file += 1
-                if progress_callback:
-                    progress_callback(current_file, total_files)
-                gc.collect()
+            current_file += 1
+            if callback_to_use:
+                callback_to_use(current_file, total_files, filename)
+            
+            # Update statistics in real-time
+            if self.statistics_callback:
+                self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
+                
+            gc.collect()
 
         end_time = time.time()
         duration = end_time - start_time
         minutes, seconds = divmod(duration, 60)
 
-        show_info_message(
-            "Information",
-            f"Finished processing all files.\n\n"
-            f"Frames Generated: {total_frames_generated}\n"
-            f"Animations Generated: {total_anims_generated}\n"
-            f"Sprites Failed: {total_sprites_failed}\n\n"
-            f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds",
-            parent_window
-        )
+        print("Finished processing all files.")
+        print(f"Frames Generated: {total_frames_generated}")
+        print(f"Animations Generated: {total_anims_generated}")
+        print(f"Sprites Failed: {total_sprites_failed}")
+        print(f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds")
+        
+        # Final statistics update
+        if self.statistics_callback:
+            self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
 
     def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None):
         frames_generated = 0
@@ -365,7 +311,7 @@ class Extractor:
             )
 
             from parsers.unknown_parser import UnknownParser
-            from gui.background_handler_window_qt import BackgroundHandlerWindow
+            from gui.background_handler_window import BackgroundHandlerWindow
             from PIL import Image
 
             BackgroundHandlerWindow.reset_batch_state()

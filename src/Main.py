@@ -29,6 +29,7 @@ from gui.enhanced_list_widget import EnhancedListWidget
 from gui.settings_window import SettingsWindow
 from gui.help_window import HelpWindow
 from gui.contributors_window import ContributorsWindow
+from gui.processing_window import ProcessingWindow
 
 
 # Try to import Qt versions of windows, fall back to placeholders if not available
@@ -83,20 +84,38 @@ except ImportError:
 class ExtractorWorker(QThread):
     """Worker thread for extraction process."""
 
-    progress_updated = Signal(int)
-    extraction_completed = Signal()
+    progress_updated = Signal(int, int, str)  # current, total, filename
+    statistics_updated = Signal(int, int, int)  # frames_generated, animations_generated, sprites_failed
+    extraction_completed = Signal(str)  # completion message
     extraction_failed = Signal(str)
+    error_occurred = Signal(str, str)  # title, message
+    question_needed = Signal(str, str)  # title, message
 
-    def __init__(self, app_instance):
+    def __init__(self, app_instance, spritesheet_list):
         super().__init__()
         self.app_instance = app_instance
+        self.spritesheet_list = spritesheet_list
+        self.continue_on_error = True
 
     def run(self):
         try:
-            self.app_instance.run_extractor_core()
-            self.extraction_completed.emit()
+            print(f"[ExtractorWorker] Starting extraction of {len(self.spritesheet_list)} files")
+            completion_message = self.app_instance.run_extractor_core(self.spritesheet_list, self.emit_progress)
+            print(f"[ExtractorWorker] Extraction completed: {completion_message}")
+            self.extraction_completed.emit(completion_message)
         except Exception as e:
+            print(f"[ExtractorWorker] Extraction failed: {str(e)}")
             self.extraction_failed.emit(str(e))
+    
+    def emit_progress(self, current, total, filename=""):
+        """Thread-safe progress emission."""
+        print(f"[ExtractorWorker] Progress: {current}/{total} - {filename}")
+        self.progress_updated.emit(current, total, filename)
+        
+    def emit_statistics(self, frames_generated, animations_generated, sprites_failed):
+        """Thread-safe statistics emission."""
+        print(f"[ExtractorWorker] Stats: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
+        self.statistics_updated.emit(frames_generated, animations_generated, sprites_failed)
 
 
 class TextureAtlasExtractorApp(QMainWindow):
@@ -686,29 +705,38 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def update_global_settings(self):
         """Updates the global settings from the GUI."""
+        # Check if export group boxes are enabled
+        animation_format = "None"
+        if self.ui.animation_export_group.isChecked():
+            animation_format = self.ui.animation_format_combobox.currentText()
+        
+        frame_format = "None"
+        if self.ui.frame_export_group.isChecked():
+            frame_format = self.ui.frame_format_combobox.currentText()
+        
         # Get values from UI elements
         settings = {
-            "animation_format": self.ui.animation_format_combobox.currentText(),
-            "frame_rate": self.ui.frame_rate_entry.value(),
-            "loop_delay": self.ui.loop_delay_entry.value(),
-            "min_period": self.ui.min_period_entry.value(),
+            "animation_format": animation_format,
+            "fps": self.ui.frame_rate_entry.value(),
+            "delay": self.ui.loop_delay_entry.value(),
+            "period": self.ui.min_period_entry.value(),
             "scale": self.ui.scale_entry.value(),
             "threshold": self.ui.threshold_entry.value(),
-            "frame_format": self.ui.frame_format_combobox.currentText(),
+            "frame_format": frame_format,
             "frame_scale": self.ui.frame_scale_entry.value(),
             "frame_selection": self.ui.frame_selection_combobox.currentText(),
-            "cropping_method": self.ui.cropping_method_combobox.currentText(),
-            "filename_prefix": self.ui.filename_prefix_entry.text(),
-            "filename_suffix": self.ui.filename_suffix_entry.text(),
+            "crop_option": self.ui.cropping_method_combobox.currentText(),
+            "prefix": self.ui.filename_prefix_entry.text(),
             "filename_format": self.ui.filename_format_combobox.currentText(),
+            "replace_rules": getattr(self, 'replace_rules', []),
             # Advanced menu settings
-            "variable_delay": self.variable_delay,
+            "var_delay": self.variable_delay,
             "fnf_idle_loop": self.fnf_idle_loop,
         }
 
         # Update settings manager
         for key, value in settings.items():
-            setattr(self.settings_manager.global_settings, key, value)
+            self.settings_manager.global_settings[key] = value
 
     def start_process(self):
         """Prepares and starts the processing thread."""
@@ -724,45 +752,125 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Update global settings
         self.update_global_settings()
 
+        # Get spritesheet list
+        spritesheet_list = []
+        for i in range(self.ui.listbox_png.count()):
+            item = self.ui.listbox_png.item(i)
+            if item:
+                spritesheet_list.append(item.text())
+
+        # Create and show processing window
+        self.processing_window = ProcessingWindow(self)
+        self.processing_window.start_processing(len(spritesheet_list))
+        self.processing_window.show()
+        self.processing_window.raise_()  # Bring to front
+        self.processing_window.activateWindow()  # Make it active
+
         # Disable the process button
         self.ui.start_process_button.setEnabled(False)
         self.ui.start_process_button.setText("Processing...")
 
         # Start extraction in worker thread
-        self.worker = ExtractorWorker(self)
+        self.worker = ExtractorWorker(self, spritesheet_list)
         self.worker.extraction_completed.connect(self.on_extraction_completed)
         self.worker.extraction_failed.connect(self.on_extraction_failed)
+        self.worker.progress_updated.connect(self.on_progress_updated)
+        self.worker.statistics_updated.connect(self.on_statistics_updated)
+        self.worker.error_occurred.connect(self.on_worker_error)
+        self.worker.question_needed.connect(self.on_worker_question)
         self.worker.start()
 
-    def run_extractor_core(self):
+    def run_extractor_core(self, spritesheet_list, progress_signal):
         """Core extraction logic (runs in worker thread)."""
-        # This is a placeholder for the actual extraction logic
-        # The original tkinter version's run_extractor method should be adapted here
         try:
+            print(f"[run_extractor_core] Starting with {len(spritesheet_list)} files")
+            
+            # Create progress callback that emits signals to update UI
+            def progress_callback(current, total, filename=""):
+                print(f"[progress_callback] {current}/{total} - {filename}")
+                progress_signal(current, total, filename)
+
+            # Create statistics callback to track generation statistics
+            def statistics_callback(frames_generated, animations_generated, sprites_failed):
+                print(f"[statistics_callback] F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
+                self.worker.emit_statistics(frames_generated, animations_generated, sprites_failed)
+
             # Create extractor instance
-            extractor = Extractor(self.settings_manager, self.app_config, temp_dir=self.temp_dir)
+            extractor = Extractor(
+                progress_callback,
+                self.current_version,
+                self.settings_manager,
+                app_config=self.app_config,
+                statistics_callback=statistics_callback,
+            )
+
+            # Set the fnf_idle_loop setting
+            extractor.fnf_idle_loop = self.fnf_idle_loop
 
             # Run extraction
             input_dir = self.ui.input_dir_label.text()
             output_dir = self.ui.output_dir_label.text()
+            
+            print(f"[run_extractor_core] Input: {input_dir}, Output: {output_dir}")
 
-            # This will need to be fully implemented based on the original tkinter version
-            extractor.extract_all(input_dir, output_dir, self.data_dict)
+            extractor.process_directory(
+                input_dir,
+                output_dir,
+                parent_window=self,
+                spritesheet_list=spritesheet_list,
+            )
+
+            return "Extraction completed successfully!"
 
         except Exception as e:
+            print(f"[run_extractor_core] Error: {str(e)}")
             raise e
 
-    def on_extraction_completed(self):
+    def on_extraction_completed(self, completion_message):
         """Called when extraction completes successfully."""
+        print(f"[on_extraction_completed] {completion_message}")
         self.ui.start_process_button.setEnabled(True)
         self.ui.start_process_button.setText("Start process")
-        QMessageBox.information(self, "Success", "Extraction completed successfully!")
+        
+        if hasattr(self, 'processing_window'):
+            self.processing_window.processing_completed(True, completion_message)
 
     def on_extraction_failed(self, error_message):
         """Called when extraction fails."""
+        print(f"[on_extraction_failed] {error_message}")
         self.ui.start_process_button.setEnabled(True)
         self.ui.start_process_button.setText("Start process")
-        QMessageBox.critical(self, "Error", f"Extraction failed: {error_message}")
+        
+        if hasattr(self, 'processing_window'):
+            self.processing_window.processing_completed(False, error_message)
+
+    def on_progress_updated(self, current, total, filename):
+        """Updates the processing window with progress information."""
+        print(f"[on_progress_updated] {current}/{total} - {filename}")
+        if hasattr(self, 'processing_window') and self.processing_window:
+            self.processing_window.update_progress(current, total, filename)
+        else:
+            print("[on_progress_updated] No processing window available")
+
+    def on_statistics_updated(self, frames_generated, animations_generated, sprites_failed):
+        """Updates the processing window with statistics information."""
+        print(f"[on_statistics_updated] F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
+        if hasattr(self, 'processing_window') and self.processing_window:
+            self.processing_window.update_statistics(frames_generated, animations_generated, sprites_failed)
+        else:
+            print("[on_statistics_updated] No processing window available")
+
+    def on_worker_error(self, title, message):
+        """Handle error messages from worker thread."""
+        QMessageBox.critical(self, title, message)
+
+    def on_worker_question(self, title, message):
+        """Handle question dialogs from worker thread."""
+        reply = QMessageBox.question(self, title, message, 
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        # Send the response back to the worker
+        if hasattr(self, 'worker'):
+            self.worker.continue_on_error = (reply == QMessageBox.StandardButton.Yes)
 
     def closeEvent(self, event):
         """Handles the window close event."""
