@@ -27,6 +27,7 @@ from core.extractor import Extractor
 from gui.app_ui import Ui_MainWindow
 from gui.enhanced_list_widget import EnhancedListWidget
 from gui.settings_window import SettingsWindow
+from gui.help_window import HelpWindow
 
 # Try to import Qt versions of windows, fall back to placeholders if not available
 try:
@@ -190,13 +191,15 @@ class TextureAtlasExtractorApp(QMainWindow):
     def setup_connections(self):
         """Sets up signal-slot connections for UI elements."""
         # Menu actions
-        self.ui.actionSelect_directory.triggered.connect(self.select_directory)
-        self.ui.actionSelect_files.triggered.connect(self.select_files_manually)
-        self.ui.actionClear_export_list.triggered.connect(self.clear_filelist)
-        self.ui.actionPreferences.triggered.connect(self.create_app_config_window)
-        self.ui.actionFNF_Import_settings_from_character_data_file.triggered.connect(
+        self.ui.select_directory.triggered.connect(self.select_directory)
+        self.ui.select_files.triggered.connect(self.select_files_manually)
+        self.ui.clear_export_list.triggered.connect(self.clear_filelist)
+        self.ui.preferences.triggered.connect(self.create_app_config_window)
+        self.ui.fnf_import_settings.triggered.connect(
             self.fnf_import_settings
         )
+        self.ui.help_manual.triggered.connect(self.show_help_manual)
+        self.ui.help_fnf.triggered.connect(self.show_help_fnf)
 
         # Buttons
         self.ui.input_button.clicked.connect(self.select_directory)
@@ -501,6 +504,20 @@ class TextureAtlasExtractorApp(QMainWindow):
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(self, "Warning", f"Could not open preferences: {str(e)}")
+
+    def show_help_manual(self):
+        """Shows the main help window with application manual."""
+        try:
+            HelpWindow.create_main_help_window(self)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open help window: {str(e)}")
+
+    def show_help_fnf(self):
+        """Shows the FNF-specific help window."""
+        try:
+            HelpWindow.create_fnf_help_window(self)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open FNF help window: {str(e)}")
 
     def create_find_and_replace_window(self):
         """Creates the Find and Replace window."""
