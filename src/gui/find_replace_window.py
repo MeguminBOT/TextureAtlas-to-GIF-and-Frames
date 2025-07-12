@@ -99,6 +99,9 @@ class FindReplaceWindow(QDialog):
         """Add a new rule entry to the window."""
         if rule_data is None:
             rule_data = {"find": "", "replace": "", "regex": False}
+        elif not isinstance(rule_data, dict):
+            # Handle case where rule_data is not a dictionary (e.g., boolean, string, etc.)
+            rule_data = {"find": "", "replace": "", "regex": False}
 
         # Create rule frame
         rule_frame = QGroupBox()

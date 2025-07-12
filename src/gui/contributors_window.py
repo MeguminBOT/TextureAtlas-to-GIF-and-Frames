@@ -64,7 +64,6 @@ class ContributorsWindow(QDialog):
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.close)
         close_btn.setMaximumWidth(100)
-        close_btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()

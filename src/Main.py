@@ -16,6 +16,7 @@ from PySide6.QtCore import QThread, Signal, QTimer, Qt
 from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules - dependencies checker must be first
+# Import our own modules
 from utils.dependencies_checker import DependenciesChecker
 DependenciesChecker.check_and_configure_imagemagick()
 
@@ -28,6 +29,8 @@ from gui.app_ui import Ui_MainWindow
 from gui.enhanced_list_widget import EnhancedListWidget
 from gui.settings_window import SettingsWindow
 from gui.help_window import HelpWindow
+from gui.contributors_window import ContributorsWindow
+
 
 # Try to import Qt versions of windows, fall back to placeholders if not available
 try:
@@ -51,7 +54,7 @@ try:
 except ImportError:
     # Placeholder class for missing Qt component
     class FindReplaceWindow:
-        def __init__(self, parent, callback, rules):
+        def __init__(self, callback, rules, parent):
             self.parent = parent
 
         def exec(self):
@@ -200,6 +203,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         )
         self.ui.help_manual.triggered.connect(self.show_help_manual)
         self.ui.help_fnf.triggered.connect(self.show_help_fnf)
+        self.ui.show_contributors.triggered.connect(self.show_contributors_window)
 
         # Buttons
         self.ui.input_button.clicked.connect(self.select_directory)
@@ -519,10 +523,17 @@ class TextureAtlasExtractorApp(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Could not open FNF help window: {str(e)}")
 
+    def show_contributors_window(self):
+        """Shows the contributors window."""
+        try:
+            ContributorsWindow.show_contributors(self)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open contributors window: {str(e)}")
+
     def create_find_and_replace_window(self):
         """Creates the Find and Replace window."""
         try:
-            dialog = FindReplaceWindow(self, self.store_replace_rules, self.replace_rules)
+            dialog = FindReplaceWindow(self.store_replace_rules, self.replace_rules, self)
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(self, "Warning", f"Could not open find/replace window: {str(e)}")
