@@ -1,9 +1,11 @@
 import os
 import time
-import gc
 import xml.etree.ElementTree as ET
 from PIL import Image
 import tempfile
+from threading import Lock
+
+from PySide6.QtCore import QThread, Signal
 
 # Import our own modules
 from core.atlas_processor import AtlasProcessor
@@ -11,7 +13,6 @@ from core.sprite_processor import SpriteProcessor
 from core.frame_selector import FrameSelector
 from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
-from core.exception_handler import ExceptionHandler
 from utils.utilities import Utilities
 
 
@@ -46,7 +47,7 @@ class Extractor:
 
     def process_directory(self, input_dir, output_dir, progress_callback=None, parent_window=None, spritesheet_list=None):
         """
-        Process a directory of spritesheets and metadata files.
+        Process a directory of spritesheets and metadata files using multiple threads.
         
         Args:
             input_dir: Input directory path
@@ -55,9 +56,15 @@ class Extractor:
             parent_window: Parent window for dialogs (optional)
             spritesheet_list: List of specific files to process (optional)
         """
-        total_frames_generated = 0
-        total_anims_generated = 0
-        total_sprites_failed = 0
+        
+        # Initialize threading attributes
+        self.stats_lock = Lock()
+        self.total_frames_generated = 0
+        self.total_anims_generated = 0
+        self.total_sprites_failed = 0
+        self.processed_count = 0
+        self.active_workers = []
+        self.completed_files = []
 
         total_files = Utilities.count_spritesheets(spritesheet_list)
         
@@ -92,78 +99,136 @@ class Extractor:
             print("[Extractor] Background detection was cancelled - stopping processing")
             return
 
-        current_file = 0
-        # Process files sequentially to avoid Qt threading issues
+        # Use multi-threading with QThread
         filenames = spritesheet_list
+        self.remaining_files = filenames.copy()
         
-        for filename in filenames:
-            base_filename = filename.rsplit(".", 1)[0]
-            xml_path = os.path.join(input_dir, base_filename + ".xml")
-            txt_path = os.path.join(input_dir, base_filename + ".txt")
-            image_path = os.path.join(input_dir, filename)
-
-            sprite_output_dir = os.path.join(output_dir, base_filename)
-            os.makedirs(sprite_output_dir, exist_ok=True)
-
-            settings = self.settings_manager.get_settings(filename)
-
-            try:
-                if os.path.isfile(xml_path) or os.path.isfile(txt_path):
-                    result = self.extract_sprites(
-                        os.path.join(input_dir, filename),
-                        xml_path if os.path.isfile(xml_path) else txt_path,
-                        sprite_output_dir,
-                        settings,
-                        parent_window,
-                    )
-                    total_frames_generated += result["frames_generated"]
-                    total_anims_generated += result["anims_generated"]
-                    total_sprites_failed += result["sprites_failed"]
-
-                # Fallback if no metadata file is found or if the spritesheet is not officially supported.
-                elif (os.path.isfile(image_path) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
-                    result = self.extract_sprites(
-                        image_path,
-                        None,
-                        sprite_output_dir,
-                        settings,
-                        parent_window,
-                    )
-                    total_frames_generated += result["frames_generated"]
-                    total_anims_generated += result["anims_generated"]
-                    total_sprites_failed += result["sprites_failed"]
-
-            except Exception as e:
-                total_sprites_failed += 1
-                print(f"Error processing {filename}: {str(e)}")
-                
-                # Update statistics even when there's an error
-                if self.statistics_callback:
-                    self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
-
-            current_file += 1
-            if callback_to_use:
-                callback_to_use(current_file, total_files, filename)
+        # Determine optimal number of threads
+        max_threads = min(cpu_threads, len(filenames))
+        
+        print(f"[Extractor] Starting processing with {max_threads} threads for {len(filenames)} files")
+        
+        # Store start time for duration calculation
+        self.start_time = start_time
+        
+        # Start initial batch of workers
+        for _ in range(min(max_threads, len(filenames))):
+            self._start_next_worker(input_dir, output_dir, parent_window, callback_to_use, total_files)
+        
+        # Wait for all workers to complete
+        while self.active_workers:
+            for worker in self.active_workers[:]:  # Copy list to avoid modification during iteration
+                if worker.isFinished():
+                    worker.wait()
+                    self.active_workers.remove(worker)
             
-            # Update statistics in real-time
-            if self.statistics_callback:
-                self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
-                
-            gc.collect()
+            # Small delay to prevent busy waiting
+            time.sleep(0.01)
 
         end_time = time.time()
-        duration = end_time - start_time
+        duration = end_time - self.start_time
         minutes, seconds = divmod(duration, 60)
 
         print("Finished processing all files.")
-        print(f"Frames Generated: {total_frames_generated}")
-        print(f"Animations Generated: {total_anims_generated}")
-        print(f"Sprites Failed: {total_sprites_failed}")
+        print(f"Frames Generated: {self.total_frames_generated}")
+        print(f"Animations Generated: {self.total_anims_generated}")
+        print(f"Sprites Failed: {self.total_sprites_failed}")
         print(f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds")
         
         # Final statistics update
         if self.statistics_callback:
-            self.statistics_callback(total_frames_generated, total_anims_generated, total_sprites_failed)
+            self.statistics_callback(self.total_frames_generated, self.total_anims_generated, self.total_sprites_failed)
+    
+    def _start_next_worker(self, input_dir, output_dir, parent_window, callback_to_use, total_files):
+        """Start the next worker thread if files remain."""
+        if not self.remaining_files:
+            return
+            
+        filename = self.remaining_files.pop(0)
+        worker = FileProcessorWorker(filename, input_dir, output_dir, parent_window, self)
+        
+        # Connect signals
+        worker.file_completed.connect(self._on_file_completed)
+        worker.file_failed.connect(self._on_file_failed)
+        worker.finished.connect(lambda: self._worker_finished(worker, input_dir, output_dir, parent_window, callback_to_use, total_files))
+        
+        self.active_workers.append(worker)
+        worker.start()
+        
+        # Update progress with list of currently processing files
+        if callback_to_use:
+            processing_files = [w.filename for w in self.active_workers if hasattr(w, 'filename')]
+            current_files_text = ", ".join(processing_files) if processing_files else "Starting..."
+            callback_to_use(len(self.completed_files), total_files, current_files_text)
+    
+    def _on_file_completed(self, filename, result):
+        """Handle successful file completion."""
+        print(f"[_on_file_completed] {filename} completed with result: {result}")
+        with self.stats_lock:
+            if result:
+                frames_added = result.get('frames_generated', 0)
+                anims_added = result.get('anims_generated', 0)
+                failed_added = result.get('sprites_failed', 0)
+                
+                print(f"[_on_file_completed] Adding to totals: {frames_added} frames, {anims_added} anims, {failed_added} failed")
+                
+                self.total_frames_generated += frames_added
+                self.total_anims_generated += anims_added
+                self.total_sprites_failed += failed_added
+                
+                print(f"[_on_file_completed] New totals: {self.total_frames_generated} frames, {self.total_anims_generated} anims, {self.total_sprites_failed} failed")
+                
+                # Emit debug info to processing log if callback supports it
+                if hasattr(self, 'debug_callback') and self.debug_callback:
+                    self.debug_callback(f"✓ {filename}: {frames_added} frames, {anims_added} animations generated")
+            else:
+                self.total_sprites_failed += 1
+                print(f"[_on_file_completed] {filename} failed - no result returned")
+                
+                if hasattr(self, 'debug_callback') and self.debug_callback:
+                    self.debug_callback(f"✗ {filename}: Processing failed - no result returned")
+            
+            self.processed_count += 1
+            self.completed_files.append(filename)
+            
+            print(f"[_on_file_completed] Calling statistics_callback with: {self.total_frames_generated}, {self.total_anims_generated}, {self.total_sprites_failed}")
+            
+            # Update statistics in real-time
+            if self.statistics_callback:
+                self.statistics_callback(self.total_frames_generated, self.total_anims_generated, self.total_sprites_failed)
+            else:
+                print("[_on_file_completed] No statistics_callback available")
+    
+    def _on_file_failed(self, filename, error):
+        """Handle file processing failure."""
+        with self.stats_lock:
+            self.total_sprites_failed += 1
+            self.processed_count += 1
+            self.completed_files.append(filename)
+            print(f"Error processing {filename}: {error}")
+            
+            # Emit debug info to processing log
+            if hasattr(self, 'debug_callback') and self.debug_callback:
+                self.debug_callback(f"✗ {filename}: Error - {error}")
+            
+            # Update statistics even when there's an error
+            if self.statistics_callback:
+                self.statistics_callback(self.total_frames_generated, self.total_anims_generated, self.total_sprites_failed)
+    
+    def _worker_finished(self, worker, input_dir, output_dir, parent_window, callback_to_use, total_files):
+        """Handle worker thread completion and start next worker if needed."""
+        # Start next worker if files remain
+        self._start_next_worker(input_dir, output_dir, parent_window, callback_to_use, total_files)
+        
+        # Update progress with current processing files
+        if callback_to_use:
+            processing_files = [w.filename for w in self.active_workers if hasattr(w, 'filename')]
+            if processing_files:
+                current_files_text = ", ".join(processing_files)
+                callback_to_use(len(self.completed_files), total_files, current_files_text)
+            else:
+                # No more workers active
+                callback_to_use(len(self.completed_files), total_files, "Completing...")
 
     def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None):
         frames_generated = 0
@@ -181,18 +246,29 @@ class Extractor:
             )
 
             frames_generated, anims_generated = animation_processor.process_animations(is_unknown_spritesheet)
-            return {
+            result = {
                 "frames_generated": frames_generated,
                 "anims_generated": anims_generated,
                 "sprites_failed": sprites_failed,
             }
+            print(f"[extract_sprites] Returning result for {atlas_path}: {result}")
+            return result
 
         except ET.ParseError:
             sprites_failed += 1
+            print(f"[extract_sprites] ParseError for {atlas_path}: sprites_failed = {sprites_failed}")
             raise ET.ParseError(f"Badly formatted XML file:\n\n{metadata_path}")
 
         except Exception as e:
-            ExceptionHandler.handle_exception(e, metadata_path if metadata_path else atlas_path, sprites_failed)
+            sprites_failed += 1
+            print(f"[extract_sprites] Exception for {atlas_path}: {str(e)}, sprites_failed = {sprites_failed}")
+            print(f"[extract_sprites] Returning error result: frames_generated=0, anims_generated=0, sprites_failed={sprites_failed}")
+            # Return a result even on failure so statistics can be updated
+            return {
+                "frames_generated": 0,
+                "anims_generated": 0,
+                "sprites_failed": sprites_failed,
+            }
 
     def generate_temp_animation_for_preview(self, atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
         try:
@@ -383,3 +459,68 @@ class Extractor:
             print(f"Error in background color detection: {e}")
 
         return False
+
+
+class FileProcessorWorker(QThread):
+    """Worker thread for processing individual files."""
+    
+    file_completed = Signal(str, dict)  # filename, result
+    file_failed = Signal(str, str)      # filename, error
+    
+    def __init__(self, filename, input_dir, output_dir, parent_window, extractor_instance):
+        super().__init__()
+        self.filename = filename
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+        self.parent_window = parent_window
+        self.extractor = extractor_instance
+        
+    def run(self):
+        """Process a single file in this thread."""
+        try:
+            print(f"[FileProcessorWorker] Starting processing of {self.filename}")
+            base_filename = self.filename.rsplit(".", 1)[0]
+            xml_path = os.path.join(self.input_dir, base_filename + ".xml")
+            txt_path = os.path.join(self.input_dir, base_filename + ".txt")
+            image_path = os.path.join(self.input_dir, self.filename)
+            sprite_output_dir = os.path.join(self.output_dir, base_filename)
+            
+            os.makedirs(sprite_output_dir, exist_ok=True)
+            
+            # Get settings for this file
+            settings = self.extractor.settings_manager.get_settings(self.filename)
+            
+            # Process the file
+            if os.path.isfile(xml_path) or os.path.isfile(txt_path):
+                print(f"[FileProcessorWorker] Processing {self.filename} with metadata")
+                result = self.extractor.extract_sprites(
+                    os.path.join(self.input_dir, self.filename),
+                    xml_path if os.path.isfile(xml_path) else txt_path,
+                    sprite_output_dir,
+                    settings,
+                    None,  # No parent window for worker threads to avoid Qt threading issues
+                )
+                print(f"[FileProcessorWorker] {self.filename} completed with result: {result}")
+                self.file_completed.emit(self.filename, result)
+                
+            elif (os.path.isfile(image_path) and 
+                  self.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
+                print(f"[FileProcessorWorker] Processing {self.filename} as unknown spritesheet")
+                result = self.extractor.extract_sprites(
+                    image_path,
+                    None,
+                    sprite_output_dir,
+                    settings,
+                    None,  # No parent window for worker threads to avoid Qt threading issues
+                )
+                print(f"[FileProcessorWorker] {self.filename} completed with result: {result}")
+                self.file_completed.emit(self.filename, result)
+            else:
+                print(f"[FileProcessorWorker] No valid processing path found for {self.filename}")
+                self.file_failed.emit(self.filename, "No valid processing path found")
+            
+        except Exception as e:
+            print(f"[FileProcessorWorker] Error processing {self.filename}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            self.file_failed.emit(self.filename, str(e))

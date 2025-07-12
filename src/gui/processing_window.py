@@ -158,8 +158,16 @@ class ProcessingWindow(QDialog):
         # Update the display immediately
         self.update_display()
         
-        if filename:
-            self.log_text.append(f"Processing: {filename}")
+        # Update current files being processed
+        self.update_current_files(filename)
+        
+        if filename and not filename.startswith("Processing:") and not filename.endswith("..."):
+            # Only add to log if it's not a status message
+            if ", " in filename:
+                # Multiple files being processed
+                self.log_text.append(f"Processing: {filename}")
+            else:
+                self.log_text.append(f"Processing: {filename}")
             # Auto-scroll to bottom
             cursor = self.log_text.textCursor()
             cursor.movePosition(cursor.MoveOperation.End)
@@ -173,11 +181,7 @@ class ProcessingWindow(QDialog):
             
     def update_display(self):
         """Update the display labels and progress bar."""
-        if self.current_filename:
-            self.current_filename_label.setText(self.current_filename)
-        else:
-            self.current_filename_label.setText("Initializing...")
-            
+        # Current files are updated separately via update_current_files
         self.progress_label.setText(f"Progress: {self.current_file_index} / {self.total_files} files")
         
         if self.total_files > 0:
@@ -204,6 +208,8 @@ class ProcessingWindow(QDialog):
     
     def update_statistics(self, frames_generated=None, animations_generated=None, sprites_failed=None):
         """Update the statistics display."""
+        print(f"[ProcessingWindow] update_statistics called with: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
+        
         if frames_generated is not None:
             self.frames_generated = frames_generated
         if animations_generated is not None:
@@ -211,9 +217,15 @@ class ProcessingWindow(QDialog):
         if sprites_failed is not None:
             self.sprites_failed = sprites_failed
             
+        print(f"[ProcessingWindow] Updated internal stats to: F:{self.frames_generated}, A:{self.animations_generated}, S:{self.sprites_failed}")
+            
         self.frames_label.setText(f"Frames Generated: {self.frames_generated}")
         self.animations_label.setText(f"Animations Generated: {self.animations_generated}")
         self.failed_label.setText(f"Sprites Failed: {self.sprites_failed}")
+        
+        # Force UI update
+        self.repaint()
+        self.update()
 
     def processing_completed(self, success=True, message=""):
         """Called when processing is completed."""
@@ -254,3 +266,22 @@ class ProcessingWindow(QDialog):
             # Processing is still active, cancel it
             self.cancel_processing()
         event.accept()
+
+    def add_debug_message(self, message):
+        """Add a debug message to the processing log."""
+        self.log_text.append(message)
+        # Auto-scroll to bottom
+        cursor = self.log_text.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        self.log_text.setTextCursor(cursor)
+    
+    def update_current_files(self, current_files_text):
+        """Update the current files being processed."""
+        if current_files_text:
+            # If multiple files, show them in a readable format
+            if ", " in current_files_text:
+                self.current_filename_label.setText(f"Processing: {current_files_text}")
+            else:
+                self.current_filename_label.setText(current_files_text)
+        else:
+            self.current_filename_label.setText("Initializing...")

@@ -86,6 +86,7 @@ class ExtractorWorker(QThread):
 
     progress_updated = Signal(int, int, str)  # current, total, filename
     statistics_updated = Signal(int, int, int)  # frames_generated, animations_generated, sprites_failed
+    debug_message = Signal(str)  # debug message for processing log
     extraction_completed = Signal(str)  # completion message
     extraction_failed = Signal(str)
     error_occurred = Signal(str, str)  # title, message
@@ -776,6 +777,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.worker.extraction_failed.connect(self.on_extraction_failed)
         self.worker.progress_updated.connect(self.on_progress_updated)
         self.worker.statistics_updated.connect(self.on_statistics_updated)
+        self.worker.debug_message.connect(self.on_debug_message)
         self.worker.error_occurred.connect(self.on_worker_error)
         self.worker.question_needed.connect(self.on_worker_question)
         self.worker.start()
@@ -793,7 +795,18 @@ class TextureAtlasExtractorApp(QMainWindow):
             # Create statistics callback to track generation statistics
             def statistics_callback(frames_generated, animations_generated, sprites_failed):
                 print(f"[statistics_callback] F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
-                self.worker.emit_statistics(frames_generated, animations_generated, sprites_failed)
+                if hasattr(self, 'worker') and self.worker:
+                    print(f"[statistics_callback] Emitting to worker: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}")
+                    self.worker.emit_statistics(frames_generated, animations_generated, sprites_failed)
+                else:
+                    print("[statistics_callback] No worker available to emit statistics")
+
+            # Create debug callback to send processing log updates
+            def debug_callback(message):
+                print(f"[debug_callback] {message}")
+                # Emit debug message through a new signal
+                if hasattr(self.worker, 'debug_message'):
+                    self.worker.debug_message.emit(message)
 
             # Create extractor instance
             extractor = Extractor(
@@ -804,7 +817,8 @@ class TextureAtlasExtractorApp(QMainWindow):
                 statistics_callback=statistics_callback,
             )
 
-            # Set the fnf_idle_loop setting
+            # Set additional callbacks
+            extractor.debug_callback = debug_callback
             extractor.fnf_idle_loop = self.fnf_idle_loop
 
             # Run extraction
@@ -860,6 +874,14 @@ class TextureAtlasExtractorApp(QMainWindow):
         else:
             print("[on_statistics_updated] No processing window available")
 
+    def on_debug_message(self, message):
+        """Handle debug messages from worker thread."""
+        print(f"[on_debug_message] {message}")
+        if hasattr(self, 'processing_window') and self.processing_window:
+            self.processing_window.add_debug_message(message)
+        else:
+            print("[on_debug_message] No processing window available")
+    
     def on_worker_error(self, title, message):
         """Handle error messages from worker thread."""
         QMessageBox.critical(self, title, message)
