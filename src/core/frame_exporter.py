@@ -80,6 +80,7 @@ class FrameExporter:
                     frame[0],
                     settings.get("filename_format"),
                     settings.get("replace_rules"),
+                    settings.get("suffix"),
                 )
 
                 frame_filename = os.path.join(

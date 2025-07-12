@@ -43,7 +43,8 @@ class AppConfig:
             "memory_limit_mb": 0,
         },
         "extraction_defaults": {
-            "animation_format": "None",
+            "animation_format": "GIF",
+            "animation_export": False,
             "fps": 24,
             "delay": 250,
             "period": 0,
@@ -53,6 +54,7 @@ class AppConfig:
             "crop_option": "Animation based",
             "filename_format": "Standardized",
             "frame_format": "PNG",
+            "frame_export": False,
             "frame_scale": 1.0,
             "variable_delay": False,
             "fnf_idle_loop": False,
@@ -87,11 +89,14 @@ class AppConfig:
         "ui_state": {
             "last_input_directory": "",
             "last_output_directory": "",
+            "remember_input_directory": True,
+            "remember_output_directory": True,
         },
     }
 
     TYPE_MAP = {
         "animation_format": str,
+        "animation_export": bool,
         "fps": int,
         "delay": int,
         "period": int,
@@ -101,6 +106,7 @@ class AppConfig:
         "frame_selection": str,
         "filename_format": str,
         "frame_format": str,
+        "frame_export": bool,
         "frame_scale": float,
         "variable_delay": bool,
         "fnf_idle_loop": bool,
@@ -121,6 +127,8 @@ class AppConfig:
         "tiff_optimize": bool,
         "last_input_directory": str,
         "last_output_directory": str,
+        "remember_input_directory": bool,
+        "remember_output_directory": bool,
     }
 
     def __init__(self, config_path=None):
@@ -269,23 +277,61 @@ class AppConfig:
         return {}
 
     def get_last_input_directory(self):
-        """Get the last used input directory."""
-        return self.settings.get("ui_state", {}).get("last_input_directory", "")
+        """Get the last used input directory if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_input_directory", True):
+            return ui_state.get("last_input_directory", "")
+        return ""
 
     def set_last_input_directory(self, directory):
-        """Set the last used input directory and save."""
-        if "ui_state" not in self.settings:
-            self.settings["ui_state"] = {}
-        self.settings["ui_state"]["last_input_directory"] = directory
-        self.save()
+        """Set the last used input directory and save if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_input_directory", True):
+            if "ui_state" not in self.settings:
+                self.settings["ui_state"] = {}
+            self.settings["ui_state"]["last_input_directory"] = directory
+            self.save()
 
     def get_last_output_directory(self):
-        """Get the last used output directory."""
-        return self.settings.get("ui_state", {}).get("last_output_directory", "")
+        """Get the last used output directory if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_output_directory", True):
+            return ui_state.get("last_output_directory", "")
+        return ""
 
     def set_last_output_directory(self, directory):
-        """Set the last used output directory and save."""
+        """Set the last used output directory and save if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_output_directory", True):
+            if "ui_state" not in self.settings:
+                self.settings["ui_state"] = {}
+            self.settings["ui_state"]["last_output_directory"] = directory
+            self.save()
+
+    def get_remember_input_directory(self):
+        """Get whether to remember the last input directory."""
+        return self.settings.get("ui_state", {}).get("remember_input_directory", True)
+
+    def set_remember_input_directory(self, remember):
+        """Set whether to remember the last input directory."""
         if "ui_state" not in self.settings:
             self.settings["ui_state"] = {}
-        self.settings["ui_state"]["last_output_directory"] = directory
+        self.settings["ui_state"]["remember_input_directory"] = remember
+        # If disabled, clear the saved directory
+        if not remember:
+            self.settings["ui_state"]["last_input_directory"] = ""
+        self.save()
+
+    def get_remember_output_directory(self):
+        """Get whether to remember the last output directory."""
+        return self.settings.get("ui_state", {}).get("remember_output_directory", True)
+
+    def set_remember_output_directory(self, remember):
+        """Set whether to remember the last output directory."""
+        if "ui_state" not in self.settings:
+            self.settings["ui_state"] = {}
+        self.settings["ui_state"]["remember_output_directory"] = remember
+        # If disabled, clear the saved directory
+        if not remember:
+            self.settings["ui_state"]["last_output_directory"] = ""
         self.save()

@@ -104,11 +104,6 @@ class Extractor:
 
         start_time = time.time()
 
-        # Handle background color detection for unknown spritesheets before processing
-        if self._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, parent_window):
-            print("[Extractor] Background detection was cancelled - stopping processing")
-            return
-
         # Use multi-threading with QThread
         filenames = spritesheet_list
         self.remaining_files = filenames.copy()
@@ -472,8 +467,16 @@ class Extractor:
                     f"  - {result['filename']}: {len(result['colors'])} colors, transparency: {result['has_transparency']}"
                 )
 
-            if detection_results:
-                print("[Extractor] Showing background handler window...")
+            # Check if any images actually need background handling
+            needs_background_handling = False
+            for result in detection_results:
+                # An image needs background handling if it has no transparency AND has detected background colors
+                if not result['has_transparency'] and len(result['colors']) > 0:
+                    needs_background_handling = True
+                    break
+            
+            if detection_results and needs_background_handling:
+                print("[Extractor] Some images have backgrounds that need handling - showing background handler window...")
                 background_choices = BackgroundHandlerWindow.show_background_options(
                     parent_window, detection_results
                 )
@@ -494,6 +497,8 @@ class Extractor:
                     print(
                         f"Background handling preferences set for {len(background_choices)} files"
                     )
+            elif detection_results:
+                print("[Extractor] All images either have transparency or no detectable backgrounds - skipping background handler window")
             else:
                 print("[Extractor] No detection results to show")
 

@@ -69,6 +69,7 @@ class AnimationExporter:
                 animation_name,
                 settings.get("filename_format"),
                 settings.get("replace_rules"),
+                settings.get("suffix"),
             )
 
         if animation_format == "GIF":

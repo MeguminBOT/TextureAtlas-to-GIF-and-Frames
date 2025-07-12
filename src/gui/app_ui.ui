@@ -426,6 +426,9 @@
        <property name="suffix">
         <string> %</string>
        </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
        <property name="maximum">
         <number>100</number>
        </property>

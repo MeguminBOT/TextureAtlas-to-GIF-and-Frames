@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Qt-based main application for TextureAtlas Toolbox
-This replaces the tkinter-based Main.py with a PySide6 implementation.
-"""
-
 import sys
+import os
 import shutil
 import tempfile
 import webbrowser
@@ -30,6 +26,8 @@ from gui.settings_window import SettingsWindow
 from gui.help_window import HelpWindow
 from gui.contributors_window import ContributorsWindow
 from gui.processing_window import ProcessingWindow
+from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
+from gui.background_handler_window import BackgroundHandlerWindow
 
 
 # Try to import Qt versions of windows, fall back to placeholders if not available
@@ -218,8 +216,12 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.loop_delay_entry.setValue(defaults.get("loop_delay", 250))
         self.ui.min_period_entry.setValue(defaults.get("min_period", 0))
         self.ui.scale_entry.setValue(defaults.get("scale", 1.0))
-        self.ui.threshold_entry.setValue(defaults.get("threshold", 50))
+        self.ui.threshold_entry.setValue(defaults.get("threshold", 0.5) * 100.0)  # Convert from 0-1 to 0-100 for UI
         self.ui.frame_scale_entry.setValue(defaults.get("frame_scale", 1.0))
+
+        # Set default groupbox states
+        self.ui.animation_export_group.setChecked(defaults.get("animation_export", True))
+        self.ui.frame_export_group.setChecked(defaults.get("frame_export", True))
 
         # Set default selections
         if "animation_format" in defaults:
@@ -734,28 +736,30 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def update_global_settings(self):
         """Updates the global settings from the GUI."""
-        # Check if export group boxes are enabled
-        animation_format = "None"
-        if self.ui.animation_export_group.isChecked():
-            animation_format = self.ui.animation_format_combobox.currentText()
+        # Get format options directly from comboboxes (decoupled from groupbox checkboxes)
+        animation_format = self.ui.animation_format_combobox.currentText()
+        frame_format = self.ui.frame_format_combobox.currentText()
         
-        frame_format = "None"
-        if self.ui.frame_export_group.isChecked():
-            frame_format = self.ui.frame_format_combobox.currentText()
+        # Get export enable states from groupboxes
+        animation_export = self.ui.animation_export_group.isChecked()
+        frame_export = self.ui.frame_export_group.isChecked()
         
         # Get values from UI elements
         settings = {
             "animation_format": animation_format,
+            "frame_format": frame_format,
+            "animation_export": animation_export,
+            "frame_export": frame_export,
             "fps": self.ui.frame_rate_entry.value(),
             "delay": self.ui.loop_delay_entry.value(),
             "period": self.ui.min_period_entry.value(),
             "scale": self.ui.scale_entry.value(),
-            "threshold": self.ui.threshold_entry.value(),
-            "frame_format": frame_format,
+            "threshold": self.ui.threshold_entry.value() / 100.0,  # Convert % to 0-1 range
             "frame_scale": self.ui.frame_scale_entry.value(),
             "frame_selection": self.ui.frame_selection_combobox.currentText(),
             "crop_option": self.ui.cropping_method_combobox.currentText(),
             "prefix": self.ui.filename_prefix_entry.text(),
+            "suffix": self.ui.filename_suffix_entry.text(),
             "filename_format": self.ui.filename_format_combobox.currentText(),
             "replace_rules": getattr(self, 'replace_rules', []),
             # Advanced menu settings
@@ -787,6 +791,35 @@ class TextureAtlasExtractorApp(QMainWindow):
             item = self.ui.listbox_png.item(i)
             if item:
                 spritesheet_list.append(item.text())
+
+        # Check for unknown atlases and handle user choice
+        has_unknown, unknown_atlases = self.check_for_unknown_atlases(spritesheet_list)
+        if has_unknown:
+            action = self.show_unknown_atlas_warning(unknown_atlases)
+            if action == 'cancel':
+                return
+            elif action == 'skip':
+                self.filter_unknown_atlases(unknown_atlases)
+                # Update spritesheet list after filtering
+                spritesheet_list = []
+                for i in range(self.ui.listbox_png.count()):
+                    item = self.ui.listbox_png.item(i)
+                    if item:
+                        spritesheet_list.append(item.text())
+
+        # Handle background detection for unknown spritesheets in main thread
+        from core.extractor import Extractor
+        
+        # Create a temporary extractor instance with required arguments
+        temp_extractor = Extractor(
+            progress_callback=None,
+            current_version=self.current_version,
+            settings_manager=self.settings_manager
+        )
+        input_dir = self.ui.input_dir_label.text()
+        if temp_extractor._handle_unknown_spritesheets_background_detection(input_dir, spritesheet_list, self):
+            # User cancelled background detection
+            return
 
         # Create and show processing window
         self.processing_window = ProcessingWindow(self)
@@ -921,6 +954,45 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Send the response back to the worker
         if hasattr(self, 'worker'):
             self.worker.continue_on_error = (reply == QMessageBox.StandardButton.Yes)
+
+    def check_for_unknown_atlases(self, spritesheet_list):
+        """Check for atlases without metadata files (unknown atlases)."""
+        unknown_atlases = []
+        input_directory = self.ui.input_dir_label.text()
+
+        for filename in spritesheet_list:
+            base_filename = filename.rsplit(".", 1)[0]
+            xml_path = os.path.join(input_directory, base_filename + ".xml")
+            txt_path = os.path.join(input_directory, base_filename + ".txt")
+            image_path = os.path.join(input_directory, filename)
+
+            # Check if this is an unknown atlas (no metadata file but is an image)
+            if (
+                not os.path.isfile(xml_path)
+                and not os.path.isfile(txt_path)
+                and os.path.isfile(image_path)
+                and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
+            ):
+                unknown_atlases.append(filename)
+
+        return len(unknown_atlases) > 0, unknown_atlases
+
+    def show_unknown_atlas_warning(self, unknown_atlases):
+        """Show the unknown atlas warning dialog."""
+        input_directory = self.ui.input_dir_label.text()
+        return UnknownAtlasWarningWindow.show_warning(self, unknown_atlases, input_directory)
+
+    def filter_unknown_atlases(self, unknown_atlases):
+        """Remove unknown atlases from the spritesheet list."""
+        for unknown_atlas in unknown_atlases:
+            for i in range(self.ui.listbox_png.count()):
+                item = self.ui.listbox_png.item(i)
+                if item and item.text() == unknown_atlas:
+                    self.ui.listbox_png.takeItem(i)
+                    break
+
+        # Clear animation list since we removed spritesheets
+        self.ui.listbox_data.clear()
 
     def closeEvent(self, event):
         """Handles the window close event."""

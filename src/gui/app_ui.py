@@ -146,6 +146,7 @@ class Ui_MainWindow(object):
         self.threshold_entry = QSpinBox(self.animation_export_group)
         self.threshold_entry.setObjectName(u"threshold_entry")
         self.threshold_entry.setGeometry(QRect(10, 300, 171, 24))
+        self.threshold_entry.setMinimum(0)
         self.threshold_entry.setMaximum(100)
         self.threshold_entry.setValue(50)
         self.scale_entry = QDoubleSpinBox(self.animation_export_group)

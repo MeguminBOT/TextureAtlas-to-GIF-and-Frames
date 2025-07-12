@@ -366,6 +366,7 @@ class OverrideSettingsWindow(QDialog):
                     self.name.split("/", 1)[1],
                     self.settings.get("filename_format"),
                     self.settings.get("replace_rules"),
+                    self.settings.get("suffix"),
                 )
                 self.filename_edit.setPlaceholderText(filename)
 

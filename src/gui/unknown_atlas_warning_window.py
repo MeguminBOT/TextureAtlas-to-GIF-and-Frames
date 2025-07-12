@@ -40,7 +40,7 @@ class UnknownAtlasWarningWindow(QDialog):
 
         self.setWindowTitle("Unknown Atlas Warning")
         self.setModal(True)
-        self.resize(650, 750)
+        self.resize(600, 650)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         self.setup_ui()
@@ -48,8 +48,8 @@ class UnknownAtlasWarningWindow(QDialog):
     def setup_ui(self):
         """Set up the dialog UI."""
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
         # Title section with warning icon
         title_layout = QHBoxLayout()
@@ -123,21 +123,21 @@ class UnknownAtlasWarningWindow(QDialog):
         # Create scroll area for thumbnails
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(250)
+        scroll_area.setMaximumHeight(200)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # Create widget to hold thumbnails
         thumbnail_widget = QWidget()
         thumbnail_layout = QGridLayout(thumbnail_widget)
-        thumbnail_layout.setSpacing(10)
+        thumbnail_layout.setSpacing(5)
 
         # Add thumbnails in grid layout
-        max_cols = 3
+        max_cols = 4
         row = 0
         col = 0
 
-        for i, atlas_name in enumerate(self.unknown_atlases[:12]):
+        for i, atlas_name in enumerate(self.unknown_atlases[:16]):
             thumb_frame = self.create_thumbnail_frame(atlas_name)
             thumbnail_layout.addWidget(thumb_frame, row, col)
 
@@ -147,11 +147,11 @@ class UnknownAtlasWarningWindow(QDialog):
                 row += 1
 
         # Show "and more" if there are additional files
-        if len(self.unknown_atlases) > 12:
-            more_label = QLabel(f"... and {len(self.unknown_atlases) - 12} more")
-            more_label.setFont(QFont("Arial", 10, QFont.Weight.ExtraLight))
+        if len(self.unknown_atlases) > 16:
+            more_label = QLabel(f"... and {len(self.unknown_atlases) - 16} more")
+            more_label.setFont(QFont("Arial", 9, QFont.Weight.ExtraLight))
             more_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            more_label.setStyleSheet("QLabel { color: #666; padding: 20px; }")
+            more_label.setStyleSheet("QLabel { color: #666; padding: 15px; }")
             thumbnail_layout.addWidget(more_label, row, col)
 
         # Set column stretch
@@ -166,13 +166,13 @@ class UnknownAtlasWarningWindow(QDialog):
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box)
         frame.setLineWidth(1)
-        frame.setStyleSheet("QFrame { background-color: white; border: 1px solid #ccc; }")
-        frame.setFixedSize(160, 140)
+        frame.setStyleSheet("QFrame { background-color: #f8f8f8; border: 1px solid #ccc; }")
+        frame.setFixedSize(120, 110)
 
         layout = QVBoxLayout(frame)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(5)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(2)
+        layout.setContentsMargins(2, 2, 2, 2)
 
         # Create thumbnail
         thumbnail_label = QLabel()
@@ -185,19 +185,20 @@ class UnknownAtlasWarningWindow(QDialog):
         else:
             # Placeholder for failed thumbnails
             thumbnail_label.setText("📷")
-            thumbnail_label.setFont(QFont("Arial", 20))
+            thumbnail_label.setFont(QFont("Arial", 16))
             thumbnail_label.setStyleSheet(
-                "QLabel { border: 1px solid #ddd; background-color: #f5f5f5; }"
+                "QLabel { border: 1px solid #ddd; background-color: #e0e0e0; color: #666666; }"
             )
 
         layout.addWidget(thumbnail_label)
 
         # Filename label
         name_label = QLabel(atlas_name)
-        name_label.setFont(QFont("Arial", 8))
+        name_label.setFont(QFont("Arial", 7))
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setWordWrap(True)
-        name_label.setMaximumWidth(150)
+        name_label.setMaximumWidth(116)
+        name_label.setStyleSheet("QLabel { color: #333333; background-color: #e8e8e8; padding: 2px; border-radius: 2px; }")
         layout.addWidget(name_label)
 
         return frame
@@ -213,21 +214,49 @@ class UnknownAtlasWarningWindow(QDialog):
                 return None
 
             with Image.open(file_path) as img:
-                # Handle transparency
+                # Handle transparency - use checkerboard background instead of white
                 if img.mode in ("RGBA", "LA", "P"):
-                    background = Image.new("RGB", img.size, (255, 255, 255))
-                    if img.mode == "P":
-                        img = img.convert("RGBA")
-                    background.paste(
-                        img,
-                        mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None,
-                    )
-                    img = background
+                    # Try to use transparency utilities for checkerboard background
+                    try:
+                        from utils.transparency_utils import composite_with_checkerboard
+                        
+                        if img.mode == "P":
+                            img = img.convert("RGBA")
+                        elif img.mode == "LA":
+                            # Convert LA to RGBA
+                            rgba_img = Image.new("RGBA", img.size)
+                            rgba_img.paste(img, mask=img.split()[-1] if len(img.split()) > 1 else None)
+                            img = rgba_img
+                        
+                        # Create thumbnail with checkerboard background
+                        img.thumbnail((80, 80), Image.Resampling.LANCZOS)
+                        img = composite_with_checkerboard(img, square_size=4)
+                        
+                    except ImportError:
+                        # Fallback to white background if utilities not available
+                        background = Image.new("RGB", img.size, (255, 255, 255))
+                        if img.mode == "P":
+                            img = img.convert("RGBA")
+                        background.paste(
+                            img,
+                            mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None,
+                        )
+                        img = background
                 elif img.mode != "RGB":
                     img = img.convert("RGB")
 
                 # Create thumbnail
-                img.thumbnail((80, 80), Image.Resampling.LANCZOS)
+                if img.mode == "RGBA":
+                    # If still RGBA, ensure we have proper transparency handling
+                    try:
+                        from utils.transparency_utils import composite_with_checkerboard
+                        img.thumbnail((80, 80), Image.Resampling.LANCZOS)
+                        img = composite_with_checkerboard(img, square_size=4)
+                    except ImportError:
+                        img = img.convert("RGB")
+                        img.thumbnail((80, 80), Image.Resampling.LANCZOS)
+                else:
+                    img.thumbnail((80, 80), Image.Resampling.LANCZOS)
 
                 # Convert to Qt pixmap
                 img_path = os.path.join(os.environ.get("TEMP", "/tmp"), f"thumb_{filename}.png")

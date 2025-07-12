@@ -289,3 +289,68 @@ class UnknownParser(BaseParser):
         
         return (min(x_coords), min(y_coords), max(x_coords) + 1, max(y_coords) + 1)
 
+    @staticmethod
+    def _has_transparency(image: Image.Image) -> bool:
+        """Check if the image has transparent pixels."""
+        try:
+            if image.mode != 'RGBA':
+                return False
+            
+            # Convert to numpy array for faster processing
+            img_array = np.array(image)
+            
+            # Check if any pixel has alpha < 255 (transparent)
+            return np.any(img_array[:, :, 3] < 255)
+        except Exception as e:
+            print(f"Error checking transparency: {e}")
+            return False
+    
+    @staticmethod
+    def _detect_background_colors(image: Image.Image, max_colors: int = 3) -> List[Tuple[int, int, int]]:
+        """Detect multiple background colors from image edges."""
+        try:
+            # Convert to RGB for color detection (ignore alpha)
+            rgb_image = image.convert('RGB')
+            
+            width, height = image.size
+            edge_pixels = []
+            
+            # Sample from edges more comprehensively
+            # Top and bottom edges
+            for x in range(0, width, max(1, width // 50)):  # Sample every ~2% of width
+                edge_pixels.append(rgb_image.getpixel((x, 0)))  # Top edge
+                if height > 1:
+                    edge_pixels.append(rgb_image.getpixel((x, height - 1)))  # Bottom edge
+            
+            # Left and right edges
+            for y in range(0, height, max(1, height // 50)):  # Sample every ~2% of height
+                edge_pixels.append(rgb_image.getpixel((0, y)))  # Left edge
+                if width > 1:
+                    edge_pixels.append(rgb_image.getpixel((width - 1, y)))  # Right edge
+            
+            # Sample corners more heavily
+            corners = [
+                (0, 0), (width-1, 0), (0, height-1), (width-1, height-1)
+            ]
+            for corner in corners:
+                for _ in range(5):  # Weight corners more heavily
+                    edge_pixels.append(rgb_image.getpixel(corner))
+            
+            # Find most common colors
+            from collections import Counter
+            color_counts = Counter(edge_pixels)
+            
+            # Filter colors that appear frequently enough to be considered background
+            min_occurrences = max(1, len(edge_pixels) * 0.05)  # At least 5% of edge pixels
+            background_colors = []
+            
+            for color, count in color_counts.most_common(max_colors * 2):  # Get more candidates
+                if count >= min_occurrences and len(background_colors) < max_colors:
+                    background_colors.append(color)
+            
+            return background_colors
+            
+        except Exception as e:
+            print(f"Error detecting background colors: {e}")
+            return []
+

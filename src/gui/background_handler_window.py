@@ -32,7 +32,7 @@ class BackgroundHandlerWindow(QDialog):
 
         self.setWindowTitle("Background Color Options")
         self.setModal(True)
-        self.resize(850, 650)
+        self.resize(750, 550)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         # Filter out images that already have transparency
@@ -59,8 +59,8 @@ class BackgroundHandlerWindow(QDialog):
     def setup_ui(self):
         """Set up the dialog UI."""
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
         # Title section with icon
         title_layout = QHBoxLayout()
@@ -112,7 +112,7 @@ class BackgroundHandlerWindow(QDialog):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        content_layout.setSpacing(5)
+        content_layout.setSpacing(3)
 
         # Add spritesheet entries
         for i, result in enumerate(self.filtered_results):
@@ -139,6 +139,12 @@ class BackgroundHandlerWindow(QDialog):
         options_desc.setFont(QFont("Arial", 9))
         options_desc.setStyleSheet("QLabel { margin-left: 10px; }")
         options_layout.addWidget(options_desc)
+
+        # Add transparent background tip
+        transparency_tip = QLabel("💡 Tip: Checked files will have transparent backgrounds in PNG, WebP, and APNG outputs")
+        transparency_tip.setFont(QFont("Arial", 8))
+        transparency_tip.setStyleSheet("QLabel { margin-left: 10px; color: #0066cc; }")
+        options_layout.addWidget(transparency_tip)
 
         main_layout.addWidget(options_frame)
 
@@ -176,8 +182,8 @@ class BackgroundHandlerWindow(QDialog):
         )
 
         layout = QVBoxLayout(entry_frame)
-        layout.setSpacing(5)
-        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(3)
+        layout.setContentsMargins(8, 4, 8, 4)
 
         # Header with checkbox and filename
         header_layout = QHBoxLayout()
@@ -197,7 +203,7 @@ class BackgroundHandlerWindow(QDialog):
         # Colors section
         colors_label = QLabel("Detected background colors:")
         colors_label.setFont(QFont("Arial", 9))
-        colors_label.setStyleSheet("QLabel { margin-left: 20px; }")
+        colors_label.setStyleSheet("QLabel { margin-left: 15px; }")
         layout.addWidget(colors_label)
 
         # Show up to 3 colors
@@ -209,7 +215,7 @@ class BackgroundHandlerWindow(QDialog):
         if len(result["colors"]) > 3:
             more_label = QLabel(f"... and {len(result['colors']) - 3} more colors")
             more_label.setFont(QFont("Arial", 8))
-            more_label.setStyleSheet("QLabel { margin-left: 30px; color: gray; }")
+            more_label.setStyleSheet("QLabel { margin-left: 25px; color: gray; }")
             layout.addWidget(more_label)
 
         return entry_frame
@@ -217,11 +223,11 @@ class BackgroundHandlerWindow(QDialog):
     def create_color_sample(self, color, color_index):
         """Create a layout showing a color sample and its RGB values."""
         layout = QHBoxLayout()
-        layout.setContentsMargins(30, 1, 0, 1)
+        layout.setContentsMargins(25, 1, 0, 1)
 
         # Color sample widget
         color_sample = ColorSampleWidget(color)
-        color_sample.setFixedSize(20, 20)
+        color_sample.setFixedSize(16, 16)
         layout.addWidget(color_sample)
 
         # RGB text

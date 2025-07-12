@@ -105,6 +105,8 @@ class AppConfigWindow(QDialog):
         self.memory_limit_edit = None
         self.check_updates_cb = None
         self.auto_update_cb = None
+        self.remember_input_dir_cb = None
+        self.remember_output_dir_cb = None
         self.extraction_fields = {}
         self.compression_fields = {}
 
@@ -127,6 +129,10 @@ class AppConfigWindow(QDialog):
         # Compression Settings tab
         compression_tab = self.create_compression_tab()
         tab_widget.addTab(compression_tab, "Compression Defaults")
+
+        # UI Settings tab
+        ui_tab = self.create_ui_tab()
+        tab_widget.addTab(ui_tab, "UI Preferences")
 
         # Update Settings tab
         update_tab = self.create_update_tab()
@@ -226,12 +232,14 @@ class AppConfigWindow(QDialog):
 
         # Define extraction fields
         extraction_fields = {
+            "animation_export": ("Enable animation export:", "bool", True),
+            "animation_format": ("Animation format:", "combo", "GIF"),
             "fps": ("FPS:", "int", 24),
             "delay": ("End delay (ms):", "int", 250),
             "period": ("Period (ms):", "int", 0),
             "scale": ("Scale:", "float", 1.0),
             "threshold": ("Alpha threshold:", "float", 0.1),
-            "animation_format": ("Animation format:", "combo", "GIF"),
+            "frame_export": ("Enable frame export:", "bool", True),
             "frame_format": ("Frame format:", "combo", "PNG"),
             "frame_scale": ("Frame scale:", "float", 1.0),
         }
@@ -241,7 +249,12 @@ class AppConfigWindow(QDialog):
             label = QLabel(label_text)
             group_layout.addWidget(label, row, 0)
 
-            if field_type == "combo":
+            if field_type == "bool":
+                checkbox = QCheckBox()
+                checkbox.setChecked(default)
+                self.extraction_fields[key] = checkbox
+                group_layout.addWidget(checkbox, row, 1)
+            elif field_type == "combo":
                 if "format" in key:
                     if "animation" in key:
                         options = ["GIF", "WebP", "APNG"]
@@ -394,6 +407,8 @@ class AppConfigWindow(QDialog):
                     control.setValue(int(value))
                 elif isinstance(control, QLineEdit):
                     control.setText(str(value))
+                elif isinstance(control, QCheckBox):
+                    control.setChecked(bool(value))
 
         # Compression defaults
         compression_defaults = self.app_config.get("compression_defaults", {})
@@ -409,6 +424,13 @@ class AppConfigWindow(QDialog):
         update_settings = self.app_config.get("update_settings", {})
         self.check_updates_cb.setChecked(update_settings.get("check_on_startup", True))
         self.auto_update_cb.setChecked(update_settings.get("auto_download", False))
+
+        # UI settings
+        ui_state = self.app_config.get("ui_state", {})
+        if self.remember_input_dir_cb:
+            self.remember_input_dir_cb.setChecked(ui_state.get("remember_input_directory", True))
+        if self.remember_output_dir_cb:
+            self.remember_output_dir_cb.setChecked(ui_state.get("remember_output_directory", True))
 
         # Update auto-update enabled state
         self.on_check_updates_change(self.check_updates_cb.checkState())
@@ -497,6 +519,8 @@ class AppConfigWindow(QDialog):
                     extraction_defaults[key] = control.currentText()
                 elif isinstance(control, QSpinBox):
                     extraction_defaults[key] = control.value()
+                elif isinstance(control, QCheckBox):
+                    extraction_defaults[key] = control.isChecked()
                 elif isinstance(control, QLineEdit):
                     try:
                         if key in ["scale", "threshold", "frame_scale"]:
@@ -519,6 +543,13 @@ class AppConfigWindow(QDialog):
                 "check_on_startup": self.check_updates_cb.isChecked(),
                 "auto_download": self.auto_update_cb.isChecked(),
             }
+
+            # Save UI settings
+            ui_state = self.app_config.config.setdefault("ui_state", {})
+            if self.remember_input_dir_cb:
+                ui_state["remember_input_directory"] = self.remember_input_dir_cb.isChecked()
+            if self.remember_output_dir_cb:
+                ui_state["remember_output_directory"] = self.remember_output_dir_cb.isChecked()
 
             # Update app config
             self.app_config.config["resource_limits"] = resource_limits
@@ -565,3 +596,27 @@ class AppConfigWindow(QDialog):
             return str(val).lower() in ("true", "1", "yes", "on")
         else:
             return str(val)
+
+    def create_ui_tab(self):
+        """Create the UI preferences tab."""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        # Directory Memory Settings group
+        dir_group = QGroupBox("Directory Memory")
+        dir_layout = QVBoxLayout(dir_group)
+        
+        # Remember input directory checkbox
+        self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
+        self.remember_input_dir_cb.setToolTip("When enabled, the app will remember and restore the last used input directory on startup")
+        dir_layout.addWidget(self.remember_input_dir_cb)
+        
+        # Remember output directory checkbox
+        self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
+        self.remember_output_dir_cb.setToolTip("When enabled, the app will remember and restore the last used output directory on startup")
+        dir_layout.addWidget(self.remember_output_dir_cb)
+        
+        layout.addWidget(dir_group)
+        layout.addStretch()
+        
+        return widget

@@ -72,7 +72,9 @@ class AnimationProcessor:
             if settings.get("fnf_idle_loop") and "idle" in animation_name.lower():
                 settings["delay"] = 0
 
-            if settings.get("frame_format") != "None":
+            # Check if frame export is enabled and format is available
+            frame_export = settings.get("frame_export", False)
+            if frame_export and settings.get("frame_format") != "None":
                 frames_generated += self.frame_exporter.save_frames(
                     image_tuples,
                     kept_frame_indices,
@@ -83,8 +85,10 @@ class AnimationProcessor:
                     is_unknown_spritesheet,
                 )
 
+            # Check if animation export is enabled and format is available
+            animation_export = settings.get("animation_export", False)
             animation_format = settings.get("animation_format")
-            if not single_frame and animation_format != "None":
+            if not single_frame and animation_export and animation_format != "None":
                 anims_generated += self.animation_exporter.save_animations(
                     image_tuples, spritesheet_name, animation_name, settings
                 )

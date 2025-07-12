@@ -55,6 +55,7 @@ class AnimationPreviewWindow(QDialog):
         self.scale_factor = 1.0
         self.composited_cache = {}
         self.bg_value = 127
+        self.use_transparency = False
 
         # Get file format
         file_ext = os.path.splitext(animation_path)[1].lower()
@@ -291,6 +292,13 @@ class AnimationPreviewWindow(QDialog):
         bg_label = QLabel("Background:")
         bg_layout.addWidget(bg_label)
 
+        # Add transparency checkbox
+        from PySide6.QtWidgets import QCheckBox
+        self.transparency_checkbox = QCheckBox("Transparent")
+        self.transparency_checkbox.setChecked(False)
+        self.transparency_checkbox.stateChanged.connect(self.on_transparency_change)
+        bg_layout.addWidget(self.transparency_checkbox)
+
         self.bg_slider = QSlider(Qt.Orientation.Horizontal)
         self.bg_slider.setMinimum(0)
         self.bg_slider.setMaximum(255)
@@ -306,6 +314,14 @@ class AnimationPreviewWindow(QDialog):
         """Precompute all composited frames for better performance."""
         self.composited_cache.clear()
 
+        # Import transparency utilities
+        try:
+            from utils.transparency_utils import composite_with_checkerboard, composite_with_solid_background
+        except ImportError:
+            # Fallback to simple compositing if utilities not available
+            composite_with_checkerboard = None
+            composite_with_solid_background = None
+
         for idx, frame in enumerate(self.pil_frames):
             img = frame.convert("RGBA")
 
@@ -315,9 +331,18 @@ class AnimationPreviewWindow(QDialog):
                 img = img.resize(new_size, NEAREST)
 
             # Composite with background
-            bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
-            composited = Image.alpha_composite(bg_img, img)
-            self.composited_cache[idx] = composited.convert("RGB")
+            if self.use_transparency and composite_with_checkerboard:
+                # Use checkerboard background for transparency
+                composited = composite_with_checkerboard(img)
+            elif composite_with_solid_background:
+                # Use solid background
+                composited = composite_with_solid_background(img, (self.bg_value, self.bg_value, self.bg_value))
+            else:
+                # Fallback to original method
+                bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
+                composited = Image.alpha_composite(bg_img, img).convert("RGB")
+            
+            self.composited_cache[idx] = composited
 
     def get_composited_frame(self, idx):
         """Get a composited frame, creating it if not cached."""
@@ -331,9 +356,27 @@ class AnimationPreviewWindow(QDialog):
             new_size = (int(img.width * self.scale_factor), int(img.height * self.scale_factor))
             img = img.resize(new_size, NEAREST)
 
-        bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
-        composited = Image.alpha_composite(bg_img, img)
-        self.composited_cache[idx] = composited.convert("RGB")
+        # Import transparency utilities
+        try:
+            from utils.transparency_utils import composite_with_checkerboard, composite_with_solid_background
+        except ImportError:
+            # Fallback to simple compositing if utilities not available
+            composite_with_checkerboard = None
+            composite_with_solid_background = None
+
+        # Composite with background
+        if self.use_transparency and composite_with_checkerboard:
+            # Use checkerboard background for transparency
+            composited = composite_with_checkerboard(img)
+        elif composite_with_solid_background:
+            # Use solid background
+            composited = composite_with_solid_background(img, (self.bg_value, self.bg_value, self.bg_value))
+        else:
+            # Fallback to original method
+            bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
+            composited = Image.alpha_composite(bg_img, img).convert("RGB")
+        
+        self.composited_cache[idx] = composited
         return self.composited_cache[idx]
 
     def show_frame(self, idx):
@@ -407,6 +450,16 @@ class AnimationPreviewWindow(QDialog):
     def on_bg_change(self, value):
         """Handle background color slider change."""
         self.bg_value = value
+        # Only update if not using transparency
+        if not self.use_transparency:
+            self.precompute_composited_frames()
+            self.show_frame(self.current_frame)
+
+    def on_transparency_change(self, state):
+        """Handle transparency checkbox change."""
+        self.use_transparency = state == 2  # Qt.CheckState.Checked is 2
+        # Enable/disable slider based on transparency setting
+        self.bg_slider.setEnabled(not self.use_transparency)
         self.precompute_composited_frames()
         self.show_frame(self.current_frame)
 
