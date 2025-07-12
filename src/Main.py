@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Qt-based main application for TextureAtlas to GIF and Frames
+Qt-based main application for TextureAtlas Toolbox
 This replaces the tkinter-based Main.py with a PySide6 implementation.
 """
 
@@ -20,6 +20,7 @@ from PySide6.QtGui import QIcon, QAction
 from utils.dependencies_checker import DependenciesChecker
 DependenciesChecker.check_and_configure_imagemagick()
 
+DependenciesChecker.check_and_configure_imagemagick() # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
@@ -157,7 +158,7 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def setup_gui(self):
         """Sets up the GUI components of the application."""
-        self.setWindowTitle(f"TextureAtlas to GIF and Frames v{self.current_version}")
+        self.setWindowTitle(f"TextureAtlas Toolbox v{self.current_version}")
         self.resize(900, 770)
 
         # Set application icon if available
@@ -748,14 +749,16 @@ def main():
     """Main application entry point."""
     app = QApplication(sys.argv)
 
-    # Set application properties
-    app.setApplicationName("TextureAtlas to GIF and Frames")
-    app.setApplicationVersion("1.9.5.1")
-    app.setOrganizationName("AutisticLulu")
-
     try:
-        # Create and show main window
+        # Create the main window first to access version
         window = TextureAtlasExtractorApp()
+        
+        # Set application properties using the window's version
+        app.setApplicationName("TextureAtlas Toolbox")
+        app.setApplicationVersion(window.current_version)
+        app.setOrganizationName("AutisticLulu")
+
+        # Show the window
         window.show()
 
         # Run application
