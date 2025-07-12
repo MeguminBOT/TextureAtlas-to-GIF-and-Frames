@@ -7,6 +7,7 @@ This replaces the tkinter-based Main.py with a PySide6 implementation.
 """
 
 import sys
+import shutil
 import tempfile
 import webbrowser
 from pathlib import Path
@@ -15,11 +16,8 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBo
 from PySide6.QtCore import QThread, Signal, QTimer, Qt
 from PySide6.QtGui import QIcon, QAction
 
-# Import our own modules - dependencies checker must be first
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
-DependenciesChecker.check_and_configure_imagemagick()
-
 DependenciesChecker.check_and_configure_imagemagick() # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
@@ -104,8 +102,6 @@ class ExtractorWorker(QThread):
 class TextureAtlasExtractorApp(QMainWindow):
     """
     A Qt/PySide6 GUI application for extracting textures from a texture atlas and converting them to GIF, WebP, and APNG formats.
-
-    This class migrates the functionality from the tkinter-based TextureAtlasExtractorApp to Qt.
     """
 
     def __init__(self):
@@ -130,6 +126,14 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
+        # Initialize advanced menu variables
+        defaults = self.app_config.get_extraction_defaults() if hasattr(self.app_config, "get_extraction_defaults") else {}
+        self.variable_delay = defaults.get("variable_delay", False)
+        self.fnf_idle_loop = defaults.get("fnf_idle_loop", False)
+
+        # Create advanced menu actions
+        self.setup_advanced_menu()
+
         # Replace QListView with QListWidget for easier list management
         self.setup_list_widgets()
 
@@ -139,6 +143,22 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Check version after a short delay
         QTimer.singleShot(250, self.check_version)
+
+    def setup_advanced_menu(self):
+        """Set up the advanced menu with variable delay and FNF options."""
+        # Create variable delay action
+        self.variable_delay_action = QAction("Variable delay", self, checkable=True)
+        self.variable_delay_action.setChecked(self.variable_delay)
+        self.variable_delay_action.setStatusTip("Enable variable delay between frames for more accurate timing")
+        
+        # Create FNF idle loop action
+        self.fnf_idle_loop_action = QAction("FNF: Set loop delay on idle animations to 0", self, checkable=True)
+        self.fnf_idle_loop_action.setChecked(self.fnf_idle_loop)
+        self.fnf_idle_loop_action.setStatusTip("Automatically set loop delay to 0 for animations with 'idle' in their name")
+        
+        # Add actions to advanced menu
+        self.ui.advanced_menu.addAction(self.variable_delay_action)
+        self.ui.advanced_menu.addAction(self.fnf_idle_loop_action)
 
     def setup_list_widgets(self):
         """Replace the QListView widgets with QListWidget for easier management."""
@@ -205,6 +225,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.help_manual.triggered.connect(self.show_help_manual)
         self.ui.help_fnf.triggered.connect(self.show_help_fnf)
         self.ui.show_contributors.triggered.connect(self.show_contributors_window)
+
+        # Advanced menu actions
+        self.variable_delay_action.toggled.connect(self.on_variable_delay_toggled)
+        self.fnf_idle_loop_action.toggled.connect(self.on_fnf_idle_loop_toggled)
 
         # Buttons
         self.ui.input_button.clicked.connect(self.select_directory)
@@ -646,6 +670,20 @@ class TextureAtlasExtractorApp(QMainWindow):
         # This will need to be implemented when compression widgets are added
         pass
 
+    def on_variable_delay_toggled(self, checked):
+        """Handle the variable delay menu toggle."""
+        self.variable_delay = checked
+        # Update the app config if needed
+        if hasattr(self.app_config, 'settings'):
+            self.app_config.settings['variable_delay'] = checked
+
+    def on_fnf_idle_loop_toggled(self, checked):
+        """Handle the FNF idle loop menu toggle."""
+        self.fnf_idle_loop = checked
+        # Update the app config if needed
+        if hasattr(self.app_config, 'settings'):
+            self.app_config.settings['fnf_idle_loop'] = checked
+
     def update_global_settings(self):
         """Updates the global settings from the GUI."""
         # Get values from UI elements
@@ -663,6 +701,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             "filename_prefix": self.ui.filename_prefix_entry.text(),
             "filename_suffix": self.ui.filename_suffix_entry.text(),
             "filename_format": self.ui.filename_format_combobox.currentText(),
+            # Advanced menu settings
+            "variable_delay": self.variable_delay,
+            "fnf_idle_loop": self.fnf_idle_loop,
         }
 
         # Update settings manager
