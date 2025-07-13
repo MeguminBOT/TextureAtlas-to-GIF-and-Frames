@@ -14,6 +14,7 @@ from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
+
 DependenciesChecker.check_and_configure_imagemagick()  # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
 from utils.app_config import AppConfig
 from utils.update_checker import UpdateChecker
@@ -83,11 +84,17 @@ class TextureAtlasExtractorApp(QMainWindow):
     A Qt/PySide6 GUI application for extracting textures from a texture atlas and converting them to GIF, WebP, and APNG formats.
     """
 
+    def tr(self, text):
+        """Translate text using Qt's translation system."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate("TextureAtlasExtractorApp", text)
+
     def __init__(self):
         super().__init__()
 
         # Initialize core attributes
-        self.current_version = "1.9.5.1"
+        self.current_version = "2.0.0"
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
@@ -95,6 +102,13 @@ class TextureAtlasExtractorApp(QMainWindow):
             None  # For storing temp directory used in manual file selection
         )
         self.data_dict = {}
+
+        # Initialize translation manager and load language
+        from utils.translation_manager import get_translation_manager
+
+        self.translation_manager = get_translation_manager()
+        effective_language = self.app_config.get_effective_language()
+        self.translation_manager.load_translation(effective_language)
 
         self.fnf_utilities = FnfUtilities()
         self.fnf_char_json_directory = ""
@@ -130,24 +144,31 @@ class TextureAtlasExtractorApp(QMainWindow):
     def setup_advanced_menu(self):
         """Set up the advanced menu with variable delay and FNF options."""
         # Create variable delay action
-        self.variable_delay_action = QAction("Variable delay", self, checkable=True)
+        self.variable_delay_action = QAction(self.tr("Variable delay"), self, checkable=True)
         self.variable_delay_action.setChecked(self.variable_delay)
         self.variable_delay_action.setStatusTip(
-            "Enable variable delay between frames for more accurate timing"
+            self.tr("Enable variable delay between frames for more accurate timing")
         )
 
         # Create FNF idle loop action
         self.fnf_idle_loop_action = QAction(
-            "FNF: Set loop delay on idle animations to 0", self, checkable=True
+            self.tr("FNF: Set loop delay on idle animations to 0"), self, checkable=True
         )
         self.fnf_idle_loop_action.setChecked(self.fnf_idle_loop)
         self.fnf_idle_loop_action.setStatusTip(
-            "Automatically set loop delay to 0 for animations with 'idle' in their name"
+            self.tr("Automatically set loop delay to 0 for animations with 'idle' in their name")
         )
 
         # Add actions to advanced menu
         self.ui.advanced_menu.addAction(self.variable_delay_action)
         self.ui.advanced_menu.addAction(self.fnf_idle_loop_action)
+
+        # Add language selection to options menu
+        self.language_action = QAction(self.tr("Language..."), self, checkable=False)
+        self.language_action.setStatusTip(self.tr("Change application language"))
+        self.language_action.triggered.connect(self.show_language_selection)
+        self.ui.options_menu.addSeparator()
+        self.ui.options_menu.addAction(self.language_action)
 
     def setup_list_widgets(self):
         """Replace the QListView widgets with QListWidget for easier management."""
@@ -167,7 +188,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def setup_gui(self):
         """Sets up the GUI components of the application."""
-        self.setWindowTitle(f"TextureAtlas Toolbox v{self.current_version}")
+        self.setWindowTitle(
+            self.tr("TextureAtlas Toolbox v{version}").format(version=self.current_version)
+        )
         self.resize(900, 770)
 
         # Set application icon if available
@@ -260,6 +283,19 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Initial UI state update
         self.update_ui_state()
 
+    def show_language_selection(self):
+        """Show the language selection window."""
+        try:
+            from gui.language_selection_window import show_language_selection
+
+            show_language_selection(self)
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open language selection: {error}").format(error=str(e)),
+            )
+
     def select_directory(self):
         """Opens a directory selection dialog and populates the spritesheet list."""
         # Start from the last used directory or default to empty
@@ -333,7 +369,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             import tempfile
 
             self.manual_selection_temp_dir = tempfile.mkdtemp(prefix="texture_atlas_manual_")
-            self.ui.input_dir_label.setText(f"Manual selection ({len(files)} files)")
+            self.ui.input_dir_label.setText(
+                self.tr("Manual selection ({count} files)").format(count=len(files))
+            )
             self.populate_spritesheet_list_from_files(files, self.manual_selection_temp_dir)
 
     def populate_spritesheet_list(self, directory):
@@ -480,12 +518,16 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Get the selected spritesheet
         current_spritesheet_item = self.ui.listbox_png.currentItem()
         if not current_spritesheet_item:
-            QMessageBox.information(self, "Info", "Please select a spritesheet first.")
+            QMessageBox.information(
+                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+            )
             return
 
         spritesheet_name = current_spritesheet_item.text()
         animation_name = item.text()
-        full_anim_name = f"{spritesheet_name}/{animation_name}"
+        full_anim_name = "{spritesheet}/{animation}".format(
+            spritesheet=spritesheet_name, animation=animation_name
+        )
 
         def store_settings(settings):
             """Callback to store animation settings."""
@@ -497,7 +539,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             )
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open animation settings: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open animation settings: {error}").format(error=str(e)),
+            )
 
     def on_double_click_spritesheet(self, item):
         """Handles the event when a spritesheet is double-clicked in the listbox."""
@@ -516,7 +562,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             )
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open spritesheet settings: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
+            )
 
     def show_listbox_png_menu(self, position):
         """Shows the context menu for the PNG listbox."""
@@ -590,8 +640,8 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.listbox_data.clear()
 
         # Reset labels
-        self.ui.input_dir_label.setText("No input directory selected")
-        self.ui.output_dir_label.setText("No output directory selected")
+        self.ui.input_dir_label.setText(self.tr("No input directory selected"))
+        self.ui.output_dir_label.setText(self.tr("No output directory selected"))
 
         # Clear settings
         self.settings_manager.animation_settings.clear()
@@ -604,28 +654,44 @@ class TextureAtlasExtractorApp(QMainWindow):
             dialog = AppConfigWindow(self, self.app_config)
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Warning", f"Could not open preferences: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Could not open preferences: {error}").format(error=str(e)),
+            )
 
     def show_help_manual(self):
         """Shows the main help window with application manual."""
         try:
             HelpWindow.create_main_help_window(self)
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open help window: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open help window: {error}").format(error=str(e)),
+            )
 
     def show_help_fnf(self):
         """Shows the FNF-specific help window."""
         try:
             HelpWindow.create_fnf_help_window(self)
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open FNF help window: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open FNF help window: {error}").format(error=str(e)),
+            )
 
     def show_contributors_window(self):
         """Shows the contributors window."""
         try:
             ContributorsWindow.show_contributors(self)
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open contributors window: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open contributors window: {error}").format(error=str(e)),
+            )
 
     def show_compression_settings(self):
         """Shows the compression settings window for the current frame format."""
@@ -640,7 +706,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(
-                self, "Error", f"Could not open compression settings window: {str(e)}"
+                self,
+                self.tr("Error"),
+                self.tr("Could not open compression settings window: {error}").format(error=str(e)),
             )
 
     def create_find_and_replace_window(self):
@@ -649,7 +717,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             dialog = FindReplaceWindow(self.store_replace_rules, self.replace_rules, self)
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Warning", f"Could not open find/replace window: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Could not open find/replace window: {error}").format(error=str(e)),
+            )
 
     def create_settings_window(self):
         """Creates the settings overview window."""
@@ -657,7 +729,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             dialog = SettingsWindow(self, self.settings_manager)
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Warning", f"Could not open settings window: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Could not open settings window: {error}").format(error=str(e)),
+            )
 
     def store_replace_rules(self, rules):
         """Stores the replace rules from the Find and Replace window."""
@@ -682,7 +758,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             )
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open spritesheet settings: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
+            )
 
     def override_animation_settings(self):
         """Opens window to override settings for selected animation."""
@@ -699,7 +779,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         spritesheet_name = current_spritesheet_item.text()
         animation_name = current_item.text()
-        full_anim_name = f"{spritesheet_name}/{animation_name}"
+        full_anim_name = "{spritesheet}/{animation}".format(
+            spritesheet=spritesheet_name, animation=animation_name
+        )
 
         def store_settings(settings):
             """Callback to store animation settings."""
@@ -711,7 +793,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             )
             dialog.exec()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not open animation settings: {str(e)}")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Could not open animation settings: {error}").format(error=str(e)),
+            )
 
     def fnf_import_settings(self):
         """Imports settings from FNF character data file."""
@@ -735,9 +821,15 @@ class TextureAtlasExtractorApp(QMainWindow):
 
                 # Use the existing FNF utilities
                 self.fnf_utilities.import_character_settings(file_path)
-                QMessageBox.information(self, "Success", "FNF settings imported successfully!")
+                QMessageBox.information(
+                    self, self.tr("Success"), self.tr("FNF settings imported successfully!")
+                )
             except Exception as e:
-                QMessageBox.warning(self, "Error", f"Failed to import FNF settings: {str(e)}")
+                QMessageBox.warning(
+                    self,
+                    self.tr("Error"),
+                    self.tr("Failed to import FNF settings: {error}").format(error=str(e)),
+                )
 
     def check_version(self, force=False):
         """Checks for updates to the application."""
@@ -757,7 +849,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         except Exception as e:
             if force:
                 QMessageBox.warning(
-                    self, "Update Check Failed", f"Could not check for updates: {str(e)}"
+                    self,
+                    self.tr("Update Check Failed"),
+                    self.tr("Could not check for updates: {error}").format(error=str(e)),
                 )
 
     def update_ui_state(self, *args):
@@ -845,11 +939,15 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Prepares and starts the processing thread."""
         # Validate inputs
         if self.ui.input_dir_label.text() == "No input directory selected":
-            QMessageBox.warning(self, "Error", "Please select an input directory first.")
+            QMessageBox.warning(
+                self, self.tr("Error"), self.tr("Please select an input directory first.")
+            )
             return
 
         if self.ui.output_dir_label.text() == "No output directory selected":
-            QMessageBox.warning(self, "Error", "Please select an output directory first.")
+            QMessageBox.warning(
+                self, self.tr("Error"), self.tr("Please select an output directory first.")
+            )
             return
 
         # Update global settings
@@ -902,7 +1000,7 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Disable the process button
         self.ui.start_process_button.setEnabled(False)
-        self.ui.start_process_button.setText("Processing...")
+        self.ui.start_process_button.setText(self.tr("Processing..."))
 
         # Start extraction in worker thread
         self.worker = ExtractorWorker(self, spritesheet_list)
@@ -983,7 +1081,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Called when extraction completes successfully."""
         print(f"[on_extraction_completed] {completion_message}")
         self.ui.start_process_button.setEnabled(True)
-        self.ui.start_process_button.setText("Start process")
+        self.ui.start_process_button.setText(self.tr("Start process"))
 
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(True, completion_message)
@@ -992,7 +1090,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Called when extraction fails."""
         print(f"[on_extraction_failed] {error_message}")
         self.ui.start_process_button.setEnabled(True)
-        self.ui.start_process_button.setText("Start process")
+        self.ui.start_process_button.setText(self.tr("Start process"))
 
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(False, error_message)
@@ -1098,6 +1196,49 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         event.accept()
 
+    def change_language(self, language_code):
+        """Change the application language and refresh the UI."""
+        try:
+            # Update the config
+            self.app_config.set_language(language_code)
+
+            # Load the new translation
+            if hasattr(self, "translation_manager"):
+                success = self.translation_manager.load_translation(language_code)
+                if success:
+                    # Refresh the UI with new translations
+                    self.translation_manager.refresh_ui(self)
+
+                    # Show success message (in the new language)
+                    from PySide6.QtCore import QCoreApplication
+
+                    success_msg = QCoreApplication.translate(
+                        "TextureAtlasExtractorApp", "Language changed successfully!"
+                    )
+                    QMessageBox.information(self, "Success", success_msg)
+                else:
+                    # Show error message
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Error"),
+                        self.tr("Could not load language '{language}'").format(
+                            language=language_code
+                        ),
+                    )
+
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("Failed to change language: {error}").format(error=str(e)),
+            )
+
+    def get_available_languages(self):
+        """Get list of available languages for the language selector."""
+        if hasattr(self, "translation_manager"):
+            return self.translation_manager.get_available_languages()
+        return {"en": "English"}
+
 
 def main():
     """Main application entry point."""
@@ -1119,7 +1260,15 @@ def main():
         sys.exit(app.exec())
 
     except Exception as e:
-        QMessageBox.critical(None, "Fatal Error", f"Application failed to start: {str(e)}")
+        from PySide6.QtCore import QCoreApplication
+
+        QMessageBox.critical(
+            None,
+            QCoreApplication.translate("main", "Fatal Error"),
+            QCoreApplication.translate("main", "Application failed to start: {error}").format(
+                error=str(e)
+            ),
+        )
         sys.exit(1)
 
 

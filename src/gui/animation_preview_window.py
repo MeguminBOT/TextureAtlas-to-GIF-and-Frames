@@ -75,6 +75,12 @@ class AnimationPreviewWindow(QDialog):
         self.precompute_composited_frames()
         self.show_frame(0)
 
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
+
     def load_animation(self):
         """Load the animation file and extract frames."""
         if not PIL_AVAILABLE:
@@ -262,19 +268,19 @@ class AnimationPreviewWindow(QDialog):
         """Set up playback control buttons."""
         button_layout = QHBoxLayout()
 
-        prev_btn = QPushButton("Prev")
+        prev_btn = QPushButton(self.tr("Prev")
         prev_btn.clicked.connect(self.prev_frame)
         button_layout.addWidget(prev_btn)
 
-        self.play_btn = QPushButton("Play")
+        self.play_btn = QPushButton(self.tr("Play")
         self.play_btn.clicked.connect(self.toggle_play)
         button_layout.addWidget(self.play_btn)
 
-        stop_btn = QPushButton("Stop")
+        stop_btn = QPushButton(self.tr("Stop")
         stop_btn.clicked.connect(self.stop_animation)
         button_layout.addWidget(stop_btn)
 
-        next_btn = QPushButton("Next")
+        next_btn = QPushButton(self.tr("Next")
         next_btn.clicked.connect(self.next_frame)
         button_layout.addWidget(next_btn)
 
@@ -289,7 +295,7 @@ class AnimationPreviewWindow(QDialog):
         """Set up the background color slider."""
         bg_layout = QHBoxLayout()
 
-        bg_label = QLabel("Background:")
+        bg_label = QLabel(self.tr("Background:")
         bg_layout.addWidget(bg_label)
 
         # Add transparency checkbox
@@ -483,7 +489,7 @@ class AnimationPreviewWindow(QDialog):
     def play_animation(self):
         """Start animation playback."""
         self.playing = True
-        self.play_btn.setText("Pause")
+        self.play_btn.setText(self.tr("Pause")
 
         # Start timer with current frame's duration
         delay = max(1, self.durations[self.current_frame])
@@ -492,7 +498,7 @@ class AnimationPreviewWindow(QDialog):
     def stop_animation(self):
         """Stop animation playback."""
         self.playing = False
-        self.play_btn.setText("Play")
+        self.play_btn.setText(self.tr("Play")
         self.playback_timer.stop()
 
     def open_external(self):

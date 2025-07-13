@@ -32,7 +32,7 @@ class ErrorDialogWithLinks(QDialog):
 
     def __init__(self, message: str, links: List[Tuple[str, str]], parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Error")
+        self.setWindowTitle(self.tr("Error"))
         self.setFixedSize(400, 300)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
@@ -41,6 +41,12 @@ class ErrorDialogWithLinks(QDialog):
             self.move(parent.geometry().center() - self.rect().center())
 
         self.setup_ui(message, links)
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
 
     def setup_ui(self, message: str, links: List[Tuple[str, str]]):
         """Setup the UI components."""

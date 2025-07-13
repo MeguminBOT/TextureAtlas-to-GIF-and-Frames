@@ -30,7 +30,7 @@ class BackgroundHandlerWindow(QDialog):
         self.result = {}
         self.checkbox_vars = {}
 
-        self.setWindowTitle("Background Color Options")
+        self.setWindowTitle(self.tr("Background Color Options"))
         self.setModal(True)
         self.resize(750, 550)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
@@ -56,6 +56,12 @@ class BackgroundHandlerWindow(QDialog):
 
         self.setup_ui()
 
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
     def setup_ui(self):
         """Set up the dialog UI."""
         main_layout = QVBoxLayout(self)
@@ -69,7 +75,7 @@ class BackgroundHandlerWindow(QDialog):
         icon_label.setFont(QFont("Arial", 24))
         title_layout.addWidget(icon_label)
 
-        title_text = QLabel("Background Color Options")
+        title_text = QLabel(self.tr("Background Color Options"))
         title_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_layout.addWidget(title_text)
         title_layout.addStretch()
@@ -77,10 +83,10 @@ class BackgroundHandlerWindow(QDialog):
         main_layout.addLayout(title_layout)
 
         # Description
-        description = (
-            f"Found {len(self.filtered_results)} unknown spritesheet(s) with background colors.\n"
-            f"Check the box next to each file to remove its background color during processing:"
-        )
+        description = self.tr(
+            "Found {count} unknown spritesheet(s) with background colors.\n"
+            "Check the box next to each file to remove its background color during processing:"
+        ).format(count=len(self.filtered_results))
 
         desc_label = QLabel(description)
         desc_label.setFont(QFont("Arial", 10))
@@ -90,12 +96,12 @@ class BackgroundHandlerWindow(QDialog):
         # Global controls
         global_layout = QHBoxLayout()
 
-        select_all_btn = QPushButton("Select All")
+        select_all_btn = QPushButton(self.tr("Select All"))
         select_all_btn.clicked.connect(self.select_all)
         select_all_btn.setMaximumWidth(100)
         global_layout.addWidget(select_all_btn)
 
-        select_none_btn = QPushButton("Select None")
+        select_none_btn = QPushButton(self.tr("Select None"))
         select_none_btn.clicked.connect(self.select_none)
         select_none_btn.setMaximumWidth(100)
         global_layout.addWidget(select_none_btn)
@@ -126,7 +132,7 @@ class BackgroundHandlerWindow(QDialog):
         options_frame = QFrame()
         options_layout = QVBoxLayout(options_frame)
 
-        options_label = QLabel("Processing Options:")
+        options_label = QLabel(self.tr("Processing Options:"))
         options_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         options_layout.addWidget(options_label)
 
@@ -141,7 +147,11 @@ class BackgroundHandlerWindow(QDialog):
         options_layout.addWidget(options_desc)
 
         # Add transparent background tip
-        transparency_tip = QLabel("💡 Tip: Checked files will have transparent backgrounds in PNG, WebP, and APNG outputs")
+        transparency_tip = QLabel(
+            self.tr(
+                "💡 Tip: Checked files will have transparent backgrounds in PNG, WebP, and APNG outputs"
+            )
+        )
         transparency_tip.setFont(QFont("Arial", 8))
         transparency_tip.setStyleSheet("QLabel { margin-left: 10px; color: #0066cc; }")
         options_layout.addWidget(transparency_tip)
@@ -152,13 +162,13 @@ class BackgroundHandlerWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        apply_btn = QPushButton("Apply Settings")
+        apply_btn = QPushButton(self.tr("Apply Settings"))
         apply_btn.clicked.connect(self.on_apply)
         apply_btn.setMinimumWidth(120)
         apply_btn.setDefault(True)
         button_layout.addWidget(apply_btn)
 
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.on_cancel)
         cancel_btn.setMinimumWidth(120)
         button_layout.addWidget(cancel_btn)
@@ -193,7 +203,7 @@ class BackgroundHandlerWindow(QDialog):
         self.checkbox_vars[result["filename"]] = checkbox
         header_layout.addWidget(checkbox)
 
-        filename_label = QLabel(f"📄 {result['filename']}")
+        filename_label = QLabel(self.tr("📄 {filename}").format(filename=result["filename"]))
         filename_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         header_layout.addWidget(filename_label)
         header_layout.addStretch()
@@ -201,7 +211,7 @@ class BackgroundHandlerWindow(QDialog):
         layout.addLayout(header_layout)
 
         # Colors section
-        colors_label = QLabel("Detected background colors:")
+        colors_label = QLabel(self.tr("Detected background colors:"))
         colors_label.setFont(QFont("Arial", 9))
         colors_label.setStyleSheet("QLabel { margin-left: 15px; }")
         layout.addWidget(colors_label)
@@ -213,7 +223,9 @@ class BackgroundHandlerWindow(QDialog):
 
         # Show if there are more colors
         if len(result["colors"]) > 3:
-            more_label = QLabel(f"... and {len(result['colors']) - 3} more colors")
+            more_label = QLabel(
+                self.tr("... and {count} more colors").format(count=len(result["colors"]) - 3)
+            )
             more_label.setFont(QFont("Arial", 8))
             more_label.setStyleSheet("QLabel { margin-left: 25px; color: gray; }")
             layout.addWidget(more_label)
@@ -231,10 +243,16 @@ class BackgroundHandlerWindow(QDialog):
         layout.addWidget(color_sample)
 
         # RGB text
-        rgb_text = f"RGB({color[0]}, {color[1]}, {color[2]})"
-        priority_text = "Primary" if color_index == 0 else f"Secondary {color_index}"
+        rgb_text = self.tr("RGB({r}, {g}, {b})").format(r=color[0], g=color[1], b=color[2])
+        priority_text = (
+            self.tr("Primary")
+            if color_index == 0
+            else self.tr("Secondary {index}").format(index=color_index)
+        )
 
-        color_info = QLabel(f"{priority_text}: {rgb_text}")
+        color_info = QLabel(
+            self.tr("{priority}: {rgb}").format(priority=priority_text, rgb=rgb_text)
+        )
         color_info.setFont(QFont("Arial", 9))
         layout.addWidget(color_info)
         layout.addStretch()
@@ -310,6 +328,12 @@ class ColorSampleWidget(QWidget):
     def __init__(self, rgb_color):
         super().__init__()
         self.color = QColor(rgb_color[0], rgb_color[1], rgb_color[2])
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def paintEvent(self, event):
         """Paint the color sample."""

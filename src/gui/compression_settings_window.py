@@ -37,12 +37,18 @@ class CompressionSettingsWindow(QDialog):
         # Dictionary to hold all compression widgets
         self.compression_widgets = {}
 
-        self.setWindowTitle("Compression Settings")
+        self.setWindowTitle(self.tr("Compression Settings"))
         self.setModal(True)
         self.resize(400, 500)
 
         self.setup_ui()
         self.load_current_values()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Set up the user interface."""
@@ -59,7 +65,9 @@ class CompressionSettingsWindow(QDialog):
         content_layout = QVBoxLayout(content_widget)
 
         # Format label
-        format_label = QLabel(f"Compression Settings for {self.current_format}")
+        format_label = QLabel(
+            self.tr("Compression Settings for {format}").format(format=self.current_format)
+        )
         format_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
         content_layout.addWidget(format_label)
 
@@ -75,7 +83,9 @@ class CompressionSettingsWindow(QDialog):
         else:
             # No compression settings for this format
             no_settings_label = QLabel(
-                f"No compression settings available for {self.current_format} format."
+                self.tr("No compression settings available for {format} format.").format(
+                    format=self.current_format
+                )
             )
             no_settings_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             content_layout.addWidget(no_settings_label)
@@ -88,11 +98,11 @@ class CompressionSettingsWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        cancel_button = QPushButton("Cancel")
+        cancel_button = QPushButton(self.tr("Cancel"))
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(cancel_button)
 
-        ok_button = QPushButton("OK")
+        ok_button = QPushButton(self.tr("OK"))
         ok_button.clicked.connect(self.accept_changes)
         ok_button.setDefault(True)
         button_layout.addWidget(ok_button)
@@ -105,7 +115,7 @@ class CompressionSettingsWindow(QDialog):
         grid = QGridLayout(group)
 
         # Compress Level
-        grid.addWidget(QLabel("Compress Level (0-9):"), 0, 0)
+        grid.addWidget(QLabel(self.tr("Compress Level (0-9):")), 0, 0)
         compress_level = QSpinBox()
         compress_level.setRange(0, 9)
         compress_level.setValue(9)
@@ -153,7 +163,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(lossless, 0, 0, 1, 2)
 
         # Quality
-        grid.addWidget(QLabel("Quality (0-100):"), 1, 0)
+        grid.addWidget(QLabel(self.tr("Quality (0-100):")), 1, 0)
         quality = QSpinBox()
         quality.setRange(0, 100)
         quality.setValue(100)
@@ -167,7 +177,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(quality, 1, 1)
 
         # Method
-        grid.addWidget(QLabel("Method (0-6):"), 2, 0)
+        grid.addWidget(QLabel(self.tr("Method (0-6):")), 2, 0)
         method = QSpinBox()
         method.setRange(0, 6)
         method.setValue(6)
@@ -181,7 +191,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(method, 2, 1)
 
         # Alpha Quality
-        grid.addWidget(QLabel("Alpha Quality (0-100):"), 3, 0)
+        grid.addWidget(QLabel(self.tr("Alpha Quality (0-100):")), 3, 0)
         alpha_quality = QSpinBox()
         alpha_quality.setRange(0, 100)
         alpha_quality.setValue(100)
@@ -235,7 +245,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(lossless, 0, 0, 1, 2)
 
         # Quality
-        grid.addWidget(QLabel("Quality (0-100):"), 1, 0)
+        grid.addWidget(QLabel(self.tr("Quality (0-100):")), 1, 0)
         quality = QSpinBox()
         quality.setRange(0, 100)
         quality.setValue(100)
@@ -248,7 +258,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(quality, 1, 1)
 
         # Speed
-        grid.addWidget(QLabel("Speed (0-10):"), 2, 0)
+        grid.addWidget(QLabel(self.tr("Speed (0-10):")), 2, 0)
         speed = QSpinBox()
         speed.setRange(0, 10)
         speed.setValue(5)
@@ -279,7 +289,7 @@ class CompressionSettingsWindow(QDialog):
         grid = QGridLayout(group)
 
         # Compression Type
-        grid.addWidget(QLabel("Compression Type:"), 0, 0)
+        grid.addWidget(QLabel(self.tr("Compression Type:")), 0, 0)
         compression_type = QComboBox()
         compression_type.addItems(["none", "lzw", "zip", "jpeg"])
         compression_type.setCurrentText("lzw")
@@ -293,7 +303,7 @@ class CompressionSettingsWindow(QDialog):
         grid.addWidget(compression_type, 0, 1)
 
         # Quality
-        grid.addWidget(QLabel("Quality (0-100):"), 1, 0)
+        grid.addWidget(QLabel(self.tr("Quality (0-100):")), 1, 0)
         quality = QSpinBox()
         quality.setRange(0, 100)
         quality.setValue(100)

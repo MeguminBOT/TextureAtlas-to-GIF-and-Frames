@@ -38,6 +38,7 @@ class AppConfig:
     """
 
     DEFAULTS = {
+        "language": "auto",  # Language setting: "auto" for system default, or language code like "en", "es", etc.
         "resource_limits": {
             "cpu_cores": "auto",
             "memory_limit_mb": 0,
@@ -95,6 +96,7 @@ class AppConfig:
     }
 
     TYPE_MAP = {
+        "language": str,
         "animation_format": str,
         "animation_export": bool,
         "fps": int,
@@ -335,3 +337,26 @@ class AppConfig:
         if not remember:
             self.settings["ui_state"]["last_output_directory"] = ""
         self.save()
+
+    def get_language(self):
+        """Get the application language setting."""
+        return self.settings.get("language", "auto")
+
+    def set_language(self, language_code):
+        """Set the application language."""
+        self.settings["language"] = language_code
+        self.save()
+
+    def get_effective_language(self):
+        """
+        Get the effective language code.
+        If set to 'auto', returns the system locale, otherwise returns the set language.
+        """
+        language = self.get_language()
+        if language == "auto":
+            # Import here to avoid circular imports
+            from .translation_manager import get_translation_manager
+
+            manager = get_translation_manager()
+            return manager.get_system_locale()
+        return language

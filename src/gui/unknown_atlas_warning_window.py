@@ -38,12 +38,18 @@ class UnknownAtlasWarningWindow(QDialog):
         self.input_directory = input_directory
         self.result = "cancel"
 
-        self.setWindowTitle("Unknown Atlas Warning")
+        self.setWindowTitle(self.tr("Unknown Atlas Warning"))
         self.setModal(True)
         self.resize(600, 650)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         self.setup_ui()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Set up the dialog UI."""
@@ -58,7 +64,7 @@ class UnknownAtlasWarningWindow(QDialog):
         warning_label.setFont(QFont("Arial", 24))
         title_layout.addWidget(warning_label)
 
-        title_text = QLabel("Unknown Atlas Warning")
+        title_text = QLabel(self.tr("Unknown Atlas Warning"))
         title_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_layout.addWidget(title_text)
         title_layout.addStretch()
@@ -66,16 +72,16 @@ class UnknownAtlasWarningWindow(QDialog):
         main_layout.addLayout(title_layout)
 
         # Warning message
-        message_text = (
-            f"Warning: {len(self.unknown_atlases)} unknown atlas type(s) detected:\n\n"
-            f"This means either the metadata file is missing or is unsupported.\n\n"
-            f"The tool can attempt to extract the unknown atlas(es) but has these limitations:\n"
-            f"• Animation export is not supported\n"
-            f"• Cropping may be inconsistent\n"
-            f"• Sprite detection may miss or incorrectly identify sprites\n"
-            f"• Output may not be usable in rare cases\n\n"
-            f"What would you like to do?"
-        )
+        message_text = self.tr(
+            "Warning: {count} unknown atlas type(s) detected:\n\n"
+            "This means either the metadata file is missing or is unsupported.\n\n"
+            "The tool can attempt to extract the unknown atlas(es) but has these limitations:\n"
+            "• Animation export is not supported\n"
+            "• Cropping may be inconsistent\n"
+            "• Sprite detection may miss or incorrectly identify sprites\n"
+            "• Output may not be usable in rare cases\n\n"
+            "What would you like to do?"
+        ).format(count=len(self.unknown_atlases))
 
         message_label = QLabel(message_text)
         message_label.setWordWrap(True)
@@ -85,7 +91,7 @@ class UnknownAtlasWarningWindow(QDialog):
         main_layout.addWidget(message_label)
 
         # Affected files section
-        files_label = QLabel("Affected files:")
+        files_label = QLabel(self.tr("Affected files:"))
         files_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         main_layout.addWidget(files_label)
 
@@ -96,18 +102,18 @@ class UnknownAtlasWarningWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        proceed_btn = QPushButton("Proceed anyway")
+        proceed_btn = QPushButton(self.tr("Proceed anyway"))
         proceed_btn.clicked.connect(self.on_proceed)
         proceed_btn.setMinimumWidth(120)
         proceed_btn.setDefault(True)
         button_layout.addWidget(proceed_btn)
 
-        skip_btn = QPushButton("Skip unknown")
+        skip_btn = QPushButton(self.tr("Skip unknown"))
         skip_btn.clicked.connect(self.on_skip)
         skip_btn.setMinimumWidth(120)
         button_layout.addWidget(skip_btn)
 
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.on_cancel)
         cancel_btn.setMinimumWidth(120)
         button_layout.addWidget(cancel_btn)
@@ -148,7 +154,9 @@ class UnknownAtlasWarningWindow(QDialog):
 
         # Show "and more" if there are additional files
         if len(self.unknown_atlases) > 16:
-            more_label = QLabel(f"... and {len(self.unknown_atlases) - 16} more")
+            more_label = QLabel(
+                self.tr("... and {count} more").format(count=len(self.unknown_atlases) - 16)
+            )
             more_label.setFont(QFont("Arial", 9, QFont.Weight.ExtraLight))
             more_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             more_label.setStyleSheet("QLabel { color: #666; padding: 15px; }")
@@ -198,7 +206,9 @@ class UnknownAtlasWarningWindow(QDialog):
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setWordWrap(True)
         name_label.setMaximumWidth(116)
-        name_label.setStyleSheet("QLabel { color: #333333; background-color: #e8e8e8; padding: 2px; border-radius: 2px; }")
+        name_label.setStyleSheet(
+            "QLabel { color: #333333; background-color: #e8e8e8; padding: 2px; border-radius: 2px; }"
+        )
         layout.addWidget(name_label)
 
         return frame
@@ -219,19 +229,21 @@ class UnknownAtlasWarningWindow(QDialog):
                     # Try to use transparency utilities for checkerboard background
                     try:
                         from utils.transparency_utils import composite_with_checkerboard
-                        
+
                         if img.mode == "P":
                             img = img.convert("RGBA")
                         elif img.mode == "LA":
                             # Convert LA to RGBA
                             rgba_img = Image.new("RGBA", img.size)
-                            rgba_img.paste(img, mask=img.split()[-1] if len(img.split()) > 1 else None)
+                            rgba_img.paste(
+                                img, mask=img.split()[-1] if len(img.split()) > 1 else None
+                            )
                             img = rgba_img
-                        
+
                         # Create thumbnail with checkerboard background
                         img.thumbnail((80, 80), Image.Resampling.LANCZOS)
                         img = composite_with_checkerboard(img, square_size=4)
-                        
+
                     except ImportError:
                         # Fallback to white background if utilities not available
                         background = Image.new("RGB", img.size, (255, 255, 255))
@@ -250,6 +262,7 @@ class UnknownAtlasWarningWindow(QDialog):
                     # If still RGBA, ensure we have proper transparency handling
                     try:
                         from utils.transparency_utils import composite_with_checkerboard
+
                         img.thumbnail((80, 80), Image.Resampling.LANCZOS)
                         img = composite_with_checkerboard(img, square_size=4)
                     except ImportError:

@@ -26,9 +26,15 @@ class ContributorsWindow(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Contributors")
+        self.setWindowTitle(self.tr("Contributors"))
         self.setGeometry(200, 200, 600, 500)
         self.setup_ui()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Sets up the UI components."""
@@ -37,7 +43,7 @@ class ContributorsWindow(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Title
-        title_label = QLabel("TextureAtlas to GIF and Frames\nContributors")
+        title_label = QLabel(self.tr("TextureAtlas to GIF and Frames\nContributors"))
         title_font = QFont("Arial", 16, QFont.Weight.Bold)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -61,7 +67,7 @@ class ContributorsWindow(QDialog):
         layout.addWidget(scroll_area)
 
         # Close button
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.close)
         close_btn.setMaximumWidth(100)
 

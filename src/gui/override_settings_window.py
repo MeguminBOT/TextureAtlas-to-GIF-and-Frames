@@ -42,7 +42,9 @@ class OverrideSettingsWindow(QDialog):
 
         # Set window title based on settings type
         title_prefix = "Animation" if settings_type == "animation" else "Spritesheet"
-        self.setWindowTitle(f"{title_prefix} Settings Override - {name}")
+        self.setWindowTitle(
+            self.tr("{prefix} Settings Override - {name}").format(prefix=title_prefix, name=name)
+        )
         self.setModal(True)
         self.resize(500, 650)
 
@@ -64,6 +66,12 @@ class OverrideSettingsWindow(QDialog):
 
         self.setup_ui()
         self.load_current_values()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_current_settings(self):
         """Get current settings for this animation/spritesheet."""
@@ -142,12 +150,12 @@ class OverrideSettingsWindow(QDialog):
         button_layout.addWidget(ok_btn)
 
         if self.settings_type == "animation":
-            preview_btn = QPushButton("Preview animation")
+            preview_btn = QPushButton(self.tr("Preview animation"))
             preview_btn.clicked.connect(self.handle_preview_click)
             preview_btn.setMinimumWidth(130)
             button_layout.addWidget(preview_btn)
 
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setMinimumWidth(100)
         button_layout.addWidget(cancel_btn)
@@ -162,7 +170,7 @@ class OverrideSettingsWindow(QDialog):
         row = 0
 
         # Name
-        layout.addWidget(QLabel("Name:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Name:")), row, 0)
         name_label = QLabel(self.name)
         name_label.setWordWrap(True)
         name_label.setMaximumWidth(200)
@@ -171,7 +179,7 @@ class OverrideSettingsWindow(QDialog):
 
         # Spritesheet (for animations)
         if self.settings_type == "animation" and "/" in self.name:
-            layout.addWidget(QLabel("Spritesheet:"), row, 0)
+            layout.addWidget(QLabel(self.tr("Spritesheet:")), row, 0)
             spritesheet_label = QLabel(self.spritesheet_name)
             spritesheet_label.setWordWrap(True)
             spritesheet_label.setMaximumWidth(200)
@@ -180,7 +188,7 @@ class OverrideSettingsWindow(QDialog):
 
         # Filename (for animations)
         if self.settings_type == "animation":
-            layout.addWidget(QLabel("Filename:"), row, 0)
+            layout.addWidget(QLabel(self.tr("Filename:")), row, 0)
             self.filename_edit = QLineEdit()
             self.filename_edit.setPlaceholderText("Leave empty for auto-generated filename")
             layout.addWidget(self.filename_edit, row, 1)
@@ -196,7 +204,7 @@ class OverrideSettingsWindow(QDialog):
         row = 0
 
         # Animation format
-        layout.addWidget(QLabel("Animation format:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Animation format:")), row, 0)
         self.animation_format_combo = QComboBox()
         self.animation_format_combo.addItems(["None", "GIF", "WebP", "APNG"])
         self.animation_format_combo.currentTextChanged.connect(self.on_animation_format_change)
@@ -204,7 +212,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # FPS
-        layout.addWidget(QLabel("FPS:"), row, 0)
+        layout.addWidget(QLabel(self.tr("FPS:")), row, 0)
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(1, 144)
         self.fps_spinbox.setSuffix(" fps")
@@ -212,7 +220,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # Delay
-        layout.addWidget(QLabel("End delay (ms):"), row, 0)
+        layout.addWidget(QLabel(self.tr("End delay (ms):")), row, 0)
         self.delay_spinbox = QSpinBox()
         self.delay_spinbox.setRange(0, 10000)
         self.delay_spinbox.setSuffix(" ms")
@@ -220,7 +228,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # Period
-        layout.addWidget(QLabel("Period (ms):"), row, 0)
+        layout.addWidget(QLabel(self.tr("Period (ms):")), row, 0)
         self.period_spinbox = QSpinBox()
         self.period_spinbox.setRange(0, 10000)
         self.period_spinbox.setSuffix(" ms")
@@ -228,7 +236,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # Scale
-        layout.addWidget(QLabel("Scale:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Scale:")), row, 0)
         self.scale_spinbox = QDoubleSpinBox()
         self.scale_spinbox.setRange(-10.0, 10.0)
         self.scale_spinbox.setSingleStep(0.1)
@@ -237,7 +245,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # Threshold
-        layout.addWidget(QLabel("Alpha threshold:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Alpha threshold:")), row, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
         self.threshold_spinbox.setSingleStep(0.01)
@@ -246,7 +254,7 @@ class OverrideSettingsWindow(QDialog):
         row += 1
 
         # Indices
-        layout.addWidget(QLabel("Indices (comma-separated):"), row, 0)
+        layout.addWidget(QLabel(self.tr("Indices (comma-separated):")), row, 0)
         self.indices_edit = QLineEdit()
         self.indices_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
         layout.addWidget(self.indices_edit, row, 1)
@@ -267,21 +275,21 @@ class OverrideSettingsWindow(QDialog):
         row = 0
 
         # Frames to keep
-        layout.addWidget(QLabel("Frames to keep:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Frames to keep:")), row, 0)
         self.frames_edit = QLineEdit()
         self.frames_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
         layout.addWidget(self.frames_edit, row, 1)
         row += 1
 
         # Frame format
-        layout.addWidget(QLabel("Frame format:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame format:")), row, 0)
         self.frame_format_combo = QComboBox()
         self.frame_format_combo.addItems(["PNG", "JPG", "JPEG", "BMP", "TIFF"])
         layout.addWidget(self.frame_format_combo, row, 1)
         row += 1
 
         # Frame scale
-        layout.addWidget(QLabel("Frame scale:"), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame scale:")), row, 0)
         self.frame_scale_spinbox = QDoubleSpinBox()
         self.frame_scale_spinbox.setRange(-10.0, 10.0)
         self.frame_scale_spinbox.setSingleStep(0.1)
@@ -392,7 +400,11 @@ class OverrideSettingsWindow(QDialog):
             except Exception as e:
                 from PySide6.QtWidgets import QMessageBox
 
-                QMessageBox.warning(self, "Preview Error", f"Could not open preview: {str(e)}")
+                QMessageBox.warning(
+                    self,
+                    self.tr("Preview Error"),
+                    self.tr("Could not open preview: {error}").format(error=str(e)),
+                )
 
     def store_input(self):
         """Store the input values and call the callback."""

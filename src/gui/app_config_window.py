@@ -39,7 +39,7 @@ class AppConfigWindow(QDialog):
     def __init__(self, parent, app_config):
         super().__init__(parent)
         self.app_config = app_config
-        self.setWindowTitle("App Options")
+        self.setWindowTitle(self.tr("App Options"))
         self.setModal(True)
         self.resize(520, 750)
 
@@ -51,6 +51,12 @@ class AppConfigWindow(QDialog):
 
         self.setup_ui()
         self.load_current_settings()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
 
     def get_system_info(self):
         """Get system information for display."""
@@ -145,17 +151,17 @@ class AppConfigWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        reset_btn = QPushButton("Reset to defaults")
+        reset_btn = QPushButton(self.tr("Reset to defaults"))
         reset_btn.clicked.connect(self.reset_to_defaults)
         reset_btn.setMinimumWidth(130)
         button_layout.addWidget(reset_btn)
 
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setMinimumWidth(100)
         button_layout.addWidget(cancel_btn)
 
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(self.tr("Save"))
         save_btn.clicked.connect(self.save_config)
         save_btn.setMinimumWidth(100)
         save_btn.setDefault(True)
@@ -176,11 +182,11 @@ class AppConfigWindow(QDialog):
         sys_group = QGroupBox("Your Computer")
         sys_layout = QVBoxLayout(sys_group)
 
-        cpu_label = QLabel(f"CPU: {self.cpu_model} (Threads: {self.max_threads})")
+        cpu_label = QLabel(self.tr("CPU: {cpu} (Threads: {threads})").format(cpu=self.cpu_model, threads=self.max_threads))
         cpu_label.setFont(QFont("Arial", 9))
         sys_layout.addWidget(cpu_label)
 
-        ram_label = QLabel(f"RAM: {self.max_memory_mb:,} MB")
+        ram_label = QLabel(self.tr("RAM: {memory:,} MB").format(memory=self.max_memory_mb))
         ram_label.setFont(QFont("Arial", 9))
         sys_layout.addWidget(ram_label)
 
@@ -191,7 +197,7 @@ class AppConfigWindow(QDialog):
         resource_layout = QGridLayout(resource_group)
 
         # CPU threads
-        cpu_label = QLabel(f"CPU threads to use (max: {self.max_threads}):")
+        cpu_label = QLabel(self.tr("CPU threads to use (max: {max_threads}):").format(max_threads=self.max_threads))
         resource_layout.addWidget(cpu_label, 0, 0)
 
         self.cpu_threads_edit = QSpinBox()
@@ -199,7 +205,7 @@ class AppConfigWindow(QDialog):
         resource_layout.addWidget(self.cpu_threads_edit, 0, 1)
 
         # Memory limit
-        mem_label = QLabel(f"Memory limit (MB, max: {self.max_memory_mb}):")
+        mem_label = QLabel(self.tr("Memory limit (MB, max: {max_memory}):").format(max_memory=self.max_memory_mb))
         resource_layout.addWidget(mem_label, 1, 0)
 
         self.memory_limit_edit = QSpinBox()
@@ -207,7 +213,7 @@ class AppConfigWindow(QDialog):
         self.memory_limit_edit.setSuffix(" MB")
         resource_layout.addWidget(self.memory_limit_edit, 1, 1)
 
-        mem_note = QLabel("Note: Memory limit is for future use and not yet implemented.")
+        mem_note = QLabel(self.tr("Note: Memory limit is for future use and not yet implemented."))
         mem_note.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
         mem_note.setStyleSheet("QLabel { color: #666; }")
         resource_layout.addWidget(mem_note, 2, 0, 1, 2)
@@ -301,7 +307,7 @@ class AppConfigWindow(QDialog):
 
         row = 0
         # PNG Compress Level
-        png_layout.addWidget(QLabel("Compress Level (0-9):"), row, 0)
+        png_layout.addWidget(QLabel(self.tr("Compress Level (0-9):")), row, 0)
         png_compress_spinbox = QSpinBox()
         png_compress_spinbox.setRange(0, 9)
         png_compress_spinbox.setValue(9)
@@ -351,7 +357,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # WebP Quality
-        webp_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        webp_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         webp_quality_spinbox = QSpinBox()
         webp_quality_spinbox.setRange(0, 100)
         webp_quality_spinbox.setValue(90)
@@ -367,7 +373,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # WebP Method
-        webp_layout.addWidget(QLabel("Method (0-6):"), row, 0)
+        webp_layout.addWidget(QLabel(self.tr("Method (0-6):")), row, 0)
         webp_method_spinbox = QSpinBox()
         webp_method_spinbox.setRange(0, 6)
         webp_method_spinbox.setValue(3)
@@ -383,7 +389,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # WebP Alpha Quality
-        webp_layout.addWidget(QLabel("Alpha Quality (0-100):"), row, 0)
+        webp_layout.addWidget(QLabel(self.tr("Alpha Quality (0-100):")), row, 0)
         webp_alpha_quality_spinbox = QSpinBox()
         webp_alpha_quality_spinbox.setRange(0, 100)
         webp_alpha_quality_spinbox.setValue(90)
@@ -425,7 +431,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # AVIF Quality
-        avif_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        avif_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         avif_quality_spinbox = QSpinBox()
         avif_quality_spinbox.setRange(0, 100)
         avif_quality_spinbox.setValue(90)
@@ -441,7 +447,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # AVIF Speed
-        avif_layout.addWidget(QLabel("Speed (0-10):"), row, 0)
+        avif_layout.addWidget(QLabel(self.tr("Speed (0-10):")), row, 0)
         avif_speed_spinbox = QSpinBox()
         avif_speed_spinbox.setRange(0, 10)
         avif_speed_spinbox.setValue(5)
@@ -463,7 +469,7 @@ class AppConfigWindow(QDialog):
 
         row = 0
         # TIFF Compression Type
-        tiff_layout.addWidget(QLabel("Compression Type:"), row, 0)
+        tiff_layout.addWidget(QLabel(self.tr("Compression Type:")), row, 0)
         tiff_compression_combobox = QComboBox()
         tiff_compression_combobox.addItems(["none", "lzw", "zip", "jpeg"])
         tiff_compression_combobox.setCurrentText("lzw")
@@ -479,7 +485,7 @@ class AppConfigWindow(QDialog):
         row += 1
 
         # TIFF Quality
-        tiff_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        tiff_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         tiff_quality_spinbox = QSpinBox()
         tiff_quality_spinbox.setRange(0, 100)
         tiff_quality_spinbox.setValue(90)
@@ -533,9 +539,7 @@ class AppConfigWindow(QDialog):
         self.auto_update_cb = QCheckBox("Auto-download and install updates")
         group_layout.addWidget(self.auto_update_cb)
 
-        note_label = QLabel(
-            "Note: Auto-update will download and install updates automatically when available."
-        )
+        note_label = QLabel(self.tr("Note: Auto-update will download and install updates automatically when available."))
         note_label.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
         note_label.setStyleSheet("QLabel { color: #666; }")
         note_label.setWordWrap(True)
@@ -686,12 +690,12 @@ class AppConfigWindow(QDialog):
 
             cpu_threads = self.cpu_threads_edit.value()
             if cpu_threads > self.max_threads:
-                raise ValueError(f"CPU threads cannot exceed {self.max_threads}")
+                raise ValueError(self.tr("CPU threads cannot exceed {max_threads}").format(max_threads=self.max_threads))
             resource_limits["cpu_cores"] = cpu_threads
 
             memory_limit = self.memory_limit_edit.value()
             if memory_limit > self.max_memory_mb:
-                raise ValueError(f"Memory limit cannot exceed {self.max_memory_mb} MB")
+                raise ValueError(self.tr("Memory limit cannot exceed {max_memory} MB").format(max_memory=self.max_memory_mb))
             resource_limits["memory_limit_mb"] = memory_limit
 
             # Save extraction defaults
@@ -710,7 +714,7 @@ class AppConfigWindow(QDialog):
                         else:
                             extraction_defaults[key] = int(control.text())
                     except ValueError:
-                        raise ValueError(f"Invalid value for {key}: {control.text()}")
+                        raise ValueError(self.tr("Invalid value for {key}: {value}").format(key=key, value=control.text()))
 
             # Save compression defaults
             compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
@@ -757,9 +761,9 @@ class AppConfigWindow(QDialog):
             self.accept()
 
         except ValueError as e:
-            QMessageBox.critical(self, "Invalid Input", f"Error: {str(e)}")
+            QMessageBox.critical(self, self.tr("Invalid Input"), self.tr("Error: {error}").format(error=str(e)))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save configuration: {str(e)}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save configuration: {error}").format(error=str(e)))
 
     @staticmethod
     def parse_value(key, val, expected_type):
@@ -799,16 +803,12 @@ class AppConfigWindow(QDialog):
 
         # Remember input directory checkbox
         self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
-        self.remember_input_dir_cb.setToolTip(
-            "When enabled, the app will remember and restore the last used input directory on startup"
-        )
+        self.remember_input_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used input directory on startup"))
         dir_layout.addWidget(self.remember_input_dir_cb)
 
         # Remember output directory checkbox
         self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
-        self.remember_output_dir_cb.setToolTip(
-            "When enabled, the app will remember and restore the last used output directory on startup"
-        )
+        self.remember_output_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used output directory on startup"))
         dir_layout.addWidget(self.remember_output_dir_cb)
 
         layout.addWidget(dir_group)

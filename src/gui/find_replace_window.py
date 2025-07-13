@@ -26,13 +26,19 @@ class FindReplaceWindow(QDialog):
 
     def __init__(self, on_store_callback, replace_rules=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Find and Replace")
+        self.setWindowTitle(self.tr("Find and Replace"))
         self.setGeometry(200, 200, 500, 400)
         self.on_store_callback = on_store_callback
         self.replace_rules = replace_rules or []
         self.rule_widgets = []
         self.setup_ui()
         self.load_existing_rules()
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Sets up the UI components."""
@@ -41,7 +47,7 @@ class FindReplaceWindow(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Title
-        title_label = QLabel("Find and Replace Rules")
+        title_label = QLabel(self.tr("Find and Replace Rules"))
         title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(title_label)
 
@@ -70,7 +76,7 @@ class FindReplaceWindow(QDialog):
         layout.addWidget(scroll_area)
 
         # Add Rule button
-        add_btn = QPushButton("Add Rule")
+        add_btn = QPushButton(self.tr("Add Rule"))
         add_btn.clicked.connect(self.add_rule)
         add_btn.setMaximumWidth(100)
         layout.addWidget(add_btn)
@@ -82,7 +88,7 @@ class FindReplaceWindow(QDialog):
         ok_btn.clicked.connect(self.accept_changes)
         ok_btn.setDefault(True)
 
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
 
         button_layout.addStretch()
@@ -119,7 +125,7 @@ class FindReplaceWindow(QDialog):
 
         # Find field
         find_layout = QHBoxLayout()
-        find_label = QLabel("Find:")
+        find_label = QLabel(self.tr("Find:"))
         find_label.setMinimumWidth(60)
         find_entry = QLineEdit()
         find_entry.setText(rule_data.get("find", ""))
@@ -130,7 +136,7 @@ class FindReplaceWindow(QDialog):
 
         # Replace field
         replace_layout = QHBoxLayout()
-        replace_label = QLabel("Replace:")
+        replace_label = QLabel(self.tr("Replace:"))
         replace_label.setMinimumWidth(60)
         replace_entry = QLineEdit()
         replace_entry.setText(rule_data.get("replace", ""))
@@ -144,7 +150,7 @@ class FindReplaceWindow(QDialog):
         regex_checkbox = QCheckBox("Regular Expression")
         regex_checkbox.setChecked(rule_data.get("regex", False))
 
-        delete_btn = QPushButton("Delete")
+        delete_btn = QPushButton(self.tr("Delete"))
         delete_btn.clicked.connect(lambda: self.delete_rule(rule_frame))
         delete_btn.setMaximumWidth(80)
         delete_btn.setStyleSheet("QPushButton { color: #cc0000; }")

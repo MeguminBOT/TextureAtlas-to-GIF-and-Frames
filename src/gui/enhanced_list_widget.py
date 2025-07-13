@@ -16,6 +16,12 @@ class EnhancedListWidget(QListWidget):
         super().__init__(parent)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
+
     def add_item(self, text, data=None):
         """Add an item with optional associated data."""
         item = QListWidgetItem(text)

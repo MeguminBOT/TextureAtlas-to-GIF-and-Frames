@@ -521,6 +521,12 @@ class FileProcessorWorker(QThread):
         self.output_dir = output_dir
         self.parent_window = parent_window
         self.extractor = extractor_instance
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
         
     def run(self):
         """Process a single file in this thread."""
