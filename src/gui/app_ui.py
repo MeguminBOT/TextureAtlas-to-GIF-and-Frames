@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'appyzmVlf.ui'
+## Form generated from reading UI file 'app.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.1
 ##
@@ -28,21 +28,21 @@ class Ui_MainWindow(object):
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.resize(901, 777)
         self.select_directory = QAction(MainWindow)
-        self.select_directory.setObjectName(u"actionSelect_directory")
+        self.select_directory.setObjectName(u"select_directory")
         self.select_files = QAction(MainWindow)
-        self.select_files.setObjectName(u"actionSelect_files")
+        self.select_files.setObjectName(u"select_files")
         self.clear_export_list = QAction(MainWindow)
-        self.clear_export_list.setObjectName(u"actionClear_export_list")
+        self.clear_export_list.setObjectName(u"clear_export_list")
         self.fnf_import_settings = QAction(MainWindow)
-        self.fnf_import_settings.setObjectName(u"actionFNF_Import_settings_from_character_data_file")
+        self.fnf_import_settings.setObjectName(u"fnf_import_settings")
         self.preferences = QAction(MainWindow)
-        self.preferences.setObjectName(u"actionPreferences")
+        self.preferences.setObjectName(u"preferences")
         self.help_manual = QAction(MainWindow)
-        self.help_manual.setObjectName(u"actionHelp_Manual")
+        self.help_manual.setObjectName(u"help_manual")
         self.help_fnf = QAction(MainWindow)
-        self.help_fnf.setObjectName(u"actionHelp_FNF")
+        self.help_fnf.setObjectName(u"help_fnf")
         self.show_contributors = QAction(MainWindow)
-        self.show_contributors.setObjectName(u"actionShow_Contributors")
+        self.show_contributors.setObjectName(u"show_contributors")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.tools_tab = QTabWidget(self.centralwidget)
@@ -319,7 +319,6 @@ class Ui_MainWindow(object):
         self.file_menu.addAction(self.clear_export_list)
         self.import_menu.addAction(self.fnf_import_settings)
         self.help_menu.addAction(self.help_manual)
-        self.help_menu.addSeparator()
         self.help_menu.addAction(self.help_fnf)
         self.contributors_menu.addAction(self.show_contributors)
         self.options_menu.addAction(self.preferences)
@@ -341,8 +340,8 @@ class Ui_MainWindow(object):
         self.clear_export_list.setText(QCoreApplication.translate("MainWindow", u"Clear export list", None))
         self.fnf_import_settings.setText(QCoreApplication.translate("MainWindow", u"FNF: Import settings from character data file", None))
         self.preferences.setText(QCoreApplication.translate("MainWindow", u"Preferences", None))
-        self.help_manual.setText(QCoreApplication.translate("MainWindow", u"Manual", None))
-        self.help_fnf.setText(QCoreApplication.translate("MainWindow", u"FNF: GIF/WebP settings advice", None))
+        self.help_manual.setText(QCoreApplication.translate("MainWindow", u"User Manual", None))
+        self.help_fnf.setText(QCoreApplication.translate("MainWindow", u"FNF Guide", None))
         self.show_contributors.setText(QCoreApplication.translate("MainWindow", u"Show Contributors", None))
 #if QT_CONFIG(statustip)
         self.tools_tab.setStatusTip("")
