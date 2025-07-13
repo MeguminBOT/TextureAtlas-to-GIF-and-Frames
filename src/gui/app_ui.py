@@ -119,6 +119,7 @@ class Ui_MainWindow(object):
         self.loop_delay_entry.setObjectName(u"loop_delay_entry")
         self.loop_delay_entry.setGeometry(QRect(10, 150, 171, 24))
         self.loop_delay_entry.setAccelerated(True)
+        self.loop_delay_entry.setCorrectionMode(QAbstractSpinBox.CorrectionMode.CorrectToNearestValue)
         self.loop_delay_entry.setMaximum(10000)
         self.loop_delay_entry.setValue(250)
         self.loop_delay_entry.setDisplayIntegerBase(10)
