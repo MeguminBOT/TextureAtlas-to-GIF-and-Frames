@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QTabWidget,
     QSpinBox,
+    QDoubleSpinBox,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -294,45 +295,219 @@ class AppConfigWindow(QDialog):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Compression defaults group
-        group = QGroupBox("Compression Default Settings")
-        group_layout = QGridLayout(group)
-
-        # Define compression fields
-        compression_fields = {
-            "gif_optimize": ("Optimize GIF:", "bool", True),
-            "gif_loop": ("GIF loop count:", "int", 0),
-            "webp_quality": ("WebP quality:", "int", 90),
-            "webp_method": ("WebP method:", "int", 4),
-            "png_compress_level": ("PNG compression:", "int", 6),
-            "jpg_quality": ("JPEG quality:", "int", 95),
-        }
+        # PNG Settings Group
+        png_group = QGroupBox("PNG Settings")
+        png_layout = QGridLayout(png_group)
 
         row = 0
-        for key, (label_text, field_type, default) in compression_fields.items():
-            label = QLabel(label_text)
-            group_layout.addWidget(label, row, 0)
+        # PNG Compress Level
+        png_layout.addWidget(QLabel("Compress Level (0-9):"), row, 0)
+        png_compress_spinbox = QSpinBox()
+        png_compress_spinbox.setRange(0, 9)
+        png_compress_spinbox.setValue(9)
+        png_compress_spinbox.setToolTip(
+            "PNG compression level (0-9):\n"
+            "• 0: No compression (fastest, largest file)\n"
+            "• 1-3: Low compression\n"
+            "• 4-6: Medium compression\n"
+            "• 7-9: High compression (slowest, smallest file)\n"
+            "This doesn't affect the quality of the image, only the file size"
+        )
+        self.compression_fields["png_compress_level"] = png_compress_spinbox
+        png_layout.addWidget(png_compress_spinbox, row, 1)
+        row += 1
 
-            if field_type == "bool":
-                checkbox = QCheckBox()
-                checkbox.setChecked(default)
-                self.compression_fields[key] = checkbox
-                group_layout.addWidget(checkbox, row, 1)
-            elif field_type == "int":
-                spinbox = QSpinBox()
-                if "quality" in key:
-                    spinbox.setRange(0, 100)
-                elif "method" in key:
-                    spinbox.setRange(0, 6)
-                else:
-                    spinbox.setRange(0, 9999)
-                spinbox.setValue(default)
-                self.compression_fields[key] = spinbox
-                group_layout.addWidget(spinbox, row, 1)
+        # PNG Optimize
+        png_optimize_checkbox = QCheckBox("Optimize PNG")
+        png_optimize_checkbox.setChecked(True)
+        png_optimize_checkbox.setToolTip(
+            "PNG optimize:\n"
+            "• Enabled: Uses additional compression techniques for smaller files\n"
+            "When enabled, compression level is automatically set to 9\n"
+            "Results in slower processing but better compression\n\n"
+            "This doesn't affect the quality of the image, only the file size"
+        )
+        self.compression_fields["png_optimize"] = png_optimize_checkbox
+        png_layout.addWidget(png_optimize_checkbox, row, 0, 1, 2)
 
-            row += 1
+        layout.addWidget(png_group)
 
-        layout.addWidget(group)
+        # WebP Settings Group
+        webp_group = QGroupBox("WebP Settings")
+        webp_layout = QGridLayout(webp_group)
+
+        row = 0
+        # WebP Lossless
+        webp_lossless_checkbox = QCheckBox("Lossless WebP")
+        webp_lossless_checkbox.setChecked(True)
+        webp_lossless_checkbox.setToolTip(
+            "WebP lossless mode:\n"
+            "• Enabled: Perfect quality preservation, larger file size\n"
+            "• Disabled: Lossy compression with adjustable quality\n"
+            "When enabled, quality sliders are disabled"
+        )
+        self.compression_fields["webp_lossless"] = webp_lossless_checkbox
+        webp_layout.addWidget(webp_lossless_checkbox, row, 0, 1, 2)
+        row += 1
+
+        # WebP Quality
+        webp_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        webp_quality_spinbox = QSpinBox()
+        webp_quality_spinbox.setRange(0, 100)
+        webp_quality_spinbox.setValue(90)
+        webp_quality_spinbox.setToolTip(
+            "WebP quality (0-100):\n"
+            "• 0: Lowest quality, smallest file\n"
+            "• 75: Balanced quality/size\n"
+            "• 100: Highest quality, largest file\n"
+            "Only used in lossy mode"
+        )
+        self.compression_fields["webp_quality"] = webp_quality_spinbox
+        webp_layout.addWidget(webp_quality_spinbox, row, 1)
+        row += 1
+
+        # WebP Method
+        webp_layout.addWidget(QLabel("Method (0-6):"), row, 0)
+        webp_method_spinbox = QSpinBox()
+        webp_method_spinbox.setRange(0, 6)
+        webp_method_spinbox.setValue(3)
+        webp_method_spinbox.setToolTip(
+            "WebP compression method (0-6):\n"
+            "• 0: Fastest encoding, larger file\n"
+            "• 3: Balanced speed/compression\n"
+            "• 6: Slowest encoding, best compression\n"
+            "Higher values take more time but produce smaller files"
+        )
+        self.compression_fields["webp_method"] = webp_method_spinbox
+        webp_layout.addWidget(webp_method_spinbox, row, 1)
+        row += 1
+
+        # WebP Alpha Quality
+        webp_layout.addWidget(QLabel("Alpha Quality (0-100):"), row, 0)
+        webp_alpha_quality_spinbox = QSpinBox()
+        webp_alpha_quality_spinbox.setRange(0, 100)
+        webp_alpha_quality_spinbox.setValue(90)
+        webp_alpha_quality_spinbox.setToolTip(
+            "WebP alpha channel quality (0-100):\n"
+            "Controls transparency compression quality\n"
+            "• 0: Maximum alpha compression\n"
+            "• 100: Best alpha quality\n"
+            "Only used in lossy mode"
+        )
+        self.compression_fields["webp_alpha_quality"] = webp_alpha_quality_spinbox
+        webp_layout.addWidget(webp_alpha_quality_spinbox, row, 1)
+        row += 1
+
+        # WebP Exact
+        webp_exact_checkbox = QCheckBox("Exact WebP")
+        webp_exact_checkbox.setChecked(True)
+        webp_exact_checkbox.setToolTip(
+            "WebP exact mode:\n"
+            "• Enabled: Preserves RGB values in transparent areas\n"
+            "• Disabled: Allows optimization of transparent pixels\n"
+            "Enable for better quality when transparency matters"
+        )
+        self.compression_fields["webp_exact"] = webp_exact_checkbox
+        webp_layout.addWidget(webp_exact_checkbox, row, 0, 1, 2)
+
+        layout.addWidget(webp_group)
+
+        # AVIF Settings Group
+        avif_group = QGroupBox("AVIF Settings")
+        avif_layout = QGridLayout(avif_group)
+
+        row = 0
+        # AVIF Lossless
+        avif_lossless_checkbox = QCheckBox("Lossless AVIF")
+        avif_lossless_checkbox.setChecked(True)
+        self.compression_fields["avif_lossless"] = avif_lossless_checkbox
+        avif_layout.addWidget(avif_lossless_checkbox, row, 0, 1, 2)
+        row += 1
+
+        # AVIF Quality
+        avif_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        avif_quality_spinbox = QSpinBox()
+        avif_quality_spinbox.setRange(0, 100)
+        avif_quality_spinbox.setValue(90)
+        avif_quality_spinbox.setToolTip(
+            "AVIF quality (0-100):\n"
+            "• 0-30: Low quality, very small files\n"
+            "• 60-80: Good quality for most images\n"
+            "• 85-95: High quality (recommended)\n"
+            "• 95-100: Excellent quality, larger files"
+        )
+        self.compression_fields["avif_quality"] = avif_quality_spinbox
+        avif_layout.addWidget(avif_quality_spinbox, row, 1)
+        row += 1
+
+        # AVIF Speed
+        avif_layout.addWidget(QLabel("Speed (0-10):"), row, 0)
+        avif_speed_spinbox = QSpinBox()
+        avif_speed_spinbox.setRange(0, 10)
+        avif_speed_spinbox.setValue(5)
+        avif_speed_spinbox.setToolTip(
+            "AVIF encoding speed (0-10):\n"
+            "• 0: Slowest encoding, best compression\n"
+            "• 5: Balanced speed/compression (default)\n"
+            "• 10: Fastest encoding, larger files\n"
+            "Higher values encode faster but produce larger files"
+        )
+        self.compression_fields["avif_speed"] = avif_speed_spinbox
+        avif_layout.addWidget(avif_speed_spinbox, row, 1)
+
+        layout.addWidget(avif_group)
+
+        # TIFF Settings Group
+        tiff_group = QGroupBox("TIFF Settings")
+        tiff_layout = QGridLayout(tiff_group)
+
+        row = 0
+        # TIFF Compression Type
+        tiff_layout.addWidget(QLabel("Compression Type:"), row, 0)
+        tiff_compression_combobox = QComboBox()
+        tiff_compression_combobox.addItems(["none", "lzw", "zip", "jpeg"])
+        tiff_compression_combobox.setCurrentText("lzw")
+        tiff_compression_combobox.setToolTip(
+            "TIFF compression algorithm:\n"
+            "• none: No compression, largest files\n"
+            "• lzw: Lossless, good compression (recommended)\n"
+            "• zip: Lossless, better compression\n"
+            "• jpeg: Lossy compression, smallest files"
+        )
+        self.compression_fields["tiff_compression_type"] = tiff_compression_combobox
+        tiff_layout.addWidget(tiff_compression_combobox, row, 1)
+        row += 1
+
+        # TIFF Quality
+        tiff_layout.addWidget(QLabel("Quality (0-100):"), row, 0)
+        tiff_quality_spinbox = QSpinBox()
+        tiff_quality_spinbox.setRange(0, 100)
+        tiff_quality_spinbox.setValue(90)
+        tiff_quality_spinbox.setToolTip(
+            "TIFF quality (0-100):\n"
+            "Only used with JPEG compression\n"
+            "• 0-50: Low quality, small files\n"
+            "• 75-90: Good quality\n"
+            "• 95-100: Excellent quality"
+        )
+        self.compression_fields["tiff_quality"] = tiff_quality_spinbox
+        tiff_layout.addWidget(tiff_quality_spinbox, row, 1)
+        row += 1
+
+        # TIFF Optimize
+        tiff_optimize_checkbox = QCheckBox("Optimize TIFF")
+        tiff_optimize_checkbox.setChecked(True)
+        tiff_optimize_checkbox.setToolTip(
+            "TIFF optimization:\n"
+            "• Enabled: Optimize file structure for smaller size\n"
+            "• Disabled: Standard TIFF format\n"
+            "Recommended to keep enabled"
+        )
+        self.compression_fields["tiff_optimize"] = tiff_optimize_checkbox
+        self.compression_fields["tiff_optimize"] = tiff_optimize_checkbox
+        tiff_layout.addWidget(tiff_optimize_checkbox, row, 0, 1, 2)
+
+        layout.addWidget(tiff_group)
         layout.addStretch()
 
         scroll_area.setWidget(widget)
@@ -413,17 +588,27 @@ class AppConfigWindow(QDialog):
         # Compression defaults
         compression_defaults = self.app_config.get("compression_defaults", {})
         for key, control in self.compression_fields.items():
-            value = compression_defaults.get(key)
+            # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+            if "_" in key:
+                format_name = key.split("_", 1)[0]
+                setting_name = "_".join(key.split("_")[1:])
+                format_defaults = compression_defaults.get(format_name, {})
+                value = format_defaults.get(setting_name)
+            else:
+                value = compression_defaults.get(key)
+
             if value is not None:
                 if isinstance(control, QCheckBox):
                     control.setChecked(bool(value))
                 elif isinstance(control, QSpinBox):
                     control.setValue(int(value))
+                elif isinstance(control, QComboBox):
+                    control.setCurrentText(str(value))
 
         # Update settings
         update_settings = self.app_config.get("update_settings", {})
-        self.check_updates_cb.setChecked(update_settings.get("check_on_startup", True))
-        self.auto_update_cb.setChecked(update_settings.get("auto_download", False))
+        self.check_updates_cb.setChecked(update_settings.get("check_updates_on_startup", True))
+        self.auto_update_cb.setChecked(update_settings.get("auto_download_updates", False))
 
         # UI settings
         ui_state = self.app_config.get("ui_state", {})
@@ -453,48 +638,45 @@ class AppConfigWindow(QDialog):
             self.memory_limit_edit.setValue(default_mem)
 
             # Reset extraction defaults
-            defaults = {
-                "fps": 24,
-                "delay": 250,
-                "period": 0,
-                "scale": 1.0,
-                "threshold": 0.1,
-                "animation_format": "GIF",
-                "frame_format": "PNG",
-                "frame_scale": 1.0,
-            }
+            defaults = self.app_config.DEFAULTS["extraction_defaults"]
 
-            for key, default_value in defaults.items():
-                if key in self.extraction_fields:
-                    control = self.extraction_fields[key]
+            for key, control in self.extraction_fields.items():
+                if key in defaults:
+                    default_value = defaults[key]
                     if isinstance(control, QComboBox):
                         control.setCurrentText(str(default_value))
                     elif isinstance(control, QSpinBox):
                         control.setValue(int(default_value))
+                    elif isinstance(control, QDoubleSpinBox):
+                        control.setValue(float(default_value))
+                    elif isinstance(control, QCheckBox):
+                        control.setChecked(bool(default_value))
                     elif isinstance(control, QLineEdit):
                         control.setText(str(default_value))
 
             # Reset compression defaults
-            comp_defaults = {
-                "gif_optimize": True,
-                "gif_loop": 0,
-                "webp_quality": 90,
-                "webp_method": 4,
-                "png_compress_level": 6,
-                "jpg_quality": 95,
-            }
+            comp_defaults = self.app_config.DEFAULTS["compression_defaults"]
 
-            for key, default_value in comp_defaults.items():
-                if key in self.compression_fields:
-                    control = self.compression_fields[key]
-                    if isinstance(control, QCheckBox):
-                        control.setChecked(bool(default_value))
-                    elif isinstance(control, QSpinBox):
-                        control.setValue(int(default_value))
+            for key, control in self.compression_fields.items():
+                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+                if "_" in key:
+                    format_name = key.split("_", 1)[0]
+                    setting_name = "_".join(key.split("_")[1:])
+
+                    if format_name in comp_defaults and setting_name in comp_defaults[format_name]:
+                        default_value = comp_defaults[format_name][setting_name]
+
+                        if isinstance(control, QCheckBox):
+                            control.setChecked(bool(default_value))
+                        elif isinstance(control, QSpinBox):
+                            control.setValue(int(default_value))
+                        elif isinstance(control, QComboBox):
+                            control.setCurrentText(str(default_value))
 
             # Reset update settings
-            self.check_updates_cb.setChecked(True)
-            self.auto_update_cb.setChecked(False)
+            update_defaults = self.app_config.DEFAULTS["update_settings"]
+            self.check_updates_cb.setChecked(update_defaults.get("check_updates_on_startup", True))
+            self.auto_update_cb.setChecked(update_defaults.get("auto_download_updates", False))
 
     def save_config(self):
         """Save the configuration settings."""
@@ -531,31 +713,40 @@ class AppConfigWindow(QDialog):
                         raise ValueError(f"Invalid value for {key}: {control.text()}")
 
             # Save compression defaults
-            compression_defaults = {}
+            compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
+
             for key, control in self.compression_fields.items():
-                if isinstance(control, QCheckBox):
-                    compression_defaults[key] = control.isChecked()
-                elif isinstance(control, QSpinBox):
-                    compression_defaults[key] = control.value()
+                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+                if "_" in key:
+                    format_name = key.split("_", 1)[0]
+                    setting_name = "_".join(key.split("_")[1:])
+
+                    if format_name in compression_defaults:
+                        if isinstance(control, QCheckBox):
+                            compression_defaults[format_name][setting_name] = control.isChecked()
+                        elif isinstance(control, QSpinBox):
+                            compression_defaults[format_name][setting_name] = control.value()
+                        elif isinstance(control, QComboBox):
+                            compression_defaults[format_name][setting_name] = control.currentText()
 
             # Save update settings
             update_settings = {
-                "check_on_startup": self.check_updates_cb.isChecked(),
-                "auto_download": self.auto_update_cb.isChecked(),
+                "check_updates_on_startup": self.check_updates_cb.isChecked(),
+                "auto_download_updates": self.auto_update_cb.isChecked(),
             }
 
             # Save UI settings
-            ui_state = self.app_config.config.setdefault("ui_state", {})
+            ui_state = self.app_config.settings.setdefault("ui_state", {})
             if self.remember_input_dir_cb:
                 ui_state["remember_input_directory"] = self.remember_input_dir_cb.isChecked()
             if self.remember_output_dir_cb:
                 ui_state["remember_output_directory"] = self.remember_output_dir_cb.isChecked()
 
             # Update app config
-            self.app_config.config["resource_limits"] = resource_limits
-            self.app_config.config["extraction_defaults"] = extraction_defaults
-            self.app_config.config["compression_defaults"] = compression_defaults
-            self.app_config.config["update_settings"] = update_settings
+            self.app_config.settings["resource_limits"] = resource_limits
+            self.app_config.settings["extraction_defaults"] = extraction_defaults
+            self.app_config.settings["compression_defaults"] = compression_defaults
+            self.app_config.settings["update_settings"] = update_settings
 
             # Save to file
             self.app_config.save()
@@ -601,22 +792,26 @@ class AppConfigWindow(QDialog):
         """Create the UI preferences tab."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        
+
         # Directory Memory Settings group
         dir_group = QGroupBox("Directory Memory")
         dir_layout = QVBoxLayout(dir_group)
-        
+
         # Remember input directory checkbox
         self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
-        self.remember_input_dir_cb.setToolTip("When enabled, the app will remember and restore the last used input directory on startup")
+        self.remember_input_dir_cb.setToolTip(
+            "When enabled, the app will remember and restore the last used input directory on startup"
+        )
         dir_layout.addWidget(self.remember_input_dir_cb)
-        
+
         # Remember output directory checkbox
         self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
-        self.remember_output_dir_cb.setToolTip("When enabled, the app will remember and restore the last used output directory on startup")
+        self.remember_output_dir_cb.setToolTip(
+            "When enabled, the app will remember and restore the last used output directory on startup"
+        )
         dir_layout.addWidget(self.remember_output_dir_cb)
-        
+
         layout.addWidget(dir_group)
         layout.addStretch()
-        
+
         return widget

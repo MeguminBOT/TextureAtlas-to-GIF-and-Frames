@@ -66,19 +66,19 @@ class AppConfig:
             },
             "webp": {
                 "lossless": True,
-                "quality": 100,
-                "method": 6,
-                "alpha_quality": 100,
+                "quality": 90,
+                "method": 3,
+                "alpha_quality": 90,
                 "exact": True,
             },
             "avif": {
                 "lossless": True,
-                "quality": 100,
+                "quality": 90,
                 "speed": 5,
             },
             "tiff": {
                 "compression_type": "lzw",
-                "quality": 100,
+                "quality": 90,
                 "optimize": True,
             },
         },
@@ -256,16 +256,16 @@ class AppConfig:
         elif format_lower == "webp":
             return {
                 "webp_lossless": defaults.get("lossless", True),
-                "webp_quality": defaults.get("quality", 100),
-                "webp_method": defaults.get("method", 6),
-                "webp_alpha_quality": defaults.get("alpha_quality", 100),
+                "webp_quality": defaults.get("quality", 90),
+                "webp_method": defaults.get("method", 3),
+                "webp_alpha_quality": defaults.get("alpha_quality", 90),
                 "webp_exact": defaults.get("exact", True),
             }
         elif format_lower == "avif":
             return {
                 "avif_lossless": defaults.get("lossless", True),
-                "avif_quality": defaults.get("quality", 100),
-                "avif_speed": defaults.get("speed", 0),
+                "avif_quality": defaults.get("quality", 90),
+                "avif_speed": defaults.get("speed", 5),
             }
         elif format_lower == "tiff":
             return {
