@@ -303,7 +303,7 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Input Directory",
+            self.tr("Select Input Directory"),
             start_directory,
             QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
@@ -326,7 +326,7 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Output Directory",
+            self.tr("Select Output Directory"),
             start_directory,
             QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
@@ -343,9 +343,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         files, _ = QFileDialog.getOpenFileNames(
             self,
-            "Select Files",
+            self.tr("Select Files"),
             start_directory,
-            "Image files (*.png *.jpg *.jpeg);;All files (*.*)",
+            self.tr("Image files (*.png *.jpg *.jpeg);;All files (*.*)"),
         )
 
         if files:
@@ -576,13 +576,13 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         menu = QMenu(self)
 
-        settings_action = QAction("Override Settings", self)
+        settings_action = QAction(self.tr("Override Settings"), self)
         settings_action.triggered.connect(self.override_spritesheet_settings)
         menu.addAction(settings_action)
 
         menu.addSeparator()
 
-        delete_action = QAction("Delete", self)
+        delete_action = QAction(self.tr("Delete"), self)
         delete_action.triggered.connect(self.delete_selected_spritesheet)
         menu.addAction(delete_action)
 
@@ -595,7 +595,7 @@ class TextureAtlasExtractorApp(QMainWindow):
             return
 
         menu = QMenu(self)
-        settings_action = QAction("Override Settings", self)
+        settings_action = QAction(self.tr("Override Settings"), self)
         settings_action.triggered.connect(self.override_animation_settings)
         menu.addAction(settings_action)
 
@@ -743,7 +743,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Opens window to override settings for selected spritesheet."""
         current_item = self.ui.listbox_png.currentItem()
         if not current_item:
-            QMessageBox.information(self, "Info", "Please select a spritesheet first.")
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please select a spritesheet first."))
             return
 
         spritesheet_name = current_item.text()
@@ -768,13 +768,13 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Opens window to override settings for selected animation."""
         current_item = self.ui.listbox_data.currentItem()
         if not current_item:
-            QMessageBox.information(self, "Info", "Please select an animation first.")
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please select an animation first."))
             return
 
         # Get the selected spritesheet to create full animation name
         current_spritesheet_item = self.ui.listbox_png.currentItem()
         if not current_spritesheet_item:
-            QMessageBox.information(self, "Info", "Please select a spritesheet first.")
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please select a spritesheet first."))
             return
 
         spritesheet_name = current_spritesheet_item.text()
@@ -806,9 +806,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Select FNF Character Data File",
+            self.tr("Select FNF Character Data File"),
             start_directory,
-            "JSON files (*.json);;All files (*.*)",
+            self.tr("JSON files (*.json);;All files (*.*)"),
         )
 
         if file_path:
@@ -839,8 +839,8 @@ class TextureAtlasExtractorApp(QMainWindow):
                 # Show update dialog
                 reply = QMessageBox.question(
                     self,
-                    "Update Available",
-                    "A new version is available! Would you like to visit the download page?",
+                    self.tr("Update Available"),
+                    self.tr("A new version is available! Would you like to visit the download page?"),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
 
@@ -938,13 +938,13 @@ class TextureAtlasExtractorApp(QMainWindow):
     def start_process(self):
         """Prepares and starts the processing thread."""
         # Validate inputs
-        if self.ui.input_dir_label.text() == "No input directory selected":
+        if self.ui.input_dir_label.text() == self.tr("No input directory selected"):
             QMessageBox.warning(
                 self, self.tr("Error"), self.tr("Please select an input directory first.")
             )
             return
 
-        if self.ui.output_dir_label.text() == "No output directory selected":
+        if self.ui.output_dir_label.text() == self.tr("No output directory selected"):
             QMessageBox.warning(
                 self, self.tr("Error"), self.tr("Please select an output directory first.")
             )
