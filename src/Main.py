@@ -238,10 +238,14 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # List selections
         self.ui.listbox_png.currentItemChanged.connect(self.on_select_spritesheet)
+        self.ui.listbox_png.currentItemChanged.connect(self.update_ui_state)
+        self.ui.listbox_png.itemDoubleClicked.connect(self.on_double_click_spritesheet)
         self.ui.listbox_data.itemDoubleClicked.connect(self.on_double_click_animation)
+        self.ui.listbox_data.currentItemChanged.connect(self.update_ui_state)
 
-        # Context menu for spritesheet list
+        # Context menus
         self.ui.listbox_png.customContextMenuRequested.connect(self.show_listbox_png_menu)
+        self.ui.listbox_data.customContextMenuRequested.connect(self.show_listbox_data_menu)
 
         # Format change handlers
         self.ui.animation_format_combobox.currentTextChanged.connect(
@@ -495,6 +499,25 @@ class TextureAtlasExtractorApp(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Could not open animation settings: {str(e)}")
 
+    def on_double_click_spritesheet(self, item):
+        """Handles the event when a spritesheet is double-clicked in the listbox."""
+        if not item:
+            return
+
+        spritesheet_name = item.text()
+
+        def store_settings(settings):
+            """Callback to store spritesheet settings."""
+            self.settings_manager.spritesheet_settings[spritesheet_name] = settings
+
+        try:
+            dialog = OverrideSettingsWindow(
+                self, spritesheet_name, "spritesheet", self.settings_manager, store_settings, self
+            )
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open spritesheet settings: {str(e)}")
+
     def show_listbox_png_menu(self, position):
         """Shows the context menu for the PNG listbox."""
         item = self.ui.listbox_png.itemAt(position)
@@ -502,11 +525,31 @@ class TextureAtlasExtractorApp(QMainWindow):
             return
 
         menu = QMenu(self)
+
+        settings_action = QAction("Override Settings", self)
+        settings_action.triggered.connect(self.override_spritesheet_settings)
+        menu.addAction(settings_action)
+
+        menu.addSeparator()
+
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(self.delete_selected_spritesheet)
         menu.addAction(delete_action)
 
         menu.exec(self.ui.listbox_png.mapToGlobal(position))
+
+    def show_listbox_data_menu(self, position):
+        """Shows the context menu for the animation listbox."""
+        item = self.ui.listbox_data.itemAt(position)
+        if item is None:
+            return
+
+        menu = QMenu(self)
+        settings_action = QAction("Override Settings", self)
+        settings_action.triggered.connect(self.override_animation_settings)
+        menu.addAction(settings_action)
+
+        menu.exec(self.ui.listbox_data.mapToGlobal(position))
 
     def delete_selected_spritesheet(self):
         """Deletes the selected spritesheet and related settings."""
@@ -648,15 +691,23 @@ class TextureAtlasExtractorApp(QMainWindow):
             QMessageBox.information(self, "Info", "Please select an animation first.")
             return
 
+        # Get the selected spritesheet to create full animation name
+        current_spritesheet_item = self.ui.listbox_png.currentItem()
+        if not current_spritesheet_item:
+            QMessageBox.information(self, "Info", "Please select a spritesheet first.")
+            return
+
+        spritesheet_name = current_spritesheet_item.text()
         animation_name = current_item.text()
+        full_anim_name = f"{spritesheet_name}/{animation_name}"
 
         def store_settings(settings):
             """Callback to store animation settings."""
-            self.settings_manager.animation_settings[animation_name] = settings
+            self.settings_manager.animation_settings[full_anim_name] = settings
 
         try:
             dialog = OverrideSettingsWindow(
-                self, animation_name, "animation", self.settings_manager, store_settings, self
+                self, full_anim_name, "animation", self.settings_manager, store_settings, self
             )
             dialog.exec()
         except Exception as e:
@@ -715,6 +766,12 @@ class TextureAtlasExtractorApp(QMainWindow):
             self.ui.animation_export_group.isChecked() or self.ui.frame_export_group.isChecked()
         )
         self.ui.start_process_button.setEnabled(not both_export_unchecked)
+
+        has_spritesheet_selected = self.ui.listbox_png.currentItem() is not None
+        self.ui.override_spritesheet_settings_button.setEnabled(has_spritesheet_selected)
+
+        has_animation_selected = self.ui.listbox_data.currentItem() is not None
+        self.ui.override_animation_settings_button.setEnabled(has_animation_selected)
 
     def on_animation_format_change(self):
         """Handles animation format selection changes."""
