@@ -249,6 +249,13 @@ class TextureAtlasExtractorApp(QMainWindow):
         )
         self.ui.frame_format_combobox.currentTextChanged.connect(self.on_frame_format_change)
 
+        # Export group checkbox changes
+        self.ui.animation_export_group.toggled.connect(self.update_ui_state)
+        self.ui.frame_export_group.toggled.connect(self.update_ui_state)
+
+        # Initial UI state update
+        self.update_ui_state()
+
     def select_directory(self):
         """Opens a directory selection dialog and populates the spritesheet list."""
         # Start from the last used directory or default to empty
@@ -701,6 +708,13 @@ class TextureAtlasExtractorApp(QMainWindow):
                 QMessageBox.warning(
                     self, "Update Check Failed", f"Could not check for updates: {str(e)}"
                 )
+
+    def update_ui_state(self, *args):
+        """Updates the UI state based on current selections and settings."""
+        both_export_unchecked = not (
+            self.ui.animation_export_group.isChecked() or self.ui.frame_export_group.isChecked()
+        )
+        self.ui.start_process_button.setEnabled(not both_export_unchecked)
 
     def on_animation_format_change(self):
         """Handles animation format selection changes."""
