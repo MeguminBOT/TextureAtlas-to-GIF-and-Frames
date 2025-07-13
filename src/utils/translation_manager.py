@@ -32,13 +32,29 @@ class TranslationManager:
         """
         available = {"en": "English"}  # English is always available (default)
 
-        for lang_code, display_name in self.available_languages.items():
-            if lang_code != "en":  # Skip English as it's already added
-                ts_file = self.translations_dir / f"textureAtlas_{lang_code}.ts"
-                qm_file = self.translations_dir / f"textureAtlas_{lang_code}.qm"
-                # Language is available if either .ts or .qm file exists
-                if ts_file.exists() or qm_file.exists():
-                    available[lang_code] = display_name
+        # Language codes to check for
+        language_codes = ["sv", "es", "fr", "de", "ja", "zh"]
+        language_names = {
+            "sv": "Svenska",
+            "es": "Español", 
+            "fr": "Français",
+            "de": "Deutsch",
+            "ja": "日本語",
+            "zh": "中文"
+        }
+
+        for lang_code in language_codes:
+            # Check for unified translation files (app_XX format)
+            patterns = [
+                f"app_{lang_code}.ts",
+                f"app_{lang_code}.qm",
+                f"textureAtlas_{lang_code}.ts",  # Legacy support
+                f"textureAtlas_{lang_code}.qm"   # Legacy support
+            ]
+            
+            # If any pattern exists, the language is available
+            if any((self.translations_dir / pattern).exists() for pattern in patterns):
+                available[lang_code] = language_names.get(lang_code, lang_code.upper())
 
         return available
 
@@ -85,8 +101,8 @@ class TranslationManager:
         # Create new translator
         translator = QTranslator()
 
-        # Try to load the .qm file first (compiled translation)
-        qm_file = self.translations_dir / f"textureAtlas_{language_code}.qm"
+        # Try to load the unified .qm file first (compiled translation)
+        qm_file = self.translations_dir / f"app_{language_code}.qm"
         if qm_file.exists():
             if translator.load(str(qm_file)):
                 self.app_instance.installTranslator(translator)
@@ -94,10 +110,28 @@ class TranslationManager:
                 self.current_locale = language_code
                 return True
 
+        # Fallback: Try legacy naming scheme for existing translations
+        legacy_qm_file = self.translations_dir / f"textureAtlas_{language_code}.qm"
+        if legacy_qm_file.exists():
+            if translator.load(str(legacy_qm_file)):
+                self.app_instance.installTranslator(translator)
+                self.current_translator = translator
+                self.current_locale = language_code
+                return True
+
         # If .qm file not found, try .ts file (source translation)
-        ts_file = self.translations_dir / f"textureAtlas_{language_code}.ts"
+        ts_file = self.translations_dir / f"app_{language_code}.ts"
         if ts_file.exists():
             if translator.load(str(ts_file)):
+                self.app_instance.installTranslator(translator)
+                self.current_translator = translator
+                self.current_locale = language_code
+                return True
+
+        # Fallback: Try legacy .ts file
+        legacy_ts_file = self.translations_dir / f"textureAtlas_{language_code}.ts"
+        if legacy_ts_file.exists():
+            if translator.load(str(legacy_ts_file)):
                 self.app_instance.installTranslator(translator)
                 self.current_translator = translator
                 self.current_locale = language_code
