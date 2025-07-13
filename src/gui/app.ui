@@ -10,8 +10,8 @@
                 <height>777</height>
             </rect>
         </property>
-        <property name="windowTitle">
-            <string>MainWindow</string>
+        <property name="unifiedTitleAndToolBarOnMac">
+            <bool>true</bool>
         </property>
         <widget class="QWidget" name="centralwidget">
             <widget class="QTabWidget" name="tools_tab">
@@ -56,6 +56,9 @@
                         </property>
                         <property name="statusTip">
                             <string>List of all spritesheets to extract</string>
+                        </property>
+                        <property name="alternatingRowColors">
+                            <bool>false</bool>
                         </property>
                         <property name="isWrapping" stdset="0">
                             <bool>false</bool>
@@ -178,7 +181,7 @@
                             <bool>true</bool>
                         </property>
                         <property name="checked">
-                            <bool>true</bool>
+                            <bool>false</bool>
                         </property>
                         <widget class="QComboBox" name="animation_format_combobox">
                             <property name="geometry">
@@ -299,6 +302,12 @@
                             <property name="statusTip">
                                 <string>Time to wait before looping the animation</string>
                             </property>
+                            <property name="accelerated">
+                                <bool>true</bool>
+                            </property>
+                            <property name="correctionMode">
+                                <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+                            </property>
                             <property name="suffix">
                                 <string> ms</string>
                             </property>
@@ -323,6 +332,12 @@
                             </property>
                             <property name="statusTip">
                                 <string>Forces animated images to be played for at least the set amount of time.</string>
+                            </property>
+                            <property name="accelerated">
+                                <bool>true</bool>
+                            </property>
+                            <property name="correctionMode">
+                                <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
                             </property>
                             <property name="suffix">
                                 <string> ms</string>
@@ -423,6 +438,12 @@
                             <property name="statusTip">
                                 <string>[GIFs only!] Sets the alpha threshold of GIFs</string>
                             </property>
+                            <property name="accelerated">
+                                <bool>true</bool>
+                            </property>
+                            <property name="correctionMode">
+                                <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+                            </property>
                             <property name="suffix">
                                 <string> %</string>
                             </property>
@@ -449,10 +470,10 @@
                                 <string>Sets the scale of animated images</string>
                             </property>
                             <property name="accelerated">
-                                <bool>false</bool>
+                                <bool>true</bool>
                             </property>
-                            <property name="showGroupSeparator" stdset="0">
-                                <bool>false</bool>
+                            <property name="correctionMode">
+                                <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
                             </property>
                             <property name="suffix">
                                 <string> ×</string>
@@ -502,7 +523,7 @@
                             <bool>true</bool>
                         </property>
                         <property name="checked">
-                            <bool>true</bool>
+                            <bool>false</bool>
                         </property>
                         <widget class="QComboBox" name="frame_format_combobox">
                             <property name="geometry">
@@ -621,10 +642,10 @@
                                 <string>Sets the scale of frames images</string>
                             </property>
                             <property name="accelerated">
-                                <bool>false</bool>
+                                <bool>true</bool>
                             </property>
-                            <property name="showGroupSeparator" stdset="0">
-                                <bool>false</bool>
+                            <property name="correctionMode">
+                                <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
                             </property>
                             <property name="suffix">
                                 <string> ×</string>
@@ -643,25 +664,6 @@
                             </property>
                             <property name="value">
                                 <double>1.000000000000000</double>
-                            </property>
-                        </widget>
-                        <widget class="QLabel" name="frame_compression_label">
-                            <property name="geometry">
-                                <rect>
-                                    <x>40</x>
-                                    <y>180</y>
-                                    <width>111</width>
-                                    <height>16</height>
-                                </rect>
-                            </property>
-                            <property name="text">
-                                <string>Compression</string>
-                            </property>
-                            <property name="alignment">
-                                <set>Qt::AlignmentFlag::AlignCenter</set>
-                            </property>
-                            <property name="indent">
-                                <number>0</number>
                             </property>
                         </widget>
                         <widget class="QComboBox" name="frame_selection_combobox">
@@ -723,6 +725,22 @@
                                 <set>Qt::AlignmentFlag::AlignCenter</set>
                             </property>
                         </widget>
+                        <widget class="QPushButton" name="compression_settings_button">
+                            <property name="geometry">
+                                <rect>
+                                    <x>10</x>
+                                    <y>200</y>
+                                    <width>171</width>
+                                    <height>24</height>
+                                </rect>
+                            </property>
+                            <property name="statusTip">
+                                <string>Controls compression settings for frame images</string>
+                            </property>
+                            <property name="text">
+                                <string>Compression settings</string>
+                            </property>
+                        </widget>
                     </widget>
                     <widget class="QLabel" name="cropping_method_label">
                         <property name="geometry">
@@ -754,6 +772,9 @@
                         </property>
                         <property name="statusTip">
                             <string>How cropping should be done. Note: &quot;Frame based&quot; only works on frames, animations will automatically use &quot;Animation based&quot; if &quot;Frame based&quot; was chosen.</string>
+                        </property>
+                        <property name="currentIndex">
+                            <number>1</number>
                         </property>
                         <item>
                             <property name="text">
@@ -840,6 +861,9 @@
                         <property name="text">
                             <string/>
                         </property>
+                        <property name="placeholderText">
+                            <string/>
+                        </property>
                     </widget>
                     <widget class="QComboBox" name="filename_format_combobox">
                         <property name="geometry">
@@ -918,6 +942,9 @@
                         </property>
                         <property name="text">
                             <string>Start process</string>
+                        </property>
+                        <property name="checked">
+                            <bool>false</bool>
                         </property>
                     </widget>
                     <widget class="QPushButton" name="show_override_settings_button">
