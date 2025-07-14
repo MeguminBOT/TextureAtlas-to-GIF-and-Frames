@@ -28,15 +28,15 @@ def get_project_dirs():
     return project_root, src_dir, translations_dir
 
 def get_available_languages():
-    """Get list of available language codes and names"""
+    """Get list of available language codes and names with translation quality info"""
     return {
-        "en": "English",
-        "sv": "Svenska",
-        "es": "Español", 
-        "fr": "Français",
-        "de": "Deutsch",
-        "ja": "日本語",
-        "zh": "中文"
+        "en": {"name": "English", "machine_translated": False, "quality": "native"},
+        "sv": {"name": "Svenska", "machine_translated": False, "quality": "manual"},
+        "es": {"name": "Español", "machine_translated": True, "quality": "machine"}, 
+        "fr": {"name": "Français", "machine_translated": True, "quality": "machine"},
+        "de": {"name": "Deutsch", "machine_translated": True, "quality": "machine"},
+        "ja": {"name": "日本語", "machine_translated": True, "quality": "machine"},
+        "zh": {"name": "中文", "machine_translated": True, "quality": "machine"}
     }
 
 def parse_languages(lang_args):
@@ -99,28 +99,34 @@ def extract_translations(languages=None):
         print(f"Creating translations directory: {translations_dir}")
         translations_dir.mkdir(parents=True, exist_ok=True)
     
-    # Extract from Python files into a single unified translation file
+    # Extract from Python files and UI files into a single unified translation file
     py_files = []
     for pattern in ["*.py", "gui/*.py", "utils/*.py", "core/*.py", "parsers/*.py"]:
         py_files.extend(src_dir.glob(pattern))
     
+    # Also include UI files
+    ui_files = list(src_dir.glob("gui/*.ui"))
+    
     # Create a list of Python files to process
     py_file_list = [str(f) for f in py_files if f.is_file()]
+    ui_file_list = [str(f) for f in ui_files if f.is_file()]
     
-    if py_file_list:
+    all_files = py_file_list + ui_file_list
+    
+    if all_files:
         # Create unified translation files for specified languages
         for lang in languages:
             ts_file = translations_dir / f"app_{lang}.ts"
-            # Use pylupdate for Python files
-            files_str = " ".join(f'"{f}"' for f in py_file_list)
+            # Use pyside6-lupdate for both Python and UI files
+            files_str = " ".join(f'"{f}"' for f in all_files)
             cmd = f'pyside6-lupdate {files_str} -ts "{ts_file}"'
             if not run_command(cmd):
                 print(f"Failed to extract to {ts_file}")
             else:
-                print(f"Updated {ts_file}")
+                print(f"Updated {ts_file} (processed {len(py_file_list)} Python files and {len(ui_file_list)} UI files)")
         return True
     else:
-        print("No Python files found for translation extraction")
+        print("No Python or UI files found for translation extraction")
         return False
 
 def merge_legacy_translations():
@@ -226,12 +232,21 @@ def show_status(languages=None):
             print(f"Warning: Unknown language '{lang_code}'")
             continue
             
-        lang_name = all_languages[lang_code]
+        lang_info = all_languages[lang_code]
+        lang_name = lang_info["name"] if isinstance(lang_info, dict) else lang_info
         ts_file = translations_dir / f"app_{lang_code}.ts"
         qm_file = translations_dir / f"app_{lang_code}.qm"
         
         ts_status = "✅" if ts_file.exists() else "❌"
         qm_status = "✅" if qm_file.exists() else "❌"
+        
+        # Add quality indicator
+        quality_indicator = ""
+        if isinstance(lang_info, dict):
+            if lang_info.get("machine_translated", False):
+                quality_indicator = " 🤖"  # Robot emoji for machine translated
+            elif lang_info.get("quality") == "manual":
+                quality_indicator = " ✋"  # Hand emoji for manually translated
         
         # Get translation count if file exists
         count_info = ""
@@ -249,7 +264,74 @@ def show_status(languages=None):
             except Exception:
                 pass
         
-        print(f"{lang_code.upper()} {lang_name:12} | .ts {ts_status} | .qm {qm_status}{count_info}")
+        print(f"{lang_code.upper()} {lang_name:12} | .ts {ts_status} | .qm {qm_status}{count_info}{quality_indicator}")
+
+def inject_machine_translation_disclaimers(languages=None):
+    """Inject machine translation disclaimers into translation files"""
+    project_root, src_dir, translations_dir = get_project_dirs()
+    all_languages = get_available_languages()
+    
+    # Default to all languages if none specified
+    if languages is None:
+        languages = list(all_languages.keys())
+    
+    print("Injecting machine translation disclaimers...")
+    
+    for lang_code in languages:
+        if lang_code not in all_languages:
+            print(f"Warning: Unknown language '{lang_code}'")
+            continue
+            
+        lang_info = all_languages[lang_code]
+        if not isinstance(lang_info, dict) or not lang_info.get("machine_translated", False):
+            print(f"Skipping {lang_code}: Not marked as machine translated")
+            continue
+            
+        ts_file = translations_dir / f"app_{lang_code}.ts"
+        if not ts_file.exists():
+            print(f"Warning: Translation file not found: {ts_file}")
+            continue
+            
+        try:
+            # Read the current translation file
+            with open(ts_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Define the disclaimer context and message
+            disclaimer_context = '''<context>
+    <name>MachineTranslationDisclaimer</name>
+    <message>
+        <location filename="../Main.py" line="0"/>
+        <source>Machine Translation Notice</source>
+        <translation type="unfinished">Machine Translation Notice</translation>
+    </message>
+    <message>
+        <location filename="../Main.py" line="1"/>
+        <source>This language was automatically translated and may contain inaccuracies. If you would like to contribute better translations, please visit our GitHub repository.</source>
+        <translation type="unfinished">This language was automatically translated and may contain inaccuracies. If you would like to contribute better translations, please visit our GitHub repository.</translation>
+    </message>
+</context>'''
+            
+            # Check if disclaimer already exists
+            if "MachineTranslationDisclaimer" in content:
+                print(f"Disclaimer already exists in {ts_file}")
+                continue
+            
+            # Find the position to insert (before </TS>)
+            if "</TS>" in content:
+                # Insert before closing tag
+                content = content.replace("</TS>", disclaimer_context + "\n</TS>")
+                
+                # Write back to file
+                with open(ts_file, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                    
+                print(f"Added machine translation disclaimer to {ts_file}")
+            else:
+                print(f"Warning: Could not find insertion point in {ts_file}")
+                
+        except Exception as e:
+            print(f"Error processing {ts_file}: {e}")
 
 def main():
     # Simple argument parsing (avoiding argparse import for cleaner dependency list)
@@ -259,16 +341,22 @@ def main():
         print("Usage: python update_translations.py [command] [languages...]")
         print()
         print("Commands:")
-        print("  extract  - Extract translatable strings from source code")
-        print("  compile  - Compile .ts files to .qm files")
-        print("  merge    - Merge legacy translation files")
-        print("  status   - Show translation status")
-        print("  all      - Run extract, merge, compile, and create resource file")
+        print("  extract    - Extract translatable strings from source code")
+        print("  compile    - Compile .ts files to .qm files")
+        print("  merge      - Merge legacy translation files")
+        print("  status     - Show translation status")
+        print("  disclaimer - Add machine translation disclaimers")
+        print("  all        - Run extract, merge, compile, and create resource file")
         print()
         print("Languages (optional):")
         available_langs = get_available_languages()
-        for code, name in available_langs.items():
-            print(f"  {code:2} - {name}")
+        for code, lang_info in available_langs.items():
+            if isinstance(lang_info, dict):
+                name = lang_info["name"]
+                quality_indicator = " 🤖" if lang_info.get("machine_translated", False) else " ✋" if lang_info.get("quality") == "manual" else ""
+                print(f"  {code:2} - {name}{quality_indicator}")
+            else:
+                print(f"  {code:2} - {lang_info}")
         print("  all      - Process all languages (default)")
         print()
         print("Examples:")
@@ -276,6 +364,7 @@ def main():
         print("  python update_translations.py extract sv en")
         print("  python update_translations.py compile sv")
         print("  python update_translations.py status es fr de")
+        print("  python update_translations.py disclaimer es fr de")
         print("  python update_translations.py all sv")
         sys.exit(1)
     
@@ -299,6 +388,8 @@ def main():
         merge_legacy_translations()
     elif command == "status":
         show_status(languages)
+    elif command == "disclaimer":
+        inject_machine_translation_disclaimers(languages)
     elif command == "all":
         print("Running full translation update...")
         extract_translations(languages)
@@ -308,7 +399,7 @@ def main():
         show_status(languages)
     else:
         print(f"Invalid command: {command}")
-        print("Valid commands: extract, compile, merge, status, all")
+        print("Valid commands: extract, compile, merge, status, disclaimer, all")
         sys.exit(1)
 
 if __name__ == "__main__":

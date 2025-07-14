@@ -120,7 +120,19 @@ class LanguageSelectionWindow(QDialog):
 
         # Add available languages
         current_index = 0
-        for lang_code, display_name in available_languages.items():
+        for lang_code, lang_info in available_languages.items():
+            # Handle both old format (string) and new format (dict)
+            if isinstance(lang_info, dict):
+                display_name = lang_info.get("name", lang_code)
+                # Add quality indicator if it's machine translated
+                if lang_info.get("machine_translated", False):
+                    display_name += " 🤖"
+                elif lang_info.get("quality") == "manual":
+                    display_name += " ✋"
+            else:
+                # Fallback for old string format
+                display_name = lang_info
+            
             self.language_combo.addItem(display_name, lang_code)
 
             # Select current language

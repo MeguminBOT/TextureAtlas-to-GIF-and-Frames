@@ -19,10 +19,10 @@ class TranslationManager:
         # Get the translations directory path
         self.translations_dir = Path(__file__).parent.parent / "translations"
 
-        # Available languages (language_code: display_name)
+        # Available languages with quality information
         self.available_languages = {
-            "en": "English",
-            "sv": "Svenska",
+            "en": {"name": "English", "machine_translated": False, "quality": "native"},
+            "sv": {"name": "Svenska", "machine_translated": False, "quality": "manual"},
         }
 
     def get_available_languages(self):
@@ -30,20 +30,19 @@ class TranslationManager:
         Returns a dictionary of available languages.
         Only returns languages that have translation files available.
         """
-        available = {"en": "English"}  # English is always available (default)
+        available = {"en": {"name": "English", "machine_translated": False, "quality": "native"}}  # English is always available (default)
 
-        # Language codes to check for
-        language_codes = ["sv", "es", "fr", "de", "ja", "zh"]
-        language_names = {
-            "sv": "Svenska",
-            "es": "Español", 
-            "fr": "Français",
-            "de": "Deutsch",
-            "ja": "日本語",
-            "zh": "中文"
+        # Language codes to check for with their quality information
+        language_info = {
+            "sv": {"name": "Svenska", "machine_translated": False, "quality": "manual"},
+            "es": {"name": "Español", "machine_translated": True, "quality": "machine"}, 
+            "fr": {"name": "Français", "machine_translated": True, "quality": "machine"},
+            "de": {"name": "Deutsch", "machine_translated": True, "quality": "machine"},
+            "ja": {"name": "日本語", "machine_translated": True, "quality": "machine"},
+            "zh": {"name": "中文", "machine_translated": True, "quality": "machine"}
         }
 
-        for lang_code in language_codes:
+        for lang_code, lang_info in language_info.items():
             # Check for unified translation files (app_XX format)
             patterns = [
                 f"app_{lang_code}.ts",
@@ -54,7 +53,7 @@ class TranslationManager:
             
             # If any pattern exists, the language is available
             if any((self.translations_dir / pattern).exists() for pattern in patterns):
-                available[lang_code] = language_names.get(lang_code, lang_code.upper())
+                available[lang_code] = lang_info
 
         return available
 
@@ -161,6 +160,37 @@ class TranslationManager:
         # Emit language changed event if the main window supports it
         if hasattr(main_window, "language_changed"):
             main_window.language_changed.emit(self.current_locale or "en")
+
+    def is_machine_translated(self, language_code):
+        """
+        Check if a language is machine translated.
+        
+        Args:
+            language_code (str): The language code to check
+            
+        Returns:
+            bool: True if the language is machine translated, False otherwise
+        """
+        available_languages = self.get_available_languages()
+        if language_code in available_languages:
+            lang_info = available_languages[language_code]
+            if isinstance(lang_info, dict):
+                return lang_info.get("machine_translated", False)
+        return False
+    
+    def get_machine_translation_disclaimer(self):
+        """
+        Get the machine translation disclaimer text in the current language.
+        
+        Returns:
+            tuple: (title, message) for the disclaimer dialog
+        """
+        # These will be translated by the Qt translation system
+        title = QCoreApplication.translate("MachineTranslationDisclaimer", "Machine Translation Notice")
+        message = QCoreApplication.translate("MachineTranslationDisclaimer", 
+            "This language was automatically translated and may contain inaccuracies. "
+            "If you would like to contribute better translations, please visit our GitHub repository.")
+        return title, message
 
 
 # Convenience function to get translation manager instance

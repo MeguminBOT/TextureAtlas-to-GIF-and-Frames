@@ -9,7 +9,7 @@ import webbrowser
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QMenu
-from PySide6.QtCore import QThread, Signal, QTimer, Qt
+from PySide6.QtCore import QThread, Signal, QTimer, Qt, QCoreApplication
 from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules
@@ -21,7 +21,7 @@ from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
 from utils.fnf_utilities import FnfUtilities
 from core.extractor import Extractor
-from gui.app_ui import Ui_MainWindow
+from gui.app_ui import Ui_TextureAtlasExtractorApp
 from gui.app_config_window import AppConfigWindow
 from gui.enhanced_list_widget import EnhancedListWidget
 from gui.settings_window import SettingsWindow
@@ -33,6 +33,7 @@ from gui.processing_window import ProcessingWindow
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
 from gui.background_handler_window import BackgroundHandlerWindow
 from gui.compression_settings_window import CompressionSettingsWindow
+from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog
 
 
 class ExtractorWorker(QThread):
@@ -86,8 +87,6 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def tr(self, text):
         """Translate text using Qt's translation system."""
-        from PySide6.QtCore import QCoreApplication
-
         return QCoreApplication.translate("TextureAtlasExtractorApp", text)
 
     def __init__(self):
@@ -116,7 +115,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
 
         # Initialize UI
-        self.ui = Ui_MainWindow()
+        self.ui = Ui_TextureAtlasExtractorApp()
         self.ui.setupUi(self)
 
         # Initialize advanced menu variables
@@ -137,6 +136,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Setup the application
         self.setup_gui()
         self.setup_connections()
+
+        # Ensure all UI elements are properly translated
+        self.ui.retranslateUi(self)
 
         # Check version after a short delay
         QTimer.singleShot(250, self.check_version)
@@ -197,6 +199,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         icon_path = Path("assets/icon.ico")
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
+
+        # Initialize directory labels with translated text
+        self.ui.input_dir_label.setText(self.tr("No input directory selected"))
+        self.ui.output_dir_label.setText(self.tr("No output directory selected"))
 
         # Initialize default values from app config
         defaults = (
@@ -743,7 +749,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Opens window to override settings for selected spritesheet."""
         current_item = self.ui.listbox_png.currentItem()
         if not current_item:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please select a spritesheet first."))
+            QMessageBox.information(
+                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+            )
             return
 
         spritesheet_name = current_item.text()
@@ -768,13 +776,17 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Opens window to override settings for selected animation."""
         current_item = self.ui.listbox_data.currentItem()
         if not current_item:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please select an animation first."))
+            QMessageBox.information(
+                self, self.tr("Info"), self.tr("Please select an animation first.")
+            )
             return
 
         # Get the selected spritesheet to create full animation name
         current_spritesheet_item = self.ui.listbox_png.currentItem()
         if not current_spritesheet_item:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please select a spritesheet first."))
+            QMessageBox.information(
+                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+            )
             return
 
         spritesheet_name = current_spritesheet_item.text()
@@ -840,7 +852,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                 reply = QMessageBox.question(
                     self,
                     self.tr("Update Available"),
-                    self.tr("A new version is available! Would you like to visit the download page?"),
+                    self.tr(
+                        "A new version is available! Would you like to visit the download page?"
+                    ),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
 
@@ -1199,6 +1213,21 @@ class TextureAtlasExtractorApp(QMainWindow):
     def change_language(self, language_code):
         """Change the application language and refresh the UI."""
         try:
+            # Check if machine translation disclaimer should be shown
+            if hasattr(self, "translation_manager"):
+                # Get language display name
+                available_languages = self.translation_manager.get_available_languages()
+                language_name = available_languages.get(language_code, {}).get(
+                    "name", language_code
+                )
+
+                # Show machine translation disclaimer if needed
+                if not MachineTranslationDisclaimerDialog.show_machine_translation_disclaimer(
+                    self, self.translation_manager, language_code, language_name
+                ):
+                    # User cancelled the language change
+                    return
+
             # Update the config
             self.app_config.set_language(language_code)
 
@@ -1208,6 +1237,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                 if success:
                     # Refresh the UI with new translations
                     self.translation_manager.refresh_ui(self)
+
+                    # Retranslate all UI elements
+                    self.ui.retranslateUi(self)
 
                     # Show success message (in the new language)
                     from PySide6.QtCore import QCoreApplication
@@ -1241,35 +1273,24 @@ class TextureAtlasExtractorApp(QMainWindow):
 
 
 def main():
-    """Main application entry point."""
+    """Main entry point for the application."""
+    # Enable high DPI support
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+
     app = QApplication(sys.argv)
 
-    try:
-        # Create the main window first to access version
-        window = TextureAtlasExtractorApp()
+    # Set application properties
+    app.setApplicationName("TextureAtlas Toolbox")
+    app.setApplicationVersion("2.0.0")
+    app.setOrganizationName("AutisticLulu")
 
-        # Set application properties using the window's version
-        app.setApplicationName("TextureAtlas Toolbox")
-        app.setApplicationVersion(window.current_version)
-        app.setOrganizationName("AutisticLulu")
+    # Create and show the main window
+    window = TextureAtlasExtractorApp()
+    window.show()
 
-        # Show the window
-        window.show()
-
-        # Run application
-        sys.exit(app.exec())
-
-    except Exception as e:
-        from PySide6.QtCore import QCoreApplication
-
-        QMessageBox.critical(
-            None,
-            QCoreApplication.translate("main", "Fatal Error"),
-            QCoreApplication.translate("main", "Application failed to start: {error}").format(
-                error=str(e)
-            ),
-        )
-        sys.exit(1)
+    # Start the event loop
 
 
 if __name__ == "__main__":
