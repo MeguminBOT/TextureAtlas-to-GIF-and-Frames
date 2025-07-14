@@ -225,16 +225,14 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.animation_export_group.setChecked(defaults.get("animation_export", True))
         self.ui.frame_export_group.setChecked(defaults.get("frame_export", True))
 
-        # Set default selections
+        # Set default selections using index mapping to avoid translation issues
         if "animation_format" in defaults:
-            format_index = self.ui.animation_format_combobox.findText(defaults["animation_format"])
-            if format_index >= 0:
-                self.ui.animation_format_combobox.setCurrentIndex(format_index)
+            format_index = self.get_animation_format_index(defaults["animation_format"])
+            self.ui.animation_format_combobox.setCurrentIndex(format_index)
 
         if "frame_format" in defaults:
-            format_index = self.ui.frame_format_combobox.findText(defaults["frame_format"])
-            if format_index >= 0:
-                self.ui.frame_format_combobox.setCurrentIndex(format_index)
+            format_index = self.get_frame_format_index(defaults["frame_format"])
+            self.ui.frame_format_combobox.setCurrentIndex(format_index)
 
     def setup_connections(self):
         """Sets up signal-slot connections for UI elements."""
@@ -883,10 +881,10 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def on_animation_format_change(self):
         """Handles animation format selection changes."""
-        format_text = self.ui.animation_format_combobox.currentText()
+        format_index = self.ui.animation_format_combobox.currentIndex()
 
-        # Update UI based on format capabilities
-        if format_text == "GIF":
+        # Update UI based on format capabilities (GIF is index 0)
+        if format_index == 0:  # GIF
             self.ui.threshold_entry.setEnabled(True)
             self.ui.threshold_label.setEnabled(True)
         else:
@@ -913,11 +911,60 @@ class TextureAtlasExtractorApp(QMainWindow):
         if hasattr(self.app_config, "settings"):
             self.app_config.settings["fnf_idle_loop"] = checked
 
+    def get_animation_format_index(self, format_name):
+        """Get the index for animation format by English name."""
+        animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+        try:
+            return animation_format_map.index(format_name)
+        except ValueError:
+            return 0  # Default to GIF
+
+    def get_frame_format_index(self, format_name):
+        """Get the index for frame format by English name."""
+        frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
+        try:
+            return frame_format_map.index(format_name)
+        except ValueError:
+            return 3  # Default to PNG
+
+    def get_frame_selection_index(self, selection_name):
+        """Get the index for frame selection by English name."""
+        frame_selection_map = ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
+        try:
+            return frame_selection_map.index(selection_name)
+        except ValueError:
+            return 0  # Default to All
+
+    def get_crop_option_index(self, crop_name):
+        """Get the index for crop option by English name."""
+        crop_option_map = ["None", "Animation based", "Frame based"]
+        try:
+            return crop_option_map.index(crop_name)
+        except ValueError:
+            return 0  # Default to None
+
+    def get_filename_format_index(self, format_name):
+        """Get the index for filename format by English name."""
+        filename_format_map = ["Standardized", "No spaces", "No special characters"]
+        try:
+            return filename_format_map.index(format_name)
+        except ValueError:
+            return 0  # Default to Standardized
+
     def update_global_settings(self):
         """Updates the global settings from the GUI."""
-        # Get format options directly from comboboxes (decoupled from groupbox checkboxes)
-        animation_format = self.ui.animation_format_combobox.currentText()
-        frame_format = self.ui.frame_format_combobox.currentText()
+        # Get format options directly from comboboxes using index mapping to avoid translation issues
+        animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+        frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
+        frame_selection_map = ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
+        crop_option_map = ["None", "Animation based", "Frame based"]
+        filename_format_map = ["Standardized", "No spaces", "No special characters"]
+
+        animation_format = animation_format_map[self.ui.animation_format_combobox.currentIndex()]
+        frame_format = frame_format_map[self.ui.frame_format_combobox.currentIndex()]
+        frame_selection = frame_selection_map[self.ui.frame_selection_combobox.currentIndex()]
+        crop_option = crop_option_map[self.ui.cropping_method_combobox.currentIndex()]
+        filename_format = filename_format_map[self.ui.filename_format_combobox.currentIndex()]
 
         # Get export enable states from groupboxes
         animation_export = self.ui.animation_export_group.isChecked()
@@ -935,11 +982,11 @@ class TextureAtlasExtractorApp(QMainWindow):
             "scale": self.ui.scale_entry.value(),
             "threshold": self.ui.threshold_entry.value() / 100.0,  # Convert % to 0-1 range
             "frame_scale": self.ui.frame_scale_entry.value(),
-            "frame_selection": self.ui.frame_selection_combobox.currentText(),
-            "crop_option": self.ui.cropping_method_combobox.currentText(),
+            "frame_selection": frame_selection,
+            "crop_option": crop_option,
             "prefix": self.ui.filename_prefix_entry.text(),
             "suffix": self.ui.filename_suffix_entry.text(),
-            "filename_format": self.ui.filename_format_combobox.currentText(),
+            "filename_format": filename_format,
             "replace_rules": getattr(self, "replace_rules", []),
             "var_delay": self.variable_delay,
             "fnf_idle_loop": self.fnf_idle_loop,
@@ -1291,6 +1338,7 @@ def main():
     window.show()
 
     # Start the event loop
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
