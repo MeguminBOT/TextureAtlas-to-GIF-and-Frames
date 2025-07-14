@@ -2,13 +2,12 @@
 """
 Translation management script for TextureAtlas Toolbox
 Extracts and updates translation files from source code
-Run from project root or tools/translations directory
+Run from project root or tools directory
 """
 
 import sys
 import subprocess
 from pathlib import Path
-import argparse
 
 def get_project_dirs():
     """Get the project and translation directories"""
@@ -17,6 +16,11 @@ def get_project_dirs():
     # If script is in tools/translations, go up two levels to project root
     if script_dir.name == "translations" and script_dir.parent.name == "tools":
         project_root = script_dir.parent.parent
+        src_dir = project_root / "src"
+        translations_dir = src_dir / "translations"
+    elif script_dir.name == "tools":
+        # Script is directly in tools directory
+        project_root = script_dir.parent
         src_dir = project_root / "src"
         translations_dir = src_dir / "translations"
     else:
@@ -30,13 +34,13 @@ def get_project_dirs():
 def get_available_languages():
     """Get list of available language codes and names with translation quality info"""
     return {
-        "en": {"name": "English", "machine_translated": False, "quality": "native"},
-        "sv": {"name": "Svenska", "machine_translated": False, "quality": "manual"},
-        "es": {"name": "Español", "machine_translated": True, "quality": "machine"}, 
-        "fr": {"name": "Français", "machine_translated": True, "quality": "machine"},
-        "de": {"name": "Deutsch", "machine_translated": True, "quality": "machine"},
-        "ja": {"name": "日本語", "machine_translated": True, "quality": "machine"},
-        "zh": {"name": "中文", "machine_translated": True, "quality": "machine"}
+        "en": {"name": "English", "english_name": "English", "quality": "native"},
+        "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "machine"},
+        "es": {"name": "Español", "english_name": "Spanish", "quality": "machine"}, 
+        "fr": {"name": "Français", "english_name": "French", "quality": "machine"},
+        "de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
+        "ja": {"name": "日本語", "english_name": "Japanese", "quality": "machine"},
+        "zh": {"name": "中文", "english_name": "Chinese", "quality": "machine"}
     }
 
 def parse_languages(lang_args):
@@ -130,24 +134,10 @@ def extract_translations(languages=None):
         return False
 
 def merge_legacy_translations():
-    """Merge existing legacy translations into unified files"""
-    project_root, src_dir, translations_dir = get_project_dirs()
-    
-    print("Merging legacy translations...")
-    
-    # Map legacy files to unified files
-    legacy_files = {
-        "textureAtlas_sv.ts": "app_sv.ts",
-        "textureAtlas_en.ts": "app_en.ts"
-    }
-    
-    for legacy_name, unified_name in legacy_files.items():
-        legacy_file = translations_dir / legacy_name
-        unified_file = translations_dir / unified_name
-        
-        if legacy_file.exists() and unified_file.exists():
-            print(f"Legacy translations found in {legacy_name}, keeping both files for compatibility")
-            # You can manually merge translations using Qt Linguist if needed
+    """Legacy function - no longer needed with unified app_*.ts system"""
+    print("Legacy translation merging is no longer needed.")
+    print("All translations now use the unified app_*.ts naming scheme.")
+    return True
 
 def compile_translations(languages=None):
     """Compile .ts files to .qm files"""
@@ -243,10 +233,10 @@ def show_status(languages=None):
         # Add quality indicator
         quality_indicator = ""
         if isinstance(lang_info, dict):
-            if lang_info.get("machine_translated", False):
+            if lang_info.get("quality") == "machine":
                 quality_indicator = " 🤖"  # Robot emoji for machine translated
-            elif lang_info.get("quality") == "manual":
-                quality_indicator = " ✋"  # Hand emoji for manually translated
+            elif lang_info.get("quality") == "native":
+                quality_indicator = " ✋"  # Hand emoji for native quality
         
         # Get translation count if file exists
         count_info = ""
@@ -283,7 +273,7 @@ def inject_machine_translation_disclaimers(languages=None):
             continue
             
         lang_info = all_languages[lang_code]
-        if not isinstance(lang_info, dict) or not lang_info.get("machine_translated", False):
+        if not isinstance(lang_info, dict) or lang_info.get("quality") != "machine":
             print(f"Skipping {lang_code}: Not marked as machine translated")
             continue
             
@@ -343,18 +333,20 @@ def main():
         print("Commands:")
         print("  extract    - Extract translatable strings from source code")
         print("  compile    - Compile .ts files to .qm files")
-        print("  merge      - Merge legacy translation files")
         print("  status     - Show translation status")
         print("  disclaimer - Add machine translation disclaimers")
-        print("  all        - Run extract, merge, compile, and create resource file")
+        print("  all        - Run extract, compile, and create resource file")
         print()
         print("Languages (optional):")
         available_langs = get_available_languages()
         for code, lang_info in available_langs.items():
             if isinstance(lang_info, dict):
                 name = lang_info["name"]
-                quality_indicator = " 🤖" if lang_info.get("machine_translated", False) else " ✋" if lang_info.get("quality") == "manual" else ""
-                print(f"  {code:2} - {name}{quality_indicator}")
+                english_name = lang_info.get("english_name", "")
+                quality = lang_info.get("quality", "unknown")
+                quality_indicator = " 🤖" if quality == "machine" else " ✋" if quality == "native" else ""
+                display_name = f"{name} ({english_name})" if english_name != name else name
+                print(f"  {code:2} - {display_name}{quality_indicator}")
             else:
                 print(f"  {code:2} - {lang_info}")
         print("  all      - Process all languages (default)")
@@ -384,8 +376,6 @@ def main():
         extract_translations(languages)
     elif command == "compile":
         compile_translations(languages)
-    elif command == "merge":
-        merge_legacy_translations()
     elif command == "status":
         show_status(languages)
     elif command == "disclaimer":
@@ -393,13 +383,12 @@ def main():
     elif command == "all":
         print("Running full translation update...")
         extract_translations(languages)
-        merge_legacy_translations()
         compile_translations(languages)
         create_resource_file()
         show_status(languages)
     else:
         print(f"Invalid command: {command}")
-        print("Valid commands: extract, compile, merge, status, disclaimer, all")
+        print("Valid commands: extract, compile, status, disclaimer, all")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -26,4 +26,4 @@ if "%1"=="" (
     goto :eof
 )
 
-python tools/translations/update_translations.py %*
+python tools/update_translations.py %*
