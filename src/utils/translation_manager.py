@@ -75,6 +75,8 @@ class TranslationManager:
         """
         available = {
             "en": {"name": "English", "english_name": "English", "quality": "native"},
+            "pt_br": {"name": "Português (Brasil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+            "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
         }
 
         # Language codes to check for with their quality information

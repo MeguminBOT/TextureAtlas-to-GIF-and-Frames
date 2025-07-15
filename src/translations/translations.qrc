@@ -6,6 +6,7 @@
     <file>app_es.qm</file>
     <file>app_fr.qm</file>
     <file>app_ja.qm</file>
+    <file>app_pt_br.qm</file>
     <file>app_sv.qm</file>
     <file>app_zh.qm</file>
 </qresource>

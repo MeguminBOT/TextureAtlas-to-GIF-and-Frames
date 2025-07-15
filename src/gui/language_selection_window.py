@@ -174,6 +174,8 @@ class LanguageSelectionWindow(QDialog):
             # Fallback if parent doesn't have the method
             available_languages = {
                 "en": {"name": "English", "english_name": "English", "quality": "native"},
+                "pt_br": {"name": "Portuguese (Brazil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+                "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
             }
 
         # Get translation manager for helper methods
