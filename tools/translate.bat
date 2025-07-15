@@ -1,29 +1,49 @@
 @echo off
-REM Translation management convenience script for Windows
-REM Run from project root directory
+REM Translation Management Script for TextureAtlas Toolbox
+REM This batch file provides a convenient way to run the translation management tool
 
-if "%1"=="" (
-    echo TextureAtlas Toolbox - Translation Management
-    echo ==============================================
-    echo Usage: translate [command] [languages...]
-    echo.
-    echo Commands:
-    echo   extract  - Extract translatable strings from source code
-    echo   compile  - Compile translation files for application use
-    echo   status   - Show translation status for all languages
-    echo   all      - Run full translation update cycle
-    echo.
-    echo Languages ^(optional^):
-    echo   en sv es fr de ja zh - Specific language codes
-    echo   all                  - Process all languages ^(default^)
-    echo.
-    echo Examples:
-    echo   translate extract           ^(all languages^)
-    echo   translate extract sv en     ^(Swedish and English only^)
-    echo   translate compile sv        ^(Swedish only^)
-    echo   translate status es fr de   ^(Spanish, French, German^)
-    echo   translate all sv            ^(Full cycle for Swedish only^)
-    goto :eof
+setlocal enabledelayedexpansion
+
+REM Get the directory where this batch file is located
+set "SCRIPT_DIR=%~dp0"
+
+REM Set the project root (parent of tools directory)
+set "PROJECT_ROOT=%SCRIPT_DIR%.."
+
+REM Check if Python is available
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo Error: Python is not installed or not in PATH
+    echo Please install Python 3.10+ and try again
+    pause
+    exit /b 1
 )
 
-python tools/update_translations.py %*
+REM Check if translate.py exists
+if not exist "%SCRIPT_DIR%translate.py" (
+    echo Error: translate.py not found in tools directory
+    echo Expected location: %SCRIPT_DIR%translate.py
+    pause
+    exit /b 1
+)
+
+REM Change to project root directory
+cd /d "%PROJECT_ROOT%"
+
+REM If no arguments provided, show help
+if "%~1"=="" (
+    python "%SCRIPT_DIR%translate.py"
+    pause
+    exit /b 0
+)
+
+REM Run the translation script with all provided arguments
+python "%SCRIPT_DIR%translate.py" %*
+
+REM Pause if running interactively (not from command line with arguments)
+if "%~1"=="extract" pause
+if "%~1"=="compile" pause
+if "%~1"=="resource" pause
+if "%~1"=="status" pause
+if "%~1"=="disclaimer" pause
+if "%~1"=="all" pause

@@ -51,7 +51,15 @@ class MachineTranslationDisclaimerDialog(QDialog):
         message_text.setPlainText(self.disclaimer_message)
         message_text.setReadOnly(True)
         message_text.setMaximumHeight(120)
-        message_text.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc; padding: 8px;")
+        message_text.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid palette(mid);
+                padding: 8px;
+                background-color: palette(base);
+                color: palette(text);
+                border-radius: 4px;
+            }
+        """)
         layout.addWidget(message_text)
         
         # Don't show again checkbox
