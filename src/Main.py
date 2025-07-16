@@ -1354,6 +1354,10 @@ class TextureAtlasExtractorApp(QMainWindow):
 
             # Create and show the preview window
             preview_window = AnimationPreviewWindow(self, animation_path, settings)
+            
+            # Connect signal to handle saved settings
+            preview_window.settings_saved.connect(self.handle_preview_settings_saved)
+            
             preview_window.exec()
         except Exception as e:
             QMessageBox.warning(
@@ -1361,6 +1365,31 @@ class TextureAtlasExtractorApp(QMainWindow):
                 self.tr("Preview Error"),
                 self.tr("Could not open animation preview: {error}").format(error=str(e)),
             )
+
+    def handle_preview_settings_saved(self, preview_settings):
+        """Handle settings saved from animation preview window"""
+        # Get current animation details
+        current_item = self.ui.listbox_data.currentItem()
+        current_spritesheet_item = self.ui.listbox_png.currentItem()
+        
+        if not current_item or not current_spritesheet_item:
+            return
+            
+        spritesheet_name = current_spritesheet_item.text()
+        animation_name = current_item.text()
+        full_anim_name = "{spritesheet}/{animation}".format(
+            spritesheet=spritesheet_name, animation=animation_name
+        )
+
+        # Save the preview settings using the settings manager
+        self.settings_manager.animation_settings[full_anim_name] = preview_settings
+        
+        # Show confirmation message
+        QMessageBox.information(
+            self,
+            self.tr("Settings Saved"),
+            self.tr("Animation override settings have been saved for '{name}'.").format(name=full_anim_name)
+        )
 
     def preview_selected_animation(self):
         """Preview the selected animation using the new preview window."""
