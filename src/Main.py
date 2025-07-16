@@ -599,14 +599,13 @@ class TextureAtlasExtractorApp(QMainWindow):
             return
 
         menu = QMenu(self)
-        
-        # Add preview action
+
         preview_action = QAction(self.tr("Preview Animation"), self)
         preview_action.triggered.connect(self.preview_selected_animation)
         menu.addAction(preview_action)
-        
+
         menu.addSeparator()
-        
+
         settings_action = QAction(self.tr("Override Settings"), self)
         settings_action.triggered.connect(self.override_animation_settings)
         menu.addAction(settings_action)
@@ -1329,29 +1328,30 @@ class TextureAtlasExtractorApp(QMainWindow):
     def get_complete_preview_settings(self, spritesheet_name, animation_name):
         """Get complete settings for preview, merging global, spritesheet, and animation overrides."""
         self.update_global_settings()
-        
 
         full_animation_name = f"{spritesheet_name}/{animation_name}"
-        
+
         # Get merged settings using the settings manager
-        complete_settings = self.settings_manager.get_settings(spritesheet_name, full_animation_name)
-        
+        complete_settings = self.settings_manager.get_settings(
+            spritesheet_name, full_animation_name
+        )
+
         # For preview, force certain settings to ensure good preview experience
         preview_overrides = {
-            'frame_selection': 'All',  # Always show all frames in preview
-            'crop_option': 'None',     # No cropping for preview to see full frames
-            'animation_export': True,  # Always export animation for preview
+            "frame_selection": "All",  # Always show all frames in preview
+            "crop_option": "None",  # No cropping for preview to see full frames
+            "animation_export": True,  # Always export animation for preview
         }
-        
+
         complete_settings.update(preview_overrides)
-        
+
         return complete_settings
 
     def show_animation_preview_window(self, animation_path, settings):
         """Shows the animation preview window for the given animation file."""
         try:
             from gui.animation_preview_window import AnimationPreviewWindow
-            
+
             # Create and show the preview window
             preview_window = AnimationPreviewWindow(self, animation_path, settings)
             preview_window.exec()
@@ -1387,12 +1387,10 @@ class TextureAtlasExtractorApp(QMainWindow):
             spritesheet_path = current_spritesheet_item.data(Qt.ItemDataRole.UserRole)
             if not spritesheet_path:
                 QMessageBox.warning(
-                    self, 
-                    self.tr("Preview Error"), 
-                    self.tr("Could not find spritesheet file path.")
+                    self, self.tr("Preview Error"), self.tr("Could not find spritesheet file path.")
                 )
                 return
-            
+
             # Find the metadata file
             metadata_path = None
             if spritesheet_name in self.data_dict:
@@ -1401,32 +1399,30 @@ class TextureAtlasExtractorApp(QMainWindow):
                     metadata_path = data_files["xml"]
                 elif "txt" in data_files:
                     metadata_path = data_files["txt"]
-            
+
             # Generate temp animation for preview
             from core.extractor import Extractor
-            
+
             extractor = Extractor(None, self.current_version, self.settings_manager)
-            
+
             # Get complete preview settings that include global, spritesheet, and animation overrides
             preview_settings = self.get_complete_preview_settings(spritesheet_name, animation_name)
-            
+
             temp_path = extractor.generate_temp_animation_for_preview(
                 atlas_path=spritesheet_path,
                 metadata_path=metadata_path,
                 settings=preview_settings,
-                animation_name=animation_name
+                animation_name=animation_name,
             )
-            
+
             if temp_path and os.path.exists(temp_path):
                 # Show animation preview
                 self.show_animation_preview_window(temp_path, preview_settings)
             else:
                 QMessageBox.warning(
-                    self, 
-                    self.tr("Preview Error"), 
-                    self.tr("Could not generate animation preview.")
+                    self, self.tr("Preview Error"), self.tr("Could not generate animation preview.")
                 )
-                
+
         except Exception as e:
             QMessageBox.warning(
                 self,
