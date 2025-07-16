@@ -2,623 +2,880 @@
 # -*- coding: utf-8 -*-
 
 import os
-import subprocess
-import platform
+from typing import List
+
 from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QScrollArea,
-    QWidget,
-    QPushButton,
-    QSlider,
-    QGridLayout,
-    QMessageBox,
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QSlider, QSpinBox, QDoubleSpinBox,
+    QPushButton, QListWidget, QListWidgetItem, QGroupBox,
+    QCheckBox, QColorDialog, QSplitter, QComboBox, QLineEdit,
+    QWidget, QMessageBox
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QPixmap, QImage
+from PySide6.QtCore import (
+    Qt, QTimer, QThread, Signal, QSize, QRect
+)
+from PySide6.QtGui import (
+    QPixmap, QImage, QPainter, QColor
+)
 
 try:
-    from PIL import Image, ImageSequence
-    from PIL.Image import Resampling
-
-    NEAREST = Resampling.NEAREST
+    from PIL import Image
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
-    try:
-        from PIL import Image, ImageSequence
 
-        NEAREST = Image.NEAREST
-    except ImportError:
-        PIL_AVAILABLE = False
+
+class AnimationProcessor(QThread):
+    """Background thread for processing animation frames"""
+    frame_processed = Signal(int, QPixmap)  # frame_index, pixmap
+    processing_complete = Signal()
+    error_occurred = Signal(str)
+    
+    def __init__(self, animation_path: str, settings: dict):
+        super().__init__()
+        self.animation_path = animation_path
+        self.settings = settings
+        self.frames: List[QPixmap] = []
+        self.frame_durations: List[int] = []
+        
+    def run(self):
+        """Process animation frames in background"""
+        try:
+            if not PIL_AVAILABLE:
+                self.error_occurred.emit("PIL/Pillow not available")
+                return
+                
+            # Load animation
+            with Image.open(self.animation_path) as img:
+                frame_count = getattr(img, 'n_frames', 1)
+                
+                for frame_idx in range(frame_count):
+                    img.seek(frame_idx)
+                    
+                    # Get frame duration (default 100ms if not available)
+                    duration = getattr(img, 'info', {}).get('duration', 100)
+                    self.frame_durations.append(duration)
+                    
+                    # Convert PIL image to QPixmap
+                    frame_copy = img.copy()
+                    if frame_copy.mode != 'RGBA':
+                        frame_copy = frame_copy.convert('RGBA')
+                    
+                    # Convert to QImage
+                    w, h = frame_copy.size
+                    qimg = QImage(frame_copy.tobytes(), w, h, QImage.Format.Format_RGBA8888)
+                    pixmap = QPixmap.fromImage(qimg)
+                    
+                    self.frames.append(pixmap)
+                    self.frame_processed.emit(frame_idx, pixmap)
+                    
+            self.processing_complete.emit()
+            
+        except Exception as e:
+            self.error_occurred.emit(f"Failed to load animation: {str(e)}")
+
+
+class FrameListWidget(QListWidget):
+    """Custom list widget for frame navigation"""
+    frame_selected = Signal(int)
+    
+    def __init__(self):
+        super().__init__()
+        self.setMaximumWidth(120)
+        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.currentItemChanged.connect(self._on_selection_changed)
+        
+    def set_frame_count(self, count: int):
+        """Set the number of frames in the list"""
+        self.clear()
+        for i in range(count):
+            item = QListWidgetItem(f"Frame {i + 1}")
+            item.setData(Qt.ItemDataRole.UserRole, i)
+            self.addItem(item)
+            
+    def select_frame(self, frame_index: int):
+        """Select a specific frame"""
+        if 0 <= frame_index < self.count():
+            self.setCurrentRow(frame_index)
+            
+    def _on_selection_changed(self, current, previous):
+        """Handle frame selection change"""
+        if current:
+            frame_index = current.data(Qt.ItemDataRole.UserRole)
+            if frame_index is not None:
+                self.frame_selected.emit(frame_index)
+
+
+class AnimationDisplay(QLabel):
+    """Custom widget for displaying animation frames"""
+    
+    def __init__(self):
+        super().__init__()
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumSize(600, 500)
+        self.setScaledContents(False)
+        self.setStyleSheet("border: 1px solid gray; background-color: transparent;")
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
+        self._background_color = QColor(255, 255, 255, 255)
+        self._show_transparency = False
+        self._checkered_pattern = None
+        self._current_pixmap = None
+        self._scale_factor = 1.0
+        self._original_size = None
+        self._auto_scale = True
+        
+    def set_background_color(self, color: QColor):
+        """Set the background color for transparent animations"""
+        self._background_color = color
+        self._show_transparency = False
+        self.update()
+        
+    def set_transparency_background(self, show_transparency: bool):
+        """Set whether to show transparency with checkered pattern"""
+        self._show_transparency = show_transparency
+        if show_transparency:
+            self._create_checkered_pattern()
+        self.update()
+        
+    def _create_checkered_pattern(self):
+        """Create a checkered pattern for transparency background"""
+        checker_size = 16
+        pattern_size = checker_size * 2
+        
+        self._checkered_pattern = QPixmap(pattern_size, pattern_size)
+        painter = QPainter(self._checkered_pattern)
+        
+        # Light gray and white squares
+        light_gray = QColor(240, 240, 240)
+        white = QColor(255, 255, 255)
+        
+        # Draw the checkered pattern
+        for x in range(0, pattern_size, checker_size):
+            for y in range(0, pattern_size, checker_size):
+                # Determine color based on position
+                is_light = ((x // checker_size) + (y // checker_size)) % 2 == 0
+                color = light_gray if is_light else white
+                painter.fillRect(x, y, checker_size, checker_size, color)
+        
+        painter.end()
+        
+    def set_scale_factor(self, scale: float):
+        """Set the scale factor for the displayed frame"""
+        self._scale_factor = scale
+        self._auto_scale = False
+        self.update()
+        
+    def set_frame(self, pixmap: QPixmap):
+        """Set the current frame to display"""
+        self._current_pixmap = pixmap
+        if pixmap and not pixmap.isNull():
+            self._original_size = pixmap.size()
+            
+            # Auto-scale to fit display on first frame if not manually set
+            if self._auto_scale:
+                self._calculate_auto_scale()
+                
+        self.update()
+        
+    def _calculate_auto_scale(self):
+        """Calculate automatic scale to fit the display while maintaining aspect ratio"""
+        if not self._original_size:
+            return
+            
+        # Get available space (leave some margin)
+        available_width = self.width() - 20
+        available_height = self.height() - 20
+        
+        # Calculate scale factors for width and height
+        width_scale = available_width / self._original_size.width()
+        height_scale = available_height / self._original_size.height()
+        
+        # Use the smaller scale factor to ensure it fits in both dimensions
+        # But don't scale up beyond original size unless needed
+        auto_scale = min(width_scale, height_scale, 1.0)
+        
+        # Only use auto scale if it would make the image reasonably sized
+        if auto_scale > 0.1:
+            self._scale_factor = auto_scale
+        else:
+            self._scale_factor = 1.0
+            
+    def reset_auto_scale(self):
+        """Reset to auto-scaling mode"""
+        self._auto_scale = True
+        if self._original_size:
+            self._calculate_auto_scale()
+            self.update()
+        
+    def paintEvent(self, event):
+        """Custom paint event to handle background and scaling"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        
+        if self._current_pixmap and not self._current_pixmap.isNull():
+            # Calculate scaled size
+            pixmap_size = self._current_pixmap.size()
+            scaled_size = QSize(
+                int(pixmap_size.width() * self._scale_factor),
+                int(pixmap_size.height() * self._scale_factor)
+            )
+            
+            # Center the pixmap
+            widget_rect = self.rect()
+            x = (widget_rect.width() - scaled_size.width()) // 2
+            y = (widget_rect.height() - scaled_size.height()) // 2
+            
+            target_rect = QRect(x, y, scaled_size.width(), scaled_size.height())
+            
+            # Fill background only for the animation area, not the entire widget
+            if self._show_transparency and self._checkered_pattern:
+                # Tile the checkered pattern only within the animation bounds
+                pattern_size = self._checkered_pattern.size()
+                
+                for px in range(target_rect.x(), target_rect.x() + target_rect.width(), pattern_size.width()):
+                    for py in range(target_rect.y(), target_rect.y() + target_rect.height(), pattern_size.height()):
+                        # Clip the pattern to fit within the target rectangle
+                        clip_width = min(pattern_size.width(), target_rect.x() + target_rect.width() - px)
+                        clip_height = min(pattern_size.height(), target_rect.y() + target_rect.height() - py)
+                        
+                        if clip_width > 0 and clip_height > 0:
+                            source_rect = QRect(0, 0, clip_width, clip_height)
+                            dest_rect = QRect(px, py, clip_width, clip_height)
+                            painter.drawPixmap(dest_rect, self._checkered_pattern, source_rect)
+            else:
+                # Use solid color background only for the animation area
+                painter.fillRect(target_rect, self._background_color)
+            
+            # Draw the pixmap on top
+            painter.drawPixmap(target_rect, self._current_pixmap)
+            
+        painter.end()
+        
+    def resizeEvent(self, event):
+        """Handle resize events to recalculate auto-scale"""
+        super().resizeEvent(event)
+        if self._auto_scale and self._original_size:
+            self._calculate_auto_scale()
+            self.update()
 
 
 class AnimationPreviewWindow(QDialog):
     """
-    A window class for previewing animations in Qt.
-
-    This window allows users to preview animations with controls for
-    playback, frame navigation, background color adjustment, and external viewing.
+    Modern animation preview window with real-time playback and settings.
     """
-
-    def __init__(self, parent, animation_path, settings):
+    
+    def __init__(self, parent, animation_path: str, settings: dict):
         super().__init__(parent)
         self.animation_path = animation_path
-        self.settings = settings
-        self.pil_frames = []
-        self.durations = []
-        self.frame_count = 0
-        self.current_frame = 0
-        self.playing = False
-        self.scale_factor = 1.0
-        self.composited_cache = {}
-        self.bg_value = 127
-        self.use_transparency = False
-
-        # Get file format
-        file_ext = os.path.splitext(animation_path)[1].lower()
-        self.format_name = {".gif": "GIF", ".webp": "WebP"}.get(file_ext, "Animation")
-
-        self.setWindowTitle(f"{self.format_name} Preview")
-        self.setModal(True)
-
-        # Timer for animation playback
-        self.playback_timer = QTimer()
-        self.playback_timer.timeout.connect(self.next_frame)
-
-        if not self.load_animation():
-            return
-
-        self.setup_ui()
-        self.precompute_composited_frames()
-        self.show_frame(0)
-
-    def tr(self, text):
-        """Translation helper method."""
-        from PySide6.QtCore import QCoreApplication
-        return QCoreApplication.translate(self.__class__.__name__, text)
-
-
-    def load_animation(self):
-        """Load the animation file and extract frames."""
-        if not PIL_AVAILABLE:
-            QMessageBox.critical(self, "Error", "PIL/Pillow is required for animation preview.")
-            self.reject()
-            return False
-
-        try:
-            animation = Image.open(self.animation_path)
-
-            file_ext = os.path.splitext(self.animation_path)[1].lower()
-
-            if file_ext == ".webp":
-                # Handle WebP animations
-                self.pil_frames = []
-                try:
-                    while True:
-                        self.pil_frames.append(animation.copy())
-                        animation.seek(animation.tell() + 1)
-                except EOFError:
-                    pass
-                animation.seek(0)
-            else:
-                # Handle GIF and other formats
-                self.pil_frames = [frame.copy() for frame in ImageSequence.Iterator(animation)]
-
-            self.frame_count = len(self.pil_frames)
-
-            # Calculate durations
-            self.calculate_durations(animation, file_ext)
-
-            animation.close()
-            return True
-
-        except Exception as e:
-            QMessageBox.critical(self, "Preview Error", f"Could not load animation file: {e}")
-            self.reject()
-            return False
-
-    def calculate_durations(self, animation, file_ext):
-        """Calculate frame durations based on settings."""
-        self.durations = []
-
-        try:
-            fps = self.settings.get("fps", 24)
-            delay_setting = self.settings.get("delay", 250)
-            period = self.settings.get("period", 0)
-            var_delay = self.settings.get("var_delay", False)
-
-            if var_delay:
-                if file_ext == ".webp":
-                    for index in range(self.frame_count):
-                        duration = round((index + 1) * 1000 / fps) - round(index * 1000 / fps)
-                        self.durations.append(int(duration))
-                else:
-                    for index in range(self.frame_count):
-                        duration = round((index + 1) * 1000 / fps, -1) - round(
-                            index * 1000 / fps, -1
-                        )
-                        self.durations.append(int(duration))
-            else:
-                if file_ext == ".webp":
-                    self.durations = [int(round(1000 / fps))] * self.frame_count
-                else:
-                    self.durations = [int(round(1000 / fps, -1))] * self.frame_count
-
-            if self.durations:
-                if file_ext == ".webp":
-                    self.durations[-1] += int(delay_setting)
-                    self.durations[-1] += max(int(period) - sum(self.durations), 0)
-                else:
-                    self.durations[-1] += int(delay_setting)
-                    self.durations[-1] += max(int(round(period, -1)) - sum(self.durations), 0)
-
-        except Exception:
-            # Fallback: try to get durations from the animation
-            try:
-                if file_ext == ".webp":
-                    animation.seek(0)
-                    for i in range(self.frame_count):
-                        try:
-                            animation.seek(i)
-                            duration = animation.info.get("duration", 0)
-                            self.durations.append(int(duration) if duration else 42)
-                        except EOFError:
-                            break
-                else:
-                    for frame in ImageSequence.Iterator(animation):
-                        duration = frame.info.get("duration", 0)
-                        self.durations.append(int(duration) if duration else 42)
-            except Exception:
-                pass
-
-        # Final fallback
-        if not self.durations or len(self.durations) != self.frame_count:
-            fps = self.settings.get("fps", 24)
-            delay_setting = self.settings.get("delay", 250)
-            base_delay = int(round(1000 / fps, -1))
-            self.durations = [base_delay] * self.frame_count
-            self.durations[-1] += int(delay_setting)
-
-    def setup_ui(self):
-        """Set up the user interface."""
-        main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(5)
-
-        # Frame counter
-        self.frame_counter = QLabel(f"Frame 0 / {self.frame_count - 1}")
-        self.frame_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(self.frame_counter)
-
-        # Frame slider
-        slider_layout = QHBoxLayout()
-        self.frame_slider = QSlider(Qt.Orientation.Horizontal)
-        self.frame_slider.setMinimum(0)
-        self.frame_slider.setMaximum(self.frame_count - 1)
-        self.frame_slider.setValue(0)
-        self.frame_slider.setMinimumWidth(300)
-        self.frame_slider.valueChanged.connect(self.on_slider_change)
-
-        slider_layout.addStretch()
-        slider_layout.addWidget(self.frame_slider)
-        slider_layout.addStretch()
-        main_layout.addLayout(slider_layout)
-
-        # Delays display
-        self.setup_delays_display(main_layout)
-
-        # Control buttons
-        self.setup_control_buttons(main_layout)
-
-        # Background color slider
-        self.setup_background_slider(main_layout)
-
-        # Image display label
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("QLabel { border: 1px solid gray; }")
-        main_layout.addWidget(self.image_label)
-
-        # Note text
-        note_text = (
-            f"Playback speed of {self.format_name} animations may not be "
-            "accurately depicted in this preview window. Open the animation "
-            "externally for accurate playback."
-        )
-        note_label = QLabel(note_text)
-        note_label.setFont(QFont("Arial", 9, QFont.Weight.ExtraLight))
-        note_label.setStyleSheet("QLabel { color: #333333; }")
-        note_label.setWordWrap(True)
-        note_label.setMargin(8)
-        main_layout.addWidget(note_label)
-
-    def setup_delays_display(self, main_layout):
-        """Set up the delays display area."""
-        delays_scroll = QScrollArea()
-        delays_scroll.setMaximumHeight(60)
-        delays_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        delays_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
-        delays_widget = QWidget()
-        delays_layout = QGridLayout(delays_widget)
-        delays_layout.setSpacing(2)
-
-        self.delay_labels = []
-        for i, duration in enumerate(self.durations):
-            # Frame index
-            idx_label = QLabel(str(i))
-            idx_label.setFont(QFont("Arial", 8))
-            idx_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            delays_layout.addWidget(idx_label, 0, i)
-
-            # Duration
-            ms_label = QLabel(f"{duration} ms")
-            ms_label.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
-            ms_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            delays_layout.addWidget(ms_label, 1, i)
-
-            self.delay_labels.append(ms_label)
-
-        delays_scroll.setWidget(delays_widget)
-        main_layout.addWidget(delays_scroll)
-
-    def setup_control_buttons(self, main_layout):
-        """Set up playback control buttons."""
-        button_layout = QHBoxLayout()
-
-        prev_btn = QPushButton(self.tr("Prev")
-        prev_btn.clicked.connect(self.prev_frame)
-        button_layout.addWidget(prev_btn)
-
-        self.play_btn = QPushButton(self.tr("Play")
-        self.play_btn.clicked.connect(self.toggle_play)
-        button_layout.addWidget(self.play_btn)
-
-        stop_btn = QPushButton(self.tr("Stop")
-        stop_btn.clicked.connect(self.stop_animation)
-        button_layout.addWidget(stop_btn)
-
-        next_btn = QPushButton(self.tr("Next")
-        next_btn.clicked.connect(self.next_frame)
-        button_layout.addWidget(next_btn)
-
-        # External open button
-        external_btn = QPushButton(f"Open {self.format_name} externally")
-        external_btn.clicked.connect(self.open_external)
-        button_layout.addWidget(external_btn)
-
-        main_layout.addLayout(button_layout)
-
-    def setup_background_slider(self, main_layout):
-        """Set up the background color slider."""
-        bg_layout = QHBoxLayout()
-
-        bg_label = QLabel(self.tr("Background:")
-        bg_layout.addWidget(bg_label)
-
-        # Add transparency checkbox
-        from PySide6.QtWidgets import QCheckBox
-        self.transparency_checkbox = QCheckBox("Transparent")
-        self.transparency_checkbox.setChecked(False)
-        self.transparency_checkbox.stateChanged.connect(self.on_transparency_change)
-        bg_layout.addWidget(self.transparency_checkbox)
-
-        self.bg_slider = QSlider(Qt.Orientation.Horizontal)
-        self.bg_slider.setMinimum(0)
-        self.bg_slider.setMaximum(255)
-        self.bg_slider.setValue(127)
-        self.bg_slider.setMinimumWidth(200)
-        self.bg_slider.valueChanged.connect(self.on_bg_change)
-        bg_layout.addWidget(self.bg_slider)
-
-        bg_layout.addStretch()
-        main_layout.addLayout(bg_layout)
-
-    def precompute_composited_frames(self):
-        """Precompute all composited frames for better performance."""
-        self.composited_cache.clear()
-
-        # Import transparency utilities
-        try:
-            from utils.transparency_utils import composite_with_checkerboard, composite_with_solid_background
-        except ImportError:
-            # Fallback to simple compositing if utilities not available
-            composite_with_checkerboard = None
-            composite_with_solid_background = None
-
-        for idx, frame in enumerate(self.pil_frames):
-            img = frame.convert("RGBA")
-
-            # Scale if needed
-            if self.scale_factor != 1.0:
-                new_size = (int(img.width * self.scale_factor), int(img.height * self.scale_factor))
-                img = img.resize(new_size, NEAREST)
-
-            # Composite with background
-            if self.use_transparency and composite_with_checkerboard:
-                # Use checkerboard background for transparency
-                composited = composite_with_checkerboard(img)
-            elif composite_with_solid_background:
-                # Use solid background
-                composited = composite_with_solid_background(img, (self.bg_value, self.bg_value, self.bg_value))
-            else:
-                # Fallback to original method
-                bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
-                composited = Image.alpha_composite(bg_img, img).convert("RGB")
-            
-            self.composited_cache[idx] = composited
-
-    def get_composited_frame(self, idx):
-        """Get a composited frame, creating it if not cached."""
-        if idx in self.composited_cache:
-            return self.composited_cache[idx]
-
-        frame = self.pil_frames[idx]
-        img = frame.convert("RGBA")
-
-        if self.scale_factor != 1.0:
-            new_size = (int(img.width * self.scale_factor), int(img.height * self.scale_factor))
-            img = img.resize(new_size, NEAREST)
-
-        # Import transparency utilities
-        try:
-            from utils.transparency_utils import composite_with_checkerboard, composite_with_solid_background
-        except ImportError:
-            # Fallback to simple compositing if utilities not available
-            composite_with_checkerboard = None
-            composite_with_solid_background = None
-
-        # Composite with background
-        if self.use_transparency and composite_with_checkerboard:
-            # Use checkerboard background for transparency
-            composited = composite_with_checkerboard(img)
-        elif composite_with_solid_background:
-            # Use solid background
-            composited = composite_with_solid_background(img, (self.bg_value, self.bg_value, self.bg_value))
-        else:
-            # Fallback to original method
-            bg_img = Image.new("RGBA", img.size, (self.bg_value, self.bg_value, self.bg_value, 255))
-            composited = Image.alpha_composite(bg_img, img).convert("RGB")
+        self.settings = settings.copy() if settings else {}
         
-        self.composited_cache[idx] = composited
-        return self.composited_cache[idx]
-
-    def show_frame(self, idx):
-        """Display the specified frame."""
-        if idx < 0 or idx >= self.frame_count:
+        # Animation state
+        self.frames: List[QPixmap] = []
+        self.frame_durations: List[int] = []
+        self.current_frame = 0
+        self.is_playing = False
+        
+        # UI components
+        self.display = None
+        self.frame_list = None
+        self.play_button = None
+        self.position_slider = None
+        self.timer = None
+        
+        # Settings widgets
+        self.fps_spinbox = None
+        self.scale_spinbox = None
+        self.loop_checkbox = None
+        
+        self.init_ui()
+        self.load_animation()
+        
+        # Set up auto-scaling after UI is ready
+        QTimer.singleShot(100, self.display.reset_auto_scale)
+        
+    def init_ui(self):
+        """Initialize the user interface"""
+        self.setWindowTitle("Animation Preview")
+        self.setMinimumSize(1000, 800)
+        self.resize(1400, 1000)
+        
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        
+        # Create splitter for resizable panels
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(splitter)
+        
+        # Left panel: Frame list
+        left_panel = self.create_frame_panel()
+        splitter.addWidget(left_panel)
+        
+        # Center panel: Animation display
+        center_panel = self.create_display_panel()
+        splitter.addWidget(center_panel)
+        
+        # Right panel: Settings
+        right_panel = self.create_settings_panel()
+        splitter.addWidget(right_panel)
+        
+        # Set splitter proportions
+        splitter.setStretchFactor(0, 0)  # Frame list: fixed width
+        splitter.setStretchFactor(1, 1)  # Display: stretches
+        splitter.setStretchFactor(2, 0)  # Settings: fixed width
+        
+        # Bottom controls
+        controls_layout = self.create_controls()
+        main_layout.addLayout(controls_layout)
+        
+        # Setup timer for playback
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.next_frame)
+        
+        # Update UI state
+        self.update_format_settings()
+        self.update_frame_selection_ui()
+        
+    def create_frame_panel(self) -> QWidget:
+        """Create the frame list panel"""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        
+        layout.addWidget(QLabel("Frames:"))
+        
+        self.frame_list = FrameListWidget()
+        self.frame_list.frame_selected.connect(self.goto_frame)
+        layout.addWidget(self.frame_list)
+        
+        return panel
+        
+    def create_display_panel(self) -> QWidget:
+        """Create the animation display panel"""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        
+        # Display area
+        self.display = AnimationDisplay()
+        layout.addWidget(self.display)
+        
+        # Frame info
+        self.frame_info_label = QLabel("Frame 1 / 1")
+        self.frame_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.frame_info_label)
+        
+        return panel
+        
+    def create_settings_panel(self) -> QWidget:
+        """Create the settings panel"""
+        panel = QWidget()
+        panel.setMaximumWidth(300)
+        layout = QVBoxLayout(panel)
+        
+        # Animation Format settings
+        format_group = QGroupBox("Animation Format")
+        format_layout = QGridLayout(format_group)
+        
+        format_layout.addWidget(QLabel("Format:"), 0, 0)
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["GIF", "WebP", "APNG"])
+        self.format_combo.setCurrentText(self.settings.get('animation_format', 'GIF'))
+        self.format_combo.currentTextChanged.connect(self.on_format_changed)
+        format_layout.addWidget(self.format_combo, 0, 1)
+        
+        layout.addWidget(format_group)
+        
+        # Playback settings
+        playback_group = QGroupBox("Playback")
+        playback_layout = QGridLayout(playback_group)
+        
+        # FPS setting
+        playback_layout.addWidget(QLabel("FPS:"), 0, 0)
+        self.fps_spinbox = QSpinBox()
+        self.fps_spinbox.setRange(1, 60)
+        self.fps_spinbox.setValue(self.settings.get('fps', 24))
+        self.fps_spinbox.valueChanged.connect(self.on_fps_changed)
+        playback_layout.addWidget(self.fps_spinbox, 0, 1)
+        
+        # Loop delay setting
+        playback_layout.addWidget(QLabel("Loop Delay (ms):"), 1, 0)
+        self.delay_spinbox = QSpinBox()
+        self.delay_spinbox.setRange(0, 5000)
+        self.delay_spinbox.setValue(self.settings.get('delay', 250))
+        self.delay_spinbox.valueChanged.connect(self.on_delay_changed)
+        playback_layout.addWidget(self.delay_spinbox, 1, 1)
+        
+        # Minimum period setting
+        playback_layout.addWidget(QLabel("Min Period (ms):"), 2, 0)
+        self.period_spinbox = QSpinBox()
+        self.period_spinbox.setRange(0, 10000)
+        self.period_spinbox.setValue(self.settings.get('period', 0))
+        self.period_spinbox.valueChanged.connect(self.on_period_changed)
+        playback_layout.addWidget(self.period_spinbox, 2, 1)
+        
+        # Variable delay option
+        self.var_delay_checkbox = QCheckBox("Variable delay")
+        self.var_delay_checkbox.setChecked(self.settings.get('var_delay', False))
+        self.var_delay_checkbox.toggled.connect(self.on_var_delay_changed)
+        playback_layout.addWidget(self.var_delay_checkbox, 3, 0, 1, 2)
+        
+        # Loop option (for preview only)
+        self.loop_checkbox = QCheckBox("Loop preview")
+        self.loop_checkbox.setChecked(True)
+        playback_layout.addWidget(self.loop_checkbox, 4, 0, 1, 2)
+        
+        layout.addWidget(playback_group)
+        
+        # Frame settings
+        frame_group = QGroupBox("Frame Settings")
+        frame_layout = QGridLayout(frame_group)
+        
+        # Frame selection
+        frame_layout.addWidget(QLabel("Frame Selection:"), 0, 0)
+        self.frame_selection_combo = QComboBox()
+        self.frame_selection_combo.addItems(["All", "No duplicates", "First", "Last", "First, Last", "Custom"])
+        self.frame_selection_combo.setCurrentText(self.settings.get('frame_selection', 'All'))
+        self.frame_selection_combo.currentTextChanged.connect(self.on_frame_selection_changed)
+        frame_layout.addWidget(self.frame_selection_combo, 0, 1)
+        
+        # Custom indices (only shown when Custom is selected)
+        self.indices_label = QLabel("Custom Indices:")
+        self.indices_edit = QLineEdit()
+        self.indices_edit.setPlaceholderText("e.g., 0,2,4 or 0-5")
+        self.indices_edit.textChanged.connect(self.on_indices_changed)
+        frame_layout.addWidget(self.indices_label, 1, 0)
+        frame_layout.addWidget(self.indices_edit, 1, 1)
+        
+        # Initially hide custom indices
+        self.indices_label.setVisible(False)
+        self.indices_edit.setVisible(False)
+        
+        # Animation scale setting
+        frame_layout.addWidget(QLabel("Animation Scale:"), 2, 0)
+        self.anim_scale_spinbox = QDoubleSpinBox()
+        self.anim_scale_spinbox.setRange(0.1, 10.0)
+        self.anim_scale_spinbox.setSingleStep(0.1)
+        self.anim_scale_spinbox.setValue(self.settings.get('scale', 1.0))
+        self.anim_scale_spinbox.valueChanged.connect(self.on_anim_scale_changed)
+        frame_layout.addWidget(self.anim_scale_spinbox, 2, 1)
+        
+        layout.addWidget(frame_group)
+        
+        # Display settings
+        display_group = QGroupBox("Display")
+        display_layout = QGridLayout(display_group)
+        
+        # Preview scale setting (separate from animation scale)
+        display_layout.addWidget(QLabel("Preview Scale:"), 0, 0)
+        self.scale_spinbox = QDoubleSpinBox()
+        self.scale_spinbox.setRange(0.1, 5.0)
+        self.scale_spinbox.setSingleStep(0.1)
+        self.scale_spinbox.setValue(1.0)
+        self.scale_spinbox.valueChanged.connect(self.on_scale_changed)
+        display_layout.addWidget(self.scale_spinbox, 0, 1)
+        
+        # Background color
+        display_layout.addWidget(QLabel("Background:"), 1, 0)
+        bg_layout = QHBoxLayout()
+        
+        self.bg_color_button = QPushButton()
+        self.bg_color_button.setFixedSize(50, 30)
+        self.bg_color_button.setStyleSheet("background-color: white; border: 1px solid gray;")
+        self.bg_color_button.clicked.connect(self.choose_background_color)
+        bg_layout.addWidget(self.bg_color_button)
+        
+        # Transparency background checkbox
+        self.transparency_checkbox = QCheckBox("Show transparency")
+        self.transparency_checkbox.setChecked(False)
+        self.transparency_checkbox.toggled.connect(self.on_transparency_changed)
+        bg_layout.addWidget(self.transparency_checkbox)
+        
+        bg_widget = QWidget()
+        bg_widget.setLayout(bg_layout)
+        display_layout.addWidget(bg_widget, 1, 1)
+        
+        layout.addWidget(display_group)
+        
+        # Cropping settings
+        crop_group = QGroupBox("Cropping")
+        crop_layout = QGridLayout(crop_group)
+        
+        crop_layout.addWidget(QLabel("Crop Option:"), 0, 0)
+        self.crop_combo = QComboBox()
+        self.crop_combo.addItems(["None", "Animation based", "Frame based"])
+        self.crop_combo.setCurrentText(self.settings.get('crop_option', 'None'))
+        self.crop_combo.currentTextChanged.connect(self.on_crop_changed)
+        crop_layout.addWidget(self.crop_combo, 0, 1)
+        
+        layout.addWidget(crop_group)
+        
+        # GIF-specific settings
+        self.gif_group = QGroupBox("GIF Settings")
+        gif_layout = QGridLayout(self.gif_group)
+        
+        gif_layout.addWidget(QLabel("Threshold:"), 0, 0)
+        self.threshold_spinbox = QDoubleSpinBox()
+        self.threshold_spinbox.setRange(0.0, 1.0)
+        self.threshold_spinbox.setSingleStep(0.1)
+        self.threshold_spinbox.setValue(self.settings.get('threshold', 0.5))
+        self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
+        gif_layout.addWidget(self.threshold_spinbox, 0, 1)
+        
+        layout.addWidget(self.gif_group)
+        
+        # Export settings
+        export_group = QGroupBox("Export")
+        export_layout = QVBoxLayout(export_group)
+        
+        self.regenerate_button = QPushButton("Regenerate with Settings")
+        self.regenerate_button.clicked.connect(self.regenerate_animation)
+        export_layout.addWidget(self.regenerate_button)
+        
+        layout.addWidget(export_group)
+        
+        # Spacer
+        layout.addStretch()
+        
+        # Update GIF settings visibility
+        self.update_format_settings()
+        
+        return panel
+        
+    def create_controls(self) -> QHBoxLayout:
+        """Create playback controls"""
+        controls_layout = QHBoxLayout()
+        
+        # Playback buttons
+        self.play_button = QPushButton("Play")
+        self.play_button.clicked.connect(self.toggle_playback)
+        controls_layout.addWidget(self.play_button)
+        
+        prev_button = QPushButton("Previous")
+        prev_button.clicked.connect(self.previous_frame)
+        controls_layout.addWidget(prev_button)
+        
+        next_button = QPushButton("Next")
+        next_button.clicked.connect(self.next_frame)
+        controls_layout.addWidget(next_button)
+        
+        # Position slider
+        controls_layout.addWidget(QLabel("Position:"))
+        self.position_slider = QSlider(Qt.Orientation.Horizontal)
+        self.position_slider.setMinimum(0)
+        self.position_slider.valueChanged.connect(self.on_position_changed)
+        controls_layout.addWidget(self.position_slider)
+        
+        return controls_layout
+        
+    def load_animation(self):
+        """Load animation frames"""
+        if not os.path.exists(self.animation_path):
+            QMessageBox.warning(self, "Error", f"Animation file not found: {self.animation_path}")
             return
-
-        self.current_frame = idx
-
-        # Get composited frame
-        pil_img = self.get_composited_frame(idx)
-
-        # Convert to QPixmap
-        img_data = pil_img.tobytes("raw", "RGB")
-        qimg = QImage(img_data, pil_img.width, pil_img.height, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(qimg)
-
-        # Auto-scale window on first frame
-        if not hasattr(self, "_window_sized"):
-            self._window_sized = True
-            self.auto_scale_window(pil_img.size)
-
-        # Update image display
-        self.image_label.setPixmap(pixmap)
-
-        # Update frame counter
-        self.frame_counter.setText(f"Frame {idx} / {self.frame_count - 1}")
-
-        # Update slider
-        self.frame_slider.setValue(idx)
-
-        # Highlight current delay
-        self.highlight_current_delay(idx)
-
-    def auto_scale_window(self, img_size):
-        """Auto-scale the window based on image size and screen size."""
-        extra_height = 300  # For controls
-        width = img_size[0]
-        height = img_size[1] + extra_height
-
-        # Get screen size
-        screen = self.screen().availableGeometry()
-        max_width = int(screen.width() * 0.9)
-        max_height = int(screen.height() * 0.9)
-
-        # Scale if necessary
-        if width > max_width or height > max_height:
-            scale_w = max_width / width
-            scale_h = max_height / height
-            self.scale_factor = min(scale_w, scale_h, 1.0)
-
-            self.precompute_composited_frames()
-            width = int(img_size[0] * self.scale_factor)
-            height = int(img_size[1] * self.scale_factor) + extra_height
-
-        self.resize(width, height)
-        self.setMinimumSize(width, height)
-
-    def highlight_current_delay(self, idx):
-        """Highlight the current frame's delay in the delays display."""
-        for i, label in enumerate(self.delay_labels):
-            if i == idx:
-                label.setStyleSheet("QLabel { background-color: #e0e0e0; }")
-            else:
-                label.setStyleSheet("")
-
-    def on_slider_change(self, value):
-        """Handle frame slider value change."""
-        self.show_frame(value)
-
-    def on_bg_change(self, value):
-        """Handle background color slider change."""
-        self.bg_value = value
-        # Only update if not using transparency
-        if not self.use_transparency:
-            self.precompute_composited_frames()
-            self.show_frame(self.current_frame)
-
-    def on_transparency_change(self, state):
-        """Handle transparency checkbox change."""
-        self.use_transparency = state == 2  # Qt.CheckState.Checked is 2
-        # Enable/disable slider based on transparency setting
-        self.bg_slider.setEnabled(not self.use_transparency)
-        self.precompute_composited_frames()
-        self.show_frame(self.current_frame)
-
-    def prev_frame(self):
-        """Go to previous frame."""
-        new_frame = (self.current_frame - 1) % self.frame_count
-        self.show_frame(new_frame)
-
+            
+        # Start background processing
+        self.processor = AnimationProcessor(self.animation_path, self.settings)
+        self.processor.frame_processed.connect(self.on_frame_processed)
+        self.processor.processing_complete.connect(self.on_processing_complete)
+        self.processor.error_occurred.connect(self.on_processing_error)
+        self.processor.start()
+        
+    def on_frame_processed(self, frame_index: int, pixmap: QPixmap):
+        """Handle processed frame"""
+        # Extend frames list if needed
+        while len(self.frames) <= frame_index:
+            self.frames.append(QPixmap())
+            
+        self.frames[frame_index] = pixmap
+        
+        # Update display if this is the current frame
+        if frame_index == self.current_frame:
+            self.display.set_frame(pixmap)
+            
+    def on_processing_complete(self):
+        """Handle completion of frame processing"""
+        frame_count = len(self.frames)
+        
+        # Update frame list
+        self.frame_list.set_frame_count(frame_count)
+        
+        # Update position slider
+        self.position_slider.setMaximum(max(0, frame_count - 1))
+        
+        # Get frame durations from processor
+        self.frame_durations = self.processor.frame_durations
+        
+        # Show first frame
+        if self.frames:
+            self.current_frame = 0
+            self.update_display()
+            self.frame_list.select_frame(0)
+            
+        print(f"Animation loaded: {frame_count} frames")
+        
+    def on_processing_error(self, error_message: str):
+        """Handle processing error"""
+        QMessageBox.warning(self, "Error", error_message)
+        
+    def update_display(self):
+        """Update the display with current frame"""
+        if 0 <= self.current_frame < len(self.frames):
+            pixmap = self.frames[self.current_frame]
+            self.display.set_frame(pixmap)
+            
+            # Update frame info
+            total_frames = len(self.frames)
+            self.frame_info_label.setText(f"Frame {self.current_frame + 1} / {total_frames}")
+            
+            # Update position slider
+            self.position_slider.blockSignals(True)
+            self.position_slider.setValue(self.current_frame)
+            self.position_slider.blockSignals(False)
+            
+            # Update frame list selection
+            self.frame_list.select_frame(self.current_frame)
+            
+    def toggle_playback(self):
+        """Toggle play/pause"""
+        if self.is_playing:
+            self.pause()
+        else:
+            self.play()
+            
+    def play(self):
+        """Start playback"""
+        if not self.frames:
+            return
+            
+        self.is_playing = True
+        self.play_button.setText("Pause")
+        
+        # Calculate timer interval based on current frame duration
+        if self.current_frame < len(self.frame_durations):
+            frame_duration = self.frame_durations[self.current_frame]
+        else:
+            frame_duration = 100  # Default 100ms
+            
+        interval = max(1, frame_duration)
+        self.timer.start(interval)
+        
+    def pause(self):
+        """Pause playback"""
+        self.is_playing = False
+        self.play_button.setText("Play")
+        self.timer.stop()
+        
     def next_frame(self):
-        """Go to next frame."""
-        new_frame = (self.current_frame + 1) % self.frame_count
-        self.show_frame(new_frame)
-
-    def toggle_play(self):
-        """Toggle animation playback."""
-        if self.playing:
-            self.stop_animation()
-        else:
-            self.play_animation()
-
-    def play_animation(self):
-        """Start animation playback."""
-        self.playing = True
-        self.play_btn.setText(self.tr("Pause")
-
-        # Start timer with current frame's duration
-        delay = max(1, self.durations[self.current_frame])
-        self.playback_timer.start(delay)
-
-    def stop_animation(self):
-        """Stop animation playback."""
-        self.playing = False
-        self.play_btn.setText(self.tr("Play")
-        self.playback_timer.stop()
-
-    def open_external(self):
-        """Open the animation in an external program."""
-        try:
-            current_os = platform.system().lower()
-            if current_os == "windows":
-                os.startfile(self.animation_path)
-            elif current_os == "darwin":
-                subprocess.Popen(["open", self.animation_path])
+        """Go to next frame"""
+        if not self.frames:
+            return
+            
+        self.current_frame += 1
+        
+        if self.current_frame >= len(self.frames):
+            if self.loop_checkbox.isChecked():
+                self.current_frame = 0
             else:
-                subprocess.Popen(["xdg-open", self.animation_path])
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Open External", f"Could not open animation in external program:\n{e}"
-            )
-
-    def closeEvent(self, event):
-        """Handle window close event."""
-        self.stop_animation()
-
-        # Clean up temp file if it exists
-        try:
-            if os.path.isfile(self.animation_path):
-                os.remove(self.animation_path)
-        except Exception:
-            pass
-
-        event.accept()
-
-    @staticmethod
-    def show(animation_path, settings):
-        """
-        Static method to show an animation preview window.
-
-        Args:
-            animation_path: Path to the animation file
-            settings: Settings dictionary containing preview configuration
-        """
-        # This would be called from the main application
-        # The parent window would be passed when creating the dialog
-        pass
-
-    @staticmethod
-    def preview(
-        app,
-        name,
-        settings_type,
-        animation_format_entry,
-        fps_entry,
-        delay_entry,
-        period_entry,
-        scale_entry,
-        threshold_entry,
-        indices_entry,
-        frames_entry,
-    ):
-        """
-        Static method to generate and preview an animation from the settings window.
-
-        This mirrors the functionality from the original tkinter version.
-        """
-        settings = {}
-        try:
-            if animation_format_entry and animation_format_entry.text() != "":
-                settings["animation_format"] = animation_format_entry.text()
-            if fps_entry.text() != "":
-                settings["fps"] = float(fps_entry.text())
-            if delay_entry.text() != "":
-                settings["delay"] = int(float(delay_entry.text()))
-            if period_entry.text() != "":
-                settings["period"] = int(float(period_entry.text()))
-            if scale_entry.text() != "":
-                settings["scale"] = float(scale_entry.text())
-            if threshold_entry.text() != "":
-                settings["threshold"] = min(max(float(threshold_entry.text()), 0), 1)
-            if indices_entry.text() != "":
-                indices = [int(ele) for ele in indices_entry.text().split(",")]
-                settings["indices"] = indices
-        except ValueError as e:
-            QMessageBox.critical(None, "Invalid input", f"Error: {str(e)}")
+                self.current_frame = len(self.frames) - 1
+                self.pause()
+                
+        self.update_display()
+        
+        # Update timer interval for variable frame durations
+        if self.is_playing and self.current_frame < len(self.frame_durations):
+            frame_duration = self.frame_durations[self.current_frame]
+            interval = max(1, frame_duration)
+            self.timer.start(interval)
+            
+    def previous_frame(self):
+        """Go to previous frame"""
+        if not self.frames:
             return
-
-        # Check if APNG format is selected and block preview
-        animation_format = settings.get("animation_format", "")
-        if animation_format == "APNG":
-            QMessageBox.information(
-                None,
-                "Preview Not Available",
-                "Preview is not available for APNG format due to display limitations.\n\n"
-                "You can still export APNG animations and view them externally.",
-            )
-            return
-
-        if settings_type == "animation":
-            spritesheet_name, animation_name = name.split("/", 1)
+            
+        self.current_frame -= 1
+        if self.current_frame < 0:
+            self.current_frame = max(0, len(self.frames) - 1)
+            
+        self.update_display()
+        
+    def goto_frame(self, frame_index: int):
+        """Go to specific frame"""
+        if 0 <= frame_index < len(self.frames):
+            self.current_frame = frame_index
+            self.update_display()
+            
+    def on_position_changed(self, position: int):
+        """Handle position slider change"""
+        self.goto_frame(position)
+        
+    def on_fps_changed(self, fps: int):
+        """Handle FPS change"""
+        self.settings['fps'] = fps
+        
+        # Restart timer if playing
+        if self.is_playing:
+            self.pause()
+            self.play()
+            
+    def on_scale_changed(self, scale: float):
+        """Handle preview scale change"""
+        if scale == 1.0:
+            # Reset to auto-scale mode at 1.0
+            self.display.reset_auto_scale()
         else:
-            spritesheet_name = name
-            animation_name = None
-
-        input_dir = app.input_dir.get()
-        png_path = os.path.join(input_dir, spritesheet_name)
-        xml_path = os.path.splitext(png_path)[0] + ".xml"
-        txt_path = os.path.splitext(png_path)[0] + ".txt"
-        metadata_path = xml_path if os.path.isfile(xml_path) else txt_path
-
-        try:
-            from core.extractor import Extractor
-
-            app.update_global_settings()
-
-            extractor = Extractor(None, app.current_version, app.settings_manager)
-            animation_path = extractor.generate_temp_animation_for_preview(
-                png_path, metadata_path, settings, animation_name, temp_dir=app.temp_dir
+            # Use manual scale
+            self.display.set_scale_factor(scale)
+        
+    def choose_background_color(self):
+        """Choose background color"""
+        color = QColorDialog.getColor(Qt.GlobalColor.white, self, "Choose Background Color")
+        if color.isValid():
+            self.display.set_background_color(color)
+            # Update button color
+            self.bg_color_button.setStyleSheet(
+                f"background-color: {color.name()}; border: 1px solid gray;"
             )
-            if not animation_path or not os.path.isfile(animation_path):
-                QMessageBox.critical(None, "Preview Error", "Could not generate preview animation.")
+            # Disable transparency when using solid color
+            self.transparency_checkbox.setChecked(False)
+            
+    def on_transparency_changed(self, checked: bool):
+        """Handle transparency background toggle"""
+        self.display.set_transparency_background(checked)
+        # Update button enabled state
+        self.bg_color_button.setEnabled(not checked)
+            
+    def regenerate_animation(self):
+        """Regenerate animation with current settings"""
+        try:
+            # Import the extractor to regenerate with new settings
+            from core.extractor import Extractor
+            
+            # Get current spritesheet and animation info
+            current_spritesheet_item = self.parent().ui.listbox_png.currentItem()
+            current_animation_item = self.parent().ui.listbox_data.currentItem()
+            
+            if not current_spritesheet_item or not current_animation_item:
+                QMessageBox.warning(self, "Error", "Please select a spritesheet and animation first.")
                 return
+            
+            # Get the file paths
+            spritesheet_path = current_spritesheet_item.data(Qt.ItemDataRole.UserRole)
+            if not spritesheet_path:
+                QMessageBox.warning(self, "Error", "Could not find spritesheet file path.")
+                return
+            
+            # Find the metadata file
+            spritesheet_name = current_spritesheet_item.text()
+            metadata_path = None
+            if spritesheet_name in self.parent().data_dict:
+                data_files = self.parent().data_dict[spritesheet_name]
+                if "xml" in data_files:
+                    metadata_path = data_files["xml"]
+                elif "txt" in data_files:
+                    metadata_path = data_files["txt"]
+                
+            # Generate new preview with current settings
+            extractor = Extractor(None, "2.0.0", self.parent().settings_manager)
+            
+            # Get complete settings including global, spritesheet, and animation overrides
+            animation_name = current_animation_item.text()
+            complete_settings = self.parent().get_complete_preview_settings(spritesheet_name, animation_name)
+            
+            # Update with current values from the preview window controls
+            complete_settings.update({
+                'fps': self.fps_spinbox.value(),
+                'scale': self.scale_spinbox.value(),
+                'frame_selection': 'All',  # Force all frames for preview
+                'crop_option': 'None',     # Force no cropping for preview
+            })
+            
+            # Create temp animation with complete settings
+            temp_path = extractor.generate_temp_animation_for_preview(
+                atlas_path=spritesheet_path,
+                metadata_path=metadata_path,
+                settings=complete_settings,
+                animation_name=animation_name
+            )
+            
+            if temp_path and os.path.exists(temp_path):
+                # Reload with new file
+                self.animation_path = temp_path
+                self.settings = complete_settings
+                self.frames.clear()
+                self.frame_durations.clear()
+                self.load_animation()
+            else:
+                QMessageBox.warning(self, "Error", "Failed to regenerate animation.")
+                
         except Exception as e:
-            QMessageBox.critical(None, "Preview Error", f"Error generating preview animation: {e}")
-            return
-
-        app.show_animation_preview_window(animation_path, settings)
+            QMessageBox.warning(self, "Error", f"Failed to regenerate animation: {str(e)}")
+            
+    def update_format_settings(self):
+        """Show/hide settings based on selected format"""
+        format_type = self.format_combo.currentText()
+        # Only show GIF-specific settings for GIF format
+        self.gif_group.setVisible(format_type == "GIF")
+        
+    def update_frame_selection_ui(self):
+        """Show/hide custom indices based on frame selection"""
+        selection = self.frame_selection_combo.currentText()
+        show_custom = selection == "Custom"
+        self.indices_label.setVisible(show_custom)
+        self.indices_edit.setVisible(show_custom)
+        
+    def on_format_changed(self, format_type):
+        """Handle format change"""
+        self.settings['animation_format'] = format_type
+        self.update_format_settings()
+        
+    def on_delay_changed(self, delay):
+        """Handle loop delay change"""
+        self.settings['delay'] = delay
+        
+    def on_period_changed(self, period):
+        """Handle minimum period change"""
+        self.settings['period'] = period
+        
+    def on_var_delay_changed(self, enabled):
+        """Handle variable delay change"""
+        self.settings['var_delay'] = enabled
+        
+    def on_frame_selection_changed(self, selection):
+        """Handle frame selection change"""
+        self.settings['frame_selection'] = selection
+        self.update_frame_selection_ui()
+        
+    def on_indices_changed(self, indices_text):
+        """Handle custom indices change"""
+        self.settings['indices_text'] = indices_text
+        # Parse indices for immediate feedback
+        try:
+            if indices_text.strip():
+                # Parse ranges and individual numbers
+                indices = []
+                for part in indices_text.split(','):
+                    part = part.strip()
+                    if '-' in part:
+                        start, end = map(int, part.split('-'))
+                        indices.extend(range(start, end + 1))
+                    else:
+                        indices.append(int(part))
+                self.settings['indices'] = indices
+            else:
+                self.settings.pop('indices', None)
+        except ValueError:
+            # Invalid format, ignore for now
+            pass
+            
+    def on_anim_scale_changed(self, scale):
+        """Handle animation scale change"""
+        self.settings['scale'] = scale
+        self.regenerate_animation()
+        
+    def on_crop_changed(self, crop_option):
+        """Handle crop option change"""
+        self.settings['crop_option'] = crop_option
+        self.regenerate_animation()
+        
+    def on_threshold_changed(self, threshold):
+        """Handle threshold change"""
+        self.settings['transparency_threshold'] = threshold / 100.0
+        self.regenerate_animation()
