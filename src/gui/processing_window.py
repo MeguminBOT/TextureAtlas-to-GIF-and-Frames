@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QFrame,
 )
-from PySide6.QtCore import Qt, QTimer, QCoreApplication
+from PySide6.QtCore import Qt, QTimer, QCoreApplication, Signal
 from PySide6.QtGui import QFont
 
 
@@ -17,6 +17,9 @@ class ProcessingWindow(QDialog):
     A window that shows the progress of extraction processing.
     Displays current file being processed, overall progress, and a log of completed files.
     """
+    
+    # Signal emitted when user requests cancellation
+    cancellation_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -269,6 +272,10 @@ class ProcessingWindow(QDialog):
         # Stop the duration timer
         if hasattr(self, "duration_timer"):
             self.duration_timer.stop()
+            
+        # Stop the cancel timer if it's running
+        if hasattr(self, "cancel_timer") and self.cancel_timer.isActive():
+            self.cancel_timer.stop()
 
         if success:
             self.current_filename_label.setText(self.tr("Processing completed successfully!"))
@@ -296,6 +303,23 @@ class ProcessingWindow(QDialog):
         self.current_filename_label.setText(self.tr("Cancelling..."))
         self.cancel_button.setEnabled(False)
         self.log_text.append(self.tr("Cancellation requested..."))
+        
+        # Emit signal to notify parent that cancellation was requested
+        self.cancellation_requested.emit()
+        
+        # Set up a timer to force close if cancellation takes too long
+        if not hasattr(self, 'cancel_timer'):
+            self.cancel_timer = QTimer(self)
+            self.cancel_timer.timeout.connect(self.force_close)
+            self.cancel_timer.setSingleShot(True)
+        
+        # Give the worker 5 seconds to cancel gracefully
+        self.cancel_timer.start(5000)
+        
+    def force_close(self):
+        """Force close the processing window if cancellation takes too long."""
+        self.log_text.append(self.tr("Forcing cancellation due to timeout..."))
+        self.processing_completed(False, "Processing was forcefully cancelled due to timeout")
 
     def closeEvent(self, event):
         """Handle window close event."""
