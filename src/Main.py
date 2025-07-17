@@ -3,7 +3,6 @@
 
 import sys
 import os
-import shutil
 import tempfile
 import webbrowser
 from pathlib import Path
@@ -31,7 +30,6 @@ from gui.help_window import HelpWindow
 from gui.contributors_window import ContributorsWindow
 from gui.processing_window import ProcessingWindow
 from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
-from gui.background_handler_window import BackgroundHandlerWindow
 from gui.compression_settings_window import CompressionSettingsWindow
 from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog
 
