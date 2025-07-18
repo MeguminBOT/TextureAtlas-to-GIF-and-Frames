@@ -16,17 +16,19 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QDoubleSpinBox,
-    QFrame, QGroupBox, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
+    QDoubleSpinBox, QFrame, QGridLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLayout, QLineEdit,
     QListView, QMainWindow, QMenu, QMenuBar,
-    QPushButton, QSizePolicy, QSpinBox, QStatusBar,
-    QTabWidget, QWidget)
+    QProgressBar, QPushButton, QSizePolicy, QSlider,
+    QSpinBox, QSplitter, QStatusBar, QTabWidget,
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_TextureAtlasExtractorApp(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(901, 777)
+        MainWindow.resize(908, 783)
         MainWindow.setUnifiedTitleAndToolBarOnMac(True)
         self.select_directory = QAction(MainWindow)
         self.select_directory.setObjectName(u"select_directory")
@@ -285,19 +287,307 @@ class Ui_TextureAtlasExtractorApp(object):
         self.tools_tab.addTab(self.tool_extract, "")
         self.tool_generate = QWidget()
         self.tool_generate.setObjectName(u"tool_generate")
-        self.label = QLabel(self.tool_generate)
-        self.label.setObjectName(u"label")
-        self.label.setGeometry(QRect(80, 170, 741, 251))
-        font = QFont()
-        font.setPointSize(48)
-        self.label.setFont(font)
-        self.label.setScaledContents(False)
-        self.label.setWordWrap(True)
+        self.main_layout = QVBoxLayout(self.tool_generate)
+        self.main_layout.setSpacing(10)
+        self.main_layout.setObjectName(u"main_layout")
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_splitter = QSplitter(self.tool_generate)
+        self.main_splitter.setObjectName(u"main_splitter")
+        self.main_splitter.setOrientation(Qt.Orientation.Horizontal)
+        self.file_panel = QFrame(self.main_splitter)
+        self.file_panel.setObjectName(u"file_panel")
+        self.file_panel.setFrameShape(QFrame.Shape.StyledPanel)
+        self.file_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.file_panel_layout = QVBoxLayout(self.file_panel)
+        self.file_panel_layout.setSpacing(12)
+        self.file_panel_layout.setObjectName(u"file_panel_layout")
+        self.file_panel_layout.setContentsMargins(12, 12, 12, 12)
+        self.input_group = QGroupBox(self.file_panel)
+        self.input_group.setObjectName(u"input_group")
+        self.input_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.input_group.setFlat(True)
+        self.input_layout = QVBoxLayout(self.input_group)
+        self.input_layout.setSpacing(8)
+        self.input_layout.setObjectName(u"input_layout")
+        self.input_layout.setContentsMargins(10, 15, 10, 10)
+        self.buttons_layout = QHBoxLayout()
+        self.buttons_layout.setSpacing(8)
+        self.buttons_layout.setObjectName(u"buttons_layout")
+        self.add_files_button = QPushButton(self.input_group)
+        self.add_files_button.setObjectName(u"add_files_button")
+        self.add_files_button.setMinimumSize(QSize(0, 32))
+        self.add_files_button.setFlat(False)
+
+        self.buttons_layout.addWidget(self.add_files_button)
+
+        self.add_directory_button = QPushButton(self.input_group)
+        self.add_directory_button.setObjectName(u"add_directory_button")
+        self.add_directory_button.setMinimumSize(QSize(0, 32))
+
+        self.buttons_layout.addWidget(self.add_directory_button)
+
+        self.add_animation_button = QPushButton(self.input_group)
+        self.add_animation_button.setObjectName(u"add_animation_button")
+        self.add_animation_button.setMinimumSize(QSize(0, 32))
+
+        self.buttons_layout.addWidget(self.add_animation_button)
+
+        self.clear_frames_button = QPushButton(self.input_group)
+        self.clear_frames_button.setObjectName(u"clear_frames_button")
+        self.clear_frames_button.setMinimumSize(QSize(0, 32))
+
+        self.buttons_layout.addWidget(self.clear_frames_button)
+
+
+        self.input_layout.addLayout(self.buttons_layout)
+
+        self.animation_tree_placeholder = QWidget(self.input_group)
+        self.animation_tree_placeholder.setObjectName(u"animation_tree_placeholder")
+        self.animation_tree_placeholder.setMinimumSize(QSize(0, 200))
+
+        self.input_layout.addWidget(self.animation_tree_placeholder)
+
+        self.frame_info_label = QLabel(self.input_group)
+        self.frame_info_label.setObjectName(u"frame_info_label")
+
+        self.input_layout.addWidget(self.frame_info_label)
+
+
+        self.file_panel_layout.addWidget(self.input_group)
+
+        self.output_group = QGroupBox(self.file_panel)
+        self.output_group.setObjectName(u"output_group")
+        self.output_layout = QVBoxLayout(self.output_group)
+        self.output_layout.setSpacing(8)
+        self.output_layout.setObjectName(u"output_layout")
+        self.output_layout.setContentsMargins(10, 15, 10, 10)
+        self.output_path_button = QPushButton(self.output_group)
+        self.output_path_button.setObjectName(u"output_path_button")
+        self.output_path_button.setMinimumSize(QSize(0, 32))
+
+        self.output_layout.addWidget(self.output_path_button)
+
+        self.output_path_layout = QHBoxLayout()
+        self.output_path_layout.setSpacing(8)
+        self.output_path_layout.setObjectName(u"output_path_layout")
+        self.output_path_label = QLabel(self.output_group)
+        self.output_path_label.setObjectName(u"output_path_label")
+
+        self.output_path_layout.addWidget(self.output_path_label)
+
+
+        self.output_layout.addLayout(self.output_path_layout)
+
+
+        self.file_panel_layout.addWidget(self.output_group)
+
+        self.main_splitter.addWidget(self.file_panel)
+        self.settings_panel = QFrame(self.main_splitter)
+        self.settings_panel.setObjectName(u"settings_panel")
+        self.settings_panel.setFrameShape(QFrame.Shape.StyledPanel)
+        self.settings_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.settings_panel_layout = QVBoxLayout(self.settings_panel)
+        self.settings_panel_layout.setSpacing(16)
+        self.settings_panel_layout.setObjectName(u"settings_panel_layout")
+        self.settings_panel_layout.setContentsMargins(16, 16, 16, 16)
+        self.atlas_group = QGroupBox(self.settings_panel)
+        self.atlas_group.setObjectName(u"atlas_group")
+        self.atlas_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.atlas_group.setFlat(True)
+        self.atlas_layout = QGridLayout(self.atlas_group)
+        self.atlas_layout.setSpacing(0)
+        self.atlas_layout.setObjectName(u"atlas_layout")
+        self.atlas_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        self.atlas_layout.setContentsMargins(2, 2, 2, 2)
+        self.speed_optimization_slider = QSlider(self.atlas_group)
+        self.speed_optimization_slider.setObjectName(u"speed_optimization_slider")
+        self.speed_optimization_slider.setMinimum(0)
+        self.speed_optimization_slider.setMaximum(10)
+        self.speed_optimization_slider.setValue(5)
+        self.speed_optimization_slider.setOrientation(Qt.Orientation.Horizontal)
+        self.speed_optimization_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.speed_optimization_slider.setTickInterval(1)
+
+        self.atlas_layout.addWidget(self.speed_optimization_slider, 7, 1, 1, 1)
+
+        self.speed_opt_value_label = QLabel(self.atlas_group)
+        self.speed_opt_value_label.setObjectName(u"speed_opt_value_label")
+
+        self.atlas_layout.addWidget(self.speed_opt_value_label, 9, 0, 1, 2)
+
+        self.auto_size_check = QCheckBox(self.atlas_group)
+        self.auto_size_check.setObjectName(u"auto_size_check")
+        self.auto_size_check.setChecked(True)
+
+        self.atlas_layout.addWidget(self.auto_size_check, 0, 0, 1, 2)
+
+        self.padding_label = QLabel(self.atlas_group)
+        self.padding_label.setObjectName(u"padding_label")
+
+        self.atlas_layout.addWidget(self.padding_label, 4, 0, 1, 1)
+
+        self.max_size_combo = QComboBox(self.atlas_group)
+        self.max_size_combo.addItem("")
+        self.max_size_combo.addItem("")
+        self.max_size_combo.addItem("")
+        self.max_size_combo.addItem("")
+        self.max_size_combo.addItem("")
+        self.max_size_combo.setObjectName(u"max_size_combo")
+        self.max_size_combo.setInputMethodHints(Qt.InputMethodHint.ImhDigitsOnly|Qt.InputMethodHint.ImhEmailCharactersOnly)
+        self.max_size_combo.setEditable(True)
+
+        self.atlas_layout.addWidget(self.max_size_combo, 2, 1, 1, 1)
+
+        self.efficiency_label = QLabel(self.atlas_group)
+        self.efficiency_label.setObjectName(u"efficiency_label")
+
+        self.atlas_layout.addWidget(self.efficiency_label, 6, 0, 1, 1)
+
+        self.efficiency_spin = QDoubleSpinBox(self.atlas_group)
+        self.efficiency_spin.setObjectName(u"efficiency_spin")
+#if QT_CONFIG(statustip)
+        self.efficiency_spin.setStatusTip(u"")
+#endif // QT_CONFIG(statustip)
+        self.efficiency_spin.setFrame(False)
+        self.efficiency_spin.setAlignment(Qt.AlignmentFlag.AlignLeading|Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter)
+        self.efficiency_spin.setProperty(u"showGroupSeparator", False)
+        self.efficiency_spin.setMinimum(1.000000000000000)
+        self.efficiency_spin.setMaximum(3.000000000000000)
+        self.efficiency_spin.setSingleStep(0.100000000000000)
+        self.efficiency_spin.setValue(1.300000000000000)
+
+        self.atlas_layout.addWidget(self.efficiency_spin, 6, 1, 1, 1)
+
+        self.min_size_label = QLabel(self.atlas_group)
+        self.min_size_label.setObjectName(u"min_size_label")
+
+        self.atlas_layout.addWidget(self.min_size_label, 3, 0, 1, 1)
+
+        self.max_size_label = QLabel(self.atlas_group)
+        self.max_size_label.setObjectName(u"max_size_label")
+
+        self.atlas_layout.addWidget(self.max_size_label, 2, 0, 1, 1)
+
+        self.power_of_2_check = QCheckBox(self.atlas_group)
+        self.power_of_2_check.setObjectName(u"power_of_2_check")
+        self.power_of_2_check.setChecked(True)
+
+        self.atlas_layout.addWidget(self.power_of_2_check, 1, 0, 1, 1)
+
+        self.min_size_combo = QComboBox(self.atlas_group)
+        self.min_size_combo.addItem("")
+        self.min_size_combo.addItem("")
+        self.min_size_combo.addItem("")
+        self.min_size_combo.addItem("")
+        self.min_size_combo.addItem("")
+        self.min_size_combo.setObjectName(u"min_size_combo")
+        self.min_size_combo.setInputMethodHints(Qt.InputMethodHint.ImhDigitsOnly)
+        self.min_size_combo.setEditable(True)
+        self.min_size_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.min_size_combo.setFrame(True)
+
+        self.atlas_layout.addWidget(self.min_size_combo, 3, 1, 1, 1)
+
+        self.padding_spin = QSpinBox(self.atlas_group)
+        self.padding_spin.setObjectName(u"padding_spin")
+#if QT_CONFIG(statustip)
+        self.padding_spin.setStatusTip(u"")
+#endif // QT_CONFIG(statustip)
+        self.padding_spin.setFrame(False)
+        self.padding_spin.setAlignment(Qt.AlignmentFlag.AlignLeading|Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter)
+        self.padding_spin.setMaximum(32)
+        self.padding_spin.setValue(2)
+
+        self.atlas_layout.addWidget(self.padding_spin, 4, 1, 1, 1)
+
+        self.speed_opt_label = QLabel(self.atlas_group)
+        self.speed_opt_label.setObjectName(u"speed_opt_label")
+
+        self.atlas_layout.addWidget(self.speed_opt_label, 7, 0, 1, 1)
+
+
+        self.settings_panel_layout.addWidget(self.atlas_group)
+
+        self.format_group = QGroupBox(self.settings_panel)
+        self.format_group.setObjectName(u"format_group")
+        self.format_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.format_group.setFlat(True)
+        self.format_layout = QGridLayout(self.format_group)
+        self.format_layout.setSpacing(0)
+        self.format_layout.setObjectName(u"format_layout")
+        self.format_layout.setContentsMargins(8, 0, 0, 64)
+        self.image_format_combo = QComboBox(self.format_group)
+        self.image_format_combo.addItem("")
+        self.image_format_combo.addItem("")
+        self.image_format_combo.setObjectName(u"image_format_combo")
+
+        self.format_layout.addWidget(self.image_format_combo, 0, 1, 1, 1)
+
+        self.image_format_label = QLabel(self.format_group)
+        self.image_format_label.setObjectName(u"image_format_label")
+
+        self.format_layout.addWidget(self.image_format_label, 0, 0, 1, 1)
+
+        self.atlas_type_label = QLabel(self.format_group)
+        self.atlas_type_label.setObjectName(u"atlas_type_label")
+
+        self.format_layout.addWidget(self.atlas_type_label, 1, 0, 1, 1)
+
+        self.atlas_type_combo = QComboBox(self.format_group)
+        self.atlas_type_combo.addItem("")
+        self.atlas_type_combo.setObjectName(u"atlas_type_combo")
+
+        self.format_layout.addWidget(self.atlas_type_combo, 1, 1, 1, 1)
+
+
+        self.settings_panel_layout.addWidget(self.format_group)
+
+        self.generate_button = QPushButton(self.settings_panel)
+        self.generate_button.setObjectName(u"generate_button")
+        self.generate_button.setEnabled(False)
+        self.generate_button.setMinimumSize(QSize(0, 45))
+
+        self.settings_panel_layout.addWidget(self.generate_button)
+
+        self.main_splitter.addWidget(self.settings_panel)
+
+        self.main_layout.addWidget(self.main_splitter)
+
+        self.progress_panel = QFrame(self.tool_generate)
+        self.progress_panel.setObjectName(u"progress_panel")
+        self.progress_panel.setMaximumSize(QSize(16777215, 150))
+        self.progress_panel.setFrameShape(QFrame.Shape.StyledPanel)
+        self.progress_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.progress_layout = QVBoxLayout(self.progress_panel)
+        self.progress_layout.setSpacing(6)
+        self.progress_layout.setObjectName(u"progress_layout")
+        self.progress_layout.setContentsMargins(10, 10, 10, 10)
+        self.progress_bar = QProgressBar(self.progress_panel)
+        self.progress_bar.setObjectName(u"progress_bar")
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setValue(24)
+
+        self.progress_layout.addWidget(self.progress_bar)
+
+        self.status_label = QLabel(self.progress_panel)
+        self.status_label.setObjectName(u"status_label")
+
+        self.progress_layout.addWidget(self.status_label)
+
+        self.log_text = QTextEdit(self.progress_panel)
+        self.log_text.setObjectName(u"log_text")
+        self.log_text.setMaximumSize(QSize(16777215, 80))
+
+        self.progress_layout.addWidget(self.log_text)
+
+
+        self.main_layout.addWidget(self.progress_panel)
+
         self.tools_tab.addTab(self.tool_generate, "")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 901, 33))
+        self.menubar.setGeometry(QRect(0, 0, 908, 33))
         self.file_menu = QMenu(self.menubar)
         self.file_menu.setObjectName(u"file_menu")
         self.import_menu = QMenu(self.menubar)
@@ -332,7 +622,7 @@ class Ui_TextureAtlasExtractorApp(object):
 
         self.retranslateUi(MainWindow)
 
-        self.tools_tab.setCurrentIndex(0)
+        self.tools_tab.setCurrentIndex(1)
         self.animation_format_combobox.setCurrentIndex(0)
         self.frame_format_combobox.setCurrentIndex(3)
         self.cropping_method_combobox.setCurrentIndex(1)
@@ -495,7 +785,57 @@ class Ui_TextureAtlasExtractorApp(object):
 #endif // QT_CONFIG(statustip)
         self.override_animation_settings_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Override animation settings", None))
         self.tools_tab.setTabText(self.tools_tab.indexOf(self.tool_extract), QCoreApplication.translate("TextureAtlasExtractorApp", u"Extract", None))
-        self.label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Under development. Check back in the future!", None))
+        self.input_group.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"Input Frames", None))
+        self.add_files_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Add Files...", None))
+        self.add_directory_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Add Directory...", None))
+        self.add_animation_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Add New Animation", None))
+        self.clear_frames_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Clear All", None))
+        self.frame_info_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"No frames loaded", None))
+        self.output_group.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"Output", None))
+        self.output_path_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Browse...", None))
+        self.output_path_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"No output path selected", None))
+        self.atlas_group.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"Atlas Settings", None))
+        self.speed_opt_value_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Level: 5 (Balanced)", None))
+        self.auto_size_check.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Auto Size Atlas", None))
+        self.padding_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Padding:", None))
+        self.max_size_combo.setItemText(0, QCoreApplication.translate("TextureAtlasExtractorApp", u"512", None))
+        self.max_size_combo.setItemText(1, QCoreApplication.translate("TextureAtlasExtractorApp", u"1024", None))
+        self.max_size_combo.setItemText(2, QCoreApplication.translate("TextureAtlasExtractorApp", u"2048", None))
+        self.max_size_combo.setItemText(3, QCoreApplication.translate("TextureAtlasExtractorApp", u"4096", None))
+        self.max_size_combo.setItemText(4, QCoreApplication.translate("TextureAtlasExtractorApp", u"8192", None))
+
+        self.efficiency_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Efficiency Factor:", None))
+        self.efficiency_spin.setSuffix(QCoreApplication.translate("TextureAtlasExtractorApp", u" \u00d7", None))
+        self.min_size_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Min Atlas Size:", None))
+        self.max_size_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Max Atlas Size:", None))
+        self.power_of_2_check.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Power of 2 dimensions", None))
+        self.min_size_combo.setItemText(0, QCoreApplication.translate("TextureAtlasExtractorApp", u"64", None))
+        self.min_size_combo.setItemText(1, QCoreApplication.translate("TextureAtlasExtractorApp", u"128", None))
+        self.min_size_combo.setItemText(2, QCoreApplication.translate("TextureAtlasExtractorApp", u"256", None))
+        self.min_size_combo.setItemText(3, QCoreApplication.translate("TextureAtlasExtractorApp", u"512", None))
+        self.min_size_combo.setItemText(4, QCoreApplication.translate("TextureAtlasExtractorApp", u"1024", None))
+
+        self.min_size_combo.setCurrentText(QCoreApplication.translate("TextureAtlasExtractorApp", u"64", None))
+        self.padding_spin.setSuffix(QCoreApplication.translate("TextureAtlasExtractorApp", u" px", None))
+        self.speed_opt_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Speed vs Optimization:", None))
+        self.format_group.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"Output Format", None))
+        self.image_format_combo.setItemText(0, QCoreApplication.translate("TextureAtlasExtractorApp", u"PNG", None))
+        self.image_format_combo.setItemText(1, QCoreApplication.translate("TextureAtlasExtractorApp", u"JPEG", None))
+
+        self.image_format_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Image Format:", None))
+        self.atlas_type_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Atlas Type:", None))
+        self.atlas_type_combo.setItemText(0, QCoreApplication.translate("TextureAtlasExtractorApp", u"Sparrow", None))
+
+        self.generate_button.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Generate Atlas", None))
+        self.status_label.setText(QCoreApplication.translate("TextureAtlasExtractorApp", u"Ready", None))
+        self.log_text.setHtml(QCoreApplication.translate("TextureAtlasExtractorApp", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"hr { height: 1px; border-width: 0; }\n"
+"li.unchecked::marker { content: \"\\2610\"; }\n"
+"li.checked::marker { content: \"\\2612\"; }\n"
+"</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Atlas generation log will appear here...</p></body></html>", None))
         self.tools_tab.setTabText(self.tools_tab.indexOf(self.tool_generate), QCoreApplication.translate("TextureAtlasExtractorApp", u"Generate", None))
         self.file_menu.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"File", None))
         self.import_menu.setTitle(QCoreApplication.translate("TextureAtlasExtractorApp", u"Import", None))

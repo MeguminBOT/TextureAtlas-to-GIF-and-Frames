@@ -9,6 +9,7 @@ import webbrowser
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 from PySide6.QtCore import QThread, Signal, QTimer, Qt, QCoreApplication
 from PySide6.QtGui import QIcon, QAction
 
@@ -168,11 +169,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         if hasattr(self.ui, "label") and self.ui.label:
             self.ui.label.setParent(None)
 
-        self.generate_tab_widget = GenerateTabWidget(self)
-
-        layout = QVBoxLayout(self.ui.tool_generate)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.generate_tab_widget)
+        self.generate_tab_widget = GenerateTabWidget(self.ui, self)
 
         print("Generate tab setup completed successfully")
 
