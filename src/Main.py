@@ -3,11 +3,12 @@
 
 import sys
 import os
+import shutil
 import tempfile
 import webbrowser
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QMenu
+from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QVBoxLayout
 from PySide6.QtCore import QThread, Signal, QTimer, Qt, QCoreApplication
 from PySide6.QtGui import QIcon, QAction
 
@@ -22,14 +23,11 @@ from utils.fnf_utilities import FnfUtilities
 from core.extractor import Extractor
 from gui.app_ui import Ui_TextureAtlasExtractorApp
 from gui.app_config_window import AppConfigWindow
-from gui.enhanced_list_widget import EnhancedListWidget
 from gui.settings_window import SettingsWindow
 from gui.find_replace_window import FindReplaceWindow
-from gui.override_settings_window import OverrideSettingsWindow
 from gui.help_window import HelpWindow
 from gui.contributors_window import ContributorsWindow
 from gui.processing_window import ProcessingWindow
-from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
 from gui.compression_settings_window import CompressionSettingsWindow
 from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog
 
@@ -125,20 +123,13 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.variable_delay = defaults.get("variable_delay", False)
         self.fnf_idle_loop = defaults.get("fnf_idle_loop", False)
 
-        # Create advanced menu actions
         self.setup_advanced_menu()
-
-        # Replace QListView with QListWidget for easier list management
-        self.setup_list_widgets()
-
-        # Setup the application
         self.setup_gui()
+        self.setup_extract_tab()
+        self.setup_generate_tab()
         self.setup_connections()
-
-        # Ensure all UI elements are properly translated
         self.ui.retranslateUi(self)
 
-        # Check version after a short delay
         QTimer.singleShot(250, self.check_version)
 
     def setup_advanced_menu(self):
@@ -170,21 +161,57 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.options_menu.addSeparator()
         self.ui.options_menu.addAction(self.language_action)
 
-    def setup_list_widgets(self):
-        """Replace the QListView widgets with QListWidget for easier management."""
-        # Replace spritesheet list
-        old_png_list = self.ui.listbox_png
-        self.ui.listbox_png = EnhancedListWidget(old_png_list.parent())
-        self.ui.listbox_png.setGeometry(old_png_list.geometry())
-        self.ui.listbox_png.setObjectName("listbox_png")
-        old_png_list.setParent(None)
+    def setup_generate_tab(self):
+        """Set up the Generate tab with proper functionality."""
+        from gui.generate_tab_widget import GenerateTabWidget
 
-        # Replace animation data list
-        old_data_list = self.ui.listbox_data
-        self.ui.listbox_data = EnhancedListWidget(old_data_list.parent())
-        self.ui.listbox_data.setGeometry(old_data_list.geometry())
-        self.ui.listbox_data.setObjectName("listbox_data")
-        old_data_list.setParent(None)
+        if hasattr(self.ui, "label") and self.ui.label:
+            self.ui.label.setParent(None)
+
+        self.generate_tab_widget = GenerateTabWidget(self)
+
+        layout = QVBoxLayout(self.ui.tool_generate)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.generate_tab_widget)
+
+        print("Generate tab setup completed successfully")
+
+    def setup_extract_tab(self):
+        """Set up the Extract tab with proper functionality."""
+        from gui.extract_tab_widget import ExtractTabWidget
+
+        self.extract_tab_widget = ExtractTabWidget(self, use_existing_ui=True)
+
+        print("Extract tab setup completed successfully")
+        self.ui.frame_format_combobox = self.extract_tab_widget.frame_format_combobox
+        self.ui.frame_rate_entry = self.extract_tab_widget.frame_rate_entry
+        self.ui.loop_delay_entry = self.extract_tab_widget.loop_delay_entry
+        self.ui.min_period_entry = self.extract_tab_widget.min_period_entry
+        self.ui.scale_entry = self.extract_tab_widget.scale_entry
+        self.ui.threshold_entry = self.extract_tab_widget.threshold_entry
+        self.ui.frame_scale_entry = self.extract_tab_widget.frame_scale_entry
+        self.ui.frame_selection_combobox = self.extract_tab_widget.frame_selection_combobox
+        self.ui.cropping_method_combobox = self.extract_tab_widget.cropping_method_combobox
+        self.ui.filename_format_combobox = self.extract_tab_widget.filename_format_combobox
+        self.ui.filename_prefix_entry = self.extract_tab_widget.filename_prefix_entry
+        self.ui.filename_suffix_entry = self.extract_tab_widget.filename_suffix_entry
+        self.ui.input_button = self.extract_tab_widget.input_button
+        self.ui.output_button = self.extract_tab_widget.output_button
+        self.ui.start_process_button = self.extract_tab_widget.start_process_button
+        self.ui.reset_button = self.extract_tab_widget.reset_button
+        self.ui.advanced_filename_button = self.extract_tab_widget.advanced_filename_button
+        self.ui.show_override_settings_button = (
+            self.extract_tab_widget.show_override_settings_button
+        )
+        self.ui.override_spritesheet_settings_button = (
+            self.extract_tab_widget.override_spritesheet_settings_button
+        )
+        self.ui.override_animation_settings_button = (
+            self.extract_tab_widget.override_animation_settings_button
+        )
+        self.ui.compression_settings_button = self.extract_tab_widget.compression_settings_button
+
+        print("Extract tab setup completed successfully")
 
     def setup_gui(self):
         """Sets up the GUI components of the application."""
@@ -225,19 +252,27 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Set default selections using index mapping to avoid translation issues
         if "animation_format" in defaults:
-            format_index = self.get_animation_format_index(defaults["animation_format"])
+            animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+            try:
+                format_index = animation_format_map.index(defaults["animation_format"])
+            except ValueError:
+                format_index = 0  # Default to GIF
             self.ui.animation_format_combobox.setCurrentIndex(format_index)
 
         if "frame_format" in defaults:
-            format_index = self.get_frame_format_index(defaults["frame_format"])
+            frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
+            try:
+                format_index = frame_format_map.index(defaults["frame_format"])
+            except ValueError:
+                format_index = 3  # Default to PNG
             self.ui.frame_format_combobox.setCurrentIndex(format_index)
 
     def setup_connections(self):
         """Sets up signal-slot connections for UI elements."""
-        # Menu actions
-        self.ui.select_directory.triggered.connect(self.select_directory)
-        self.ui.select_files.triggered.connect(self.select_files_manually)
-        self.ui.clear_export_list.triggered.connect(self.clear_filelist)
+        # Menu actions - connect to extract tab widget methods
+        self.ui.select_directory.triggered.connect(self.extract_tab_widget.select_directory)
+        self.ui.select_files.triggered.connect(self.extract_tab_widget.select_files_manually)
+        self.ui.clear_export_list.triggered.connect(self.extract_tab_widget.clear_filelist)
         self.ui.preferences.triggered.connect(self.create_app_config_window)
         self.ui.fnf_import_settings.triggered.connect(self.fnf_import_settings)
         self.ui.help_manual.triggered.connect(self.show_help_manual)
@@ -248,42 +283,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.variable_delay_action.toggled.connect(self.on_variable_delay_toggled)
         self.fnf_idle_loop_action.toggled.connect(self.on_fnf_idle_loop_toggled)
 
-        # Buttons
-        self.ui.input_button.clicked.connect(self.select_directory)
-        self.ui.output_button.clicked.connect(self.select_output_directory)
-        self.ui.start_process_button.clicked.connect(self.start_process)
-        self.ui.reset_button.clicked.connect(self.clear_filelist)
-        self.ui.advanced_filename_button.clicked.connect(self.create_find_and_replace_window)
-        self.ui.show_override_settings_button.clicked.connect(self.create_settings_window)
-        self.ui.override_spritesheet_settings_button.clicked.connect(
-            self.override_spritesheet_settings
-        )
-        self.ui.override_animation_settings_button.clicked.connect(self.override_animation_settings)
-        self.ui.compression_settings_button.clicked.connect(self.show_compression_settings)
-
-        # List selections
-        self.ui.listbox_png.currentItemChanged.connect(self.on_select_spritesheet)
-        self.ui.listbox_png.currentItemChanged.connect(self.update_ui_state)
-        self.ui.listbox_png.itemDoubleClicked.connect(self.on_double_click_spritesheet)
-        self.ui.listbox_data.itemDoubleClicked.connect(self.on_double_click_animation)
-        self.ui.listbox_data.currentItemChanged.connect(self.update_ui_state)
-
-        # Context menus
-        self.ui.listbox_png.customContextMenuRequested.connect(self.show_listbox_png_menu)
-        self.ui.listbox_data.customContextMenuRequested.connect(self.show_listbox_data_menu)
-
-        # Format change handlers
-        self.ui.animation_format_combobox.currentTextChanged.connect(
-            self.on_animation_format_change
-        )
-        self.ui.frame_format_combobox.currentTextChanged.connect(self.on_frame_format_change)
-
-        # Export group checkbox changes
-        self.ui.animation_export_group.toggled.connect(self.update_ui_state)
-        self.ui.frame_export_group.toggled.connect(self.update_ui_state)
-
+        # Note: Most UI element connections are now handled within the extract_tab_widget
         # Initial UI state update
-        self.update_ui_state()
+        if hasattr(self, "extract_tab_widget"):
+            self.extract_tab_widget.update_ui_state()
 
     def show_language_selection(self):
         """Show the language selection window."""
@@ -297,365 +300,6 @@ class TextureAtlasExtractorApp(QMainWindow):
                 self.tr("Error"),
                 self.tr("Could not open language selection: {error}").format(error=str(e)),
             )
-
-    def select_directory(self):
-        """Opens a directory selection dialog and populates the spritesheet list."""
-        # Start from the last used directory or default to empty
-        start_directory = self.app_config.get_last_input_directory()
-
-        directory = QFileDialog.getExistingDirectory(
-            self,
-            self.tr("Select Input Directory"),
-            start_directory,
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
-        )
-
-        if directory:
-            # Save the selected directory for next time
-            self.app_config.set_last_input_directory(directory)
-
-            self.ui.input_dir_label.setText(directory)
-            self.populate_spritesheet_list(directory)
-
-            # Clear settings when changing directory
-            self.settings_manager.animation_settings.clear()
-            self.settings_manager.spritesheet_settings.clear()
-
-    def select_output_directory(self):
-        """Opens a directory selection dialog for output directory."""
-        # Start from the last used directory or default to empty
-        start_directory = self.app_config.get_last_output_directory()
-
-        directory = QFileDialog.getExistingDirectory(
-            self,
-            self.tr("Select Output Directory"),
-            start_directory,
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
-        )
-
-        if directory:
-            # Save the selected directory for next time
-            self.app_config.set_last_output_directory(directory)
-            self.ui.output_dir_label.setText(directory)
-
-    def select_files_manually(self):
-        """Opens a file selection dialog for manual file selection."""
-        # Start from the last used input directory or default to empty
-        start_directory = self.app_config.get_last_input_directory()
-
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            self.tr("Select Files"),
-            start_directory,
-            self.tr("Image files (*.png *.jpg *.jpeg);;All files (*.*)"),
-        )
-
-        if files:
-            # Save the directory of the first selected file for next time
-            if files:
-                import os
-
-                first_file_dir = os.path.dirname(files[0])
-                self.app_config.set_last_input_directory(first_file_dir)
-
-            # Clean up previous manual selection temp directory if exists
-            if self.manual_selection_temp_dir:
-                try:
-                    import shutil
-
-                    shutil.rmtree(self.manual_selection_temp_dir, ignore_errors=True)
-                except Exception:
-                    pass
-
-            # For manual file selection, use a temp folder
-            import tempfile
-
-            self.manual_selection_temp_dir = tempfile.mkdtemp(prefix="texture_atlas_manual_")
-            self.ui.input_dir_label.setText(
-                self.tr("Manual selection ({count} files)").format(count=len(files))
-            )
-            self.populate_spritesheet_list_from_files(files, self.manual_selection_temp_dir)
-
-    def populate_spritesheet_list(self, directory):
-        """Populates the spritesheet list from a directory."""
-        self.ui.listbox_png.clear()
-        self.ui.listbox_data.clear()
-        self.data_dict.clear()
-
-        directory_path = Path(directory)
-        if not directory_path.exists():
-            return
-
-        # Find PNG files
-        png_files = list(directory_path.glob("*.png"))
-
-        for png_file in png_files:
-            # Add to list
-            self.ui.listbox_png.add_item(png_file.name, str(png_file))
-
-            # Look for corresponding data files (XML, TXT, etc.)
-            self.find_data_files_for_spritesheet(png_file)
-
-    def populate_spritesheet_list_from_files(self, files, temp_folder=None):
-        """Populates the spritesheet list from manually selected files."""
-        self.ui.listbox_png.clear()
-        self.ui.listbox_data.clear()
-        self.data_dict.clear()
-
-        for file_path in files:
-            path = Path(file_path)
-            if path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-                self.ui.listbox_png.add_item(path.name, str(path))
-                # Use temp folder if provided, otherwise use original file location
-                search_directory = Path(temp_folder) if temp_folder else path.parent
-                self.find_data_files_for_spritesheet(path, search_directory)
-
-    def find_data_files_for_spritesheet(self, spritesheet_path, search_directory=None):
-        """Find data files (XML, TXT) associated with a spritesheet."""
-        spritesheet_path = Path(spritesheet_path)
-        base_name = spritesheet_path.stem
-        # Use provided search directory or default to spritesheet's directory
-        directory = Path(search_directory) if search_directory else spritesheet_path.parent
-
-        # Initialize data dict entry
-        if spritesheet_path.name not in self.data_dict:
-            self.data_dict[spritesheet_path.name] = {}
-
-        # Look for XML files
-        xml_file = directory / f"{base_name}.xml"
-        if xml_file.exists():
-            self.data_dict[spritesheet_path.name]["xml"] = str(xml_file)
-
-        # Look for TXT files
-        txt_file = directory / f"{base_name}.txt"
-        if txt_file.exists():
-            self.data_dict[spritesheet_path.name]["txt"] = str(txt_file)
-
-    def on_select_spritesheet(self, current, previous):
-        """Handles the event when a PNG file is selected from the listbox."""
-        if not current:
-            return
-
-        spritesheet_name = current.text()
-        self.populate_animation_list(spritesheet_name)
-
-    def populate_animation_list(self, spritesheet_name):
-        """Populates the animation list for the selected spritesheet."""
-        self.ui.listbox_data.clear()
-
-        if spritesheet_name not in self.data_dict:
-            # If no data files found, try to use the unknown parser
-            try:
-                from parsers.unknown_parser import UnknownParser
-
-                # Get the spritesheet file path from the listbox
-                current_item = self.ui.listbox_png.currentItem()
-                if current_item:
-                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
-                    if spritesheet_path:
-                        unknown_parser = UnknownParser(
-                            directory=str(Path(spritesheet_path).parent),
-                            png_filename=Path(spritesheet_path).name,
-                            listbox_data=self.ui.listbox_data,
-                        )
-                        unknown_parser.get_data()
-            except Exception as e:
-                print(f"Error using unknown parser: {e}")
-            return
-
-        data_files = self.data_dict[spritesheet_name]
-
-        # Parse XML files for animations
-        if "xml" in data_files:
-            try:
-                from parsers.xml_parser import XmlParser
-
-                xml_parser = XmlParser(
-                    directory=str(Path(data_files["xml"]).parent),
-                    xml_filename=Path(data_files["xml"]).name,
-                    listbox_data=self.ui.listbox_data,
-                )
-                xml_parser.get_data()
-            except Exception as e:
-                print(f"Error parsing XML: {e}")
-
-        # Parse TXT files for animations (only if no XML found)
-        elif "txt" in data_files:
-            try:
-                from parsers.txt_parser import TxtParser
-
-                txt_parser = TxtParser(
-                    directory=str(Path(data_files["txt"]).parent),
-                    txt_filename=Path(data_files["txt"]).name,
-                    listbox_data=self.ui.listbox_data,
-                )
-                txt_parser.get_data()
-            except Exception as e:
-                print(f"Error parsing TXT: {e}")
-
-        # If no data files found, try to use the unknown parser
-        else:
-            try:
-                from parsers.unknown_parser import UnknownParser
-
-                # Get the spritesheet file path from the listbox
-                current_item = self.ui.listbox_png.currentItem()
-                if current_item:
-                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
-                    if spritesheet_path:
-                        unknown_parser = UnknownParser(
-                            directory=str(Path(spritesheet_path).parent),
-                            png_filename=Path(spritesheet_path).name,
-                            listbox_data=self.ui.listbox_data,
-                        )
-                        unknown_parser.get_data()
-            except Exception as e:
-                print(f"Error using unknown parser: {e}")
-
-    def on_double_click_animation(self, item):
-        """Handles the event when an animation is double-clicked in the listbox."""
-        if not item:
-            return
-
-        # Get the selected spritesheet
-        current_spritesheet_item = self.ui.listbox_png.currentItem()
-        if not current_spritesheet_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
-            )
-            return
-
-        spritesheet_name = current_spritesheet_item.text()
-        animation_name = item.text()
-        full_anim_name = "{spritesheet}/{animation}".format(
-            spritesheet=spritesheet_name, animation=animation_name
-        )
-
-        def store_settings(settings):
-            """Callback to store animation settings."""
-            self.settings_manager.animation_settings[full_anim_name] = settings
-
-        try:
-            dialog = OverrideSettingsWindow(
-                self, full_anim_name, "animation", self.settings_manager, store_settings, self
-            )
-            dialog.exec()
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("Could not open animation settings: {error}").format(error=str(e)),
-            )
-
-    def on_double_click_spritesheet(self, item):
-        """Handles the event when a spritesheet is double-clicked in the listbox."""
-        if not item:
-            return
-
-        spritesheet_name = item.text()
-
-        def store_settings(settings):
-            """Callback to store spritesheet settings."""
-            self.settings_manager.spritesheet_settings[spritesheet_name] = settings
-
-        try:
-            dialog = OverrideSettingsWindow(
-                self, spritesheet_name, "spritesheet", self.settings_manager, store_settings, self
-            )
-            dialog.exec()
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
-            )
-
-    def show_listbox_png_menu(self, position):
-        """Shows the context menu for the PNG listbox."""
-        item = self.ui.listbox_png.itemAt(position)
-        if item is None:
-            return
-
-        menu = QMenu(self)
-
-        settings_action = QAction(self.tr("Override Settings"), self)
-        settings_action.triggered.connect(self.override_spritesheet_settings)
-        menu.addAction(settings_action)
-
-        menu.addSeparator()
-
-        delete_action = QAction(self.tr("Delete"), self)
-        delete_action.triggered.connect(self.delete_selected_spritesheet)
-        menu.addAction(delete_action)
-
-        menu.exec(self.ui.listbox_png.mapToGlobal(position))
-
-    def show_listbox_data_menu(self, position):
-        """Shows the context menu for the animation listbox."""
-        item = self.ui.listbox_data.itemAt(position)
-        if item is None:
-            return
-
-        menu = QMenu(self)
-
-        preview_action = QAction(self.tr("Preview Animation"), self)
-        preview_action.triggered.connect(self.preview_selected_animation)
-        menu.addAction(preview_action)
-
-        menu.addSeparator()
-
-        settings_action = QAction(self.tr("Override Settings"), self)
-        settings_action.triggered.connect(self.override_animation_settings)
-        menu.addAction(settings_action)
-
-        menu.exec(self.ui.listbox_data.mapToGlobal(position))
-
-    def delete_selected_spritesheet(self):
-        """Deletes the selected spritesheet and related settings."""
-        current_item = self.ui.listbox_png.currentItem()
-        if not current_item:
-            return
-
-        spritesheet_name = current_item.text()
-
-        # Remove from data dict
-        if spritesheet_name in self.data_dict:
-            del self.data_dict[spritesheet_name]
-
-        # Remove from list
-        row = self.ui.listbox_png.row(current_item)
-        self.ui.listbox_png.takeItem(row)
-
-        # Clear animation list
-        self.ui.listbox_data.clear()
-
-        # Remove related settings
-        self.settings_manager.spritesheet_settings.pop(spritesheet_name, None)
-
-    def clear_filelist(self):
-        """Clears the file list and resets settings."""
-        # Clean up manual selection temp directory if exists
-        if self.manual_selection_temp_dir:
-            try:
-                import shutil
-
-                shutil.rmtree(self.manual_selection_temp_dir, ignore_errors=True)
-                self.manual_selection_temp_dir = None
-            except Exception:
-                pass
-
-        # Clear the list widgets
-        self.ui.listbox_png.clear()
-        self.ui.listbox_data.clear()
-
-        # Reset labels
-        self.ui.input_dir_label.setText(self.tr("No input directory selected"))
-        self.ui.output_dir_label.setText(self.tr("No output directory selected"))
-
-        # Clear settings
-        self.settings_manager.animation_settings.clear()
-        self.settings_manager.spritesheet_settings.clear()
-        self.data_dict.clear()
 
     def create_app_config_window(self):
         """Creates the preferences/app config window."""
@@ -747,72 +391,6 @@ class TextureAtlasExtractorApp(QMainWindow):
     def store_replace_rules(self, rules):
         """Stores the replace rules from the Find and Replace window."""
         self.replace_rules = rules
-
-    def override_spritesheet_settings(self):
-        """Opens window to override settings for selected spritesheet."""
-        current_item = self.ui.listbox_png.currentItem()
-        if not current_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
-            )
-            return
-
-        spritesheet_name = current_item.text()
-
-        def store_settings(settings):
-            """Callback to store spritesheet settings."""
-            self.settings_manager.spritesheet_settings[spritesheet_name] = settings
-
-        try:
-            dialog = OverrideSettingsWindow(
-                self, spritesheet_name, "spritesheet", self.settings_manager, store_settings, self
-            )
-            dialog.exec()
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
-            )
-
-    def override_animation_settings(self):
-        """Opens window to override settings for selected animation."""
-        current_item = self.ui.listbox_data.currentItem()
-        if not current_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select an animation first.")
-            )
-            return
-
-        # Get the selected spritesheet to create full animation name
-        current_spritesheet_item = self.ui.listbox_png.currentItem()
-        if not current_spritesheet_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
-            )
-            return
-
-        spritesheet_name = current_spritesheet_item.text()
-        animation_name = current_item.text()
-        full_anim_name = "{spritesheet}/{animation}".format(
-            spritesheet=spritesheet_name, animation=animation_name
-        )
-
-        def store_settings(settings):
-            """Callback to store animation settings."""
-            self.settings_manager.animation_settings[full_anim_name] = settings
-
-        try:
-            dialog = OverrideSettingsWindow(
-                self, full_anim_name, "animation", self.settings_manager, store_settings, self
-            )
-            dialog.exec()
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("Could not open animation settings: {error}").format(error=str(e)),
-            )
 
     def fnf_import_settings(self):
         """Imports settings from FNF character data file."""
@@ -916,130 +494,14 @@ class TextureAtlasExtractorApp(QMainWindow):
         if hasattr(self.app_config, "settings"):
             self.app_config.settings["fnf_idle_loop"] = checked
 
-    def get_animation_format_index(self, format_name):
-        """Get the index for animation format by English name."""
-        animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
-        try:
-            return animation_format_map.index(format_name)
-        except ValueError:
-            return 0  # Default to GIF
-
-    def get_frame_format_index(self, format_name):
-        """Get the index for frame format by English name."""
-        frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
-        try:
-            return frame_format_map.index(format_name)
-        except ValueError:
-            return 3  # Default to PNG
-
-    def get_frame_selection_index(self, selection_name):
-        """Get the index for frame selection by English name."""
-        frame_selection_map = ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
-        try:
-            return frame_selection_map.index(selection_name)
-        except ValueError:
-            return 0  # Default to All
-
-    def get_crop_option_index(self, crop_name):
-        """Get the index for crop option by English name."""
-        crop_option_map = ["None", "Animation based", "Frame based"]
-        try:
-            return crop_option_map.index(crop_name)
-        except ValueError:
-            return 0  # Default to None
-
-    def get_filename_format_index(self, format_name):
-        """Get the index for filename format by English name."""
-        filename_format_map = ["Standardized", "No spaces", "No special characters"]
-        try:
-            return filename_format_map.index(format_name)
-        except ValueError:
-            return 0  # Default to Standardized
-
-    def update_global_settings(self):
-        """Updates the global settings from the GUI."""
-        # Get format options directly from comboboxes using index mapping to avoid translation issues
-        animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
-        frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
-        frame_selection_map = ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
-        crop_option_map = ["None", "Animation based", "Frame based"]
-        filename_format_map = ["Standardized", "No spaces", "No special characters"]
-
-        animation_format = animation_format_map[self.ui.animation_format_combobox.currentIndex()]
-        frame_format = frame_format_map[self.ui.frame_format_combobox.currentIndex()]
-        frame_selection = frame_selection_map[self.ui.frame_selection_combobox.currentIndex()]
-        crop_option = crop_option_map[self.ui.cropping_method_combobox.currentIndex()]
-        filename_format = filename_format_map[self.ui.filename_format_combobox.currentIndex()]
-
-        # Get export enable states from groupboxes
-        animation_export = self.ui.animation_export_group.isChecked()
-        frame_export = self.ui.frame_export_group.isChecked()
-
-        # Get values from UI elements
-        settings = {
-            "animation_format": animation_format,
-            "frame_format": frame_format,
-            "animation_export": animation_export,
-            "frame_export": frame_export,
-            "fps": self.ui.frame_rate_entry.value(),
-            "delay": self.ui.loop_delay_entry.value(),
-            "period": self.ui.min_period_entry.value(),
-            "scale": self.ui.scale_entry.value(),
-            "threshold": self.ui.threshold_entry.value() / 100.0,  # Convert % to 0-1 range
-            "frame_scale": self.ui.frame_scale_entry.value(),
-            "frame_selection": frame_selection,
-            "crop_option": crop_option,
-            "prefix": self.ui.filename_prefix_entry.text(),
-            "suffix": self.ui.filename_suffix_entry.text(),
-            "filename_format": filename_format,
-            "replace_rules": getattr(self, "replace_rules", []),
-            "var_delay": self.variable_delay,
-            "fnf_idle_loop": self.fnf_idle_loop,
-        }
-
-        # Update settings manager
-        for key, value in settings.items():
-            self.settings_manager.global_settings[key] = value
-
     def start_process(self):
         """Prepares and starts the processing thread."""
-        # Validate inputs
-        if self.ui.input_dir_label.text() == self.tr("No input directory selected"):
-            QMessageBox.warning(
-                self, self.tr("Error"), self.tr("Please select an input directory first.")
-            )
+        # Use the extract tab widget's preparation method
+        is_ready, error_message, spritesheet_list = self.extract_tab_widget.prepare_for_extraction()
+
+        if not is_ready:
+            QMessageBox.warning(self, self.tr("Error"), error_message)
             return
-
-        if self.ui.output_dir_label.text() == self.tr("No output directory selected"):
-            QMessageBox.warning(
-                self, self.tr("Error"), self.tr("Please select an output directory first.")
-            )
-            return
-
-        # Update global settings
-        self.update_global_settings()
-
-        # Get spritesheet list
-        spritesheet_list = []
-        for i in range(self.ui.listbox_png.count()):
-            item = self.ui.listbox_png.item(i)
-            if item:
-                spritesheet_list.append(item.text())
-
-        # Check for unknown atlases and handle user choice
-        has_unknown, unknown_atlases = self.check_for_unknown_atlases(spritesheet_list)
-        if has_unknown:
-            action = self.show_unknown_atlas_warning(unknown_atlases)
-            if action == "cancel":
-                return
-            elif action == "skip":
-                self.filter_unknown_atlases(unknown_atlases)
-                # Update spritesheet list after filtering
-                spritesheet_list = []
-                for i in range(self.ui.listbox_png.count()):
-                    item = self.ui.listbox_png.item(i)
-                    if item:
-                        spritesheet_list.append(item.text())
 
         # Handle background detection for unknown spritesheets in main thread
         from core.extractor import Extractor
@@ -1050,7 +512,7 @@ class TextureAtlasExtractorApp(QMainWindow):
             current_version=self.current_version,
             settings_manager=self.settings_manager,
         )
-        input_dir = self.ui.input_dir_label.text()
+        input_dir = self.extract_tab_widget.get_input_directory()
         if temp_extractor._handle_unknown_spritesheets_background_detection(
             input_dir, spritesheet_list, self
         ):
@@ -1064,9 +526,8 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.processing_window.raise_()  # Bring to front
         self.processing_window.activateWindow()  # Make it active
 
-        # Disable the process button
-        self.ui.start_process_button.setEnabled(False)
-        self.ui.start_process_button.setText(self.tr("Processing..."))
+        # Set processing state
+        self.extract_tab_widget.set_processing_state(True)
 
         # Start extraction in worker thread
         self.worker = ExtractorWorker(self, spritesheet_list)
@@ -1146,8 +607,7 @@ class TextureAtlasExtractorApp(QMainWindow):
     def on_extraction_completed(self, completion_message):
         """Called when extraction completes successfully."""
         print(f"[on_extraction_completed] {completion_message}")
-        self.ui.start_process_button.setEnabled(True)
-        self.ui.start_process_button.setText(self.tr("Start process"))
+        self.extract_tab_widget.set_processing_state(False)
 
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(True, completion_message)
@@ -1155,8 +615,7 @@ class TextureAtlasExtractorApp(QMainWindow):
     def on_extraction_failed(self, error_message):
         """Called when extraction fails."""
         print(f"[on_extraction_failed] {error_message}")
-        self.ui.start_process_button.setEnabled(True)
-        self.ui.start_process_button.setText(self.tr("Start process"))
+        self.extract_tab_widget.set_processing_state(False)
 
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(False, error_message)
@@ -1202,51 +661,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         if hasattr(self, "worker"):
             self.worker.continue_on_error = reply == QMessageBox.StandardButton.Yes
 
-    def check_for_unknown_atlases(self, spritesheet_list):
-        """Check for atlases without metadata files (unknown atlases)."""
-        unknown_atlases = []
-        input_directory = self.ui.input_dir_label.text()
-
-        for filename in spritesheet_list:
-            base_filename = filename.rsplit(".", 1)[0]
-            xml_path = os.path.join(input_directory, base_filename + ".xml")
-            txt_path = os.path.join(input_directory, base_filename + ".txt")
-            image_path = os.path.join(input_directory, filename)
-
-            # Check if this is an unknown atlas (no metadata file but is an image)
-            if (
-                not os.path.isfile(xml_path)
-                and not os.path.isfile(txt_path)
-                and os.path.isfile(image_path)
-                and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
-            ):
-                unknown_atlases.append(filename)
-
-        return len(unknown_atlases) > 0, unknown_atlases
-
-    def show_unknown_atlas_warning(self, unknown_atlases):
-        """Show the unknown atlas warning dialog."""
-        input_directory = self.ui.input_dir_label.text()
-        return UnknownAtlasWarningWindow.show_warning(self, unknown_atlases, input_directory)
-
-    def filter_unknown_atlases(self, unknown_atlases):
-        """Remove unknown atlases from the spritesheet list."""
-        for unknown_atlas in unknown_atlases:
-            for i in range(self.ui.listbox_png.count()):
-                item = self.ui.listbox_png.item(i)
-                if item and item.text() == unknown_atlas:
-                    self.ui.listbox_png.takeItem(i)
-                    break
-
-        # Clear animation list since we removed spritesheets
-        self.ui.listbox_data.clear()
-
     def closeEvent(self, event):
         """Handles the window close event."""
         # Clean up temporary files
         try:
-            import shutil
-
             shutil.rmtree(self.temp_dir, ignore_errors=True)
             # Clean up manual selection temp directory
             if self.manual_selection_temp_dir:
@@ -1325,7 +743,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def get_complete_preview_settings(self, spritesheet_name, animation_name):
         """Get complete settings for preview, merging global, spritesheet, and animation overrides."""
-        self.update_global_settings()
+        # Update global settings through the extract tab widget
+        if hasattr(self, "extract_tab_widget") and self.extract_tab_widget:
+            self.extract_tab_widget.update_global_settings()
 
         full_animation_name = f"{spritesheet_name}/{animation_name}"
 
@@ -1352,10 +772,10 @@ class TextureAtlasExtractorApp(QMainWindow):
 
             # Create and show the preview window
             preview_window = AnimationPreviewWindow(self, animation_path, settings)
-            
+
             # Connect signal to handle saved settings
             preview_window.settings_saved.connect(self.handle_preview_settings_saved)
-            
+
             preview_window.exec()
         except Exception as e:
             QMessageBox.warning(
@@ -1369,10 +789,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Get current animation details
         current_item = self.ui.listbox_data.currentItem()
         current_spritesheet_item = self.ui.listbox_png.currentItem()
-        
+
         if not current_item or not current_spritesheet_item:
             return
-            
+
         spritesheet_name = current_spritesheet_item.text()
         animation_name = current_item.text()
         full_anim_name = "{spritesheet}/{animation}".format(
@@ -1381,56 +801,26 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Save the preview settings using the settings manager
         self.settings_manager.animation_settings[full_anim_name] = preview_settings
-        
+
         # Show confirmation message
         QMessageBox.information(
             self,
             self.tr("Settings Saved"),
-            self.tr("Animation override settings have been saved for '{name}'.").format(name=full_anim_name)
+            self.tr("Animation override settings have been saved for '{name}'.").format(
+                name=full_anim_name
+            ),
         )
 
-    def preview_selected_animation(self):
-        """Preview the selected animation using the new preview window."""
-        current_item = self.ui.listbox_data.currentItem()
-        if not current_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select an animation first.")
-            )
-            return
-
-        # Get the selected spritesheet
-        current_spritesheet_item = self.ui.listbox_png.currentItem()
-        if not current_spritesheet_item:
-            QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
-            )
-            return
-
-        spritesheet_name = current_spritesheet_item.text()
-        animation_name = current_item.text()
-
+    def preview_animation_with_paths(self, spritesheet_path, metadata_path, animation_name):
+        """Preview an animation given the paths and animation name. Used by ExtractTabWidget."""
         try:
-            # Get the file paths
-            spritesheet_path = current_spritesheet_item.data(Qt.ItemDataRole.UserRole)
-            if not spritesheet_path:
-                QMessageBox.warning(
-                    self, self.tr("Preview Error"), self.tr("Could not find spritesheet file path.")
-                )
-                return
-
-            # Find the metadata file
-            metadata_path = None
-            if spritesheet_name in self.data_dict:
-                data_files = self.data_dict[spritesheet_name]
-                if "xml" in data_files:
-                    metadata_path = data_files["xml"]
-                elif "txt" in data_files:
-                    metadata_path = data_files["txt"]
-
             # Generate temp animation for preview
             from core.extractor import Extractor
 
             extractor = Extractor(None, self.current_version, self.settings_manager)
+
+            # Get spritesheet name from path for settings lookup
+            spritesheet_name = os.path.basename(spritesheet_path)
 
             # Get complete preview settings that include global, spritesheet, and animation overrides
             preview_settings = self.get_complete_preview_settings(spritesheet_name, animation_name)
@@ -1446,11 +836,15 @@ class TextureAtlasExtractorApp(QMainWindow):
                 # Show animation preview
                 self.show_animation_preview_window(temp_path, preview_settings)
             else:
+                from PySide6.QtWidgets import QMessageBox
+
                 QMessageBox.warning(
                     self, self.tr("Preview Error"), self.tr("Could not generate animation preview.")
                 )
 
         except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+
             QMessageBox.warning(
                 self,
                 self.tr("Preview Error"),
