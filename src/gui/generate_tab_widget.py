@@ -15,6 +15,7 @@ except ImportError:
 
 from core.generator import SparrowAtlasGenerator, AtlasSettings
 from gui.animation_tree_widget import AnimationTreeWidget
+from utils.utilities import Utilities
 
 
 class GeneratorWorker(QThread):
@@ -73,6 +74,8 @@ class GeneratorWorker(QThread):
 class GenerateTabWidget(QWidget):
     """Widget containing all Generate tab functionality."""
 
+    # Constants
+
     def __init__(self, ui, parent=None):
         super().__init__(parent)
         self.main_app = parent
@@ -82,12 +85,47 @@ class GenerateTabWidget(QWidget):
         self.worker = None
         self.animation_groups = {}
 
+        self.APP_NAME = Utilities.APP_NAME
+        self.ALL_FILES_FILTER = f"{self.tr('All files')} (*.*)"
+        self.INPUT_FORMATS = {".bmp", ".dds", ".jpeg", ".jpg", ".png", ".tga", ".tiff", ".webp"}
+        self.OUTPUT_FORMATS = [
+            ("PNG", "*.png"),
+            ("JPEG", "*.jpg"),
+            ("BMP", "*.bmp"),
+            ("TIFF", "*.tiff"),
+            ("WebP", "*.webp"),
+            ("TGA", "*.tga"),
+            ("DDS", "*.dds"),
+        ]
+
         self.bind_ui_elements()
         self.setup_custom_widgets()
         self.setup_connections()
 
         # Initialize auto-sizing state
         self.on_auto_size_toggled(self.ui.auto_size_check.isChecked())
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
+    def get_image_file_filter(self):
+        """Generate file filter string for image files."""
+        # Create the extensions string from the constant
+        extensions = " ".join(f"*{ext}" for ext in sorted(self.INPUT_FORMATS))
+        image_filter = self.tr("Image files ({0})").format(extensions)
+        return f"{image_filter};;{self.ALL_FILES_FILTER}"
+
+    def get_output_file_filter(self):
+        """Generate file filter string for output formats."""
+        format_filters = []
+        for format_name, pattern in self.OUTPUT_FORMATS:
+            format_filters.append(f"{format_name} {self.tr('files')} ({pattern})")
+
+        # Join all format filters and add the all files filter
+        return ";;".join(format_filters + [self.ALL_FILES_FILTER])
 
     def bind_ui_elements(self):
         """Bind to UI elements from the compiled UI."""
@@ -174,9 +212,9 @@ class GenerateTabWidget(QWidget):
         """Add individual files to a new animation group."""
         files, _ = QFileDialog.getOpenFileNames(
             self,
-            "Select Frame Images",
+            self.tr("Select frames"),
             "",
-            "Image files (*.png *.jpg *.jpeg *.bmp *.tiff);;All files (*.*)",
+            self.get_image_file_filter(),
         )
 
         if files:
@@ -184,11 +222,12 @@ class GenerateTabWidget(QWidget):
 
     def add_directory(self):
         """Add all images from a directory to the frame list."""
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory with Frame Images", "")
+        directory = QFileDialog.getExistingDirectory(
+            self, self.tr("Select directory with frame images"), ""
+        )
 
         if directory:
             directory_path = Path(directory)
-            image_extensions = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
 
             subfolders = [item for item in directory_path.iterdir() if item.is_dir()]
 
@@ -196,7 +235,7 @@ class GenerateTabWidget(QWidget):
                 animations_created = 0
                 for subfolder in subfolders:
                     files = []
-                    for ext in image_extensions:
+                    for ext in self.INPUT_FORMATS:
                         files.extend(subfolder.glob(f"*{ext}"))
                         files.extend(subfolder.glob(f"*{ext.upper()}"))
 
@@ -217,16 +256,18 @@ class GenerateTabWidget(QWidget):
                 if animations_created > 0:
                     QMessageBox.information(
                         self,
-                        "Animations Created",
-                        f"Created {animations_created} animation(s) from subfolders.",
+                        self.APP_NAME,
+                        self.tr("Created {0} animation(s) from subfolders.").format(
+                            animations_created
+                        ),
                     )
                 else:
                     QMessageBox.information(
-                        self, "No Images", "No image files found in any subfolders."
+                        self, self.APP_NAME, self.tr("No image files found in any subfolders.")
                     )
             else:
                 files = []
-                for ext in image_extensions:
+                for ext in self.INPUT_FORMATS:
                     files.extend(directory_path.glob(f"*{ext}"))
                     files.extend(directory_path.glob(f"*{ext.upper()}"))
 
@@ -234,7 +275,9 @@ class GenerateTabWidget(QWidget):
                     self.add_frames_to_default_animation([str(f) for f in files])
                 else:
                     QMessageBox.information(
-                        self, "No Images", "No image files found in the selected directory."
+                        self,
+                        self.APP_NAME,
+                        self.tr("No image files found in the selected directory."),
                     )
 
             self.update_frame_info()
@@ -250,19 +293,19 @@ class GenerateTabWidget(QWidget):
     def update_speed_opt_label(self, value):
         """Update the speed optimization label based on slider value."""
         labels = {
-            0: "Level: 0 (Ultra-Fast, Minimal Packing)",
-            1: "Level: 1 (Ultra-Fast, Tight Packing)",
-            2: "Level: 2 (Ultra-Fast, Reduced Padding)",
-            3: "Level: 3 (Fast, No Rotation)",
-            4: "Level: 4 (Fast, Basic Packing)",
-            5: "Level: 5 (Fast, Standard Packing)",
-            6: "Level: 6 (Balanced, Some Rotation)",
-            7: "Level: 7 (Balanced, Full Rotation)",
-            8: "Level: 8 (Optimized, Advanced)",
-            9: "Level: 9 (Optimized, Maximum)",
-            10: "Level: 10 (Ultra-Optimized, Slowest)",
+            0: self.tr("Level: 0 (Ultra-Fast, Minimal Packing)"),
+            1: self.tr("Level: 1 (Ultra-Fast, Tight Packing)"),
+            2: self.tr("Level: 2 (Ultra-Fast, Reduced Padding)"),
+            3: self.tr("Level: 3 (Fast, No Rotation)"),
+            4: self.tr("Level: 4 (Fast, Basic Packing)"),
+            5: self.tr("Level: 5 (Fast, Standard Packing)"),
+            6: self.tr("Level: 6 (Balanced, Some Rotation)"),
+            7: self.tr("Level: 7 (Balanced, Full Rotation)"),
+            8: self.tr("Level: 8 (Optimized, Advanced)"),
+            9: self.tr("Level: 9 (Optimized, Maximum)"),
+            10: self.tr("Level: 10 (Ultra-Optimized, Slowest)"),
         }
-        self.speed_opt_value_label.setText(labels.get(value, f"Level: {value}"))
+        self.speed_opt_value_label.setText(labels.get(value, self.tr("Level: {0}").format(value)))
 
     def get_optimization_settings(self, slider_value):
         """Convert slider value to optimization settings."""
@@ -314,7 +357,7 @@ class GenerateTabWidget(QWidget):
     def add_frames_to_default_animation(self, file_paths):
         """Add frame files to a default animation group."""
         # Create or use existing default animation
-        default_animation = "Animation_01"
+        default_animation = self.tr("New animation")
 
         # Add frames to the animation
         for file_path in file_paths:
@@ -378,12 +421,12 @@ class GenerateTabWidget(QWidget):
     def select_output_path(self):
         """Select output path for the atlas."""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Atlas As", "", "PNG files (*.png);;JPEG files (*.jpg);;All files (*.*)"
+            self, self.tr("Save Atlas As"), "", self.get_output_file_filter()
         )
 
         if file_path:
             self.output_path = file_path
-            self.output_path_label.setText(f"Output: {Path(file_path).name}")
+            self.output_path_label.setText(self.tr("Output: {0}").format(Path(file_path).name))
             self.update_generate_button_state()
 
     def update_frame_info(self):
@@ -392,10 +435,12 @@ class GenerateTabWidget(QWidget):
         animation_count = self.animation_tree.get_animation_count()
 
         if total_frames == 0:
-            self.frame_info_label.setText("No frames loaded")
+            self.frame_info_label.setText(self.tr("No frames loaded"))
         else:
             self.frame_info_label.setText(
-                f"{animation_count} animation(s), {total_frames} frame(s) total"
+                self.tr("{0} animation(s), {1} frame(s) total").format(
+                    animation_count, total_frames
+                )
             )
 
     def update_generate_button_state(self):
@@ -413,7 +458,9 @@ class GenerateTabWidget(QWidget):
     def generate_atlas(self):
         """Start the atlas generation process."""
         if self.animation_tree.get_total_frame_count() == 0 or not self.output_path:
-            QMessageBox.warning(self, "Error", "Please add frames and select output path.")
+            QMessageBox.warning(
+                self, self.APP_NAME, self.tr("Please add frames and select output path.")
+            )
             return
 
         # Get all animations from the tree
@@ -460,7 +507,7 @@ class GenerateTabWidget(QWidget):
         # Update UI
         self.generate_button.setEnabled(False)
         self.progress_bar.setVisible(True)
-        self.status_label.setText("Generating atlas...")
+        self.status_label.setText(self.tr("Generating atlas..."))
         self.log_text.clear()
 
         self.worker.start()
@@ -469,7 +516,9 @@ class GenerateTabWidget(QWidget):
         """Handle progress updates."""
         if total > 0:
             self.progress_bar.setValue(int((current / total) * 100))
-        self.status_label.setText(f"Progress: {current}/{total} - {message}")
+        self.status_label.setText(
+            self.tr("Progress: {0}/{1} - {2}").format(current, total, message)
+        )
         self.log_text.append(f"{message}")
 
     def on_generation_completed(self, results):
@@ -478,43 +527,42 @@ class GenerateTabWidget(QWidget):
         self.generate_button.setEnabled(True)
 
         # Show results
-        message = "Atlas generated successfully!\n\n"
-        message += f"Atlas: {results['atlas_path']}\n"
-        message += f"Size: {results['atlas_size'][0]}x{results['atlas_size'][1]}\n"
-        message += f"Frames: {results['frames_count']}\n"
-        message += f"Efficiency: {results['efficiency']:.1f}%\n"
-        message += f"Format: {self.atlas_type_combo.currentText()}\n"
-        message += f"Metadata files: {len(results['metadata_files'])}"
+        message = self.tr("Atlas generated successfully!") + "\n\n"
+        message += self.tr("Atlas: {0}").format(results["atlas_path"]) + "\n"
+        message += (
+            self.tr("Size: {0}x{1}").format(results["atlas_size"][0], results["atlas_size"][1])
+            + "\n"
+        )
+        message += self.tr("Frames: {0}").format(results["frames_count"]) + "\n"
+        message += self.tr("Efficiency: {0:.1f}%").format(results["efficiency"]) + "\n"
+        message += self.tr("Format: {0}").format(self.atlas_type_combo.currentText()) + "\n"
+        message += self.tr("Metadata files: {0}").format(len(results["metadata_files"]))
 
-        self.status_label.setText("Generation completed successfully!")
+        self.status_label.setText(self.tr("Generation completed successfully!"))
         self.log_text.append("\n" + "=" * 50)
-        self.log_text.append("GENERATION COMPLETED SUCCESSFULLY!")
+        self.log_text.append(self.tr("GENERATION COMPLETED SUCCESSFULLY!"))
         self.log_text.append("=" * 50)
         self.log_text.append(message)
 
-        QMessageBox.information(self, "Success", message)
+        QMessageBox.information(self, self.APP_NAME, message)
 
     def on_generation_failed(self, error_message):
         """Handle generation failure."""
         self.progress_bar.setVisible(False)
         self.generate_button.setEnabled(True)
 
-        self.status_label.setText("Generation failed!")
+        self.status_label.setText(self.tr("Generation failed!"))
         self.log_text.append("\n" + "=" * 50)
-        self.log_text.append("GENERATION FAILED!")
+        self.log_text.append(self.tr("Generation failed!").upper())
         self.log_text.append("=" * 50)
-        self.log_text.append(f"Error: {error_message}")
+        self.log_text.append(self.tr("Error: {0}").format(error_message))
 
         QMessageBox.critical(
-            self, "Generation Failed", f"Atlas generation failed:\n\n{error_message}"
+            self, self.APP_NAME, self.tr("Atlas generation failed:\n\n{0}").format(error_message)
         )
 
     def calculate_auto_atlas_sizes(self):
         """Calculate optimal min and max atlas sizes based on input frames."""
-        if not PIL_AVAILABLE:
-            self.log_text.append("Warning: PIL/Pillow not available. Auto-sizing disabled.")
-            return None, None
-
         animations = self.animation_tree.get_animation_groups()
         if not animations:
             return None, None
@@ -614,10 +662,14 @@ class GenerateTabWidget(QWidget):
 
             if total_frames > 0:
                 self.log_text.append(
-                    f"Auto-sizing: Min={min_size}px, Max={max_size}px (based on {total_frames} frames)"
+                    self.tr("Auto-sizing: Min={0}px, Max={1}px (based on {2} frames)").format(
+                        min_size, max_size, total_frames
+                    )
                 )
         elif self.animation_tree.get_total_frame_count() > 0:
-            self.log_text.append("Auto-sizing: Could not calculate sizes - image analysis failed")
+            self.log_text.append(
+                self.tr("Auto-sizing: Could not calculate sizes - image analysis failed")
+            )
 
     def on_auto_size_toggled(self, checked):
         """Handle auto size checkbox toggle."""
@@ -628,7 +680,7 @@ class GenerateTabWidget(QWidget):
         if checked:
             self.update_auto_atlas_sizes()
             self.log_text.append(
-                "Auto-sizing enabled: Atlas sizes will be calculated automatically"
+                self.tr("Auto-sizing enabled: Atlas size will be calculated automatically")
             )
         else:
-            self.log_text.append("Auto-sizing disabled: Manual size selection enabled")
+            self.log_text.append(self.tr("Auto-sizing disabled: Manual size selection enabled"))

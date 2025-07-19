@@ -6,9 +6,22 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, 
-                              QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, 
-                              QLineEdit, QFrame, QFileDialog, QMenu, QMessageBox)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QGroupBox,
+    QLabel,
+    QPushButton,
+    QComboBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QLineEdit,
+    QFrame,
+    QFileDialog,
+    QMenu,
+    QMessageBox,
+)
 from PySide6.QtCore import Qt, QCoreApplication
 from PySide6.QtGui import QAction
 
@@ -17,31 +30,31 @@ from gui.enhanced_list_widget import EnhancedListWidget
 
 class ExtractTabWidget(QWidget):
     """Widget for the Extract tab functionality."""
-    
+
     def __init__(self, parent=None, use_existing_ui=False):
         super().__init__(parent)
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
-        
+
         if use_existing_ui and parent:
             # Use existing UI elements from parent
             self.setup_with_existing_ui()
         else:
             # Create new UI elements (fallback)
             self.setup_ui()
-            
+
         self.setup_connections()
         self.setup_default_values()
-        
+
     def tr(self, text):
         """Translate text using Qt's translation system."""
         return QCoreApplication.translate("ExtractTabWidget", text)
-    
+
     def setup_with_existing_ui(self):
         """Set up the widget using existing UI elements from the parent."""
-        if not self.parent_app or not hasattr(self.parent_app, 'ui'):
+        if not self.parent_app or not hasattr(self.parent_app, "ui"):
             return
-            
+
         # Reference existing UI elements
         self.listbox_png = self.parent_app.ui.listbox_png
         self.listbox_data = self.parent_app.ui.listbox_data
@@ -66,73 +79,78 @@ class ExtractTabWidget(QWidget):
         self.filename_suffix_entry = self.parent_app.ui.filename_suffix_entry
         self.advanced_filename_button = self.parent_app.ui.advanced_filename_button
         self.show_override_settings_button = self.parent_app.ui.show_override_settings_button
-        self.override_spritesheet_settings_button = self.parent_app.ui.override_spritesheet_settings_button
-        self.override_animation_settings_button = self.parent_app.ui.override_animation_settings_button
+        self.override_spritesheet_settings_button = (
+            self.parent_app.ui.override_spritesheet_settings_button
+        )
+        self.override_animation_settings_button = (
+            self.parent_app.ui.override_animation_settings_button
+        )
         self.start_process_button = self.parent_app.ui.start_process_button
         self.reset_button = self.parent_app.ui.reset_button
-        
+
         # Create missing elements that might not be in the UI file
-        if not hasattr(self.parent_app.ui, 'compression_settings_button'):
+        if not hasattr(self.parent_app.ui, "compression_settings_button"):
             self.compression_settings_button = QPushButton(self.tr("Compression Settings"))
             # You might need to position this somewhere in the frame export group
         else:
             self.compression_settings_button = self.parent_app.ui.compression_settings_button
-            
+
         # Convert QListView to EnhancedListWidget if needed
-        if hasattr(self.listbox_png, 'add_item'):
+        if hasattr(self.listbox_png, "add_item"):
             # Already converted
             pass
         else:
             # Need to enhance the existing QListView
             from gui.enhanced_list_widget import EnhancedListWidget
+
             # Replace the listbox_png with EnhancedListWidget
             parent_widget = self.listbox_png.parent()
             geometry = self.listbox_png.geometry()
             self.listbox_png.setParent(None)
-            
+
             self.listbox_png = EnhancedListWidget(parent_widget)
             self.listbox_png.setGeometry(geometry)
             self.listbox_png.setObjectName("listbox_png")
             self.listbox_png.setAlternatingRowColors(False)
             self.listbox_png.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-            
+
             # Do the same for listbox_data
             parent_widget = self.listbox_data.parent()
             geometry = self.listbox_data.geometry()
             self.listbox_data.setParent(None)
-            
+
             self.listbox_data = EnhancedListWidget(parent_widget)
             self.listbox_data.setGeometry(geometry)
             self.listbox_data.setObjectName("listbox_data")
             self.listbox_data.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-    
+
     def setup_ui(self):
         """Set up the UI components for the extract tab."""
         # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
-        
+
         # Top section with file lists and directory buttons
         top_section = self.create_top_section()
         main_layout.addWidget(top_section)
-        
+
         # Export settings section
         export_section = self.create_export_section()
         main_layout.addWidget(export_section)
-        
+
         # Bottom section with filename settings and buttons
         bottom_section = self.create_bottom_section()
         main_layout.addWidget(bottom_section)
-        
+
     def create_top_section(self):
         """Create the top section with file lists and directory buttons."""
         top_widget = QWidget()
         layout = QHBoxLayout(top_widget)
-        
+
         # Left side - file lists
         lists_widget = QWidget()
         lists_layout = QHBoxLayout(lists_widget)
-        
+
         # Spritesheet list
         self.listbox_png = EnhancedListWidget()
         self.listbox_png.setObjectName("listbox_png")
@@ -140,334 +158,344 @@ class ExtractTabWidget(QWidget):
         self.listbox_png.setAlternatingRowColors(False)
         self.listbox_png.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         lists_layout.addWidget(self.listbox_png)
-        
+
         # Animation data list
         self.listbox_data = EnhancedListWidget()
         self.listbox_data.setObjectName("listbox_data")
         self.listbox_data.setFixedSize(200, 621)
         self.listbox_data.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         lists_layout.addWidget(self.listbox_data)
-        
+
         layout.addWidget(lists_widget)
-        
+
         # Right side - directory selection
         dir_widget = QWidget()
         dir_layout = QVBoxLayout(dir_widget)
-        
+
         # Input directory
-        self.input_button = QPushButton(self.tr("Select Input Directory"))
+        self.input_button = QPushButton(self.tr("Select input directory"))
         self.input_button.setFixedSize(171, 24)
         dir_layout.addWidget(self.input_button)
-        
+
         self.input_dir_label = QLabel(self.tr("No input directory selected"))
         self.input_dir_label.setFixedSize(451, 21)
         self.input_dir_label.setFrameShape(QFrame.Shape.NoFrame)
         self.input_dir_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         dir_layout.addWidget(self.input_dir_label)
-        
+
         # Output directory
-        self.output_button = QPushButton(self.tr("Select Output Directory"))
+        self.output_button = QPushButton(self.tr("Select output directory"))
         self.output_button.setFixedSize(171, 24)
         dir_layout.addWidget(self.output_button)
-        
+
         self.output_dir_label = QLabel(self.tr("No output directory selected"))
         self.output_dir_label.setFixedSize(451, 21)
         self.output_dir_label.setFrameShape(QFrame.Shape.NoFrame)
         self.output_dir_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         dir_layout.addWidget(self.output_dir_label)
-        
+
         dir_layout.addStretch()
         layout.addWidget(dir_widget)
-        
+
         return top_widget
-        
+
     def create_export_section(self):
         """Create the export settings section."""
         export_widget = QWidget()
         layout = QHBoxLayout(export_widget)
-        
+
         # Animation export group
         self.animation_export_group = self.create_animation_export_group()
         layout.addWidget(self.animation_export_group)
-        
+
         # Frame export group
         self.frame_export_group = self.create_frame_export_group()
         layout.addWidget(self.frame_export_group)
-        
+
         return export_widget
-        
+
     def create_animation_export_group(self):
         """Create the animation export group box."""
-        group = QGroupBox(self.tr("Animation Export"))
+        group = QGroupBox(self.tr("Animation export"))
         group.setFixedSize(191, 331)
         group.setAlignment(Qt.AlignmentFlag.AlignCenter)
         group.setCheckable(True)
         group.setChecked(True)
-        
+
         # Animation format
         format_label = QLabel(self.tr("Format"))
         format_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         format_label.setGeometry(40, 30, 111, 16)
         format_label.setParent(group)
-        
+
         self.animation_format_combobox = QComboBox(group)
         self.animation_format_combobox.setGeometry(10, 50, 171, 24)
-        self.animation_format_combobox.addItems(["GIF", "WebP", "APNG", "MP4"])
-        
+        self.animation_format_combobox.addItems(["GIF", "WebP", "APNG", "Custom FFMPEG"])
+
         # Frame rate
-        frame_rate_label = QLabel(self.tr("Frame Rate"))
+        frame_rate_label = QLabel(self.tr("Frame rate"))
         frame_rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         frame_rate_label.setGeometry(40, 80, 111, 16)
         frame_rate_label.setParent(group)
-        
+
         self.frame_rate_entry = QSpinBox(group)
         self.frame_rate_entry.setGeometry(10, 100, 171, 24)
         self.frame_rate_entry.setRange(1, 1000)
         self.frame_rate_entry.setValue(24)
-        
+
         # Loop delay
-        loop_delay_label = QLabel(self.tr("Loop Delay"))
+        loop_delay_label = QLabel(self.tr("Loop delay"))
         loop_delay_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         loop_delay_label.setGeometry(40, 130, 111, 16)
         loop_delay_label.setParent(group)
-        
+
         self.loop_delay_entry = QSpinBox(group)
         self.loop_delay_entry.setGeometry(10, 150, 171, 24)
         self.loop_delay_entry.setRange(0, 10000)
         self.loop_delay_entry.setValue(250)
-        
+
         # Min period
-        min_period_label = QLabel(self.tr("Min Period"))
+        min_period_label = QLabel(self.tr("Min period"))
         min_period_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         min_period_label.setGeometry(40, 180, 111, 16)
         min_period_label.setParent(group)
-        
+
         self.min_period_entry = QSpinBox(group)
         self.min_period_entry.setGeometry(10, 200, 171, 24)
         self.min_period_entry.setRange(0, 10000)
         self.min_period_entry.setValue(0)
-        
+
         # Scale
         scale_label = QLabel(self.tr("Scale"))
         scale_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scale_label.setGeometry(40, 230, 111, 16)
         scale_label.setParent(group)
-        
+
         self.scale_entry = QDoubleSpinBox(group)
         self.scale_entry.setGeometry(10, 250, 171, 24)
         self.scale_entry.setRange(0.01, 100.0)
         self.scale_entry.setValue(1.0)
         self.scale_entry.setDecimals(2)
         self.scale_entry.setSingleStep(0.01)
-        
+
         # Threshold
-        threshold_label = QLabel(self.tr("Threshold"))
+        threshold_label = QLabel(self.tr("Alpha threshold"))
         threshold_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         threshold_label.setGeometry(40, 280, 111, 16)
         threshold_label.setParent(group)
-        
+
         self.threshold_entry = QSpinBox(group)
         self.threshold_entry.setGeometry(10, 300, 171, 24)
         self.threshold_entry.setRange(0, 100)
         self.threshold_entry.setValue(50)
-        
+
         return group
-        
+
     def create_frame_export_group(self):
         """Create the frame export group box."""
-        group = QGroupBox(self.tr("Frame Export"))
+        group = QGroupBox(self.tr("Frame export"))
         group.setFixedSize(191, 331)
         group.setAlignment(Qt.AlignmentFlag.AlignCenter)
         group.setCheckable(True)
         group.setChecked(True)
-        
+
         # Frame format
         format_label = QLabel(self.tr("Format"))
         format_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         format_label.setGeometry(40, 30, 111, 16)
         format_label.setParent(group)
-        
+
         self.frame_format_combobox = QComboBox(group)
         self.frame_format_combobox.setGeometry(10, 50, 171, 24)
-        self.frame_format_combobox.addItems(["PNG", "JPEG", "BMP", "TIFF", "WebP", "AVIF", "JXL"])
-        
+        self.frame_format_combobox.addItems(["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"])
+
         # Frame selection
         selection_label = QLabel(self.tr("Frame Selection"))
         selection_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         selection_label.setGeometry(40, 80, 111, 16)
         selection_label.setParent(group)
-        
+
         self.frame_selection_combobox = QComboBox(group)
         self.frame_selection_combobox.setGeometry(10, 100, 171, 24)
-        self.frame_selection_combobox.addItems([
-            "All frames", "First frame", "Last frame", "Random frame", 
-            "Best frame", "Middle frame"
-        ])
-        
+        self.frame_selection_combobox.addItems(
+            ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
+        )
+
         # Frame scale
-        scale_label = QLabel(self.tr("Frame Scale"))
+        scale_label = QLabel(self.tr("Frame scale"))
         scale_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scale_label.setGeometry(40, 130, 111, 16)
         scale_label.setParent(group)
-        
+
         self.frame_scale_entry = QDoubleSpinBox(group)
         self.frame_scale_entry.setGeometry(10, 150, 171, 24)
         self.frame_scale_entry.setRange(0.01, 100.0)
         self.frame_scale_entry.setValue(1.0)
         self.frame_scale_entry.setDecimals(2)
         self.frame_scale_entry.setSingleStep(0.01)
-        
+
         # Compression settings button
-        self.compression_settings_button = QPushButton(self.tr("Compression Settings"))
+        self.compression_settings_button = QPushButton(self.tr("Compression settings"))
         self.compression_settings_button.setGeometry(10, 200, 171, 24)
         self.compression_settings_button.setParent(group)
-        
+
         return group
-        
+
     def create_bottom_section(self):
         """Create the bottom section with filename settings and buttons."""
         bottom_widget = QWidget()
         layout = QVBoxLayout(bottom_widget)
-        
+
         # Filename settings
         filename_section = self.create_filename_section()
         layout.addWidget(filename_section)
-        
+
         # Control buttons
         buttons_section = self.create_buttons_section()
         layout.addWidget(buttons_section)
-        
+
         return bottom_widget
-        
+
     def create_filename_section(self):
         """Create the filename settings section."""
         filename_widget = QWidget()
         layout = QHBoxLayout(filename_widget)
-        
+
         # Cropping method
-        cropping_label = QLabel(self.tr("Cropping Method"))
+        cropping_label = QLabel(self.tr("Cropping method"))
         cropping_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(cropping_label)
-        
+
         self.cropping_method_combobox = QComboBox()
-        self.cropping_method_combobox.addItems(["Auto", "None", "Manual"])
+        self.cropping_method_combobox.addItems(["None", "Animation based", "Frame based"])
         layout.addWidget(self.cropping_method_combobox)
-        
+
         # Filename format
-        format_label = QLabel(self.tr("Filename Format"))
+        format_label = QLabel(self.tr("Filename format"))
         layout.addWidget(format_label)
-        
+
         self.filename_format_combobox = QComboBox()
-        self.filename_format_combobox.addItems([
-            "Default", "Animation Name", "Spritesheet + Animation", 
-            "Custom Format", "Numbered Sequence"
-        ])
+        self.filename_format_combobox.addItems(
+            ["Standardized", "No spaces", "No special characters"]
+        )
         layout.addWidget(self.filename_format_combobox)
-        
+
         # Filename prefix
         prefix_label = QLabel(self.tr("Prefix"))
         layout.addWidget(prefix_label)
-        
+
         self.filename_prefix_entry = QLineEdit()
         layout.addWidget(self.filename_prefix_entry)
-        
+
         # Filename suffix
         suffix_label = QLabel(self.tr("Suffix"))
         layout.addWidget(suffix_label)
-        
+
         self.filename_suffix_entry = QLineEdit()
         layout.addWidget(self.filename_suffix_entry)
-        
+
         return filename_widget
-        
+
     def create_buttons_section(self):
         """Create the control buttons section."""
         buttons_widget = QWidget()
         layout = QHBoxLayout(buttons_widget)
-        
+
         # Advanced filename button
-        self.advanced_filename_button = QPushButton(self.tr("Advanced Filename"))
+        self.advanced_filename_button = QPushButton(self.tr("Advanced filename"))
         layout.addWidget(self.advanced_filename_button)
-        
+
         # Override settings buttons
-        self.show_override_settings_button = QPushButton(self.tr("Override Settings"))
+        self.show_override_settings_button = QPushButton(self.tr("Override settings"))
         layout.addWidget(self.show_override_settings_button)
-        
-        self.override_spritesheet_settings_button = QPushButton(self.tr("Override Spritesheet"))
+
+        self.override_spritesheet_settings_button = QPushButton(self.tr("Override spritesheet"))
         layout.addWidget(self.override_spritesheet_settings_button)
-        
-        self.override_animation_settings_button = QPushButton(self.tr("Override Animation"))
+
+        self.override_animation_settings_button = QPushButton(self.tr("Override animation"))
         layout.addWidget(self.override_animation_settings_button)
-        
+
         # Control buttons
         self.reset_button = QPushButton(self.tr("Reset"))
         layout.addWidget(self.reset_button)
-        
-        self.start_process_button = QPushButton(self.tr("Start Process"))
+
+        self.start_process_button = QPushButton(self.tr("Start process"))
         layout.addWidget(self.start_process_button)
-        
+
         return buttons_widget
-        
+
     def setup_connections(self):
         """Set up signal-slot connections."""
         if not self.parent_app:
             return
-            
+
         # Directory buttons
-        if hasattr(self, 'input_button'):
+        if hasattr(self, "input_button"):
             self.input_button.clicked.connect(self.select_directory)
-        if hasattr(self, 'output_button'):
+        if hasattr(self, "output_button"):
             self.output_button.clicked.connect(self.select_output_directory)
-        
+
         # Control buttons
-        if hasattr(self, 'start_process_button'):
+        if hasattr(self, "start_process_button"):
             self.start_process_button.clicked.connect(self.parent_app.start_process)
-        if hasattr(self, 'reset_button'):
+        if hasattr(self, "reset_button"):
             self.reset_button.clicked.connect(self.clear_filelist)
-        if hasattr(self, 'advanced_filename_button'):
-            self.advanced_filename_button.clicked.connect(self.parent_app.create_find_and_replace_window)
-        if hasattr(self, 'show_override_settings_button'):
-            self.show_override_settings_button.clicked.connect(self.parent_app.create_settings_window)
-        if hasattr(self, 'override_spritesheet_settings_button'):
-            self.override_spritesheet_settings_button.clicked.connect(self.override_spritesheet_settings)
-        if hasattr(self, 'override_animation_settings_button'):
-            self.override_animation_settings_button.clicked.connect(self.override_animation_settings)
-        if hasattr(self, 'compression_settings_button'):
-            self.compression_settings_button.clicked.connect(self.parent_app.show_compression_settings)
-        
+        if hasattr(self, "advanced_filename_button"):
+            self.advanced_filename_button.clicked.connect(
+                self.parent_app.create_find_and_replace_window
+            )
+        if hasattr(self, "show_override_settings_button"):
+            self.show_override_settings_button.clicked.connect(
+                self.parent_app.create_settings_window
+            )
+        if hasattr(self, "override_spritesheet_settings_button"):
+            self.override_spritesheet_settings_button.clicked.connect(
+                self.override_spritesheet_settings
+            )
+        if hasattr(self, "override_animation_settings_button"):
+            self.override_animation_settings_button.clicked.connect(
+                self.override_animation_settings
+            )
+        if hasattr(self, "compression_settings_button"):
+            self.compression_settings_button.clicked.connect(
+                self.parent_app.show_compression_settings
+            )
+
         # List selections
-        if hasattr(self, 'listbox_png'):
+        if hasattr(self, "listbox_png"):
             self.listbox_png.currentItemChanged.connect(self.on_select_spritesheet)
             self.listbox_png.currentItemChanged.connect(self.update_ui_state)
             self.listbox_png.itemDoubleClicked.connect(self.on_double_click_spritesheet)
             self.listbox_png.customContextMenuRequested.connect(self.show_listbox_png_menu)
-        
-        if hasattr(self, 'listbox_data'):
+
+        if hasattr(self, "listbox_data"):
             self.listbox_data.itemDoubleClicked.connect(self.on_double_click_animation)
             self.listbox_data.currentItemChanged.connect(self.update_ui_state)
             self.listbox_data.customContextMenuRequested.connect(self.show_listbox_data_menu)
-        
+
         # Format change handlers
-        if hasattr(self, 'animation_format_combobox'):
-            self.animation_format_combobox.currentTextChanged.connect(self.on_animation_format_change)
-        if hasattr(self, 'frame_format_combobox'):
+        if hasattr(self, "animation_format_combobox"):
+            self.animation_format_combobox.currentTextChanged.connect(
+                self.on_animation_format_change
+            )
+        if hasattr(self, "frame_format_combobox"):
             self.frame_format_combobox.currentTextChanged.connect(self.on_frame_format_change)
-        
+
         # Export group checkbox changes
-        if hasattr(self, 'animation_export_group'):
+        if hasattr(self, "animation_export_group"):
             self.animation_export_group.toggled.connect(self.update_ui_state)
-        if hasattr(self, 'frame_export_group'):
+        if hasattr(self, "frame_export_group"):
             self.frame_export_group.toggled.connect(self.update_ui_state)
-            
+
     def setup_default_values(self):
         """Set up default values from app config."""
-        if self.parent_app and hasattr(self.parent_app, 'app_config'):
+        if self.parent_app and hasattr(self.parent_app, "app_config"):
             defaults = (
                 self.parent_app.app_config.get_extraction_defaults()
                 if hasattr(self.parent_app.app_config, "get_extraction_defaults")
                 else {}
             )
-            
+
             # Set default values for UI elements
             self.frame_rate_entry.setValue(defaults.get("frame_rate", 24))
             self.loop_delay_entry.setValue(defaults.get("loop_delay", 250))
@@ -475,37 +503,37 @@ class ExtractTabWidget(QWidget):
             self.scale_entry.setValue(defaults.get("scale", 1.0))
             self.threshold_entry.setValue(defaults.get("threshold", 0.5) * 100.0)
             self.frame_scale_entry.setValue(defaults.get("frame_scale", 1.0))
-            
+
             # Set default groupbox states
             self.animation_export_group.setChecked(defaults.get("animation_export", True))
             self.frame_export_group.setChecked(defaults.get("frame_export", True))
-            
+
             # Set default selections
             if "animation_format" in defaults:
                 format_index = self.get_animation_format_index(defaults["animation_format"])
                 self.animation_format_combobox.setCurrentIndex(format_index)
-                
+
             if "frame_format" in defaults:
                 format_index = self.get_frame_format_index(defaults["frame_format"])
                 self.frame_format_combobox.setCurrentIndex(format_index)
-                
+
     def get_animation_format_index(self, format_name):
         """Get the index for animation format."""
-        format_map = {"GIF": 0, "WebP": 1, "APNG": 2, "MP4": 3}
+        format_map = {"GIF": 0, "WebP": 1, "APNG": 2, "Custom FFMPEG": 3}
         return format_map.get(format_name, 0)
-        
+
     def get_frame_format_index(self, format_name):
         """Get the index for frame format."""
-        format_map = {"PNG": 0, "JPEG": 1, "BMP": 2, "TIFF": 3, "WebP": 4, "AVIF": 5, "JXL": 6}
+        format_map = {"AVIF": 0, "BMP": 1, "DDS": 2, "PNG": 3, "TGA": 4, "TIFF": 5, "WebP": 6}
         return format_map.get(format_name, 0)
 
     # === File Management Methods ===
-    
+
     def select_directory(self):
         """Opens a directory selection dialog and populates the spritesheet list."""
         if not self.parent_app:
             return
-            
+
         # Start from the last used directory or default to empty
         start_directory = self.parent_app.app_config.get_last_input_directory()
 
@@ -530,7 +558,7 @@ class ExtractTabWidget(QWidget):
         """Opens a directory selection dialog for output directory."""
         if not self.parent_app:
             return
-            
+
         # Start from the last used directory or default to empty
         start_directory = self.parent_app.app_config.get_last_output_directory()
 
@@ -550,7 +578,7 @@ class ExtractTabWidget(QWidget):
         """Opens a file selection dialog for manual file selection."""
         if not self.parent_app:
             return
-            
+
         # Start from the last used input directory or default to empty
         start_directory = self.parent_app.app_config.get_last_input_directory()
 
@@ -568,24 +596,31 @@ class ExtractTabWidget(QWidget):
                 self.parent_app.app_config.set_last_input_directory(first_file_dir)
 
             # Clean up previous manual selection temp directory if exists
-            if hasattr(self.parent_app, 'manual_selection_temp_dir') and self.parent_app.manual_selection_temp_dir:
+            if (
+                hasattr(self.parent_app, "manual_selection_temp_dir")
+                and self.parent_app.manual_selection_temp_dir
+            ):
                 try:
                     shutil.rmtree(self.parent_app.manual_selection_temp_dir, ignore_errors=True)
                 except Exception:
                     pass
 
             # For manual file selection, use a temp folder
-            self.parent_app.manual_selection_temp_dir = tempfile.mkdtemp(prefix="texture_atlas_manual_")
+            self.parent_app.manual_selection_temp_dir = tempfile.mkdtemp(
+                prefix="texture_atlas_manual_"
+            )
             self.input_dir_label.setText(
                 self.tr("Manual selection ({count} files)").format(count=len(files))
             )
-            self.populate_spritesheet_list_from_files(files, self.parent_app.manual_selection_temp_dir)
+            self.populate_spritesheet_list_from_files(
+                files, self.parent_app.manual_selection_temp_dir
+            )
 
     def populate_spritesheet_list(self, directory):
         """Populates the spritesheet list from a directory."""
         if not self.parent_app:
             return
-            
+
         self.listbox_png.clear()
         self.listbox_data.clear()
         self.parent_app.data_dict.clear()
@@ -607,7 +642,7 @@ class ExtractTabWidget(QWidget):
         """Populates the spritesheet list from manually selected files."""
         if not self.parent_app:
             return
-            
+
         self.listbox_png.clear()
         self.listbox_data.clear()
         self.parent_app.data_dict.clear()
@@ -624,7 +659,7 @@ class ExtractTabWidget(QWidget):
         """Find data files (XML, TXT) associated with a spritesheet."""
         if not self.parent_app:
             return
-            
+
         spritesheet_path = Path(spritesheet_path)
         base_name = spritesheet_path.stem
         # Use provided search directory or default to spritesheet's directory
@@ -656,7 +691,7 @@ class ExtractTabWidget(QWidget):
         """Populates the animation list for the selected spritesheet."""
         if not self.parent_app:
             return
-            
+
         self.listbox_data.clear()
 
         if spritesheet_name not in self.parent_app.data_dict:
@@ -732,10 +767,15 @@ class ExtractTabWidget(QWidget):
         """Clears the file list and resets settings."""
         if not self.parent_app:
             return
-            
+
         # Clean up manual selection temp directory if exists
-        if hasattr(self.parent_app, 'manual_selection_temp_dir') and self.parent_app.manual_selection_temp_dir:
+        if (
+            hasattr(self.parent_app, "manual_selection_temp_dir")
+            and self.parent_app.manual_selection_temp_dir
+        ):
             try:
+                import shutil
+
                 shutil.rmtree(self.parent_app.manual_selection_temp_dir, ignore_errors=True)
                 self.parent_app.manual_selection_temp_dir = None
             except Exception:
@@ -754,11 +794,16 @@ class ExtractTabWidget(QWidget):
         self.parent_app.settings_manager.spritesheet_settings.clear()
         self.parent_app.data_dict.clear()
 
+        # Clear settings
+        self.parent_app.settings_manager.animation_settings.clear()
+        self.parent_app.settings_manager.spritesheet_settings.clear()
+        self.parent_app.data_dict.clear()
+
     def delete_selected_spritesheet(self):
         """Deletes the selected spritesheet and related settings."""
         if not self.parent_app:
             return
-            
+
         current_item = self.listbox_png.currentItem()
         if not current_item:
             return
@@ -779,11 +824,17 @@ class ExtractTabWidget(QWidget):
         # Remove related settings
         self.parent_app.settings_manager.spritesheet_settings.pop(spritesheet_name, None)
 
+        # Clear animation list
+        self.listbox_data.clear()
+
+        # Remove related settings
+        self.parent_app.settings_manager.spritesheet_settings.pop(spritesheet_name, None)
+
     def show_listbox_png_menu(self, position):
         """Shows the context menu for the PNG listbox."""
         if not self.parent_app:
             return
-            
+
         item = self.listbox_png.itemAt(position)
         if item is None:
             return
@@ -806,7 +857,7 @@ class ExtractTabWidget(QWidget):
         """Shows the context menu for the animation listbox."""
         if not self.parent_app:
             return
-            
+
         item = self.listbox_data.itemAt(position)
         if item is None:
             return
@@ -834,7 +885,7 @@ class ExtractTabWidget(QWidget):
         current_spritesheet_item = self.listbox_png.currentItem()
         if not current_spritesheet_item:
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+                self, self.tr("Error"), self.tr("Please select a spritesheet first.")
             )
             return
 
@@ -850,12 +901,17 @@ class ExtractTabWidget(QWidget):
 
         try:
             from gui.override_settings_window import OverrideSettingsWindow
+
             dialog = OverrideSettingsWindow(
-                self.parent_app, full_anim_name, "animation", self.parent_app.settings_manager, store_settings, self.parent_app
+                self.parent_app,
+                full_anim_name,
+                "animation",
+                self.parent_app.settings_manager,
+                store_settings,
+                self.parent_app,
             )
             dialog.exec()
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
@@ -875,12 +931,17 @@ class ExtractTabWidget(QWidget):
 
         try:
             from gui.override_settings_window import OverrideSettingsWindow
+
             dialog = OverrideSettingsWindow(
-                self.parent_app, spritesheet_name, "spritesheet", self.parent_app.settings_manager, store_settings, self.parent_app
+                self.parent_app,
+                spritesheet_name,
+                "spritesheet",
+                self.parent_app.settings_manager,
+                store_settings,
+                self.parent_app,
             )
             dialog.exec()
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
@@ -891,12 +952,11 @@ class ExtractTabWidget(QWidget):
         """Opens window to override settings for selected spritesheet."""
         if not self.parent_app:
             return
-            
+
         current_item = self.listbox_png.currentItem()
         if not current_item:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+                self, self.tr("Error"), self.tr("Please select a spritesheet first.")
             )
             return
 
@@ -908,12 +968,17 @@ class ExtractTabWidget(QWidget):
 
         try:
             from gui.override_settings_window import OverrideSettingsWindow
+
             dialog = OverrideSettingsWindow(
-                self.parent_app, spritesheet_name, "spritesheet", self.parent_app.settings_manager, store_settings, self.parent_app
+                self.parent_app,
+                spritesheet_name,
+                "spritesheet",
+                self.parent_app.settings_manager,
+                store_settings,
+                self.parent_app,
             )
             dialog.exec()
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
@@ -924,21 +989,19 @@ class ExtractTabWidget(QWidget):
         """Opens window to override settings for selected animation."""
         if not self.parent_app:
             return
-            
+
         current_item = self.listbox_data.currentItem()
         if not current_item:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select an animation first.")
+                self, self.tr("Error"), self.tr("Please select an animation first.")
             )
             return
 
         # Get the selected spritesheet to create full animation name
         current_spritesheet_item = self.listbox_png.currentItem()
         if not current_spritesheet_item:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+                self, self.tr("Error"), self.tr("Please select a spritesheet first.")
             )
             return
 
@@ -954,12 +1017,17 @@ class ExtractTabWidget(QWidget):
 
         try:
             from gui.override_settings_window import OverrideSettingsWindow
+
             dialog = OverrideSettingsWindow(
-                self.parent_app, full_anim_name, "animation", self.parent_app.settings_manager, store_settings, self.parent_app
+                self.parent_app,
+                full_anim_name,
+                "animation",
+                self.parent_app.settings_manager,
+                store_settings,
+                self.parent_app,
             )
             dialog.exec()
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
@@ -970,21 +1038,19 @@ class ExtractTabWidget(QWidget):
         """Preview the selected animation using the new preview window."""
         if not self.parent_app:
             return
-            
+
         current_item = self.listbox_data.currentItem()
         if not current_item:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select an animation first.")
+                self, self.tr("Error"), self.tr("Please select an animation first.")
             )
             return
 
         # Get the selected spritesheet
         current_spritesheet_item = self.listbox_png.currentItem()
         if not current_spritesheet_item:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(
-                self, self.tr("Info"), self.tr("Please select a spritesheet first.")
+                self, self.tr("Error"), self.tr("Please select a spritesheet first.")
             )
             return
 
@@ -995,7 +1061,6 @@ class ExtractTabWidget(QWidget):
             # Get the file paths
             spritesheet_path = current_spritesheet_item.data(Qt.ItemDataRole.UserRole)
             if not spritesheet_path:
-                from PySide6.QtWidgets import QMessageBox
                 QMessageBox.warning(
                     self, self.tr("Preview Error"), self.tr("Could not find spritesheet file path.")
                 )
@@ -1011,21 +1076,24 @@ class ExtractTabWidget(QWidget):
                     metadata_path = data_files["txt"]
 
             # Use parent app's preview functionality
-            self.parent_app.preview_animation_with_paths(spritesheet_path, metadata_path, animation_name)
+            self.parent_app.preview_animation_with_paths(
+                spritesheet_path, metadata_path, animation_name
+            )
 
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(
-                self, self.tr("Preview Error"), self.tr("Could not preview animation: {error}").format(error=str(e))
+                self,
+                self.tr("Preview error"),
+                self.tr("Could not preview animation: {error}").format(error=str(e)),
             )
 
     # === Settings and UI State Management ===
-    
+
     def update_ui_state(self, *args):
         """Updates the UI state based on current selections and settings."""
         if not self.parent_app:
             return
-            
+
         both_export_unchecked = not (
             self.animation_export_group.isChecked() or self.frame_export_group.isChecked()
         )
@@ -1041,7 +1109,7 @@ class ExtractTabWidget(QWidget):
         """Handles animation format selection changes."""
         if not self.parent_app:
             return
-            
+
         format_index = self.animation_format_combobox.currentIndex()
 
         # Update UI based on format capabilities (GIF is index 0)
@@ -1062,7 +1130,7 @@ class ExtractTabWidget(QWidget):
         """Handles frame format selection changes."""
         if not self.parent_app:
             return
-            
+
         # Update compression options based on format
         # This will need to be implemented when compression widgets are added
         pass
@@ -1071,7 +1139,7 @@ class ExtractTabWidget(QWidget):
         """Get current extraction settings from the UI."""
         if not self.parent_app:
             return {}
-            
+
         # Get format options directly from comboboxes using index mapping to avoid translation issues
         animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
         frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
@@ -1117,9 +1185,9 @@ class ExtractTabWidget(QWidget):
         """Updates the global settings from the GUI."""
         if not self.parent_app:
             return
-            
+
         settings = self.get_extraction_settings()
-        
+
         # Update settings manager
         for key, value in settings.items():
             self.parent_app.settings_manager.global_settings[key] = value
@@ -1128,7 +1196,7 @@ class ExtractTabWidget(QWidget):
         """Validates the extraction inputs before starting process."""
         if not self.parent_app:
             return False, "No parent application"
-            
+
         if self.input_dir_label.text() == self.tr("No input directory selected"):
             return False, self.tr("Please select an input directory first.")
 
@@ -1158,7 +1226,7 @@ class ExtractTabWidget(QWidget):
         """Check for atlases without metadata files (unknown atlases)."""
         if not self.parent_app:
             return False, []
-            
+
         unknown_atlases = []
         input_directory = self.input_dir_label.text()
 
@@ -1183,7 +1251,7 @@ class ExtractTabWidget(QWidget):
         """Remove unknown atlases from the spritesheet list."""
         if not self.parent_app:
             return
-            
+
         for unknown_atlas in unknown_atlases:
             for i in range(self.listbox_png.count()):
                 item = self.listbox_png.item(i)
@@ -1198,7 +1266,7 @@ class ExtractTabWidget(QWidget):
         """Prepare the extraction process by validating inputs and updating settings."""
         if not self.parent_app:
             return False, "No parent application", []
-            
+
         # Validate inputs
         is_valid, error_message = self.validate_extraction_inputs()
         if not is_valid:
@@ -1214,8 +1282,11 @@ class ExtractTabWidget(QWidget):
         has_unknown, unknown_atlases = self.check_for_unknown_atlases(spritesheet_list)
         if has_unknown:
             from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
+
             input_directory = self.input_dir_label.text()
-            action = UnknownAtlasWarningWindow.show_warning(self.parent_app, unknown_atlases, input_directory)
+            action = UnknownAtlasWarningWindow.show_warning(
+                self.parent_app, unknown_atlases, input_directory
+            )
             if action == "cancel":
                 return False, "User cancelled due to unknown atlases", []
             elif action == "skip":
@@ -1239,7 +1310,7 @@ class ExtractTabWidget(QWidget):
         self.start_process_button.setText(
             self.tr("Processing...") if is_processing else self.tr("Start Process")
         )
-        
+
         # Disable input controls during processing
         self.input_button.setEnabled(not is_processing)
         self.output_button.setEnabled(not is_processing)

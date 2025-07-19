@@ -2,6 +2,7 @@ import re
 import os
 import sys
 from string import Template
+from PySide6.QtCore import QCoreApplication
 
 
 class Utilities:
@@ -23,6 +24,9 @@ class Utilities:
         format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules, suffix=None):
             Formats the filename based on the given parameters and applies find/replace rules, with optional suffix.
     """
+
+    # Application constants
+    APP_NAME = QCoreApplication.translate("Utilities", "TextureAtlas Toolbox")
 
     @staticmethod
     def find_root(target_name):
@@ -70,7 +74,9 @@ class Utilities:
         return re.sub(r"[_\s]*\d{1,4}(?:\.png)?$", "", name).rstrip("_").rstrip()
 
     @staticmethod
-    def format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules, suffix=None):
+    def format_filename(
+        prefix, sprite_name, animation_name, filename_format, replace_rules, suffix=None
+    ):
         # Provide safe defaults for preview function or missing values
         if filename_format is None:
             filename_format = "Standardized"
@@ -88,13 +94,15 @@ class Utilities:
                 base_name = f"{sprite_name} - {animation_name} - {suffix}"
             else:
                 base_name = f"{sprite_name} - {animation_name}"
-                
+
             if filename_format == "No spaces":
                 base_name = base_name.replace(" ", "")
             elif filename_format == "No special characters":
                 base_name = base_name.replace(" ", "").replace("-", "").replace("_", "")
         else:
-            base_name = Template(filename_format).safe_substitute(sprite=sprite_name, anim=animation_name)
+            base_name = Template(filename_format).safe_substitute(
+                sprite=sprite_name, anim=animation_name
+            )
             # For template formats, add prefix and suffix separately since template doesn't include them
             if prefix:
                 base_name = f"{prefix} - {base_name}"
@@ -106,5 +114,5 @@ class Utilities:
                 base_name = re.sub(rule["find"], rule["replace"], base_name)
             else:
                 base_name = base_name.replace(rule["find"], rule["replace"])
-        
+
         return base_name

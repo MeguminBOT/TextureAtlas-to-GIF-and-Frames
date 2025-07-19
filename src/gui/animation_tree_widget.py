@@ -26,9 +26,15 @@ class AnimationTreeWidget(QTreeWidget):
         super().__init__(parent)
         self.setup_tree()
 
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
     def setup_tree(self):
         """Set up the tree widget properties."""
-        self.setHeaderLabel("Animations & Frames")
+        self.setHeaderLabel(self.tr("Animations & Frames"))
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
 
@@ -39,8 +45,11 @@ class AnimationTreeWidget(QTreeWidget):
         # Connect item changes
         self.itemChanged.connect(self.on_item_changed)
 
-    def add_animation_group(self, animation_name="New Animation"):
+    def add_animation_group(self, animation_name=None):
         """Add a new animation group."""
+        if animation_name is None:
+            animation_name = self.tr("New animation")
+
         # Check if animation name already exists
         if self.find_animation_group(animation_name):
             counter = 1
@@ -204,7 +213,7 @@ class AnimationTreeWidget(QTreeWidget):
             # Right-click on empty space
             menu = QMenu(self)
 
-            add_action = QAction("Add Animation Group", self)
+            add_action = QAction(self.tr("Add animation group"), self)
             add_action.triggered.connect(self.add_animation_group)
             menu.addAction(add_action)
 
@@ -218,13 +227,13 @@ class AnimationTreeWidget(QTreeWidget):
             # Context menu for animation group
             menu = QMenu(self)
 
-            rename_action = QAction("Rename Animation", self)
+            rename_action = QAction(self.tr("Rename animation"), self)
             rename_action.triggered.connect(lambda: self.rename_animation_group(item))
             menu.addAction(rename_action)
 
             menu.addSeparator()
 
-            delete_action = QAction("Delete Animation", self)
+            delete_action = QAction(self.tr("Delete animation"), self)
             delete_action.triggered.connect(lambda: self.delete_animation_group(item))
             menu.addAction(delete_action)
 
@@ -234,7 +243,7 @@ class AnimationTreeWidget(QTreeWidget):
             # Context menu for frame
             menu = QMenu(self)
 
-            remove_action = QAction("Remove Frame", self)
+            remove_action = QAction(self.tr("Remove frame"), self)
             remove_action.triggered.connect(lambda: self.remove_frame_from_animation(item))
             menu.addAction(remove_action)
 
@@ -244,14 +253,16 @@ class AnimationTreeWidget(QTreeWidget):
         """Rename an animation group."""
         old_name = group_item.text(0)
         new_name, ok = QInputDialog.getText(
-            self, "Rename Animation", "Enter new animation name:", text=old_name
+            self, self.tr("Rename animation"), self.tr("Enter new animation name:"), text=old_name
         )
 
         if ok and new_name and new_name != old_name:
             # Check if name already exists
             if self.find_animation_group(new_name):
                 QMessageBox.warning(
-                    self, "Name Conflict", f"An animation named '{new_name}' already exists."
+                    self,
+                    self.tr("Name conflict"),
+                    self.tr("An animation named '{0}' already exists.").format(new_name),
                 )
                 return
 
@@ -271,8 +282,10 @@ class AnimationTreeWidget(QTreeWidget):
 
         reply = QMessageBox.question(
             self,
-            "Delete Animation",
-            f"Are you sure you want to delete the animation '{animation_name}' and all its frames?",
+            self.tr("Delete animation"),
+            self.tr(
+                "Are you sure you want to delete the animation '{0}' and all its frames?"
+            ).format(animation_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 

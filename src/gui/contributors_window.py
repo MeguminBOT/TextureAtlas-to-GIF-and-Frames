@@ -18,8 +18,6 @@ from PySide6.QtGui import QFont
 
 class ContributorsWindow(QDialog):
     """
-    A Qt dialog for displaying project contributors and their social media links.
-
     This class provides a dedicated window to thank contributors to the project
     and allows users to visit their social media profiles or GitHub pages.
     """
@@ -43,7 +41,7 @@ class ContributorsWindow(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Title
-        title_label = QLabel(self.tr("TextureAtlas to GIF and Frames\nContributors"))
+        title_label = QLabel(self.tr("TextureAtlas Toolbox\nContributors"))
         title_font = QFont("Arial", 16, QFont.Weight.Bold)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
