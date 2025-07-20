@@ -13,8 +13,10 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
+# Import our own modules
 from core.generator import SparrowAtlasGenerator, AtlasSettings
 from gui.animation_tree_widget import AnimationTreeWidget
+from parsers.xml_parser import XmlParser
 from utils.utilities import Utilities
 
 
@@ -44,7 +46,6 @@ class GeneratorWorker(QThread):
                 padding=self.atlas_settings.get("padding", 2),
                 power_of_2=self.atlas_settings.get("power_of_2", True),
                 optimization_level=self.atlas_settings.get("optimization_level", 5),
-                efficiency_factor=self.atlas_settings.get("efficiency_factor", 1.3),
                 allow_rotation=self.atlas_settings.get("allow_rotation", True),
             )
 
@@ -87,23 +88,48 @@ class GenerateTabWidget(QWidget):
 
         self.APP_NAME = Utilities.APP_NAME
         self.ALL_FILES_FILTER = f"{self.tr('All files')} (*.*)"
-        self.INPUT_FORMATS = {".bmp", ".dds", ".jpeg", ".jpg", ".png", ".tga", ".tiff", ".webp"}
-        self.OUTPUT_FORMATS = [
-            ("PNG", "*.png"),
-            ("JPEG", "*.jpg"),
-            ("BMP", "*.bmp"),
-            ("TIFF", "*.tiff"),
-            ("WebP", "*.webp"),
-            ("TGA", "*.tga"),
-            ("DDS", "*.dds"),
-        ]
+        
+        # Combined image formats - used for both input and output
+        self.IMAGE_FORMATS = {
+            ".bmp": "BMP",
+            ".dds": "DDS", 
+            ".jpeg": "JPEG",
+            ".jpg": "JPEG",
+            ".png": "PNG",
+            ".tga": "TGA",
+            ".tiff": "TIFF",
+            ".webp": "WebP"
+        }
+        
+        # Data formats for spritesheet metadata
+        self.DATA_FORMATS = {".xml", ".XML", ".txt", ".TXT", ".json", ".JSON"}
+        
+        # Commonly used format constants
+        self.PNG_FORMAT = ".png"
+        self.PNG_FORMAT_NAME = "PNG"
+        self.JPEG_FORMAT_NAME = "JPEG"
 
         self.bind_ui_elements()
         self.setup_custom_widgets()
         self.setup_connections()
 
-        # Initialize auto-sizing state
-        self.on_auto_size_toggled(self.ui.auto_size_check.isChecked())
+        # Initialize atlas sizing state
+        self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
+
+    @property
+    def INPUT_FORMATS(self):
+        """Backward compatibility property for input formats."""
+        return set(self.IMAGE_FORMATS.keys())
+    
+    @property
+    def OUTPUT_FORMATS(self):
+        """Generate output formats list from IMAGE_FORMATS."""
+        formats = []
+        for ext, name in self.IMAGE_FORMATS.items():
+            if ext.startswith('.'):
+                pattern = f"*{ext}"
+                formats.append((name, pattern))
+        return formats
 
     def tr(self, text):
         """Translation helper method."""
@@ -113,10 +139,27 @@ class GenerateTabWidget(QWidget):
 
     def get_image_file_filter(self):
         """Generate file filter string for image files."""
-        # Create the extensions string from the constant
-        extensions = " ".join(f"*{ext}" for ext in sorted(self.INPUT_FORMATS))
+        # Create the extensions string from the IMAGE_FORMATS constant
+        extensions = " ".join(f"*{ext}" for ext in sorted(self.IMAGE_FORMATS.keys()))
         image_filter = self.tr("Image files ({0})").format(extensions)
         return f"{image_filter};;{self.ALL_FILES_FILTER}"
+
+    def get_atlas_image_file_filter(self):
+        """Generate file filter string for atlas image files (all supported formats)."""
+        # Create the extensions string from the IMAGE_FORMATS constant
+        extensions = " ".join(f"*{ext}" for ext in sorted(self.IMAGE_FORMATS.keys()))
+        atlas_filter = self.tr("Atlas image files ({0})").format(extensions)
+        return f"{atlas_filter};;{self.ALL_FILES_FILTER}"
+
+    def get_data_file_filter(self):
+        """Generate file filter string for spritesheet data files."""
+        extensions = " ".join(f"*{ext}" for ext in sorted(self.DATA_FORMATS))
+        data_filter = self.tr("Spritesheet data files ({0})").format(extensions)
+        return f"{data_filter};;{self.ALL_FILES_FILTER}"
+
+    def get_xml_file_filter(self):
+        """Generate file filter string for XML files (backward compatibility)."""
+        return self.get_data_file_filter()
 
     def get_output_file_filter(self):
         """Generate file filter string for output formats."""
@@ -133,24 +176,22 @@ class GenerateTabWidget(QWidget):
         self.add_files_button = self.ui.add_files_button
         self.add_directory_button = self.ui.add_directory_button
         self.add_animation_button = self.ui.add_animation_button
+        self.add_existing_atlas_button = self.ui.add_existing_atlas_button
         self.clear_frames_button = self.ui.clear_frames_button
-
-        # Output
-        self.output_path_button = self.ui.output_path_button
-        self.output_path_label = self.ui.output_path_label
 
         # Frame info
         self.frame_info_label = self.ui.frame_info_label
 
         # Atlas settings
-        self.auto_size_check = self.ui.auto_size_check
-        self.max_size_combo = self.ui.max_size_combo
-        self.min_size_combo = self.ui.min_size_combo
+        self.atlas_size_method_combobox = self.ui.atlas_size_method_combobox
+        self.atlas_size_spinbox_1 = self.ui.atlas_size_spinbox_1
+        self.atlas_size_spinbox_2 = self.ui.atlas_size_spinbox_2
+        self.atlas_size_label_1 = self.ui.atlas_size_label_1
+        self.atlas_size_label_2 = self.ui.atlas_size_label_2
         self.padding_spin = self.ui.padding_spin
         self.power_of_2_check = self.ui.power_of_2_check
-        self.efficiency_spin = self.ui.efficiency_spin
         self.speed_optimization_slider = self.ui.speed_optimization_slider
-        self.speed_opt_value_label = self.ui.speed_opt_value_label
+        self.speed_optimization_value_label = self.ui.speed_optimization_value_label
 
         # Output format
         self.image_format_combo = self.ui.image_format_combo
@@ -189,8 +230,8 @@ class GenerateTabWidget(QWidget):
         self.add_files_button.clicked.connect(self.add_files)
         self.add_directory_button.clicked.connect(self.add_directory)
         self.add_animation_button.clicked.connect(self.add_animation_group)
+        self.add_existing_atlas_button.clicked.connect(self.add_existing_atlas)
         self.clear_frames_button.clicked.connect(self.clear_frames)
-        self.output_path_button.clicked.connect(self.select_output_path)
 
         # Animation tree signals
         self.animation_tree.animation_added.connect(self.on_animation_added)
@@ -198,10 +239,11 @@ class GenerateTabWidget(QWidget):
         self.animation_tree.frame_order_changed.connect(self.update_frame_info)
 
         # Settings
-        self.auto_size_check.toggled.connect(self.on_auto_size_toggled)
-        self.power_of_2_check.toggled.connect(self.update_auto_atlas_sizes)
-        self.padding_spin.valueChanged.connect(self.update_auto_atlas_sizes)
-        self.efficiency_spin.valueChanged.connect(self.update_auto_atlas_sizes)
+        self.atlas_size_method_combobox.currentTextChanged.connect(self.on_atlas_size_method_changed)
+        self.atlas_size_spinbox_1.valueChanged.connect(self.update_atlas_size_estimates)
+        self.atlas_size_spinbox_2.valueChanged.connect(self.update_atlas_size_estimates)
+        self.power_of_2_check.toggled.connect(self.update_atlas_size_estimates)
+        self.padding_spin.valueChanged.connect(self.update_atlas_size_estimates)
         self.image_format_combo.currentTextChanged.connect(self.on_format_change)
         self.speed_optimization_slider.valueChanged.connect(self.update_speed_opt_label)
 
@@ -235,7 +277,7 @@ class GenerateTabWidget(QWidget):
                 animations_created = 0
                 for subfolder in subfolders:
                     files = []
-                    for ext in self.INPUT_FORMATS:
+                    for ext in self.IMAGE_FORMATS.keys():
                         files.extend(subfolder.glob(f"*{ext}"))
                         files.extend(subfolder.glob(f"*{ext.upper()}"))
 
@@ -267,7 +309,7 @@ class GenerateTabWidget(QWidget):
                     )
             else:
                 files = []
-                for ext in self.INPUT_FORMATS:
+                for ext in self.IMAGE_FORMATS.keys():
                     files.extend(directory_path.glob(f"*{ext}"))
                     files.extend(directory_path.glob(f"*{ext.upper()}"))
 
@@ -282,13 +324,189 @@ class GenerateTabWidget(QWidget):
 
             self.update_frame_info()
             self.update_generate_button_state()
-            self.update_auto_atlas_sizes()
+            self.update_atlas_size_estimates()
 
     def add_animation_group(self):
         """Add a new animation group."""
         self.animation_tree.add_animation_group()
         self.update_frame_info()
         self.update_generate_button_state()
+
+    def add_existing_atlas(self):
+        """Add frames from an existing Sparrow/Starling atlas (image + data file)."""
+        # First select the atlas image file (any supported format)
+        atlas_file, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select Atlas Image File"),
+            "",
+            self.get_atlas_image_file_filter()
+        )
+        
+        if not atlas_file:
+            return
+        
+        atlas_path = Path(atlas_file)
+        atlas_directory = atlas_path.parent
+        atlas_name = atlas_path.stem
+        
+        # Look for corresponding data file (XML, TXT, JSON)
+        data_file = None
+        possible_data_names = [
+            f"{atlas_name}{ext}" for ext in self.DATA_FORMATS
+        ]
+        
+        for data_name in possible_data_names:
+            data_path = atlas_directory / data_name
+            if data_path.exists():
+                data_file = str(data_path)
+                break
+        
+        # If no data file found automatically, ask user to select one
+        if not data_file:
+            data_file, _ = QFileDialog.getOpenFileName(
+                self,
+                self.tr("Select Atlas Data File"),
+                str(atlas_directory),
+                self.get_data_file_filter()
+            )
+            
+            if not data_file:
+                QMessageBox.warning(
+                    self,
+                    self.APP_NAME,
+                    self.tr("Both atlas image and data files are required to import an atlas.")
+                )
+                return
+        
+        try:
+            # Parse the data file to extract frame information
+            # Currently supports XML format, but can be extended for JSON/TXT formats
+            sprites_data = XmlParser.parse_xml_data(data_file)
+            
+            if not sprites_data:
+                QMessageBox.warning(
+                    self,
+                    self.APP_NAME,
+                    self.tr("No frames found in the selected atlas data file.")
+                )
+                return
+            
+            # Load the atlas image
+            if not PIL_AVAILABLE:
+                QMessageBox.critical(
+                    self,
+                    self.APP_NAME,
+                    self.tr("PIL (Pillow) is required to extract frames from atlas files.")
+                )
+                return
+                
+            atlas_image = Image.open(atlas_file)
+            
+            # Create a temporary directory for extracted frames
+            import tempfile
+            temp_dir = Path(tempfile.mkdtemp(prefix="atlas_frames_"))
+            
+            # Group frames by animation name
+            animation_groups = {}
+            for sprite_data in sprites_data:
+                frame_name = sprite_data["name"]
+                
+                # Extract animation name from frame name
+                # Common patterns: "animName_0000", "animName0001", "animName 0", "animName.0", etc.
+                animation_name = self._extract_animation_name(frame_name)
+                
+                if animation_name not in animation_groups:
+                    animation_groups[animation_name] = []
+                animation_groups[animation_name].append(sprite_data)
+            
+            # Create animation groups and extract frames
+            total_frames_added = 0
+            for animation_name, frames_data in animation_groups.items():
+                try:
+                    # Create animation group
+                    self.animation_tree.add_animation_group(animation_name)
+                    
+                    # Sort frames by name to maintain proper order
+                    frames_data.sort(key=lambda x: x["name"])
+                    
+                    frames_added_to_animation = 0
+                    for sprite_data in frames_data:
+                        try:
+                            # Extract frame from atlas
+                            x, y = sprite_data["x"], sprite_data["y"]
+                            width, height = sprite_data["width"], sprite_data["height"]
+                            rotated = sprite_data.get("rotated", False)
+                            
+                            # Extract the sprite region
+                            sprite_region = atlas_image.crop((x, y, x + width, y + height))
+                            
+                            # Handle rotation if needed
+                            if rotated:
+                                sprite_region = sprite_region.rotate(-90, expand=True)
+                            
+                            # Save as temporary file
+                            frame_filename = f"{sprite_data['name']}{self.PNG_FORMAT}"
+                            # Sanitize filename
+                            import re
+                            frame_filename = re.sub(r'[<>:"/\\|?*]', '_', frame_filename)
+                            
+                            temp_frame_path = temp_dir / frame_filename
+                            sprite_region.save(temp_frame_path, self.PNG_FORMAT_NAME)
+                            
+                            # Add to animation and input frames list
+                            temp_frame_str = str(temp_frame_path)
+                            if not self.is_frame_already_added(temp_frame_str):
+                                self.animation_tree.add_frame_to_animation(animation_name, temp_frame_str)
+                                self.input_frames.append(temp_frame_str)
+                                frames_added_to_animation += 1
+                                
+                        except Exception as e:
+                            print(f"Error extracting frame {sprite_data['name']}: {e}")
+                            continue
+                    
+                    total_frames_added += frames_added_to_animation
+                    print(f"Added {frames_added_to_animation} frames to animation '{animation_name}'")
+                    
+                except Exception as e:
+                    print(f"Error processing animation '{animation_name}': {e}")
+                    continue
+            
+            # Close the atlas image
+            atlas_image.close()
+            
+            if total_frames_added > 0:
+                QMessageBox.information(
+                    self,
+                    self.APP_NAME,
+                    self.tr("Successfully imported {0} frames from atlas '{1}' into {2} animations.").format(
+                        total_frames_added, atlas_name, len(animation_groups)
+                    )
+                )
+                
+                # Store temp directory for cleanup later
+                if not hasattr(self, 'temp_atlas_dirs'):
+                    self.temp_atlas_dirs = []
+                self.temp_atlas_dirs.append(temp_dir)
+                
+                self.update_frame_info()
+                self.update_generate_button_state()
+                self.update_atlas_size_estimates()
+            else:
+                QMessageBox.information(
+                    self,
+                    self.APP_NAME,
+                    self.tr("All frames from this atlas were already added.")
+                )
+                # Clean up empty temp directory
+                import shutil
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                self.APP_NAME,
+                self.tr("Error importing atlas: {0}").format(str(e))
+            )
 
     def update_speed_opt_label(self, value):
         """Update the speed optimization label based on slider value."""
@@ -305,7 +523,7 @@ class GenerateTabWidget(QWidget):
             9: self.tr("Level: 9 (Optimized, Maximum)"),
             10: self.tr("Level: 10 (Ultra-Optimized, Slowest)"),
         }
-        self.speed_opt_value_label.setText(labels.get(value, self.tr("Level: {0}").format(value)))
+        self.speed_optimization_value_label.setText(labels.get(value, self.tr("Level: {0}").format(value)))
 
     def get_optimization_settings(self, slider_value):
         """Convert slider value to optimization settings."""
@@ -316,7 +534,6 @@ class GenerateTabWidget(QWidget):
                 "use_advanced_numpy": False,
                 "orientation_optimization": False,
                 "packing_strategy": "ultra_simple",
-                "efficiency_factor": 1.05,
                 "tight_packing": True,
                 "use_multithreading": True,
             }
@@ -327,7 +544,6 @@ class GenerateTabWidget(QWidget):
                 "use_advanced_numpy": False,
                 "orientation_optimization": False,
                 "packing_strategy": "simple",
-                "efficiency_factor": 1.1,
                 "tight_packing": True,
                 "use_multithreading": True,
             }
@@ -338,7 +554,6 @@ class GenerateTabWidget(QWidget):
                 "use_advanced_numpy": False,
                 "orientation_optimization": True,
                 "packing_strategy": "balanced",
-                "efficiency_factor": 1.2,
                 "tight_packing": False,
                 "use_multithreading": True,
             }
@@ -349,7 +564,6 @@ class GenerateTabWidget(QWidget):
                 "use_advanced_numpy": True,
                 "orientation_optimization": True,
                 "packing_strategy": "advanced",
-                "efficiency_factor": 1.3,
                 "tight_packing": False,
                 "use_multithreading": True,
             }
@@ -368,7 +582,7 @@ class GenerateTabWidget(QWidget):
 
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_auto_atlas_sizes()  # Update auto sizes when frames are added
+        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are added
 
     def add_frames_to_new_animation(self, file_paths):
         """Add frame files to a new animation group."""
@@ -385,7 +599,7 @@ class GenerateTabWidget(QWidget):
 
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_auto_atlas_sizes()  # Update auto sizes when frames are added
+        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are added
 
     def is_frame_already_added(self, file_path):
         """Check if a frame is already added to any animation."""
@@ -400,34 +614,34 @@ class GenerateTabWidget(QWidget):
 
     def clear_frames(self):
         """Clear all frames from all animations."""
+        # Clean up temporary atlas directories
+        if hasattr(self, 'temp_atlas_dirs'):
+            import shutil
+            for temp_dir in self.temp_atlas_dirs:
+                try:
+                    if temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as e:
+                    print(f"Error cleaning up temp directory {temp_dir}: {e}")
+            self.temp_atlas_dirs.clear()
+            
         self.input_frames.clear()
         self.animation_tree.clear_all_animations()
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_auto_atlas_sizes()  # Update auto sizes when frames are cleared
+        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are cleared
 
     def on_animation_added(self, animation_name):
         """Handle new animation group added."""
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_auto_atlas_sizes()  # Update auto sizes when animations change
+        self.update_atlas_size_estimates()  # Update atlas size estimates when animations change
 
     def on_animation_removed(self, animation_name):
         """Handle animation group removed."""
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_auto_atlas_sizes()  # Update auto sizes when animations change
-
-    def select_output_path(self):
-        """Select output path for the atlas."""
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, self.tr("Save Atlas As"), "", self.get_output_file_filter()
-        )
-
-        if file_path:
-            self.output_path = file_path
-            self.output_path_label.setText(self.tr("Output: {0}").format(Path(file_path).name))
-            self.update_generate_button_state()
+        self.update_atlas_size_estimates()  # Update atlas size estimates when animations change
 
     def update_frame_info(self):
         """Update the frame info label."""
@@ -446,22 +660,30 @@ class GenerateTabWidget(QWidget):
     def update_generate_button_state(self):
         """Update the generate button enabled state."""
         has_frames = self.animation_tree.get_total_frame_count() > 0
-        has_output_path = bool(self.output_path)
-
-        can_generate = has_frames and has_output_path
-        self.generate_button.setEnabled(can_generate)
+        self.generate_button.setEnabled(has_frames)
 
     def on_format_change(self, format_text):
         """Handle image format change."""
-        self.jpeg_quality_spin.setEnabled(format_text == "JPEG")
+        self.jpeg_quality_spin.setEnabled(format_text == self.JPEG_FORMAT_NAME)
 
     def generate_atlas(self):
         """Start the atlas generation process."""
-        if self.animation_tree.get_total_frame_count() == 0 or not self.output_path:
+        if self.animation_tree.get_total_frame_count() == 0:
             QMessageBox.warning(
-                self, self.APP_NAME, self.tr("Please add frames and select output path.")
+                self, self.APP_NAME, self.tr("Please add frames before generating atlas.")
             )
             return
+
+        # Open save dialog to select output path
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, self.tr("Save Atlas As"), "", self.get_output_file_filter()
+        )
+
+        if not file_path:
+            # User cancelled the save dialog
+            return
+
+        self.output_path = file_path
 
         # Get all animations from the tree
         animations = self.animation_tree.get_animation_groups()
@@ -474,16 +696,71 @@ class GenerateTabWidget(QWidget):
             animation_groups[animation_name] = [frame["path"] for frame in sorted_frames]
 
         # Prepare settings for the new generator
-        atlas_settings = {
-            "max_size": int(self.max_size_combo.currentText()),
-            "min_size": int(self.min_size_combo.currentText()),
-            "padding": self.padding_spin.value(),
-            "power_of_2": self.power_of_2_check.isChecked(),
-            "efficiency_factor": self.efficiency_spin.value(),
-            "optimization_level": self.speed_optimization_slider.value(),
-            "allow_rotation": self.speed_optimization_slider.value()
-            > 5,  # Enable rotation for higher optimization
-        }
+        method = self.atlas_size_method_combobox.currentText()
+        
+        if method == "Automatic":
+            # For automatic mode, calculate optimal sizes
+            width_est, height_est = self.calculate_atlas_size_estimates()
+            if width_est is None or height_est is None:
+                # Fallback to reasonable defaults
+                width_est, height_est = 1024, 1024
+                
+            atlas_settings = {
+                "max_size": max(width_est, height_est) * 2,  # Give some headroom
+                "min_size": min(width_est, height_est),
+                "padding": self.padding_spin.value(),
+                "power_of_2": self.power_of_2_check.isChecked(),
+                "optimization_level": self.speed_optimization_slider.value(),
+                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "atlas_size_method": "automatic",
+                "preferred_width": width_est,
+                "preferred_height": height_est
+            }
+        elif method == "MinMax":
+            atlas_settings = {
+                "max_size": self.atlas_size_spinbox_2.value(),
+                "min_size": self.atlas_size_spinbox_1.value(),
+                "padding": self.padding_spin.value(),
+                "power_of_2": self.power_of_2_check.isChecked(),
+                "optimization_level": self.speed_optimization_slider.value(),
+                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "atlas_size_method": "minmax"
+            }
+        elif method == "Manual":
+            atlas_settings = {
+                "max_size": max(self.atlas_size_spinbox_1.value(), self.atlas_size_spinbox_2.value()),
+                "min_size": min(self.atlas_size_spinbox_1.value(), self.atlas_size_spinbox_2.value()),
+                "padding": self.padding_spin.value(),
+                "power_of_2": self.power_of_2_check.isChecked(),
+                "optimization_level": self.speed_optimization_slider.value(),
+                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "atlas_size_method": "manual",
+                "forced_width": self.atlas_size_spinbox_1.value(),
+                "forced_height": self.atlas_size_spinbox_2.value()
+            }
+            
+            # Show warning for manual mode
+            total_area = 0
+            animations = self.animation_tree.get_animation_groups()
+            for animation_name, frames in animations.items():
+                for frame in frames:
+                    try:
+                        with Image.open(frame["path"]) as img:
+                            width, height = img.size
+                            total_area += (width + 2 * self.padding_spin.value()) * (height + 2 * self.padding_spin.value())
+                    except Exception:
+                        continue
+                        
+            atlas_area = self.atlas_size_spinbox_1.value() * self.atlas_size_spinbox_2.value()
+            if total_area > atlas_area * 0.8:  # If frames use more than 80% of atlas space
+                reply = QMessageBox.question(
+                    self, 
+                    self.tr("Manual Size Warning"),
+                    self.tr("The specified atlas size may not be large enough to fit all frames. Continue anyway?"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
 
         # Create a dummy input_frames list for the worker (for compatibility)
         all_input_frames = []
@@ -561,8 +838,8 @@ class GenerateTabWidget(QWidget):
             self, self.APP_NAME, self.tr("Atlas generation failed:\n\n{0}").format(error_message)
         )
 
-    def calculate_auto_atlas_sizes(self):
-        """Calculate optimal min and max atlas sizes based on input frames."""
+    def calculate_atlas_size_estimates(self):
+        """Calculate optimal atlas sizes based on input frames for display purposes."""
         animations = self.animation_tree.get_animation_groups()
         if not animations:
             return None, None
@@ -591,7 +868,17 @@ class GenerateTabWidget(QWidget):
 
         # Calculate required area with padding
         padding = self.padding_spin.value()
-        efficiency_factor = self.efficiency_spin.value()
+        
+        # Auto-determine efficiency factor based on optimization level (same as generator)
+        optimization_level = self.speed_optimization_slider.value()
+        if optimization_level <= 3:
+            efficiency_factor = 1.5  # More conservative for basic packing
+        elif optimization_level <= 6:
+            efficiency_factor = 1.3  # Balanced
+        elif optimization_level <= 9:
+            efficiency_factor = 1.2  # More aggressive
+        else:
+            efficiency_factor = 1.15  # Most aggressive for ultra optimization
 
         # Add padding to each frame's area
         padded_total_area = 0
@@ -613,74 +900,154 @@ class GenerateTabWidget(QWidget):
         if self.power_of_2_check.isChecked():
             min_dimension = 2 ** math.ceil(math.log2(min_dimension))
 
-        # Set minimum size (ensure it's within available options)
-        available_min_sizes = [64, 128, 256, 512, 1024]
-        min_size = min_dimension
-        for size in available_min_sizes:
-            if size >= min_dimension:
-                min_size = size
-                break
-        else:
-            min_size = available_min_sizes[-1]
+        # For automatic mode, we'll use square dimensions
+        # For display, assume roughly square but allow some variation
+        width_estimate = min_dimension
+        height_estimate = min_dimension
+        
+        # Try to make it slightly more rectangular if that's more efficient
+        aspect_ratio = max_width / max_height if max_height > 0 else 1.0
+        if aspect_ratio > 1.5:  # Wide frames
+            width_estimate = int(min_dimension * 1.2)
+            height_estimate = int(min_dimension * 0.8)
+        elif aspect_ratio < 0.67:  # Tall frames
+            width_estimate = int(min_dimension * 0.8)
+            height_estimate = int(min_dimension * 1.2)
 
-        # Calculate maximum size (give some headroom)
-        max_dimension = min_dimension * 2
+        # Apply power of 2 constraint if needed
         if self.power_of_2_check.isChecked():
-            max_dimension = 2 ** math.ceil(math.log2(max_dimension))
+            width_estimate = 2 ** math.ceil(math.log2(width_estimate))
+            height_estimate = 2 ** math.ceil(math.log2(height_estimate))
 
-        # Set maximum size (ensure it's within available options)
-        available_max_sizes = [512, 1024, 2048, 4096, 8192]
-        max_size = max_dimension
-        for size in available_max_sizes:
-            if size >= max_dimension:
-                max_size = size
-                break
-        else:
-            max_size = available_max_sizes[-1]
+        return width_estimate, height_estimate
 
-        # Ensure max_size >= min_size
-        if max_size < min_size:
-            max_size = min_size
-
-        return min_size, max_size
-
-    def update_auto_atlas_sizes(self):
-        """Update atlas sizes automatically if auto sizing is enabled."""
-        if not self.auto_size_check.isChecked():
-            return
-
-        min_size, max_size = self.calculate_auto_atlas_sizes()
-
-        if min_size is not None and max_size is not None:
-            # Update combo boxes
-            self.min_size_combo.setCurrentText(str(min_size))
-            self.max_size_combo.setCurrentText(str(max_size))
-
-            # Update status in log
-            animations = self.animation_tree.get_animation_groups()
-            total_frames = sum(len(frames) for frames in animations.values())
-
-            if total_frames > 0:
-                self.log_text.append(
-                    self.tr("Auto-sizing: Min={0}px, Max={1}px (based on {2} frames)").format(
-                        min_size, max_size, total_frames
+    def update_atlas_size_estimates(self):
+        """Update atlas size estimates based on current settings."""
+        method = self.atlas_size_method_combobox.currentText()
+        
+        if method == "Automatic":
+            width_est, height_est = self.calculate_atlas_size_estimates()
+            
+            if width_est is not None and height_est is not None:
+                # Update the grayed out spinboxes with estimates
+                self.atlas_size_spinbox_1.setValue(width_est)
+                self.atlas_size_spinbox_2.setValue(height_est)
+                
+                # Update status in log
+                animations = self.animation_tree.get_animation_groups()
+                total_frames = sum(len(frames) for frames in animations.values())
+                
+                if total_frames > 0:
+                    self.log_text.append(
+                        self.tr("Auto-sizing: Estimated {0}x{1}px (based on {2} frames)").format(
+                            width_est, height_est, total_frames
+                        )
                     )
+            elif self.animation_tree.get_total_frame_count() > 0:
+                self.log_text.append(
+                    self.tr("Auto-sizing: Could not calculate sizes - image analysis failed")
                 )
-        elif self.animation_tree.get_total_frame_count() > 0:
+
+    def on_atlas_size_method_changed(self, method_text):
+        """Handle atlas size method change."""
+        if method_text == "Automatic":
+            # Grey out spinboxes and show estimated values
+            self.atlas_size_spinbox_1.setEnabled(False)
+            self.atlas_size_spinbox_2.setEnabled(False)
+            
+            # Change labels
+            self.atlas_size_label_1.setText(self.tr("Width"))
+            self.atlas_size_label_2.setText(self.tr("Height"))
+            
+            # Update with estimates
+            self.update_atlas_size_estimates()
+            
             self.log_text.append(
-                self.tr("Auto-sizing: Could not calculate sizes - image analysis failed")
+                self.tr("Atlas sizing: Automatic mode enabled - size will be calculated automatically")
+            )
+            
+        elif method_text == "MinMax":
+            # Enable spinboxes for min/max size input
+            self.atlas_size_spinbox_1.setEnabled(True)
+            self.atlas_size_spinbox_2.setEnabled(True)
+            
+            # Change labels
+            self.atlas_size_label_1.setText(self.tr("Min size"))
+            self.atlas_size_label_2.setText(self.tr("Max size"))
+            
+            # Set reasonable defaults if not already set
+            if self.atlas_size_spinbox_1.value() == 0:
+                self.atlas_size_spinbox_1.setValue(512)
+            if self.atlas_size_spinbox_2.value() == 0:
+                self.atlas_size_spinbox_2.setValue(2048)
+            
+            self.log_text.append(
+                self.tr("Atlas sizing: MinMax mode enabled - atlas will be constrained between min and max sizes")
+            )
+            
+        elif method_text == "Manual":
+            # Enable spinboxes for manual width/height input
+            self.atlas_size_spinbox_1.setEnabled(True)
+            self.atlas_size_spinbox_2.setEnabled(True)
+            
+            # Change labels
+            self.atlas_size_label_1.setText(self.tr("Width"))
+            self.atlas_size_label_2.setText(self.tr("Height"))
+            
+            # Set reasonable defaults if not already set
+            if self.atlas_size_spinbox_1.value() == 0:
+                self.atlas_size_spinbox_1.setValue(1024)
+            if self.atlas_size_spinbox_2.value() == 0:
+                self.atlas_size_spinbox_2.setValue(1024)
+            
+            self.log_text.append(
+                self.tr("Atlas sizing: Manual mode enabled - exact dimensions will be forced (warning will be shown if frames don't fit)")
             )
 
-    def on_auto_size_toggled(self, checked):
-        """Handle auto size checkbox toggle."""
-        # Enable/disable size combo boxes
-        self.min_size_combo.setEnabled(not checked)
-        self.max_size_combo.setEnabled(not checked)
+    def __del__(self):
+        """Cleanup temporary directories when widget is destroyed."""
+        if hasattr(self, 'temp_atlas_dirs'):
+            import shutil
+            for temp_dir in self.temp_atlas_dirs:
+                try:
+                    if temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception:
+                    pass  # Ignore errors during cleanup
 
-        if checked:
-            self.update_auto_atlas_sizes()
-            self.log_text.append(
-                self.tr("Auto-sizing enabled: Atlas size will be calculated automatically")
-            )
-        else:
-            self.log_text.append(self.tr("Auto-sizing disabled: Manual size selection enabled"))
+    def _extract_animation_name(self, frame_name):
+        """
+        Extract animation name from frame name.
+        
+        Handles common patterns like:
+        - "animName_0000" -> "animName"
+        - "animName0001" -> "animName"  
+        - "animName 0" -> "animName"
+        - "animName.0" -> "animName"
+        - "animName-0" -> "animName"
+        - "animName001" -> "animName"
+        """
+        import re
+        
+        # Remove file extension if present
+        name = frame_name
+        if '.' in name:
+            name = name.rsplit('.', 1)[0]
+        
+        # Pattern to match common frame numbering schemes
+        # This regex captures everything before the frame number
+        patterns = [
+            r'^(.+?)_\d+$',      # name_0000
+            r'^(.+?)\s+\d+$',    # name 0000  
+            r'^(.+?)\.\d+$',     # name.0000
+            r'^(.+?)-\d+$',      # name-0000
+            r'^(.+?)\d+$',       # name0000 (digits at the end)
+        ]
+        
+        for pattern in patterns:
+            match = re.match(pattern, name)
+            if match:
+                return match.group(1).strip()
+        
+        # If no pattern matches, return the original name (might be a single frame animation)
+        return name

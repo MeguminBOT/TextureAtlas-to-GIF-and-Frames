@@ -21,7 +21,7 @@ from utils.update_checker import UpdateChecker
 from utils.settings_manager import SettingsManager
 from utils.fnf_utilities import FnfUtilities
 from core.extractor import Extractor
-from gui.app_ui import Ui_TextureAtlasExtractorApp
+from gui.app_ui import Ui_TextureAtlasToolboxApp
 from gui.app_config_window import AppConfigWindow
 from gui.settings_window import SettingsWindow
 from gui.find_replace_window import FindReplaceWindow
@@ -111,7 +111,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
 
         # Initialize UI
-        self.ui = Ui_TextureAtlasExtractorApp()
+        self.ui = Ui_TextureAtlasToolboxApp()
         self.ui.setupUi(self)
 
         # Initialize advanced menu variables
