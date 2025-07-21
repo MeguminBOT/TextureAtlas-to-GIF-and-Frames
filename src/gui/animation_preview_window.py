@@ -713,12 +713,6 @@ class AnimationPreviewWindow(QDialog):
 
         layout.addWidget(playback_group)
 
-        # Preview settings
-        preview_group = QGroupBox("Preview Settings")
-        preview_layout = QGridLayout(preview_group)
-
-        layout.addWidget(preview_group)
-
         # Display settings
         display_group = QGroupBox("Display")
         display_layout = QGridLayout(display_group)
