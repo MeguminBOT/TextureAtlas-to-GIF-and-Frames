@@ -1321,3 +1321,13 @@ class ExtractTabWidget(QWidget):
         self.filename_format_combobox.setEnabled(not is_processing)
         self.filename_prefix_entry.setEnabled(not is_processing)
         self.filename_suffix_entry.setEnabled(not is_processing)
+
+    def get_selected_spritesheet(self):
+        """Get the name of the currently selected spritesheet."""
+        current_item = self.listbox_png.currentItem()
+        return current_item.text() if current_item else None
+
+    def get_selected_animation(self):
+        """Get the name of the currently selected animation."""
+        current_item = self.listbox_data.currentItem()
+        return current_item.text() if current_item else None

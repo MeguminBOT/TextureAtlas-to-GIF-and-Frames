@@ -33,8 +33,9 @@ class Extractor:
             Returns early without processing if the user cancels background color detection dialogs.
         extract_sprites(atlas_path, metadata_path, output_dir, settings):
             Extracts sprites from a given atlas and metadata file, and processes the animations.
-        generate_temp_animation_for_preview(atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
-            Generates a temporary animated image file for preview purposes.
+        generate_temp_animation_for_preview(atlas_path, metadata_path, settings, animation_name, temp_dir=None):
+            Generates a temporary animated image file for preview purposes using optimized processing 
+            that only loads sprites belonging to the specific animation.
     """
 
     def __init__(self, progress_callback, current_version, settings_manager, app_config=None, statistics_callback=None):
@@ -307,23 +308,42 @@ class Extractor:
                 "sprites_failed": sprites_failed,
             }
 
-    def generate_temp_animation_for_preview(self, atlas_path, metadata_path, settings, animation_name=None, temp_dir=None):
+    def generate_temp_animation_for_preview(self, atlas_path, metadata_path, settings, animation_name, temp_dir=None):
+        """
+        Optimized version that only processes the specific animation frames for regeneration.
+        This reduces performance overhead by not processing the entire atlas.
+        """
         try:
-            atlas_processor = AtlasProcessor(atlas_path, metadata_path)
-            sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
-            animations = sprite_processor.process_sprites()
+            import tempfile
 
-            if animation_name:
-                animations = {animation_name: animations.get(animation_name, [])}
+            atlas_processor = AtlasProcessor(atlas_path, metadata_path)
+
+            if metadata_path and metadata_path.endswith(".xml"):
+                animation_sprites = atlas_processor.parse_xml_for_preview(animation_name)
+            elif metadata_path and metadata_path.endswith(".txt"):
+                animation_sprites = atlas_processor.parse_txt_for_preview(animation_name)
             else:
-                if animations:
-                    first_anim = next(iter(animations))
-                    animations = {first_anim: animations[first_anim]}
-                else:
-                    return None
+                return self.generate_temp_animation_for_preview(
+                    atlas_path, metadata_path, settings, animation_name, temp_dir
+                )
+
+            if not animation_sprites:
+                print(f"No sprites found for animation: {animation_name}")
+                return None
+
+            sprite_processor = SpriteProcessor(atlas_processor.atlas, animation_sprites)
+            animations = sprite_processor.process_specific_animation(animation_name)
+
+            if animation_name not in animations:
+                print(f"Animation {animation_name} not found in processed sprites")
+                return None
+
+            animations = {animation_name: animations[animation_name]}
 
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
+
+            from core.animation_exporter import AnimationExporter
 
             animation_exporter = AnimationExporter(
                 temp_dir,
@@ -350,6 +370,8 @@ class Extractor:
                     indices = list(filter(lambda i: ((i < len(image_tuples)) & (i >= 0)), indices))
                     image_tuples = [image_tuples[i] for i in indices]
 
+                from core.frame_selector import FrameSelector
+
                 single_frame = FrameSelector.is_single_frame(image_tuples)
                 kept_frames = FrameSelector.get_kept_frames(
                     merged_settings, single_frame, image_tuples
@@ -364,11 +386,7 @@ class Extractor:
                     image_tuples, spritesheet_name, anim_name, merged_settings
                 )
 
-                file_extensions = {
-                    "GIF": ".gif",
-                    "WebP": ".webp", 
-                    "APNG": ".png"
-                }
+                file_extensions = {"GIF": ".gif", "WebP": ".webp", "APNG": ".png"}
                 target_extension = file_extensions.get(animation_format, ".gif")
 
                 for file in os.listdir(temp_dir):

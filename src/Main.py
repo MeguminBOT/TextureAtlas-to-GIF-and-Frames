@@ -784,15 +784,17 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def handle_preview_settings_saved(self, preview_settings):
         """Handle settings saved from animation preview window"""
-        # Get current animation details
-        current_item = self.ui.listbox_data.currentItem()
-        current_spritesheet_item = self.ui.listbox_png.currentItem()
-
-        if not current_item or not current_spritesheet_item:
+        # Get current animation details from extract tab widget
+        if not hasattr(self, "extract_tab_widget") or not self.extract_tab_widget:
             return
 
-        spritesheet_name = current_spritesheet_item.text()
-        animation_name = current_item.text()
+        # Get the selected spritesheet and animation using extract tab widget methods
+        spritesheet_name = self.extract_tab_widget.get_selected_spritesheet()
+        animation_name = self.extract_tab_widget.get_selected_animation()
+
+        if not spritesheet_name or not animation_name:
+            return
+
         full_anim_name = "{spritesheet}/{animation}".format(
             spritesheet=spritesheet_name, animation=animation_name
         )
