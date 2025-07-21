@@ -153,7 +153,7 @@ class FrameListWidget(QListWidget):
                 frame_text = f"Frame {i + 1} ({delay_ms}ms)"
             else:
                 frame_text = f"Frame {i + 1}"
-            
+
             item = QListWidgetItem(frame_text)
             item.setData(Qt.ItemDataRole.UserRole, i)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
@@ -193,7 +193,7 @@ class FrameListWidget(QListWidget):
             item = self.item(i)
             if item:
                 item.setCheckState(Qt.CheckState.Unchecked)
-        
+
         # Then check the specified frames
         for frame_index in frame_indices:
             if 0 <= frame_index < self.count():
@@ -447,7 +447,7 @@ class AnimationPreviewWindow(QDialog):
     """
     Modern animation preview window with real-time playback and settings.
     """
-    
+
     # Signal to emit saved settings
     settings_saved = Signal(dict)
 
@@ -554,7 +554,7 @@ class AnimationPreviewWindow(QDialog):
         """Close the preview and save current settings directly to animation overrides"""
         # Get checked frame indices
         checked_frames = self.get_checked_frame_indices()
-        
+
         # Build settings dict with current preview settings from UI controls
         save_settings = {
             "fps": self.fps_spinbox.value(),
@@ -564,16 +564,16 @@ class AnimationPreviewWindow(QDialog):
             "period": self.period_spinbox.value(),
             "threshold": self.threshold_spinbox.value(),
             "var_delay": self.var_delay_checkbox.isChecked(),
-            "crop_option": self.crop_combo.currentText()
+            "crop_option": self.crop_combo.currentText(),
         }
-        
+
         # Add frame indices if any frames are unchecked (skip frames functionality)
         if len(checked_frames) < len(self.frames) and checked_frames:
             save_settings["indices"] = checked_frames
-        
+
         # Emit signal with settings to pass to main window for saving
         self.settings_saved.emit(save_settings)
-        
+
         # Close the window
         self.accept()
 
@@ -753,7 +753,9 @@ class AnimationPreviewWindow(QDialog):
         # Color selection (only shown for solid color mode)
         self.bg_color_button = QPushButton()
         self.bg_color_button.setFixedSize(50, 30)
-        self.bg_color_button.setStyleSheet("background-color: rgb(127, 127, 127); border: 1px solid gray;")
+        self.bg_color_button.setStyleSheet(
+            "background-color: rgb(127, 127, 127); border: 1px solid gray;"
+        )
         self.bg_color_button.clicked.connect(self.choose_background_color)
         bg_layout.addWidget(self.bg_color_button)
 
@@ -767,7 +769,7 @@ class AnimationPreviewWindow(QDialog):
         export_group = QGroupBox("Export")
         export_layout = QVBoxLayout(export_group)
 
-        self.regenerate_button = QPushButton("Regenerate with Settings")
+        self.regenerate_button = QPushButton("Force Regenerate Animation")
         self.regenerate_button.clicked.connect(self.regenerate_animation)
         export_layout.addWidget(self.regenerate_button)
 
@@ -961,13 +963,12 @@ class AnimationPreviewWindow(QDialog):
             # Update frame info with delay information (always show if available)
             total_frames = len(self.frames)
             frame_info = f"Frame {self.current_frame + 1} / {total_frames}"
-            
+
             # Add delay info if we have frame durations
-            if (self.frame_durations and 
-                self.current_frame < len(self.frame_durations)):
+            if self.frame_durations and self.current_frame < len(self.frame_durations):
                 delay_ms = self.frame_durations[self.current_frame]
                 frame_info += f" ({delay_ms}ms)"
-            
+
             self.frame_info_label.setText(frame_info)
 
             # Update position slider
@@ -992,7 +993,7 @@ class AnimationPreviewWindow(QDialog):
 
         self.is_playing = True
         self.play_button.setText("Pause")
-        
+
         # Reset loop delay flag when starting playback
         self._loop_delay_applied = False
 
@@ -1012,7 +1013,7 @@ class AnimationPreviewWindow(QDialog):
         self.is_playing = False
         self.play_button.setText("Play")
         self.timer.stop()
-        
+
         # Reset loop delay flag when pausing so next play cycle gets the delay
         self._loop_delay_applied = False
 
@@ -1080,15 +1081,15 @@ class AnimationPreviewWindow(QDialog):
         # If current frame is unchecked, move to next checked frame
         if not checked and self.current_frame == frame_index:
             self.goto_next_checked_frame()
-        
+
         # Update the custom indices text field to reflect current checkbox state
         self.update_indices_text_from_checkboxes()
-    
+
     def update_indices_text_from_checkboxes(self):
         """Update the indices text field based on current checkbox states"""
         checked_frames = self.get_checked_frame_indices()
         total_frames = len(self.frames)
-        
+
         # If all frames are checked, clear the indices field (means "all frames")
         if len(checked_frames) == total_frames:
             self.indices_edit.blockSignals(True)
@@ -1102,45 +1103,45 @@ class AnimationPreviewWindow(QDialog):
             self.indices_edit.setText(indices_text)
             self.indices_edit.blockSignals(False)
             self.settings["indices"] = checked_frames
-    
+
     def compress_indices_to_text(self, indices):
         """Convert a list of indices to a compact string representation (e.g., '0,2-5,7')"""
         if not indices:
             return ""
-        
+
         indices = sorted(set(indices))  # Remove duplicates and sort
         result = []
         i = 0
-        
+
         while i < len(indices):
             start = indices[i]
             end = start
-            
+
             # Find consecutive numbers
             while i + 1 < len(indices) and indices[i + 1] == indices[i] + 1:
                 i += 1
                 end = indices[i]
-            
+
             # Add to result
             if start == end:
                 result.append(str(start))
             else:
                 result.append(f"{start}-{end}")
-            
+
             i += 1
-        
+
         return ",".join(result)
-    
+
     def get_checked_frame_indices(self):
         """Get list of checked frame indices"""
         return self.frame_list.get_checked_frames()
-    
+
     def goto_next_checked_frame(self):
         """Go to the next checked frame for playback"""
         checked_frames = self.get_checked_frame_indices()
         if not checked_frames:
             return
-            
+
         # Find next checked frame after current
         next_frames = [f for f in checked_frames if f > self.current_frame]
         if next_frames:
@@ -1149,8 +1150,7 @@ class AnimationPreviewWindow(QDialog):
             self._loop_delay_applied = False
         else:
             # We're at the end - apply loop delay if needed before looping back
-            if (self.is_playing and self.loop_checkbox.isChecked() and 
-                not self._loop_delay_applied):
+            if self.is_playing and self.loop_checkbox.isChecked() and not self._loop_delay_applied:
                 loop_delay = self.settings.get("delay", 250)
                 if loop_delay > 0:
                     # Stop current timer and stay on current frame for loop delay duration
@@ -1160,19 +1160,19 @@ class AnimationPreviewWindow(QDialog):
                     # Mark that loop delay has been applied for this cycle
                     self._loop_delay_applied = True
                     return
-            
+
             # No loop delay or already applied - go directly to first frame
             self.goto_frame(checked_frames[0])
             # Mark as looped to prevent repeated delays
             if self.is_playing and self.loop_checkbox.isChecked():
                 self._loop_delay_applied = True
-    
+
     def goto_previous_checked_frame(self):
         """Go to the previous checked frame for playback"""
         checked_frames = self.get_checked_frame_indices()
         if not checked_frames:
             return
-            
+
         # Find previous checked frame before current
         prev_frames = [f for f in checked_frames if f < self.current_frame]
         if prev_frames:
@@ -1197,21 +1197,21 @@ class AnimationPreviewWindow(QDialog):
                 # Variable delay: cumulative timing approach
                 duration = round((index + 1) * 1000 / fps, -1) - round(index * 1000 / fps, -1)
                 new_durations.append(int(duration))
-            
+
             # Apply loop delay and period to the last frame (like in exporter)
             loop_delay = self.settings.get("delay", 250)
             period = self.settings.get("period", 0)
-            
+
             new_durations[-1] += loop_delay
             new_durations[-1] += max(round(period, -1) - sum(new_durations), 0)
-            
+
             # Update frame durations
             self.frame_durations = new_durations
-            
+
             # Update frame list display with new delays
-            if hasattr(self.frame_list, 'update_frame_delays'):
+            if hasattr(self.frame_list, "update_frame_delays"):
                 self.frame_list.update_frame_delays(self.frame_durations, True)
-            
+
             # Update current frame info display
             self.update_display()
         else:
@@ -1278,8 +1278,8 @@ class AnimationPreviewWindow(QDialog):
             from core.extractor import Extractor
 
             # Get current spritesheet and animation info
-            current_spritesheet_item = self.parent().ui.listbox_png.currentItem()
-            current_animation_item = self.parent().ui.listbox_data.currentItem()
+            current_spritesheet_item = self.parent().extract_tab_widget.listbox_png.currentItem()
+            current_animation_item = self.parent().extract_tab_widget.listbox_data.currentItem()
 
             if not current_spritesheet_item or not current_animation_item:
                 QMessageBox.warning(
@@ -1396,10 +1396,10 @@ class AnimationPreviewWindow(QDialog):
     def on_delay_changed(self, delay):
         """Handle loop delay change"""
         self.settings["delay"] = delay
-        
+
         # Update frame delay display to reflect new loop delay timing
         self._update_frame_delay_display()
-        
+
         # Regenerate animation to apply new loop delay to the actual animation file
         self.regenerate_animation()
 
@@ -1423,38 +1423,38 @@ class AnimationPreviewWindow(QDialog):
     def on_var_delay_changed(self, enabled):
         """Handle variable delay change"""
         self.settings["var_delay"] = enabled
-        
+
         # If variable delay is enabled, adjust frame delays while preserving loop delays
         if enabled and self.frame_durations:
             fps = self.settings.get("fps", 24)
-            
+
             # Calculate variable delays using the same logic as the exporter
             new_durations = []
             for index in range(len(self.frame_durations)):
                 # Variable delay: cumulative timing approach
                 duration = round((index + 1) * 1000 / fps, -1) - round(index * 1000 / fps, -1)
                 new_durations.append(int(duration))
-            
+
             # Apply loop delay and period to the last frame (like in exporter)
             loop_delay = self.settings.get("delay", 250)
             period = self.settings.get("period", 0)
-            
+
             new_durations[-1] += loop_delay
             new_durations[-1] += max(round(period, -1) - sum(new_durations), 0)
-            
+
             # Update frame durations
             self.frame_durations = new_durations
-            
+
             # Update frame list display with new delays
-            if hasattr(self.frame_list, 'update_frame_delays'):
+            if hasattr(self.frame_list, "update_frame_delays"):
                 self.frame_list.update_frame_delays(self.frame_durations, True)
-            
+
             # Update current frame info display
             self.update_display()
         else:
             # Variable delay disabled - update display to show calculated delays
             self._update_frame_delay_display()
-        
+
         # Regenerate animation to apply new variable delay setting to the actual animation file
         self.regenerate_animation()
 
@@ -1473,18 +1473,18 @@ class AnimationPreviewWindow(QDialog):
                         indices.extend(range(start, end + 1))
                     else:
                         indices.append(int(part))
-                
+
                 # Clamp indices to valid range
                 indices = [i for i in indices if 0 <= i < len(self.frames)]
                 self.settings["indices"] = indices
-                
+
                 # Update frame list checkboxes to match the indices
-                if hasattr(self.frame_list, 'set_checked_frames'):
+                if hasattr(self.frame_list, "set_checked_frames"):
                     self.frame_list.set_checked_frames(indices)
             else:
                 self.settings.pop("indices", None)
                 # If no indices, check all frames
-                if hasattr(self.frame_list, 'set_checked_frames') and self.frames:
+                if hasattr(self.frame_list, "set_checked_frames") and self.frames:
                     all_indices = list(range(len(self.frames)))
                     self.frame_list.set_checked_frames(all_indices)
         except ValueError:
@@ -1528,17 +1528,17 @@ class AnimationPreviewWindow(QDialog):
 
     def _update_frame_delay_display(self):
         """Update frame delay display in the frame list based on current settings"""
-        if not self.frame_durations or not hasattr(self, 'frame_list'):
+        if not self.frame_durations or not hasattr(self, "frame_list"):
             return
-            
+
         # Create display delays based on current settings
         fps = self.settings.get("fps", 24)
         loop_delay = self.settings.get("delay", 250)
         var_delay = self.settings.get("var_delay", False)
         period = self.settings.get("period", 0)
-        
+
         display_delays = []
-        
+
         if var_delay:
             # Use actual frame durations when variable delay is enabled
             display_delays = self.frame_durations.copy()
@@ -1547,14 +1547,14 @@ class AnimationPreviewWindow(QDialog):
             # Fixed delay for all frames
             fixed_delay = round(1000 / fps, -1)
             display_delays = [int(fixed_delay)] * len(self.frame_durations)
-            
+
             # Apply loop delay and period to the last frame (like in exporter)
             display_delays[-1] += loop_delay
             display_delays[-1] += max(round(period, -1) - sum(display_delays), 0)
-        
+
         # Update the frame list display
-        if hasattr(self.frame_list, 'update_frame_delays'):
+        if hasattr(self.frame_list, "update_frame_delays"):
             self.frame_list.update_frame_delays(display_delays, True)
-        
+
         # Update current frame info if we're showing it
         self.update_display()

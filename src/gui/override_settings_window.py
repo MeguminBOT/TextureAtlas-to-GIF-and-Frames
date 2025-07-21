@@ -385,70 +385,75 @@ class OverrideSettingsWindow(QDialog):
                 # Only allow animation preview for animations, not spritesheets
                 if self.settings_type != "animation":
                     from PySide6.QtWidgets import QMessageBox
+
                     QMessageBox.information(
                         self,
                         self.tr("Info"),
-                        self.tr("Preview is only available for animations, not spritesheets.")
+                        self.tr("Preview is only available for animations, not spritesheets."),
                     )
                     return
-                
+
                 # Parse the animation name (format: "spritesheet.png/animation_name")
                 if "/" not in self.name:
                     from PySide6.QtWidgets import QMessageBox
+
                     QMessageBox.warning(
-                        self,
-                        self.tr("Preview Error"),
-                        self.tr("Invalid animation name format.")
+                        self, self.tr("Preview Error"), self.tr("Invalid animation name format.")
                     )
                     return
-                
+
                 spritesheet_name, animation_name = self.name.split("/", 1)
-                
+
                 # Find and select the spritesheet and animation in the main window
                 # First, find the spritesheet
                 spritesheet_found = False
-                for i in range(self.app.ui.listbox_png.count()):
-                    item = self.app.ui.listbox_png.item(i)
+                listbox_png = self.app.extract_tab_widget.listbox_png
+                for i in range(listbox_png.count()):
+                    item = listbox_png.item(i)
                     if item and item.text() == spritesheet_name:
-                        self.app.ui.listbox_png.setCurrentItem(item)
+                        listbox_png.setCurrentItem(item)
                         spritesheet_found = True
                         break
-                
+
                 if not spritesheet_found:
                     from PySide6.QtWidgets import QMessageBox
+
                     QMessageBox.warning(
                         self,
                         self.tr("Preview Error"),
-                        self.tr("Could not find spritesheet: {name}").format(name=spritesheet_name)
+                        self.tr("Could not find spritesheet: {name}").format(name=spritesheet_name),
                     )
                     return
-                
+
                 # Populate the animation list for this spritesheet
-                self.app.populate_animation_list(spritesheet_name)
-                
+                self.app.extract_tab_widget.populate_animation_list(spritesheet_name)
+
                 # Find and select the animation
                 animation_found = False
-                for i in range(self.app.ui.listbox_data.count()):
-                    item = self.app.ui.listbox_data.item(i)
+                listbox_data = self.app.extract_tab_widget.listbox_data
+                for i in range(listbox_data.count()):
+                    item = listbox_data.item(i)
                     if item and item.text() == animation_name:
-                        self.app.ui.listbox_data.setCurrentItem(item)
+                        listbox_data.setCurrentItem(item)
                         animation_found = True
                         break
-                
+
                 if not animation_found:
                     from PySide6.QtWidgets import QMessageBox
+
                     QMessageBox.warning(
                         self,
                         self.tr("Preview Error"),
-                        self.tr("Could not find animation: {name}").format(name=animation_name)
+                        self.tr("Could not find animation: {name}").format(name=animation_name),
                     )
                     return
-                
+
                 # Call the preview function with the correctly selected animation
-                self.app.preview_selected_animation()
-                
+                self.app.extract_tab_widget.preview_selected_animation()
+
             except Exception as e:
                 from PySide6.QtWidgets import QMessageBox
+
                 QMessageBox.warning(
                     self,
                     self.tr("Preview Error"),
