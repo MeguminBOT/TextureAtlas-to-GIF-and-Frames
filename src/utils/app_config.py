@@ -38,12 +38,14 @@ class AppConfig:
     """
 
     DEFAULTS = {
+        "language": "auto",  # Language setting: "auto" for system default, or language code like "en", "es", etc.
         "resource_limits": {
             "cpu_cores": "auto",
             "memory_limit_mb": 0,
         },
         "extraction_defaults": {
-            "animation_format": "None",
+            "animation_format": "GIF",
+            "animation_export": False,
             "fps": 24,
             "delay": 250,
             "period": 0,
@@ -53,6 +55,7 @@ class AppConfig:
             "crop_option": "Animation based",
             "filename_format": "Standardized",
             "frame_format": "PNG",
+            "frame_export": False,
             "frame_scale": 1.0,
             "variable_delay": False,
             "fnf_idle_loop": False,
@@ -64,19 +67,19 @@ class AppConfig:
             },
             "webp": {
                 "lossless": True,
-                "quality": 100,
-                "method": 6,
-                "alpha_quality": 100,
+                "quality": 90,
+                "method": 3,
+                "alpha_quality": 90,
                 "exact": True,
             },
             "avif": {
                 "lossless": True,
-                "quality": 100,
+                "quality": 90,
                 "speed": 5,
             },
             "tiff": {
                 "compression_type": "lzw",
-                "quality": 100,
+                "quality": 90,
                 "optimize": True,
             },
         },
@@ -84,10 +87,18 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "ui_state": {
+            "last_input_directory": "",
+            "last_output_directory": "",
+            "remember_input_directory": True,
+            "remember_output_directory": True,
+        },
     }
 
     TYPE_MAP = {
+        "language": str,
         "animation_format": str,
+        "animation_export": bool,
         "fps": int,
         "delay": int,
         "period": int,
@@ -97,6 +108,7 @@ class AppConfig:
         "frame_selection": str,
         "filename_format": str,
         "frame_format": str,
+        "frame_export": bool,
         "frame_scale": float,
         "variable_delay": bool,
         "fnf_idle_loop": bool,
@@ -115,6 +127,10 @@ class AppConfig:
         "tiff_compression_type": str,
         "tiff_quality": int,
         "tiff_optimize": bool,
+        "last_input_directory": str,
+        "last_output_directory": str,
+        "remember_input_directory": bool,
+        "remember_output_directory": bool,
     }
 
     def __init__(self, config_path=None):
@@ -242,16 +258,16 @@ class AppConfig:
         elif format_lower == "webp":
             return {
                 "webp_lossless": defaults.get("lossless", True),
-                "webp_quality": defaults.get("quality", 100),
-                "webp_method": defaults.get("method", 6),
-                "webp_alpha_quality": defaults.get("alpha_quality", 100),
+                "webp_quality": defaults.get("quality", 90),
+                "webp_method": defaults.get("method", 3),
+                "webp_alpha_quality": defaults.get("alpha_quality", 90),
                 "webp_exact": defaults.get("exact", True),
             }
         elif format_lower == "avif":
             return {
                 "avif_lossless": defaults.get("lossless", True),
-                "avif_quality": defaults.get("quality", 100),
-                "avif_speed": defaults.get("speed", 0),
+                "avif_quality": defaults.get("quality", 90),
+                "avif_speed": defaults.get("speed", 5),
             }
         elif format_lower == "tiff":
             return {
@@ -261,3 +277,86 @@ class AppConfig:
             }
 
         return {}
+
+    def get_last_input_directory(self):
+        """Get the last used input directory if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_input_directory", True):
+            return ui_state.get("last_input_directory", "")
+        return ""
+
+    def set_last_input_directory(self, directory):
+        """Set the last used input directory and save if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_input_directory", True):
+            if "ui_state" not in self.settings:
+                self.settings["ui_state"] = {}
+            self.settings["ui_state"]["last_input_directory"] = directory
+            self.save()
+
+    def get_last_output_directory(self):
+        """Get the last used output directory if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_output_directory", True):
+            return ui_state.get("last_output_directory", "")
+        return ""
+
+    def set_last_output_directory(self, directory):
+        """Set the last used output directory and save if remembering is enabled."""
+        ui_state = self.settings.get("ui_state", {})
+        if ui_state.get("remember_output_directory", True):
+            if "ui_state" not in self.settings:
+                self.settings["ui_state"] = {}
+            self.settings["ui_state"]["last_output_directory"] = directory
+            self.save()
+
+    def get_remember_input_directory(self):
+        """Get whether to remember the last input directory."""
+        return self.settings.get("ui_state", {}).get("remember_input_directory", True)
+
+    def set_remember_input_directory(self, remember):
+        """Set whether to remember the last input directory."""
+        if "ui_state" not in self.settings:
+            self.settings["ui_state"] = {}
+        self.settings["ui_state"]["remember_input_directory"] = remember
+        # If disabled, clear the saved directory
+        if not remember:
+            self.settings["ui_state"]["last_input_directory"] = ""
+        self.save()
+
+    def get_remember_output_directory(self):
+        """Get whether to remember the last output directory."""
+        return self.settings.get("ui_state", {}).get("remember_output_directory", True)
+
+    def set_remember_output_directory(self, remember):
+        """Set whether to remember the last output directory."""
+        if "ui_state" not in self.settings:
+            self.settings["ui_state"] = {}
+        self.settings["ui_state"]["remember_output_directory"] = remember
+        # If disabled, clear the saved directory
+        if not remember:
+            self.settings["ui_state"]["last_output_directory"] = ""
+        self.save()
+
+    def get_language(self):
+        """Get the application language setting."""
+        return self.settings.get("language", "auto")
+
+    def set_language(self, language_code):
+        """Set the application language."""
+        self.settings["language"] = language_code
+        self.save()
+
+    def get_effective_language(self):
+        """
+        Get the effective language code.
+        If set to 'auto', returns the system locale, otherwise returns the set language.
+        """
+        language = self.get_language()
+        if language == "auto":
+            # Import here to avoid circular imports
+            from .translation_manager import get_translation_manager
+
+            manager = get_translation_manager()
+            return manager.get_system_locale()
+        return language

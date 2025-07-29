@@ -1,6 +1,6 @@
 import os
 from PIL.PngImagePlugin import PngInfo
-import pillow_avif
+import pillow_avif # DO NOT REMOVE
 
 # Import our own modules
 from utils.utilities import Utilities
@@ -80,6 +80,7 @@ class FrameExporter:
                     frame[0],
                     settings.get("filename_format"),
                     settings.get("replace_rules"),
+                    settings.get("suffix"),
                 )
 
                 frame_filename = os.path.join(

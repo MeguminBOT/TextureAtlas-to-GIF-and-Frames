@@ -1,159 +1,74 @@
-import tkinter as tk
-from tkinter import messagebox
-import psutil
-import multiprocessing
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import platform
+import multiprocessing
 import subprocess
+import psutil
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QWidget,
+    QPushButton,
+    QLineEdit,
+    QCheckBox,
+    QComboBox,
+    QGroupBox,
+    QGridLayout,
+    QMessageBox,
+    QTabWidget,
+    QSpinBox,
+    QDoubleSpinBox,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 
-# Import our own modules
-from core.exception_handler import ExceptionHandler
 
-
-class AppConfigWindow:
+class AppConfigWindow(QDialog):
     """
     A scrollable window for configuring application settings.
 
     This window provides a comprehensive interface for configuring various application
     settings including resource limits, extraction defaults, compression defaults,
-    update preferences, and UI options. The window is fully scrollable to accommodate
-    growing settings and includes keyboard navigation.
-
-    Attributes:
-        window (tk.Toplevel): The options window instance.
-        app_config: The application's configuration object (AppConfig).
-        max_cores (int): Number of logical CPU cores available.
-        max_threads (int): Number of logical CPU threads available (may be same as max_cores).
-        max_memory_mb (int): Total physical RAM in megabytes.
-        cpu_var (tk.StringVar): Tkinter variable for CPU threads input field.
-        mem_var (tk.StringVar): Tkinter variable for memory limit input field.
-        extraction_fields (dict): Dictionary of extraction settings fields and their types.
-        extraction_vars (dict): Dictionary of Tkinter variables for extraction settings.
-        compression_vars (dict): Dictionary of Tkinter variables for compression settings.
-        check_updates_var (tk.BooleanVar): Tkinter variable for the 'Check for updates on startup' checkbox.
-        auto_update_var (tk.BooleanVar): Tkinter variable for the 'Auto-download and install updates' checkbox.
-
-    Methods:
-        __init__(parent, app_config):
-            Initialize the scrollable options window with system information and current settings.
-        _on_extraction_frame_configure(event):
-            Configure the extraction frame to adjust its scroll region.
-        _on_canvas_configure(event):
-            Configure the canvas to adjust its width based on the window size.
-        _on_mousewheel(event):
-            Handle mouse wheel scrolling for the extraction canvas.
-        _on_linux_scroll(event):
-            Handle mouse scroll events on Linux systems.
-        reset_to_defaults():
-            Reset all fields to the application's initial defaults.
-        save_config():
-            Validate and save user settings to the app config.
-        parse_value(key, val, expected_type):
-            Static method to parse and validate a value based on its expected type, raising errors for invalid inputs.
-
-    Keyboard Navigation:
-        Arrow Keys: Scroll up/down
-        Page Up/Down: Scroll by larger increments
-        Home/End: Jump to top/bottom of settings
-        Mouse Wheel: Scroll up/down (works anywhere in window)
+    update preferences, and UI options.
     """
 
     def __init__(self, parent, app_config):
-        self.window = tk.Toplevel(parent)
-        self.window.title("App options")
-        self.window.geometry("480x700")
-        self.window.resizable(False, False)
+        super().__init__(parent)
         self.app_config = app_config
+        self.setWindowTitle(self.tr("App Options"))
+        self.setModal(True)
+        self.resize(520, 750)
 
-        # Create button frame FIRST to reserve space at bottom
-        button_frame = tk.Frame(self.window, height=60)
-        button_frame.pack(side="bottom", fill="x", pady=10, padx=20)
-        button_frame.pack_propagate(False)  # Maintain fixed height
+        # Get system information
+        self.get_system_info()
 
-        button_container = tk.Frame(button_frame)
-        button_container.place(relx=0.5, rely=0.5, anchor="center")
+        # Initialize UI variables
+        self.init_variables()
 
-        save_btn = tk.Button(button_container, text="Save", command=self.save_config, width=12)
-        save_btn.pack(side="left", padx=5)
+        self.setup_ui()
+        self.load_current_settings()
 
-        cancel_btn = tk.Button(
-            button_container, text="Cancel", command=self.window.destroy, width=12
-        )
-        cancel_btn.pack(side="left", padx=5)
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
-        reset_btn = tk.Button(
-            button_container, text="Reset to defaults", command=self.reset_to_defaults, width=18
-        )
-        reset_btn.pack(side="left", padx=5)
 
-        main_canvas = tk.Canvas(self.window, borderwidth=0, highlightthickness=0)
-        main_scrollbar = tk.Scrollbar(self.window, orient="vertical", command=main_canvas.yview)
-        main_canvas.configure(yscrollcommand=main_scrollbar.set)
-
-        main_frame = tk.Frame(main_canvas)
-        main_canvas_window = main_canvas.create_window((0, 0), window=main_frame, anchor="nw")
-
-        def _on_main_frame_configure(event):
-            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-
-        main_frame.bind("<Configure>", _on_main_frame_configure)
-
-        def _on_main_canvas_configure(event):
-            canvas_width = event.width
-            main_canvas.itemconfig(main_canvas_window, width=canvas_width)
-
-        main_canvas.bind("<Configure>", _on_main_canvas_configure)
-
-        def _on_main_mousewheel(event):
-            main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        def _on_main_linux_scroll(event):
-            if event.num == 4:
-                main_canvas.yview_scroll(-1, "units")
-            elif event.num == 5:
-                main_canvas.yview_scroll(1, "units")
-
-        def _on_key_scroll(event):
-            if event.keysym == "Up":
-                main_canvas.yview_scroll(-1, "units")
-            elif event.keysym == "Down":
-                main_canvas.yview_scroll(1, "units")
-            elif event.keysym == "Page_Up":
-                main_canvas.yview_scroll(-5, "units")
-            elif event.keysym == "Page_Down":
-                main_canvas.yview_scroll(5, "units")
-            elif event.keysym == "Home":
-                main_canvas.yview_moveto(0)
-            elif event.keysym == "End":
-                main_canvas.yview_moveto(1)
-
-        if platform.system() == "Windows" or platform.system() == "Darwin":
-            main_canvas.bind("<MouseWheel>", _on_main_mousewheel)
-            self.window.bind("<MouseWheel>", _on_main_mousewheel)
-        elif platform.system() == "Linux":
-            main_canvas.bind("<Button-4>", _on_main_linux_scroll)
-            main_canvas.bind("<Button-5>", _on_main_linux_scroll)
-            self.window.bind("<Button-4>", _on_main_linux_scroll)
-            self.window.bind("<Button-5>", _on_main_linux_scroll)
-
-        self.window.bind("<Key>", _on_key_scroll)
-        self.window.focus_set()
-
-        main_canvas.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=8)
-        main_scrollbar.pack(side="right", fill="y", pady=8)
-        content_frame = tk.Frame(main_frame)
-        content_frame.pack(fill="both", expand=True, padx=(0, 12))
-
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(1, weight=1)
-
+    def get_system_info(self):
+        """Get system information for display."""
         self.max_cores = multiprocessing.cpu_count()
         self.max_threads = None
         self.max_memory_mb = int(psutil.virtual_memory().total / (1024 * 1024))
 
-        cpu_model = "Unknown CPU"
+        # Get CPU information
+        self.cpu_model = "Unknown CPU"
         try:
             if platform.system() == "Windows":
-                cpu_model = (
+                self.cpu_model = (
                     subprocess.check_output("wmic cpu get Name", shell=True)
                     .decode(errors="ignore")
                     .split("\n")[1]
@@ -165,19 +80,16 @@ class AppConfigWindow:
                     .split("\n")[1]
                     .strip()
                 )
-
             elif platform.system() == "Linux":
                 with open("/proc/cpuinfo") as f:
                     for line in f:
                         if "model name" in line:
-                            cpu_model = line.split(":")[1].strip()
-                        if "processor" in line:
-                            if self.max_threads is None:
-                                self.max_threads = 0
-                            self.max_threads += 1
-
+                            self.cpu_model = line.split(":")[1].strip()
+                            break
+                # Count logical processors
+                self.max_threads = multiprocessing.cpu_count()
             elif platform.system() == "Darwin":
-                cpu_model = (
+                self.cpu_model = (
                     subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"])
                     .decode(errors="ignore")
                     .strip()
@@ -193,683 +105,713 @@ class AppConfigWindow:
         if not self.max_threads:
             self.max_threads = self.max_cores
 
+    def init_variables(self):
+        """Initialize UI variables for settings."""
+        # These will hold the UI controls
+        self.cpu_threads_edit = None
+        self.memory_limit_edit = None
+        self.check_updates_cb = None
+        self.auto_update_cb = None
+        self.remember_input_dir_cb = None
+        self.remember_output_dir_cb = None
+        self.extraction_fields = {}
+        self.compression_fields = {}
+
+    def setup_ui(self):
+        """Set up the user interface."""
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(10)
+
+        # Create tab widget for organization
+        tab_widget = QTabWidget()
+
+        # System & Resources tab
+        system_tab = self.create_system_tab()
+        tab_widget.addTab(system_tab, "System & Resources")
+
+        # Extraction Settings tab
+        extraction_tab = self.create_extraction_tab()
+        tab_widget.addTab(extraction_tab, "Extraction Defaults")
+
+        # Compression Settings tab
+        compression_tab = self.create_compression_tab()
+        tab_widget.addTab(compression_tab, "Compression Defaults")
+
+        # UI Settings tab
+        ui_tab = self.create_ui_tab()
+        tab_widget.addTab(ui_tab, "UI Preferences")
+
+        # Update Settings tab
+        update_tab = self.create_update_tab()
+        tab_widget.addTab(update_tab, "Updates")
+
+        main_layout.addWidget(tab_widget)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        reset_btn = QPushButton(self.tr("Reset to defaults"))
+        reset_btn.clicked.connect(self.reset_to_defaults)
+        reset_btn.setMinimumWidth(130)
+        button_layout.addWidget(reset_btn)
+
+        cancel_btn = QPushButton(self.tr("Cancel"))
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setMinimumWidth(100)
+        button_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton(self.tr("Save"))
+        save_btn.clicked.connect(self.save_config)
+        save_btn.setMinimumWidth(100)
+        save_btn.setDefault(True)
+        button_layout.addWidget(save_btn)
+
+        main_layout.addLayout(button_layout)
+
+    def create_system_tab(self):
+        """Create the system and resources tab."""
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # System information
+        sys_group = QGroupBox("Your Computer")
+        sys_layout = QVBoxLayout(sys_group)
+
+        cpu_label = QLabel(self.tr("CPU: {cpu} (Threads: {threads})").format(cpu=self.cpu_model, threads=self.max_threads))
+        cpu_label.setFont(QFont("Arial", 9))
+        sys_layout.addWidget(cpu_label)
+
+        ram_label = QLabel(self.tr("RAM: {memory:,} MB").format(memory=self.max_memory_mb))
+        ram_label.setFont(QFont("Arial", 9))
+        sys_layout.addWidget(ram_label)
+
+        layout.addWidget(sys_group)
+
+        # Resource limits
+        resource_group = QGroupBox("App Resource Limits")
+        resource_layout = QGridLayout(resource_group)
+
+        # CPU threads
+        cpu_label = QLabel(self.tr("CPU threads to use (max: {max_threads}):").format(max_threads=self.max_threads))
+        resource_layout.addWidget(cpu_label, 0, 0)
+
+        self.cpu_threads_edit = QSpinBox()
+        self.cpu_threads_edit.setRange(1, self.max_threads)
+        resource_layout.addWidget(self.cpu_threads_edit, 0, 1)
+
+        # Memory limit
+        mem_label = QLabel(self.tr("Memory limit (MB, max: {max_memory}):").format(max_memory=self.max_memory_mb))
+        resource_layout.addWidget(mem_label, 1, 0)
+
+        self.memory_limit_edit = QSpinBox()
+        self.memory_limit_edit.setRange(0, self.max_memory_mb)
+        self.memory_limit_edit.setSuffix(" MB")
+        resource_layout.addWidget(self.memory_limit_edit, 1, 1)
+
+        mem_note = QLabel(self.tr("Note: Memory limit is for future use and not yet implemented."))
+        mem_note.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
+        mem_note.setStyleSheet("QLabel { color: #666; }")
+        resource_layout.addWidget(mem_note, 2, 0, 1, 2)
+
+        layout.addWidget(resource_group)
+        layout.addStretch()
+
+        scroll_area.setWidget(widget)
+        return scroll_area
+
+    def create_extraction_tab(self):
+        """Create the extraction defaults tab."""
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Extraction defaults group
+        group = QGroupBox("Extraction Default Settings")
+        group_layout = QGridLayout(group)
+
+        # Define extraction fields
+        extraction_fields = {
+            "animation_export": ("Enable animation export:", "bool", True),
+            "animation_format": ("Animation format:", "combo", "GIF"),
+            "fps": ("FPS:", "int", 24),
+            "delay": ("End delay (ms):", "int", 250),
+            "period": ("Period (ms):", "int", 0),
+            "scale": ("Scale:", "float", 1.0),
+            "threshold": ("Alpha threshold:", "float", 0.1),
+            "frame_export": ("Enable frame export:", "bool", True),
+            "frame_format": ("Frame format:", "combo", "PNG"),
+            "frame_scale": ("Frame scale:", "float", 1.0),
+        }
+
         row = 0
-        tk.Label(content_frame, text="Your computer", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, sticky="w", pady=(0, 2), columnspan=2
+        for key, (label_text, field_type, default) in extraction_fields.items():
+            label = QLabel(label_text)
+            group_layout.addWidget(label, row, 0)
+
+            if field_type == "bool":
+                checkbox = QCheckBox()
+                checkbox.setChecked(default)
+                self.extraction_fields[key] = checkbox
+                group_layout.addWidget(checkbox, row, 1)
+            elif field_type == "combo":
+                if "format" in key:
+                    if "animation" in key:
+                        options = ["GIF", "WebP", "APNG"]
+                    else:
+                        options = ["PNG", "JPG", "JPEG", "BMP", "TIFF"]
+
+                    combo = QComboBox()
+                    combo.addItems(options)
+                    combo.setCurrentText(str(default))
+                    self.extraction_fields[key] = combo
+                    group_layout.addWidget(combo, row, 1)
+            elif field_type == "int":
+                spinbox = QSpinBox()
+                spinbox.setRange(0, 99999)
+                spinbox.setValue(default)
+                self.extraction_fields[key] = spinbox
+                group_layout.addWidget(spinbox, row, 1)
+            elif field_type == "float":
+                line_edit = QLineEdit(str(default))
+                self.extraction_fields[key] = line_edit
+                group_layout.addWidget(line_edit, row, 1)
+
+            row += 1
+
+        layout.addWidget(group)
+        layout.addStretch()
+
+        scroll_area.setWidget(widget)
+        return scroll_area
+
+    def create_compression_tab(self):
+        """Create the compression defaults tab."""
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # PNG Settings Group
+        png_group = QGroupBox("PNG Settings")
+        png_layout = QGridLayout(png_group)
+
+        row = 0
+        # PNG Compress Level
+        png_layout.addWidget(QLabel(self.tr("Compress Level (0-9):")), row, 0)
+        png_compress_spinbox = QSpinBox()
+        png_compress_spinbox.setRange(0, 9)
+        png_compress_spinbox.setValue(9)
+        png_compress_spinbox.setToolTip(
+            "PNG compression level (0-9):\n"
+            "• 0: No compression (fastest, largest file)\n"
+            "• 1-3: Low compression\n"
+            "• 4-6: Medium compression\n"
+            "• 7-9: High compression (slowest, smallest file)\n"
+            "This doesn't affect the quality of the image, only the file size"
         )
+        self.compression_fields["png_compress_level"] = png_compress_spinbox
+        png_layout.addWidget(png_compress_spinbox, row, 1)
         row += 1
-        tk.Label(
-            content_frame, text=f"CPU: {cpu_model} (Threads: {self.max_threads})", font=("Arial", 9)
-        ).grid(row=row, column=0, sticky="w", columnspan=2)
+
+        # PNG Optimize
+        png_optimize_checkbox = QCheckBox("Optimize PNG")
+        png_optimize_checkbox.setChecked(True)
+        png_optimize_checkbox.setToolTip(
+            "PNG optimize:\n"
+            "• Enabled: Uses additional compression techniques for smaller files\n"
+            "When enabled, compression level is automatically set to 9\n"
+            "Results in slower processing but better compression\n\n"
+            "This doesn't affect the quality of the image, only the file size"
+        )
+        self.compression_fields["png_optimize"] = png_optimize_checkbox
+        png_layout.addWidget(png_optimize_checkbox, row, 0, 1, 2)
+
+        layout.addWidget(png_group)
+
+        # WebP Settings Group
+        webp_group = QGroupBox("WebP Settings")
+        webp_layout = QGridLayout(webp_group)
+
+        row = 0
+        # WebP Lossless
+        webp_lossless_checkbox = QCheckBox("Lossless WebP")
+        webp_lossless_checkbox.setChecked(True)
+        webp_lossless_checkbox.setToolTip(
+            "WebP lossless mode:\n"
+            "• Enabled: Perfect quality preservation, larger file size\n"
+            "• Disabled: Lossy compression with adjustable quality\n"
+            "When enabled, quality sliders are disabled"
+        )
+        self.compression_fields["webp_lossless"] = webp_lossless_checkbox
+        webp_layout.addWidget(webp_lossless_checkbox, row, 0, 1, 2)
         row += 1
 
-        tk.Label(content_frame, text=f"RAM: {self.max_memory_mb:,} MB", font=("Arial", 9)).grid(
-            row=row, column=0, sticky="w", pady=(0, 8), columnspan=2
+        # WebP Quality
+        webp_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
+        webp_quality_spinbox = QSpinBox()
+        webp_quality_spinbox.setRange(0, 100)
+        webp_quality_spinbox.setValue(90)
+        webp_quality_spinbox.setToolTip(
+            "WebP quality (0-100):\n"
+            "• 0: Lowest quality, smallest file\n"
+            "• 75: Balanced quality/size\n"
+            "• 100: Highest quality, largest file\n"
+            "Only used in lossy mode"
         )
+        self.compression_fields["webp_quality"] = webp_quality_spinbox
+        webp_layout.addWidget(webp_quality_spinbox, row, 1)
         row += 1
 
-        tk.Label(content_frame, text="App resource limits", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, sticky="w", pady=(0, 4), columnspan=2
+        # WebP Method
+        webp_layout.addWidget(QLabel(self.tr("Method (0-6):")), row, 0)
+        webp_method_spinbox = QSpinBox()
+        webp_method_spinbox.setRange(0, 6)
+        webp_method_spinbox.setValue(3)
+        webp_method_spinbox.setToolTip(
+            "WebP compression method (0-6):\n"
+            "• 0: Fastest encoding, larger file\n"
+            "• 3: Balanced speed/compression\n"
+            "• 6: Slowest encoding, best compression\n"
+            "Higher values take more time but produce smaller files"
         )
+        self.compression_fields["webp_method"] = webp_method_spinbox
+        webp_layout.addWidget(webp_method_spinbox, row, 1)
         row += 1
 
-        resource_canvas = tk.Canvas(
-            content_frame,
-            borderwidth=1,
-            relief="solid",
-            highlightthickness=1,
-            highlightbackground="#888",
+        # WebP Alpha Quality
+        webp_layout.addWidget(QLabel(self.tr("Alpha Quality (0-100):")), row, 0)
+        webp_alpha_quality_spinbox = QSpinBox()
+        webp_alpha_quality_spinbox.setRange(0, 100)
+        webp_alpha_quality_spinbox.setValue(90)
+        webp_alpha_quality_spinbox.setToolTip(
+            "WebP alpha channel quality (0-100):\n"
+            "Controls transparency compression quality\n"
+            "• 0: Maximum alpha compression\n"
+            "• 100: Best alpha quality\n"
+            "Only used in lossy mode"
         )
-        resource_canvas.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 8), padx=(0, 0))
-        resource_frame = tk.Frame(resource_canvas, padx=4, pady=4)
+        self.compression_fields["webp_alpha_quality"] = webp_alpha_quality_spinbox
+        webp_layout.addWidget(webp_alpha_quality_spinbox, row, 1)
+        row += 1
 
-        resource_frame.grid_columnconfigure(0, weight=1)
-        resource_frame.grid_columnconfigure(1, weight=0)
-
-        tk.Label(resource_frame, text=f"CPU threads to use (max: {self.max_threads}):").grid(
-            row=0, column=0, sticky="w"
+        # WebP Exact
+        webp_exact_checkbox = QCheckBox("Exact WebP")
+        webp_exact_checkbox.setChecked(True)
+        webp_exact_checkbox.setToolTip(
+            "WebP exact mode:\n"
+            "• Enabled: Preserves RGB values in transparent areas\n"
+            "• Disabled: Allows optimization of transparent pixels\n"
+            "Enable for better quality when transparency matters"
         )
+        self.compression_fields["webp_exact"] = webp_exact_checkbox
+        webp_layout.addWidget(webp_exact_checkbox, row, 0, 1, 2)
+
+        layout.addWidget(webp_group)
+
+        # AVIF Settings Group
+        avif_group = QGroupBox("AVIF Settings")
+        avif_layout = QGridLayout(avif_group)
+
+        row = 0
+        # AVIF Lossless
+        avif_lossless_checkbox = QCheckBox("Lossless AVIF")
+        avif_lossless_checkbox.setChecked(True)
+        self.compression_fields["avif_lossless"] = avif_lossless_checkbox
+        avif_layout.addWidget(avif_lossless_checkbox, row, 0, 1, 2)
+        row += 1
+
+        # AVIF Quality
+        avif_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
+        avif_quality_spinbox = QSpinBox()
+        avif_quality_spinbox.setRange(0, 100)
+        avif_quality_spinbox.setValue(90)
+        avif_quality_spinbox.setToolTip(
+            "AVIF quality (0-100):\n"
+            "• 0-30: Low quality, very small files\n"
+            "• 60-80: Good quality for most images\n"
+            "• 85-95: High quality (recommended)\n"
+            "• 95-100: Excellent quality, larger files"
+        )
+        self.compression_fields["avif_quality"] = avif_quality_spinbox
+        avif_layout.addWidget(avif_quality_spinbox, row, 1)
+        row += 1
+
+        # AVIF Speed
+        avif_layout.addWidget(QLabel(self.tr("Speed (0-10):")), row, 0)
+        avif_speed_spinbox = QSpinBox()
+        avif_speed_spinbox.setRange(0, 10)
+        avif_speed_spinbox.setValue(5)
+        avif_speed_spinbox.setToolTip(
+            "AVIF encoding speed (0-10):\n"
+            "• 0: Slowest encoding, best compression\n"
+            "• 5: Balanced speed/compression (default)\n"
+            "• 10: Fastest encoding, larger files\n"
+            "Higher values encode faster but produce larger files"
+        )
+        self.compression_fields["avif_speed"] = avif_speed_spinbox
+        avif_layout.addWidget(avif_speed_spinbox, row, 1)
+
+        layout.addWidget(avif_group)
+
+        # TIFF Settings Group
+        tiff_group = QGroupBox("TIFF Settings")
+        tiff_layout = QGridLayout(tiff_group)
+
+        row = 0
+        # TIFF Compression Type
+        tiff_layout.addWidget(QLabel(self.tr("Compression Type:")), row, 0)
+        tiff_compression_combobox = QComboBox()
+        tiff_compression_combobox.addItems(["none", "lzw", "zip", "jpeg"])
+        tiff_compression_combobox.setCurrentText("lzw")
+        tiff_compression_combobox.setToolTip(
+            "TIFF compression algorithm:\n"
+            "• none: No compression, largest files\n"
+            "• lzw: Lossless, good compression (recommended)\n"
+            "• zip: Lossless, better compression\n"
+            "• jpeg: Lossy compression, smallest files"
+        )
+        self.compression_fields["tiff_compression_type"] = tiff_compression_combobox
+        tiff_layout.addWidget(tiff_compression_combobox, row, 1)
+        row += 1
+
+        # TIFF Quality
+        tiff_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
+        tiff_quality_spinbox = QSpinBox()
+        tiff_quality_spinbox.setRange(0, 100)
+        tiff_quality_spinbox.setValue(90)
+        tiff_quality_spinbox.setToolTip(
+            "TIFF quality (0-100):\n"
+            "Only used with JPEG compression\n"
+            "• 0-50: Low quality, small files\n"
+            "• 75-90: Good quality\n"
+            "• 95-100: Excellent quality"
+        )
+        self.compression_fields["tiff_quality"] = tiff_quality_spinbox
+        tiff_layout.addWidget(tiff_quality_spinbox, row, 1)
+        row += 1
+
+        # TIFF Optimize
+        tiff_optimize_checkbox = QCheckBox("Optimize TIFF")
+        tiff_optimize_checkbox.setChecked(True)
+        tiff_optimize_checkbox.setToolTip(
+            "TIFF optimization:\n"
+            "• Enabled: Optimize file structure for smaller size\n"
+            "• Disabled: Standard TIFF format\n"
+            "Recommended to keep enabled"
+        )
+        self.compression_fields["tiff_optimize"] = tiff_optimize_checkbox
+        self.compression_fields["tiff_optimize"] = tiff_optimize_checkbox
+        tiff_layout.addWidget(tiff_optimize_checkbox, row, 0, 1, 2)
+
+        layout.addWidget(tiff_group)
+        layout.addStretch()
+
+        scroll_area.setWidget(widget)
+        return scroll_area
+
+    def create_update_tab(self):
+        """Create the update settings tab."""
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Update settings group
+        group = QGroupBox("Update Preferences")
+        group_layout = QVBoxLayout(group)
+
+        self.check_updates_cb = QCheckBox("Check for updates on startup")
+        self.check_updates_cb.stateChanged.connect(self.on_check_updates_change)
+        group_layout.addWidget(self.check_updates_cb)
+
+        self.auto_update_cb = QCheckBox("Auto-download and install updates")
+        group_layout.addWidget(self.auto_update_cb)
+
+        note_label = QLabel(self.tr("Note: Auto-update will download and install updates automatically when available."))
+        note_label.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
+        note_label.setStyleSheet("QLabel { color: #666; }")
+        note_label.setWordWrap(True)
+        group_layout.addWidget(note_label)
+
+        layout.addWidget(group)
+        layout.addStretch()
+
+        scroll_area.setWidget(widget)
+        return scroll_area
+
+    def on_check_updates_change(self, state):
+        """Handle changes to the check updates checkbox."""
+        # Enable/disable auto-update based on check updates setting
+        self.auto_update_cb.setEnabled(state == Qt.CheckState.Checked.value)
+        if state != Qt.CheckState.Checked.value:
+            self.auto_update_cb.setChecked(False)
+
+    def load_current_settings(self):
+        """Load current settings from app config."""
+        # Resource limits
         resource_limits = self.app_config.get("resource_limits", {})
         default_threads = (self.max_threads + 1) // 4
 
         cpu_default = resource_limits.get("cpu_cores", "auto")
         if cpu_default is None or cpu_default == "auto":
-            cpu_default = str(default_threads)
+            cpu_default = default_threads
+        self.cpu_threads_edit.setValue(int(cpu_default))
 
-        self.cpu_var = tk.StringVar(value=str(cpu_default))
-        self.cpu_entry = tk.Entry(resource_frame, textvariable=self.cpu_var, width=10)
-        self.cpu_entry.grid(row=0, column=1, sticky="w", padx=(8, 0))
-
-        # Memory limit is not actually implemented in the app yet as it requires vast code changes but we add it for future use
-        tk.Label(resource_frame, text=f"Memory limit (MB, max: {self.max_memory_mb}):").grid(
-            row=1, column=0, sticky="w", pady=(4, 0)
-        )
         default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
         mem_default = resource_limits.get("memory_limit_mb", 0)
-
         if mem_default is None or mem_default == 0:
-            mem_default = str(default_mem)
+            mem_default = default_mem
+        self.memory_limit_edit.setValue(int(mem_default))
 
-        self.mem_var = tk.StringVar(value=str(mem_default))
-        self.mem_entry = tk.Entry(
-            resource_frame, textvariable=self.mem_var, width=10, state="disabled"
-        )  # Disabled until implemented
-        self.mem_entry.grid(row=1, column=1, sticky="w", padx=(8, 0))
+        # Extraction defaults
+        extraction_defaults = self.app_config.get("extraction_defaults", {})
+        for key, control in self.extraction_fields.items():
+            value = extraction_defaults.get(key)
+            if value is not None:
+                if isinstance(control, QComboBox):
+                    control.setCurrentText(str(value))
+                elif isinstance(control, QSpinBox):
+                    control.setValue(int(value))
+                elif isinstance(control, QLineEdit):
+                    control.setText(str(value))
+                elif isinstance(control, QCheckBox):
+                    control.setChecked(bool(value))
 
-        resource_frame.update_idletasks()
-        req_width = resource_frame.winfo_reqwidth() + 3
-        req_height = resource_frame.winfo_reqheight() + 3
-        resource_canvas.configure(width=req_width, height=req_height)
-        resource_canvas.update_idletasks()
-        resource_canvas.yview_moveto(0)
-        resource_canvas.xview_moveto(0)
-        resource_canvas.create_window((0, 0), window=resource_frame, anchor="nw")
-
-        row += 1
-        tk.Label(content_frame, text="Extraction defaults", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, sticky="w", pady=(16, 2), columnspan=2
-        )
-        row += 1
-        defaults = (
-            self.app_config.get_extraction_defaults()
-            if hasattr(self.app_config, "get_extraction_defaults")
-            else {}
-        )
-
-        resource_frame.update_idletasks()
-
-        extraction_outer_frame = tk.Frame(
-            content_frame,
-            borderwidth=1,
-            relief="solid",
-            highlightthickness=1,
-            highlightbackground="#888",
-        )
-        extraction_outer_frame.grid(
-            row=row, column=0, columnspan=2, sticky="ew", padx=(0, 0), pady=(0, 10)
-        )
-
-        content_frame.grid_columnconfigure(0, weight=1)
-        extraction_outer_frame.grid_columnconfigure(0, weight=1)
-
-        extraction_canvas = tk.Canvas(extraction_outer_frame, borderwidth=0, highlightthickness=0)
-        extraction_canvas.grid(row=0, column=0, sticky="ew")
-
-        extraction_scrollbar = tk.Scrollbar(
-            extraction_outer_frame, orient="vertical", command=extraction_canvas.yview
-        )
-        extraction_scrollbar.grid(row=0, column=1, sticky="ns")
-        extraction_canvas.configure(yscrollcommand=extraction_scrollbar.set)
-
-        extraction_frame = tk.Frame(extraction_canvas, padx=4, pady=4)
-        canvas_window = extraction_canvas.create_window(
-            (0, 0), window=extraction_frame, anchor="nw"
-        )
-
-        extraction_frame.grid_columnconfigure(0, weight=1)
-        extraction_frame.grid_columnconfigure(1, weight=0)  # For labels
-        extraction_frame.grid_columnconfigure(2, weight=1)  # For entry/combobox widgets
-
-        def _on_extraction_frame_configure(event):
-            extraction_canvas.configure(scrollregion=extraction_canvas.bbox("all"))
-
-        extraction_frame.bind("<Configure>", _on_extraction_frame_configure)
-
-        def _on_canvas_configure(event):
-            canvas_width = event.width
-            extraction_canvas.itemconfig(canvas_window, width=canvas_width)
-
-        extraction_canvas.bind("<Configure>", _on_canvas_configure)
-
-        def _on_mousewheel(event):
-            extraction_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        def _on_linux_scroll(event):
-            if event.num == 4:
-                extraction_canvas.yview_scroll(-1, "units")
-            elif event.num == 5:
-                extraction_canvas.yview_scroll(1, "units")
-
-        if platform.system() == "Windows" or platform.system() == "Darwin":
-            extraction_canvas.bind("<MouseWheel>", _on_mousewheel)
-        elif platform.system() == "Linux":
-            extraction_canvas.bind("<Button-4>", _on_linux_scroll)
-            extraction_canvas.bind("<Button-5>", _on_linux_scroll)
-
-        self.extraction_fields = {
-            "animation_format": (tk.StringVar, ["None", "GIF", "WebP", "APNG"]),
-            "fps": (tk.StringVar, None),
-            "delay": (tk.StringVar, None),
-            "period": (tk.StringVar, None),
-            "scale": (tk.StringVar, None),
-            "threshold": (tk.StringVar, None),
-            "crop_option": (tk.StringVar, ["None", "Animation based", "Frame based"]),
-            "frame_format": (
-                tk.StringVar,
-                ["None", "AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"],
-            ),
-            "frame_scale": (tk.StringVar, None),
-            "frame_selection": (
-                tk.StringVar,
-                ["All", "No duplicates", "First", "Last", "First, Last"],
-            ),
-            "filename_format": (
-                tk.StringVar,
-                ["Standardized", "No spaces", "No special characters"],
-            ),
-            "variable_delay": (tk.BooleanVar, None),
-            "fnf_idle_loop": (tk.BooleanVar, None),
-        }
-
-        self.extraction_vars = {}
-        option_row = 0
-        for key, (var_type, options) in self.extraction_fields.items():
-            label = key.replace("_", " ").capitalize() + (
-                ":" if not key.startswith("fnf") else " (sets loop delay to 0):"
-            )
-            tk.Label(extraction_frame, text=label).grid(row=option_row, column=0, sticky="w")
-            default_val = defaults.get(key, "" if var_type is tk.StringVar else False)
-            if var_type is tk.BooleanVar:
-                self.extraction_vars[key] = var_type(value=default_val)
-                tk.Checkbutton(extraction_frame, variable=self.extraction_vars[key]).grid(
-                    row=option_row, column=1, sticky="w", padx=(8, 0)
-                )
-            elif options:
-                self.extraction_vars[key] = var_type(value=default_val)
-                tk.OptionMenu(extraction_frame, self.extraction_vars[key], *options).grid(
-                    row=option_row, column=1, sticky="w", padx=(8, 0)
-                )
+        # Compression defaults
+        compression_defaults = self.app_config.get("compression_defaults", {})
+        for key, control in self.compression_fields.items():
+            # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+            if "_" in key:
+                format_name = key.split("_", 1)[0]
+                setting_name = "_".join(key.split("_")[1:])
+                format_defaults = compression_defaults.get(format_name, {})
+                value = format_defaults.get(setting_name)
             else:
-                self.extraction_vars[key] = var_type(value=str(default_val))
-                tk.Entry(extraction_frame, textvariable=self.extraction_vars[key], width=10).grid(
-                    row=option_row, column=1, sticky="w", padx=(8, 0)
-                )
-            option_row += 1
+                value = compression_defaults.get(key)
 
-        row += 1
-        tk.Label(content_frame, text="Update settings", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, sticky="w", pady=(8, 2), columnspan=2
-        )
-        row += 1
+            if value is not None:
+                if isinstance(control, QCheckBox):
+                    control.setChecked(bool(value))
+                elif isinstance(control, QSpinBox):
+                    control.setValue(int(value))
+                elif isinstance(control, QComboBox):
+                    control.setCurrentText(str(value))
 
-        update_outer_frame = tk.Frame(
-            content_frame,
-            borderwidth=1,
-            relief="solid",
-            highlightthickness=1,
-            highlightbackground="#888",
-        )
-        update_outer_frame.grid(
-            row=row, column=0, columnspan=2, sticky="ew", padx=(0, 0), pady=(0, 10)
-        )
+        # Update settings
+        update_settings = self.app_config.get("update_settings", {})
+        self.check_updates_cb.setChecked(update_settings.get("check_updates_on_startup", True))
+        self.auto_update_cb.setChecked(update_settings.get("auto_download_updates", False))
 
-        update_settings = self.app_config.get(
-            "update_settings", self.app_config.DEFAULTS["update_settings"]
-        )
-        self.check_updates_var = tk.BooleanVar(
-            value=update_settings.get("check_updates_on_startup", True)
-        )
-        self.auto_update_var = tk.BooleanVar(
-            value=update_settings.get("auto_download_updates", False)
-        )
+        # UI settings
+        ui_state = self.app_config.get("ui_state", {})
+        if self.remember_input_dir_cb:
+            self.remember_input_dir_cb.setChecked(ui_state.get("remember_input_directory", True))
+        if self.remember_output_dir_cb:
+            self.remember_output_dir_cb.setChecked(ui_state.get("remember_output_directory", True))
 
-        def on_check_updates_change(*args):
-            if not self.check_updates_var.get():
-                self.auto_update_var.set(False)
-                self.auto_update_cb.config(state="disabled")
-            else:
-                self.auto_update_cb.config(state="normal")
-
-        self.check_updates_cb = tk.Checkbutton(
-            update_outer_frame, text="Check for updates on startup", variable=self.check_updates_var
-        )
-        self.check_updates_cb.pack(anchor="w", padx=4, pady=(4, 0))
-        self.auto_update_cb = tk.Checkbutton(
-            update_outer_frame,
-            text="Auto-download and install updates",
-            variable=self.auto_update_var,
-        )
-        self.auto_update_cb.pack(anchor="w", padx=4, pady=(0, 4))
-
-        self.check_updates_var.trace_add("write", lambda *args: on_check_updates_change())
-        on_check_updates_change()
-
-        row += 1
-        tk.Label(content_frame, text="Compression defaults", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, sticky="w", pady=(16, 2), columnspan=2
-        )
-        row += 1
-
-        compression_outer_frame = tk.Frame(
-            content_frame,
-            borderwidth=1,
-            relief="solid",
-            highlightthickness=1,
-            highlightbackground="#888",
-        )
-        compression_outer_frame.grid(
-            row=row, column=0, columnspan=2, sticky="ew", padx=(0, 0), pady=(0, 10)
-        )
-
-        content_frame.grid_columnconfigure(0, weight=1)
-        compression_outer_frame.grid_columnconfigure(0, weight=1)
-
-        compression_canvas = tk.Canvas(compression_outer_frame, borderwidth=0, highlightthickness=0)
-        compression_canvas.grid(row=0, column=0, sticky="ew")
-
-        compression_scrollbar = tk.Scrollbar(
-            compression_outer_frame, orient="vertical", command=compression_canvas.yview
-        )
-        compression_scrollbar.grid(row=0, column=1, sticky="ns")
-        compression_canvas.configure(yscrollcommand=compression_scrollbar.set)
-
-        compression_frame = tk.Frame(compression_canvas, padx=4, pady=4)
-        compression_canvas_window = compression_canvas.create_window(
-            (0, 0), window=compression_frame, anchor="nw"
-        )
-
-        compression_frame.grid_columnconfigure(0, weight=1)
-        compression_frame.grid_columnconfigure(1, weight=0)
-        compression_frame.grid_columnconfigure(2, weight=1)
-
-        def _on_compression_frame_configure(event):
-            compression_canvas.configure(scrollregion=compression_canvas.bbox("all"))
-
-        compression_frame.bind("<Configure>", _on_compression_frame_configure)
-
-        def _on_compression_canvas_configure(event):
-            canvas_width = event.width
-            compression_canvas.itemconfig(compression_canvas_window, width=canvas_width)
-
-        compression_canvas.bind("<Configure>", _on_compression_canvas_configure)
-
-        def _on_compression_mousewheel(event):
-            compression_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        def _on_compression_linux_scroll(event):
-            if event.num == 4:
-                compression_canvas.yview_scroll(-1, "units")
-            elif event.num == 5:
-                compression_canvas.yview_scroll(1, "units")
-
-        if platform.system() == "Windows" or platform.system() == "Darwin":
-            compression_canvas.bind("<MouseWheel>", _on_compression_mousewheel)
-        elif platform.system() == "Linux":
-            compression_canvas.bind("<Button-4>", _on_compression_linux_scroll)
-            compression_canvas.bind("<Button-5>", _on_compression_linux_scroll)
-
-        compression_defaults = self.app_config.get_compression_defaults()
-        self.compression_vars = {}
-
-        comp_row = 0
-
-        tk.Label(compression_frame, text="PNG Settings", font=("Arial", 9, "bold")).grid(
-            row=comp_row, column=0, columnspan=3, sticky="w", pady=(4, 2)
-        )
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Compress level (0-9):").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["png_compress_level"] = tk.IntVar(
-            value=compression_defaults.get("png", {}).get("compress_level", 9)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=9,
-            textvariable=self.compression_vars["png_compress_level"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        self.compression_vars["png_optimize"] = tk.BooleanVar(
-            value=compression_defaults.get("png", {}).get("optimize", True)
-        )
-        tk.Checkbutton(
-            compression_frame, text="Optimize PNG", variable=self.compression_vars["png_optimize"]
-        ).grid(row=comp_row, column=0, columnspan=2, sticky="w")
-        comp_row += 1
-
-        tk.Label(compression_frame, text="WebP Settings", font=("Arial", 9, "bold")).grid(
-            row=comp_row, column=0, columnspan=3, sticky="w", pady=(12, 2)
-        )
-        comp_row += 1
-
-        self.compression_vars["webp_lossless"] = tk.BooleanVar(
-            value=compression_defaults.get("webp", {}).get("lossless", True)
-        )
-        tk.Checkbutton(
-            compression_frame, text="Lossless WebP", variable=self.compression_vars["webp_lossless"]
-        ).grid(row=comp_row, column=0, columnspan=2, sticky="w")
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Quality (0-100):").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["webp_quality"] = tk.IntVar(
-            value=compression_defaults.get("webp", {}).get("quality", 100)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=100,
-            textvariable=self.compression_vars["webp_quality"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Method (0-6):").grid(row=comp_row, column=0, sticky="w")
-        self.compression_vars["webp_method"] = tk.IntVar(
-            value=compression_defaults.get("webp", {}).get("method", 6)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=6,
-            textvariable=self.compression_vars["webp_method"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Alpha quality (0-100):").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["webp_alpha_quality"] = tk.IntVar(
-            value=compression_defaults.get("webp", {}).get("alpha_quality", 100)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=100,
-            textvariable=self.compression_vars["webp_alpha_quality"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        self.compression_vars["webp_exact"] = tk.BooleanVar(
-            value=compression_defaults.get("webp", {}).get("exact", True)
-        )
-        tk.Checkbutton(
-            compression_frame, text="Exact WebP", variable=self.compression_vars["webp_exact"]
-        ).grid(row=comp_row, column=0, columnspan=2, sticky="w")
-        comp_row += 1
-
-        tk.Label(compression_frame, text="AVIF Settings", font=("Arial", 9, "bold")).grid(
-            row=comp_row, column=0, columnspan=3, sticky="w", pady=(12, 2)
-        )
-        comp_row += 1
-
-        self.compression_vars["avif_lossless"] = tk.BooleanVar(
-            value=compression_defaults.get("avif", {}).get("lossless", True)
-        )
-        tk.Checkbutton(
-            compression_frame, text="Lossless AVIF", variable=self.compression_vars["avif_lossless"]
-        ).grid(row=comp_row, column=0, columnspan=2, sticky="w")
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Quality (0-100):").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["avif_quality"] = tk.IntVar(
-            value=compression_defaults.get("avif", {}).get("quality", 100)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=100,
-            textvariable=self.compression_vars["avif_quality"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Speed (0-10):").grid(row=comp_row, column=0, sticky="w")
-        self.compression_vars["avif_speed"] = tk.IntVar(
-            value=compression_defaults.get("avif", {}).get("speed", 5)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=10,
-            textvariable=self.compression_vars["avif_speed"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        tk.Label(compression_frame, text="TIFF Settings", font=("Arial", 9, "bold")).grid(
-            row=comp_row, column=0, columnspan=3, sticky="w", pady=(12, 2)
-        )
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Compression type:").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["tiff_compression_type"] = tk.StringVar(
-            value=compression_defaults.get("tiff", {}).get("compression_type", "lzw")
-        )
-        tk.OptionMenu(
-            compression_frame,
-            self.compression_vars["tiff_compression_type"],
-            "lzw",
-            "jpeg",
-            "zip",
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        tk.Label(compression_frame, text="Quality (0-100):").grid(
-            row=comp_row, column=0, sticky="w"
-        )
-        self.compression_vars["tiff_quality"] = tk.IntVar(
-            value=compression_defaults.get("tiff", {}).get("quality", 100)
-        )
-        tk.Spinbox(
-            compression_frame,
-            from_=0,
-            to=100,
-            textvariable=self.compression_vars["tiff_quality"],
-            width=10,
-        ).grid(row=comp_row, column=1, sticky="w", padx=(8, 0))
-        comp_row += 1
-
-        self.compression_vars["tiff_optimize"] = tk.BooleanVar(
-            value=compression_defaults.get("tiff", {}).get("optimize", True)
-        )
-        tk.Checkbutton(
-            compression_frame, text="Optimize TIFF", variable=self.compression_vars["tiff_optimize"]
-        ).grid(row=comp_row, column=0, columnspan=2, sticky="w")
-        comp_row += 1
-
-        compression_frame.update_idletasks()
-        req_width = compression_frame.winfo_reqwidth() + 3
-        req_height = compression_frame.winfo_reqheight() + 3
-        compression_canvas.configure(width=req_width, height=min(req_height, 200))
-        compression_canvas.update_idletasks()
-        compression_canvas.yview_moveto(0)
-        compression_canvas.xview_moveto(0)
+        # Update auto-update enabled state
+        self.on_check_updates_change(self.check_updates_cb.checkState())
 
     def reset_to_defaults(self):
-        cpu_default = str((self.max_threads + 1) // 4)
-        self.cpu_var.set(cpu_default)
-        default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
-        self.mem_var.set(str(default_mem))
-
-        defaults = self.app_config.DEFAULTS["extraction_defaults"]
-
-        for key, (var_type, _) in self.extraction_fields.items():
-            default_val = defaults.get(key, "" if var_type is tk.StringVar else False)
-            if var_type is tk.BooleanVar:
-                self.extraction_vars[key].set(default_val)
-            else:
-                self.extraction_vars[key].set(str(default_val))
-
-        update_defaults = self.app_config.DEFAULTS["update_settings"]
-        self.check_updates_var.set(update_defaults.get("check_updates_on_startup", True))
-        self.auto_update_var.set(update_defaults.get("auto_download_updates", False))
-
-        compression_defaults = self.app_config.DEFAULTS["compression_defaults"]
-
-        self.compression_vars["png_compress_level"].set(
-            compression_defaults.get("png", {}).get("compress_level", 9)
-        )
-        self.compression_vars["png_optimize"].set(
-            compression_defaults.get("png", {}).get("optimize", True)
+        """Reset all settings to defaults."""
+        reply = QMessageBox.question(
+            self,
+            "Reset to Defaults",
+            "Are you sure you want to reset all settings to their default values?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
-        self.compression_vars["webp_lossless"].set(
-            compression_defaults.get("webp", {}).get("lossless", True)
-        )
-        self.compression_vars["webp_quality"].set(
-            compression_defaults.get("webp", {}).get("quality", 100)
-        )
-        self.compression_vars["webp_method"].set(
-            compression_defaults.get("webp", {}).get("method", 6)
-        )
-        self.compression_vars["webp_alpha_quality"].set(
-            compression_defaults.get("webp", {}).get("alpha_quality", 100)
-        )
-        self.compression_vars["webp_exact"].set(
-            compression_defaults.get("webp", {}).get("exact", True)
-        )
+        if reply == QMessageBox.StandardButton.Yes:
+            # Reset resource limits
+            default_threads = (self.max_threads + 1) // 4
+            self.cpu_threads_edit.setValue(default_threads)
 
-        self.compression_vars["avif_lossless"].set(
-            compression_defaults.get("avif", {}).get("lossless", True)
-        )
-        self.compression_vars["avif_quality"].set(
-            compression_defaults.get("avif", {}).get("quality", 100)
-        )
-        self.compression_vars["avif_speed"].set(
-            compression_defaults.get("avif", {}).get("speed", 0)
-        )
+            default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
+            self.memory_limit_edit.setValue(default_mem)
 
-        self.compression_vars["tiff_compression_type"].set(
-            compression_defaults.get("tiff", {}).get("compression_type", "lzw")
-        )
-        self.compression_vars["tiff_quality"].set(
-            compression_defaults.get("tiff", {}).get("quality", 90)
-        )
-        self.compression_vars["tiff_optimize"].set(
-            compression_defaults.get("tiff", {}).get("optimize", True)
-        )
+            # Reset extraction defaults
+            defaults = self.app_config.DEFAULTS["extraction_defaults"]
 
-        print("[Config] Configuration has been reset to defaults.")
+            for key, control in self.extraction_fields.items():
+                if key in defaults:
+                    default_value = defaults[key]
+                    if isinstance(control, QComboBox):
+                        control.setCurrentText(str(default_value))
+                    elif isinstance(control, QSpinBox):
+                        control.setValue(int(default_value))
+                    elif isinstance(control, QDoubleSpinBox):
+                        control.setValue(float(default_value))
+                    elif isinstance(control, QCheckBox):
+                        control.setChecked(bool(default_value))
+                    elif isinstance(control, QLineEdit):
+                        control.setText(str(default_value))
+
+            # Reset compression defaults
+            comp_defaults = self.app_config.DEFAULTS["compression_defaults"]
+
+            for key, control in self.compression_fields.items():
+                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+                if "_" in key:
+                    format_name = key.split("_", 1)[0]
+                    setting_name = "_".join(key.split("_")[1:])
+
+                    if format_name in comp_defaults and setting_name in comp_defaults[format_name]:
+                        default_value = comp_defaults[format_name][setting_name]
+
+                        if isinstance(control, QCheckBox):
+                            control.setChecked(bool(default_value))
+                        elif isinstance(control, QSpinBox):
+                            control.setValue(int(default_value))
+                        elif isinstance(control, QComboBox):
+                            control.setCurrentText(str(default_value))
+
+            # Reset update settings
+            update_defaults = self.app_config.DEFAULTS["update_settings"]
+            self.check_updates_cb.setChecked(update_defaults.get("check_updates_on_startup", True))
+            self.auto_update_cb.setChecked(update_defaults.get("auto_download_updates", False))
 
     def save_config(self):
-        cpu_val = self.cpu_var.get().strip().lower()
-        if cpu_val != "auto":
-            try:
-                if not cpu_val.isdigit():
-                    tk.messagebox.showerror(
-                        "Invalid Input", "CPU cores must be a positive integer or 'auto'."
-                    )
-                    return
-                cpu_int = int(cpu_val)
-                if cpu_int < 1:
-                    tk.messagebox.showerror("Invalid Input", "CPU cores must be at least 1.")
-                    return
-                if cpu_int > self.max_cores:
-                    tk.messagebox.showerror(
-                        "Invalid Input", f"CPU cores cannot exceed {self.max_cores}."
-                    )
-                    return
-            except Exception as e:
-                tk.messagebox.showerror(
-                    "Unexpected error",
-                    f"An unexpected error occurred while validating CPU cores input.\n"
-                    "This is most likely a bug in in the app and not a user error.\n"
-                    "Please report this issue on GitHub with the error details and your input.\n\n"
-                    f"Input: '{cpu_val}'\nError: {str(e)}",
-                )
-                return
-
-        resource_limits = self.app_config.get("resource_limits", {})
-        resource_limits["cpu_cores"] = cpu_val
-
-        mem_val = self.mem_var.get().strip()
+        """Save the configuration settings."""
         try:
-            mem_int = int(mem_val)
-            if mem_int < 0:
-                raise ValueError
-            if mem_int > self.max_memory_mb:
-                tk.messagebox.showerror(
-                    "Invalid Input", f"Memory limit cannot exceed {self.max_memory_mb} MB."
-                )
-                return
-            resource_limits["memory_limit_mb"] = mem_int
-        except Exception:
-            tk.messagebox.showerror("Invalid Input", "Memory limit must be a non-negative integer.")
-            return
+            # Validate and save resource limits
+            resource_limits = {}
 
-        self.app_config.set("resource_limits", resource_limits)
-        self.app_config.save()
+            cpu_threads = self.cpu_threads_edit.value()
+            if cpu_threads > self.max_threads:
+                raise ValueError(self.tr("CPU threads cannot exceed {max_threads}").format(max_threads=self.max_threads))
+            resource_limits["cpu_cores"] = cpu_threads
 
-        extraction_defaults = {}
-        for key, (var_type, _) in self.extraction_fields.items():
-            val = self.extraction_vars[key].get()
-            expected_type = self.app_config.TYPE_MAP[key]
-            try:
-                extraction_defaults[key] = self.parse_value(key, val, expected_type)
-            except ValueError as e:
-                tk.messagebox.showerror(
-                    "Invalid Input", f"Invalid value for '{key}': '{val}'\n{str(e)}"
-                )
-                return
-            except Exception as err:
-                tk.messagebox.showerror("Invalid Input", str(err))
-                return
-        self.app_config.set_extraction_defaults(**extraction_defaults)
+            memory_limit = self.memory_limit_edit.value()
+            if memory_limit > self.max_memory_mb:
+                raise ValueError(self.tr("Memory limit cannot exceed {max_memory} MB").format(max_memory=self.max_memory_mb))
+            resource_limits["memory_limit_mb"] = memory_limit
 
-        update_settings = {
-            "check_updates_on_startup": self.check_updates_var.get(),
-            "auto_download_updates": self.auto_update_var.get()
-            if self.check_updates_var.get()
-            else False,
-        }
-        self.app_config.set("update_settings", update_settings)
+            # Save extraction defaults
+            extraction_defaults = {}
+            for key, control in self.extraction_fields.items():
+                if isinstance(control, QComboBox):
+                    extraction_defaults[key] = control.currentText()
+                elif isinstance(control, QSpinBox):
+                    extraction_defaults[key] = control.value()
+                elif isinstance(control, QCheckBox):
+                    extraction_defaults[key] = control.isChecked()
+                elif isinstance(control, QLineEdit):
+                    try:
+                        if key in ["scale", "threshold", "frame_scale"]:
+                            extraction_defaults[key] = float(control.text())
+                        else:
+                            extraction_defaults[key] = int(control.text())
+                    except ValueError:
+                        raise ValueError(self.tr("Invalid value for {key}: {value}").format(key=key, value=control.text()))
 
-        self.app_config.set_compression_defaults(
-            "png",
-            compress_level=self.compression_vars["png_compress_level"].get(),
-            optimize=self.compression_vars["png_optimize"].get(),
-        )
+            # Save compression defaults
+            compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
 
-        self.app_config.set_compression_defaults(
-            "webp",
-            lossless=self.compression_vars["webp_lossless"].get(),
-            quality=self.compression_vars["webp_quality"].get(),
-            method=self.compression_vars["webp_method"].get(),
-            alpha_quality=self.compression_vars["webp_alpha_quality"].get(),
-            exact=self.compression_vars["webp_exact"].get(),
-        )
+            for key, control in self.compression_fields.items():
+                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
+                if "_" in key:
+                    format_name = key.split("_", 1)[0]
+                    setting_name = "_".join(key.split("_")[1:])
 
-        self.app_config.set_compression_defaults(
-            "avif",
-            lossless=self.compression_vars["avif_lossless"].get(),
-            quality=self.compression_vars["avif_quality"].get(),
-            speed=self.compression_vars["avif_speed"].get(),
-        )
+                    if format_name in compression_defaults:
+                        if isinstance(control, QCheckBox):
+                            compression_defaults[format_name][setting_name] = control.isChecked()
+                        elif isinstance(control, QSpinBox):
+                            compression_defaults[format_name][setting_name] = control.value()
+                        elif isinstance(control, QComboBox):
+                            compression_defaults[format_name][setting_name] = control.currentText()
 
-        self.app_config.set_compression_defaults(
-            "tiff",
-            compression_type=self.compression_vars["tiff_compression_type"].get(),
-            quality=self.compression_vars["tiff_quality"].get(),
-            optimize=self.compression_vars["tiff_optimize"].get(),
-        )
+            # Save update settings
+            update_settings = {
+                "check_updates_on_startup": self.check_updates_cb.isChecked(),
+                "auto_download_updates": self.auto_update_cb.isChecked(),
+            }
 
-        self.app_config.save()
-        self.window.destroy()
+            # Save UI settings
+            ui_state = self.app_config.settings.setdefault("ui_state", {})
+            if self.remember_input_dir_cb:
+                ui_state["remember_input_directory"] = self.remember_input_dir_cb.isChecked()
+            if self.remember_output_dir_cb:
+                ui_state["remember_output_directory"] = self.remember_output_dir_cb.isChecked()
+
+            # Update app config
+            self.app_config.settings["resource_limits"] = resource_limits
+            self.app_config.settings["extraction_defaults"] = extraction_defaults
+            self.app_config.settings["compression_defaults"] = compression_defaults
+            self.app_config.settings["update_settings"] = update_settings
+
+            # Save to file
+            self.app_config.save()
+
+            QMessageBox.information(
+                self, "Settings Saved", "Configuration has been saved successfully."
+            )
+            self.accept()
+
+        except ValueError as e:
+            QMessageBox.critical(self, self.tr("Invalid Input"), self.tr("Error: {error}").format(error=str(e)))
+        except Exception as e:
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save configuration: {error}").format(error=str(e)))
 
     @staticmethod
     def parse_value(key, val, expected_type):
-        if expected_type is bool:
-            if isinstance(val, str):
-                if val.lower() in ("1", "true", "yes", "on"):
-                    return True
-                elif val.lower() in ("0", "false", "no", "off"):
-                    return False
-                else:
-                    raise ValueError(ExceptionHandler.handle_validation_error(key, expected_type))
-            return bool(val)
-        try:
-            return expected_type(val)
-        except Exception:
-            raise ValueError(ExceptionHandler.handle_validation_error(key, expected_type))
+        """
+        Static method to parse and validate a value based on its expected type.
+
+        Args:
+            key: The configuration key name
+            val: The value to parse
+            expected_type: The expected type ('int', 'float', 'bool', 'str')
+
+        Returns:
+            The parsed value
+
+        Raises:
+            ValueError: If the value cannot be parsed or is invalid
+        """
+        if expected_type == "int":
+            return int(val)
+        elif expected_type == "float":
+            return float(val)
+        elif expected_type == "bool":
+            if isinstance(val, bool):
+                return val
+            return str(val).lower() in ("true", "1", "yes", "on")
+        else:
+            return str(val)
+
+    def create_ui_tab(self):
+        """Create the UI preferences tab."""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Directory Memory Settings group
+        dir_group = QGroupBox("Directory Memory")
+        dir_layout = QVBoxLayout(dir_group)
+
+        # Remember input directory checkbox
+        self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
+        self.remember_input_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used input directory on startup"))
+        dir_layout.addWidget(self.remember_input_dir_cb)
+
+        # Remember output directory checkbox
+        self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
+        self.remember_output_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used output directory on startup"))
+        dir_layout.addWidget(self.remember_output_dir_cb)
+
+        layout.addWidget(dir_group)
+        layout.addStretch()
+
+        return widget

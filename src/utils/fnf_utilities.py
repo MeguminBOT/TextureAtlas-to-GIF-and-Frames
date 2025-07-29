@@ -1,8 +1,7 @@
 import os
 import json
 import xml.etree.ElementTree as ET
-import tkinter as tk
-from tkinter import filedialog
+from PySide6.QtWidgets import QFileDialog
 
 # Import our own modules
 from utils.utilities import Utilities
@@ -106,7 +105,16 @@ class FnfUtilities:
                 pass
         return "Unknown", None
 
-    def fnf_load_char_data_settings(self, settings_manager, data_dict, listbox_png, listbox_data):
+    def fnf_load_char_data_settings(self, settings_manager, data_dict, listbox_png_callback=None, listbox_data_callback=None):
+        """
+        Load FNF character data settings using callbacks for UI updates.
+        
+        Args:
+            settings_manager: Settings manager instance
+            data_dict: Data dictionary to update
+            listbox_png_callback: Callback to add PNG items to UI (optional)
+            listbox_data_callback: Callback to add data items to UI (optional)
+        """
         for filename in os.listdir(self.fnf_char_json_directory):
             file_path = os.path.join(self.fnf_char_json_directory, filename)
 
@@ -118,9 +126,13 @@ class FnfUtilities:
                 image_base = os.path.splitext(os.path.basename(parsed_data.get("image", "")))[0]
                 png_filename = image_base + ".png"
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                # Add to data dict
+                if png_filename not in data_dict:
                     data_dict[png_filename] = file_path
+                    
+                    # Use callback to add to UI if provided
+                    if listbox_png_callback:
+                        listbox_png_callback(png_filename)
 
                 scale = parsed_data.get("scale")
                 for anim in parsed_data.get("animations", []):
@@ -146,9 +158,13 @@ class FnfUtilities:
                 image_base = os.path.splitext(filename)[0]
                 png_filename = image_base + ".png"
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                # Add to data dict
+                if png_filename not in data_dict:
                     data_dict[png_filename] = file_path
+                    
+                    # Use callback to add to UI if provided
+                    if listbox_png_callback:
+                        listbox_png_callback(png_filename)
 
                 scale = float(parsed_data.attrib.get("scale", 1))
                 for anim in parsed_data.findall("anim"):
@@ -178,9 +194,13 @@ class FnfUtilities:
                 image_base = os.path.splitext(filename)[0]
                 png_filename = image_base + ".png"
 
-                if png_filename not in [listbox_png.get(idx) for idx in range(listbox_png.size())]:
-                    listbox_png.insert(tk.END, png_filename)
+                # Add to data dict
+                if png_filename not in data_dict:
                     data_dict[png_filename] = file_path
+                    
+                    # Use callback to add to UI if provided
+                    if listbox_png_callback:
+                        listbox_png_callback(png_filename)
 
                 for anim in parsed_data.get("animations", []):
                     raw_anim_name = anim.get("name", "")
@@ -205,11 +225,23 @@ class FnfUtilities:
                 )
 
     def fnf_select_char_data_directory(
-        self, settings_manager, data_dict, listbox_png, listbox_data
+        self, settings_manager, data_dict, listbox_png_callback=None, listbox_data_callback=None, parent_window=None
     ):
-        self.fnf_char_json_directory = filedialog.askdirectory(
-            title="Select FNF Character Data Directory"
+        """
+        Select FNF character data directory using Qt file dialog.
+        
+        Args:
+            settings_manager: Settings manager instance
+            data_dict: Data dictionary
+            listbox_png_callback: Callback to add PNG items to UI (optional)
+            listbox_data_callback: Callback to add data items to UI (optional)
+            parent_window: Parent Qt window for the dialog
+        """
+        directory = QFileDialog.getExistingDirectory(
+            parent_window,
+            "Select FNF Character Data Directory"
         )
-        if self.fnf_char_json_directory:
-            self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data)
+        if directory:
+            self.fnf_char_json_directory = directory
+            self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png_callback, listbox_data_callback)
             print("Animation settings updated in SettingsManager.")

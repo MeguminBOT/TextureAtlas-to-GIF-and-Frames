@@ -1,301 +1,160 @@
-import tkinter as tk
-from tkinter import ttk
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import webbrowser
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QWidget,
+    QPushButton,
+    QFrame,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 
 
-class ContributorsWindow:
+class ContributorsWindow(QDialog):
     """
-    A window class for displaying project contributors and their social media links.
-
     This class provides a dedicated window to thank contributors to the project
     and allows users to visit their social media profiles or GitHub pages.
-
-    Methods:
-        create_contributors_window():
-            Creates and displays the contributors window with contributor information and links.
-        open_link(url):
-            Opens a URL in the default web browser.
     """
 
-    @staticmethod
-    def create_contributors_window():
-        """Creates and displays the contributors window."""
-        contributors_window = tk.Toplevel()
-        contributors_window.geometry("600x500")
-        contributors_window.title("Contributors")
-        contributors_window.resizable(True, True)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Contributors"))
+        self.setGeometry(200, 200, 600, 500)
+        self.setup_ui()
 
-        main_frame = ttk.Frame(contributors_window, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
 
-        title_label = tk.Label(
-            main_frame,
-            text="TextureAtlas to GIF and Frames\nContributors",
-            font=("Arial", 16, "bold"),
-            justify="center",
-        )
-        title_label.pack(pady=(0, 20))
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
-        canvas = tk.Canvas(main_frame)
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+    def setup_ui(self):
+        """Sets up the UI components."""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        scrollable_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        # Title
+        title_label = QLabel(self.tr("TextureAtlas Toolbox\nContributors"))
+        title_font = QFont("Arial", 16, QFont.Weight.Bold)
+        title_label.setFont(title_font)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Scrollable area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Content widget
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(15)
 
-        ContributorsWindow._add_section_header(
-            scrollable_frame,
-            "Project Starter",
-            "The person who started this project and laid the foundation for everything that followed.",
-        )
-        ContributorsWindow._add_contributor_entry(
-            scrollable_frame,
-            "AutisticLulu",
-            "The original creator and main developer of this project.",
-            [
-                ("GitHub Profile", "https://github.com/MeguminBOT"),
-            ],
-        )
+        # Add contributors
+        self.add_contributors(content_layout)
 
-        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=20)
+        scroll_area.setWidget(content_widget)
+        layout.addWidget(scroll_area)
 
-        ContributorsWindow._add_section_header(
-            scrollable_frame,
-            "Major Contributors",
-            "Contributors who have made significant improvements, added major features, or provided substantial code contributions.",
-        )
-        ContributorsWindow._add_contributor_entry(
-            scrollable_frame,
-            "Jsfasdf250",
-            "Big contributor to the tool with significant improvements and features.",
-            [
-                ("GitHub Profile", "https://github.com/Jsfasdf250"),
-            ],
-        )
+        # Close button
+        close_btn = QPushButton(self.tr("Close"))
+        close_btn.clicked.connect(self.close)
+        close_btn.setMaximumWidth(100)
 
-        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=20)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
 
-        ContributorsWindow._add_section_header(
-            scrollable_frame,
-            "Special Thanks",
-            "People who have contributed in unique ways, provided resources, or helped make this project better.",
-        )
-        ContributorsWindow._add_contributor_entry(
-            scrollable_frame,
-            "Julnz",
-            "Created the beautiful app icon for the application.",
-            [
-                ("Website", "https://julnz.com/"),
-            ],
-        )
+    def add_contributors(self, layout):
+        """Add contributor information to the layout."""
+        contributors_data = [
+            {
+                "name": "AutisticLulu",
+                "role": "Project starter",
+                "links": [
+                    ("GitHub", "https://github.com/MeguminBOT"),
+                    (
+                        "Project Repository",
+                        "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames",
+                    ),
+                ],
+            },
+            {
+                "name": "Jsfasdf250",
+                "role": "Major contributor",
+                "links": [
+                    ("GitHub", "https://github.com/Jsfasdf250"),
+                ],
+            },
+            {
+                "name": "Julnz",
+                "role": "App icon",
+                "links": [
+                    ("Website", "https://julnz.com"),
+                ],
+            },
+        ]
 
-        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=20)
+        for contributor in contributors_data:
+            self.add_contributor_card(layout, contributor)
 
-        ContributorsWindow._add_info_section(
-            scrollable_frame,
-            "Additional Contributors",
-            "This project welcomes contributions from the community.\nThank you to everyone who has helped improve this tool!",
-        )
+    def add_contributor_card(self, layout, contributor_data):
+        """Add a contributor card to the layout."""
+        # Create frame for contributor
+        card_frame = QFrame()
+        card_frame.setFrameStyle(QFrame.Shape.Box)
+        card_frame.setLineWidth(1)
+        card_layout = QVBoxLayout(card_frame)
+        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(15, 15, 15, 15)
 
-        github_frame = ttk.Frame(scrollable_frame)
-        github_frame.pack(fill="x", pady=10)
+        # Name
+        name_label = QLabel(contributor_data["name"])
+        name_font = QFont("Arial", 12, QFont.Weight.Bold)
+        name_label.setFont(name_font)
+        card_layout.addWidget(name_label)
 
-        github_label = tk.Label(
-            github_frame, text="View all contributors on GitHub:", font=("Arial", 10)
-        )
-        github_label.pack()
+        # Role
+        if "role" in contributor_data:
+            role_label = QLabel(contributor_data["role"])
+            role_label.setStyleSheet("color: #666666;")
+            card_layout.addWidget(role_label)
 
-        github_link = tk.Label(
-            github_frame,
-            text="https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/graphs/contributors",
-            font=("Arial", 10),
-            fg="blue",
-            cursor="hand2",
-        )
-        github_link.pack(pady=5)
-        github_link.bind(
-            "<Button-1>",
-            lambda e: ContributorsWindow.open_link(
-                "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/graphs/contributors"
-            ),
-        )
+        # Description (if any)
+        if "description" in contributor_data:
+            desc_label = QLabel(contributor_data["description"])
+            desc_label.setWordWrap(True)
+            card_layout.addWidget(desc_label)
 
-        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=20)
+        # Links
+        if "links" in contributor_data:
+            links_layout = QHBoxLayout()
+            for link_text, link_url in contributor_data["links"]:
+                link_btn = QPushButton(link_text)
+                link_btn.clicked.connect(lambda checked, url=link_url: self.open_link(url))
+                link_btn.setMaximumWidth(150)
+                links_layout.addWidget(link_btn)
+            links_layout.addStretch()
+            card_layout.addLayout(links_layout)
 
-        ContributorsWindow._add_info_section(
-            scrollable_frame,
-            "Want to Contribute?",
-            "We welcome contributions! Whether it's bug fixes, new features, or documentation improvements.\n\n"
-            "Check out our GitHub repository to get started:",
-        )
+        layout.addWidget(card_frame)
 
-        repo_frame = ttk.Frame(scrollable_frame)
-        repo_frame.pack(fill="x", pady=10)
-
-        repo_link = tk.Label(
-            repo_frame,
-            text="https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames",
-            font=("Arial", 10),
-            fg="blue",
-            cursor="hand2",
-        )
-        repo_link.pack()
-        repo_link.bind(
-            "<Button-1>",
-            lambda e: ContributorsWindow.open_link(
-                "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
-            ),
-        )
-
-        close_frame = ttk.Frame(scrollable_frame)
-        close_frame.pack(fill="x", pady=20)
-
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        def _on_window_close():
-            contributors_window.unbind_all("<MouseWheel>")
-            contributors_window.destroy()
-
-        close_button = ttk.Button(close_frame, text="Close", command=_on_window_close)
-        close_button.pack()
-
-        def _bind_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
-        def _unbind_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-
-        canvas.bind("<Enter>", _bind_mousewheel)
-        canvas.bind("<Leave>", _unbind_mousewheel)
-
-        contributors_window.protocol("WM_DELETE_WINDOW", _on_window_close)
-
-        contributors_window.update_idletasks()
-        x = (contributors_window.winfo_screenwidth() // 2) - (
-            contributors_window.winfo_width() // 2
-        )
-        y = (contributors_window.winfo_screenheight() // 2) - (
-            contributors_window.winfo_height() // 2
-        )
-        contributors_window.geometry(f"+{x}+{y}")
-
-    @staticmethod
-    def _add_section_header(parent, title, description):
-        """Adds a section header with title and description."""
-        title_label = tk.Label(
-            parent, text=title, font=("Arial", 14, "bold"), justify="left"
-        )
-        title_label.pack(anchor="w", pady=(0, 5))
-
-        desc_label = tk.Label(
-            parent,
-            text=description,
-            font=("Arial", 9, "italic"),
-            justify="left",
-            wraplength=550,
-            fg="gray50",
-        )
-        desc_label.pack(anchor="w", pady=(0, 10))
-
-    @staticmethod
-    def _add_contributor_entry(parent, name, description, links):
-        """Adds a single contributor entry within a section."""
-        contributor_frame = tk.Frame(parent, relief="solid", bd=1, bg="white")
-        contributor_frame.pack(fill="x", pady=5, padx=10)
-
-        inner_frame = tk.Frame(contributor_frame, bg="white")
-        inner_frame.pack(fill="x", padx=10, pady=8)
-
-        name_label = tk.Label(
-            inner_frame, text=name, font=("Arial", 12, "bold"), bg="white"
-        )
-        name_label.pack(anchor="w")
-
-        desc_label = tk.Label(
-            inner_frame,
-            text=description,
-            font=("Arial", 10),
-            justify="left",
-            wraplength=500,
-            bg="white",
-        )
-        desc_label.pack(anchor="w", pady=(3, 8))
-
-        links_frame = tk.Frame(inner_frame, bg="white")
-        links_frame.pack(fill="x")
-
-        for link_text, url in links:
-            link_label = tk.Label(
-                links_frame,
-                text=f"🔗 {link_text}",
-                font=("Arial", 9),
-                fg="blue",
-                cursor="hand2",
-                bg="white",
-            )
-            link_label.pack(anchor="w", pady=1)
-            link_label.bind(
-                "<Button-1>", lambda e, url=url: ContributorsWindow.open_link(url)
-            )
-
-    @staticmethod
-    def _add_contributor_section(parent, role, name, description, links):
-        """Adds a contributor section with role, name, description, and links."""
-        contributor_frame = ttk.LabelFrame(parent, text=role, padding="10")
-        contributor_frame.pack(fill="x", pady=10)
-
-        name_label = tk.Label(contributor_frame, text=name, font=("Arial", 12, "bold"))
-        name_label.pack(anchor="w")
-
-        desc_label = tk.Label(
-            contributor_frame,
-            text=description,
-            font=("Arial", 10),
-            justify="left",
-            wraplength=500,
-        )
-        desc_label.pack(anchor="w", pady=(5, 10))
-
-        links_frame = ttk.Frame(contributor_frame)
-        links_frame.pack(fill="x")
-
-        for link_text, url in links:
-            link_label = tk.Label(
-                links_frame,
-                text=f"🔗 {link_text}",
-                font=("Arial", 10),
-                fg="blue",
-                cursor="hand2",
-            )
-            link_label.pack(anchor="w", pady=2)
-            link_label.bind(
-                "<Button-1>", lambda e, url=url: ContributorsWindow.open_link(url)
-            )
-
-    @staticmethod
-    def _add_info_section(parent, title, description):
-        """Adds an information section with title and description."""
-        info_frame = ttk.LabelFrame(parent, text=title, padding="10")
-        info_frame.pack(fill="x", pady=10)
-
-        desc_label = tk.Label(
-            info_frame,
-            text=description,
-            font=("Arial", 10),
-            justify="left",
-            wraplength=500,
-        )
-        desc_label.pack(anchor="w")
-
-    @staticmethod
-    def open_link(url):
+    def open_link(self, url):
         """Opens a URL in the default web browser."""
-        webbrowser.open_new(url)
+        webbrowser.open(url)
+
+    @staticmethod
+    def show_contributors(parent=None):
+        """Static method to show the contributors window."""
+        window = ContributorsWindow(parent)
+        window.exec()

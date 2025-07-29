@@ -1,65 +1,136 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Qt-compatible Dependencies Checker
+Replaces the tkinter-dependent dependencies_checker.py with a Qt implementation.
+"""
+
 import shutil
 import os
 import platform
-import tkinter as tk
-import webbrowser
+from typing import List, Tuple
 
-# Import our own modules
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QApplication,
+    QMessageBox,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
+
+# Import utilities
 from utils.utilities import Utilities
 
 
-class DependenciesChecker:
-    """
-    A class to check and configure dependencies.
+class ErrorDialogWithLinks(QDialog):
+    """Qt dialog for displaying error messages with clickable links."""
 
-    Methods:
-        show_error_popup_with_links(message, links):
-            Displays an error message in a popup window with clickable links.
-        check_imagemagick():
-            Checks if ImageMagick is installed on the system.
-        configure_imagemagick():
-            Configures the environment to use a bundled version of ImageMagick.
-        check_and_configure_imagemagick():
-            Checks if ImageMagick is installed and configures it if not found.
-    """
+    def __init__(self, message: str, links: List[Tuple[str, str]], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Error"))
+        self.setFixedSize(400, 300)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
+
+        # Center the dialog
+        if parent:
+            self.move(parent.geometry().center() - self.rect().center())
+
+        self.setup_ui(message, links)
+
+    def tr(self, text):
+        """Translation helper method."""
+        from PySide6.QtCore import QCoreApplication
+        return QCoreApplication.translate(self.__class__.__name__, text)
+
+
+    def setup_ui(self, message: str, links: List[Tuple[str, str]]):
+        """Setup the UI components."""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Message label
+        msg_label = QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(msg_label)
+
+        # Links
+        for link_text, link_url in links:
+            link_label = QLabel(f'<a href="{link_url}">{link_text}</a>')
+            link_label.setOpenExternalLinks(True)
+            link_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            layout.addWidget(link_label)
+
+        # Spacer
+        layout.addStretch()
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(self.accept)
+        ok_button.setFixedWidth(80)
+        button_layout.addWidget(ok_button)
+
+        layout.addLayout(button_layout)
+
+
+class DependenciesChecker:
+    """Qt-compatible dependencies checker for the application."""
 
     @staticmethod
-    def show_error_popup_with_links(message, links):
-        root = tk.Tk()
-        root.title("Error")
-        root.geometry("300x200")
-        root.resizable(False, False)
+    def show_error_popup_with_links(message: str, links: List[Tuple[str, str]], parent=None):
+        """
+        Shows an error popup with clickable links using Qt.
 
-        window_width = 300
-        window_height = 200
-        screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
-        x_cord = int((screen_width / 2) - (window_width / 2))
-        y_cord = int((screen_height / 2) - (window_height / 2))
-        root.geometry(f"{window_width}x{window_height}+{x_cord}+{y_cord}")
+        Args:
+            message: Error message to display
+            links: List of (link_text, link_url) tuples
+            parent: Parent widget for the dialog
+        """
+        # Ensure we have a QApplication instance
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication([])
 
-        msg = tk.Label(root, text=message, wraplength=360, justify="left")
-        msg.pack(pady=20)
+        dialog = ErrorDialogWithLinks(message, links, parent)
+        dialog.exec()
 
-        for link_text, link_url in links:
-            link = tk.Label(root, text=link_text, fg="blue", cursor="hand2")
-            link.pack()
-            link.bind("<Button-1>", lambda e, url=link_url: webbrowser.open_new(url))
+    @staticmethod
+    def show_error_popup(message: str, parent=None):
+        """
+        Shows a simple error popup using Qt.
 
-        close_btn = tk.Button(root, text="Close", command=root.destroy)
-        close_btn.pack(pady=10)
+        Args:
+            message: Error message to display
+            parent: Parent widget for the dialog
+        """
+        # Ensure we have a QApplication instance
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication([])
 
-        root.mainloop()
+        QMessageBox.critical(parent, "Error", message)
 
     @staticmethod
     def check_imagemagick():
+        """Check if ImageMagick is available in the system."""
         return shutil.which("magick") is not None
 
     @staticmethod
     def configure_imagemagick():
+        """Configure bundled ImageMagick by setting environment variables."""
         imagemagick_path = Utilities.find_root("ImageMagick")
         if imagemagick_path is None:
             raise FileNotFoundError("Could not find 'ImageMagick' folder in any parent directory.")
+
         dll_path = os.path.join(imagemagick_path, "ImageMagick")
         if not os.path.isdir(dll_path):
             raise FileNotFoundError(
@@ -74,29 +145,74 @@ class DependenciesChecker:
 
     @staticmethod
     def check_and_configure_imagemagick():
+        """
+        Check for ImageMagick and configure bundled version if needed.
+
+        Returns:
+            bool: True if ImageMagick is available, False otherwise
+        """
         if DependenciesChecker.check_imagemagick():
             print("Using the user's existing ImageMagick.")
-            return
+            return True
 
         if platform.system() == "Windows":
             print("System ImageMagick not found. Attempting to configure bundled version.")
             try:
                 DependenciesChecker.configure_imagemagick()
                 print("Configured bundled ImageMagick.")
-                return
+                return True
             except Exception as e:
                 print(f"Failed to configure bundled ImageMagick: {e}")
 
+        # Show error message with platform-specific links
         msg = (
-            "ImageMagick not found or failed to initialize.\n\nMake sure you followed install steps correctly.\n"
+            "ImageMagick not found or failed to initialize.\n\n"
+            "Make sure you followed install steps correctly.\n"
             "If the issue persists, install ImageMagick manually."
         )
-        links = [
-            (
-                "Installation Steps",
-                "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation",
-            ),
-            ("Install ImageMagick", "https://imagemagick.org/script/download.php"),
-        ]
+
+        if platform.system() == "Windows":
+            links = [
+                (
+                    "App Installation Steps",
+                    "https://textureatlastoolbox.com/installation.html",
+                ),
+                (
+                    "Download ImageMagick for Windows",
+                    "https://imagemagick.org/script/download.php#windows",
+                ),
+                (
+                    "ImageMagick Windows Binary",
+                    "https://download.imagemagick.org/ImageMagick/download/binaries/",
+                ),
+            ]
+        elif platform.system() == "Darwin":  # macOS
+            links = [
+                (
+                    "App Installation Steps",
+                    "https://textureatlastoolbox.com/installation.html",
+                ),
+                (
+                    "Download ImageMagick for macOS",
+                    "https://imagemagick.org/script/download.php#macosx",
+                ),
+                ("Install via Homebrew: brew install imagemagick", "https://brew.sh/"),
+            ]
+        else:  # Linux and others
+            links = [
+                (
+                    "App Installation Steps",
+                    "https://textureatlastoolbox.com/installation.html",
+                ),
+                (
+                    "Download ImageMagick for Linux",
+                    "https://imagemagick.org/script/download.php#unix",
+                ),
+                (
+                    "Ubuntu/Debian command: sudo apt install imagemagick",
+                    "https://packages.ubuntu.com/imagemagick",
+                ),
+            ]
+
         DependenciesChecker.show_error_popup_with_links(msg, links)
-        raise Exception(msg)
+        return False

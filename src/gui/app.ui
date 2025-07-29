@@ -1,0 +1,1706 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TextureAtlasToolboxApp</class>
+ <widget class="QMainWindow" name="TextureAtlasToolboxApp">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>908</width>
+    <height>783</height>
+   </rect>
+  </property>
+  <property name="unifiedTitleAndToolBarOnMac">
+   <bool>true</bool>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QTabWidget" name="tools_tab">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>901</width>
+      <height>721</height>
+     </rect>
+    </property>
+    <property name="statusTip">
+     <string/>
+    </property>
+    <property name="tabPosition">
+     <enum>QTabWidget::TabPosition::North</enum>
+    </property>
+    <property name="currentIndex">
+     <number>1</number>
+    </property>
+    <property name="elideMode">
+     <enum>Qt::TextElideMode::ElideLeft</enum>
+    </property>
+    <property name="documentMode">
+     <bool>false</bool>
+    </property>
+    <widget class="QWidget" name="tool_extract">
+     <property name="statusTip">
+      <string>Extract frames from TextureAtlases. Extraction supports exporting as frames or animations.</string>
+     </property>
+     <attribute name="title">
+      <string>Extract</string>
+     </attribute>
+     <widget class="QListView" name="listbox_png">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>10</y>
+        <width>200</width>
+        <height>621</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>List of all spritesheets to extract</string>
+      </property>
+      <property name="alternatingRowColors">
+       <bool>false</bool>
+      </property>
+      <property name="isWrapping" stdset="0">
+       <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QListView" name="listbox_data">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>10</y>
+        <width>200</width>
+        <height>621</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>List of all the animations of the currently selected spritesheet</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="input_button">
+      <property name="geometry">
+       <rect>
+        <x>570</x>
+        <y>10</y>
+        <width>171</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Select input directory</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="output_button">
+      <property name="geometry">
+       <rect>
+        <x>570</x>
+        <y>60</y>
+        <width>171</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Select output directory</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="input_dir_label">
+      <property name="geometry">
+       <rect>
+        <x>430</x>
+        <y>30</y>
+        <width>451</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Shape::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Shadow::Plain</enum>
+      </property>
+      <property name="text">
+       <string>No input directory selected</string>
+      </property>
+      <property name="textFormat">
+       <enum>Qt::TextFormat::PlainText</enum>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QLabel" name="output_dir_label">
+      <property name="geometry">
+       <rect>
+        <x>430</x>
+        <y>80</y>
+        <width>451</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Shape::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Shadow::Plain</enum>
+      </property>
+      <property name="text">
+       <string>No output directory selected</string>
+      </property>
+      <property name="textFormat">
+       <enum>Qt::TextFormat::PlainText</enum>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QGroupBox" name="animation_export_group">
+      <property name="geometry">
+       <rect>
+        <x>458</x>
+        <y>110</y>
+        <width>191</width>
+        <height>331</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Animation export settings</string>
+      </property>
+      <property name="layoutDirection">
+       <enum>Qt::LayoutDirection::LeftToRight</enum>
+      </property>
+      <property name="title">
+       <string>Export as animations</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
+      </property>
+      <property name="checked">
+       <bool>false</bool>
+      </property>
+      <widget class="QComboBox" name="animation_format_combobox">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>50</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Sets the format of animated images</string>
+       </property>
+       <property name="editable">
+        <bool>false</bool>
+       </property>
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+       <property name="maxVisibleItems">
+        <number>5</number>
+       </property>
+       <property name="sizeAdjustPolicy">
+        <enum>QComboBox::SizeAdjustPolicy::AdjustToContentsOnFirstShow</enum>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+       <property name="frame">
+        <bool>true</bool>
+       </property>
+       <property name="modelColumn">
+        <number>0</number>
+       </property>
+       <item>
+        <property name="text">
+         <string>GIF</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>WebP</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>APNG</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Custom FFMPEG</string>
+        </property>
+       </item>
+      </widget>
+      <widget class="QLabel" name="animation_format_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>30</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Animation format</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="indent">
+        <number>0</number>
+       </property>
+      </widget>
+      <widget class="QSpinBox" name="frame_rate_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Sets the playback rate of animated images</string>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="showGroupSeparator" stdset="0">
+        <bool>false</bool>
+       </property>
+       <property name="suffix">
+        <string> fps</string>
+       </property>
+       <property name="prefix">
+        <string/>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>1000</number>
+       </property>
+       <property name="value">
+        <number>24</number>
+       </property>
+      </widget>
+      <widget class="QSpinBox" name="loop_delay_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>150</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Time to wait before looping the animation</string>
+       </property>
+       <property name="accelerated">
+        <bool>true</bool>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="maximum">
+        <number>10000</number>
+       </property>
+       <property name="value">
+        <number>250</number>
+       </property>
+       <property name="displayIntegerBase">
+        <number>10</number>
+       </property>
+      </widget>
+      <widget class="QSpinBox" name="min_period_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>200</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Forces animated images to be played for at least the set amount of time.</string>
+       </property>
+       <property name="accelerated">
+        <bool>true</bool>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="maximum">
+        <number>10000</number>
+       </property>
+      </widget>
+      <widget class="QLabel" name="frame_rate_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>80</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Frame rate</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="loop_delay_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>130</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Loop delay</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="min_period_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>180</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Minimum period</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="scale_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>230</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Scale</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="threshold_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>280</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Alpha threshold</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QSpinBox" name="threshold_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>300</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>[GIFs only!] Sets the alpha threshold of GIFs</string>
+       </property>
+       <property name="accelerated">
+        <bool>true</bool>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="suffix">
+        <string> %</string>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="value">
+        <number>50</number>
+       </property>
+      </widget>
+      <widget class="QDoubleSpinBox" name="scale_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>250</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Sets the scale of animated images</string>
+       </property>
+       <property name="accelerated">
+        <bool>true</bool>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="suffix">
+        <string> ×</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.010000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>100.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QGroupBox" name="frame_export_group">
+      <property name="geometry">
+       <rect>
+        <x>658</x>
+        <y>110</y>
+        <width>191</width>
+        <height>331</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Frame export settings</string>
+      </property>
+      <property name="layoutDirection">
+       <enum>Qt::LayoutDirection::LeftToRight</enum>
+      </property>
+      <property name="title">
+       <string>Export as frames</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
+      </property>
+      <property name="checked">
+       <bool>false</bool>
+      </property>
+      <widget class="QComboBox" name="frame_format_combobox">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>50</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Sets the format of frame images</string>
+       </property>
+       <property name="editable">
+        <bool>false</bool>
+       </property>
+       <property name="currentIndex">
+        <number>3</number>
+       </property>
+       <property name="maxVisibleItems">
+        <number>10</number>
+       </property>
+       <property name="sizeAdjustPolicy">
+        <enum>QComboBox::SizeAdjustPolicy::AdjustToContentsOnFirstShow</enum>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+       <property name="frame">
+        <bool>true</bool>
+       </property>
+       <property name="modelColumn">
+        <number>0</number>
+       </property>
+       <item>
+        <property name="text">
+         <string>AVIF</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>BMP</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>DDS</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>PNG</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>TGA</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>TIFF</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>WebP</string>
+        </property>
+       </item>
+      </widget>
+      <widget class="QLabel" name="frame_format_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>30</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Frame format</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="indent">
+        <number>0</number>
+       </property>
+      </widget>
+      <widget class="QLabel" name="frame_scale_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>130</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Scale</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QDoubleSpinBox" name="frame_scale_entry">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>150</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Sets the scale of frames images</string>
+       </property>
+       <property name="accelerated">
+        <bool>true</bool>
+       </property>
+       <property name="correctionMode">
+        <enum>QAbstractSpinBox::CorrectionMode::CorrectToNearestValue</enum>
+       </property>
+       <property name="suffix">
+        <string> ×</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.010000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>100.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="frame_selection_combobox">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Which frames to export. &quot;All&quot; exports all frames, &quot;No duplicates&quot; only exports unique frames, &quot;First, Last&quot; exports the first and last frame of the animation.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>All</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>No duplicates</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>First</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Last</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>First, Last</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Custom</string>
+        </property>
+       </item>
+      </widget>
+      <widget class="QLabel" name="frame_selection_label">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>80</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Frame selection</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="compression_settings_button">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>200</y>
+         <width>171</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="statusTip">
+        <string>Controls compression settings for frame images</string>
+       </property>
+       <property name="text">
+        <string>Compression settings</string>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QLabel" name="cropping_method_label">
+      <property name="geometry">
+       <rect>
+        <x>500</x>
+        <y>450</y>
+        <width>111</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Cropping method</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="indent">
+       <number>0</number>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="cropping_method_combobox">
+      <property name="geometry">
+       <rect>
+        <x>490</x>
+        <y>470</y>
+        <width>131</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>How cropping should be done. Note: &quot;Frame based&quot; only works on frames, animations will automatically use &quot;Animation based&quot; if &quot;Frame based&quot; was chosen.</string>
+      </property>
+      <property name="currentIndex">
+       <number>1</number>
+      </property>
+      <item>
+       <property name="text">
+        <string>None</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Animation based</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Frame based</string>
+       </property>
+      </item>
+     </widget>
+     <widget class="QLabel" name="filename_prefix_label">
+      <property name="geometry">
+       <rect>
+        <x>528</x>
+        <y>510</y>
+        <width>111</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Filename prefix</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="indent">
+       <number>0</number>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="filename_prefix_entry">
+      <property name="geometry">
+       <rect>
+        <x>520</x>
+        <y>530</y>
+        <width>131</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Adds a prefix to the filename</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QLabel" name="filename_suffix_label">
+      <property name="geometry">
+       <rect>
+        <x>666</x>
+        <y>510</y>
+        <width>111</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Filename suffix</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="indent">
+       <number>0</number>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="filename_suffix_entry">
+      <property name="geometry">
+       <rect>
+        <x>658</x>
+        <y>530</y>
+        <width>131</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Adds a suffix to the filename</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="placeholderText">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="filename_format_combobox">
+      <property name="geometry">
+       <rect>
+        <x>690</x>
+        <y>470</y>
+        <width>131</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>How filenames should be formatted. Standardized exports names as &quot;Spritesheet name - animation name&quot;.</string>
+      </property>
+      <item>
+       <property name="text">
+        <string>Standardized</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>No spaces</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>No special characters</string>
+       </property>
+      </item>
+     </widget>
+     <widget class="QLabel" name="filename_format_label">
+      <property name="geometry">
+       <rect>
+        <x>700</x>
+        <y>450</y>
+        <width>111</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Filename format</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+      <property name="indent">
+       <number>0</number>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="advanced_filename_button">
+      <property name="geometry">
+       <rect>
+        <x>560</x>
+        <y>560</y>
+        <width>191</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Advanced filename options allows using pattern matching to remove certain words or phrases from filenames. Supports &quot;Regular Expression&quot;.</string>
+      </property>
+      <property name="text">
+       <string>Advanced filename options</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="start_process_button">
+      <property name="geometry">
+       <rect>
+        <x>740</x>
+        <y>635</y>
+        <width>141</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Starts extraction process</string>
+      </property>
+      <property name="text">
+       <string>Start process</string>
+      </property>
+      <property name="checked">
+       <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="show_override_settings_button">
+      <property name="geometry">
+       <rect>
+        <x>440</x>
+        <y>635</y>
+        <width>141</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Opens a window showing all the current override settings.</string>
+      </property>
+      <property name="text">
+       <string>Show override settings</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="override_spritesheet_settings_button">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>635</y>
+        <width>200</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Overrides the global settings for the selected spritesheet</string>
+      </property>
+      <property name="text">
+       <string>Override spritesheet settings</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="reset_button">
+      <property name="geometry">
+       <rect>
+        <x>590</x>
+        <y>635</y>
+        <width>141</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Resets the filelist and override settings</string>
+      </property>
+      <property name="text">
+       <string>Reset</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="override_animation_settings_button">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>635</y>
+        <width>200</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="statusTip">
+       <string>Overrides the global settings for the selected animation</string>
+      </property>
+      <property name="text">
+       <string>Override animation settings</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="tool_generate">
+     <attribute name="title">
+      <string>Generate</string>
+     </attribute>
+     <layout class="QVBoxLayout" name="main_layout">
+      <property name="spacing">
+       <number>10</number>
+      </property>
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>10</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>10</number>
+      </property>
+      <item>
+       <widget class="QSplitter" name="main_splitter">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <widget class="QFrame" name="file_panel">
+         <property name="frameShape">
+          <enum>QFrame::Shape::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Shadow::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="file_panel_layout">
+          <property name="spacing">
+           <number>12</number>
+          </property>
+          <property name="leftMargin">
+           <number>12</number>
+          </property>
+          <property name="topMargin">
+           <number>12</number>
+          </property>
+          <property name="rightMargin">
+           <number>12</number>
+          </property>
+          <property name="bottomMargin">
+           <number>12</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="input_group">
+            <property name="title">
+             <string>Input</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+            <property name="flat">
+             <bool>true</bool>
+            </property>
+            <layout class="QVBoxLayout" name="input_layout">
+             <property name="spacing">
+              <number>8</number>
+             </property>
+             <property name="leftMargin">
+              <number>10</number>
+             </property>
+             <property name="topMargin">
+              <number>15</number>
+             </property>
+             <property name="rightMargin">
+              <number>10</number>
+             </property>
+             <property name="bottomMargin">
+              <number>10</number>
+             </property>
+             <item>
+              <layout class="QHBoxLayout" name="input_buttons_layout" stretch="0,0,0,0,0">
+               <property name="spacing">
+                <number>2</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="add_directory_button">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="toolTip">
+                  <string/>
+                 </property>
+                 <property name="statusTip">
+                  <string>Adds all images from the selected directory to the atlas generator</string>
+                 </property>
+                 <property name="text">
+                  <string>Directory</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="add_files_button">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="statusTip">
+                  <string>Adds selected files to the atlas generator</string>
+                 </property>
+                 <property name="text">
+                  <string>Files</string>
+                 </property>
+                 <property name="flat">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="add_existing_atlas_button">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="statusTip">
+                  <string>Adds an existing atlas to be regenerated by the generator</string>
+                 </property>
+                 <property name="text">
+                  <string>Atlas</string>
+                 </property>
+                 <property name="flat">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="clear_frames_button">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="statusTip">
+                  <string>Clears all input files</string>
+                 </property>
+                 <property name="text">
+                  <string>Clear All</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="add_animation_button">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="statusTip">
+                  <string>Manually adds a new animation entry for the atlas</string>
+                 </property>
+                 <property name="text">
+                  <string>New Animation</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QWidget" name="animation_tree_placeholder" native="true">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>200</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="frame_info_label">
+               <property name="text">
+                <string>No frames loaded</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QFrame" name="settings_panel">
+         <property name="toolTip">
+          <string>This spritesheet uses 4096×4096 dimensions, which are GPU-optimized. Power-of-two sizes enable faster loading, better compression, and full support for mipmaps and tiling.</string>
+         </property>
+         <property name="toolTipDuration">
+          <number>1</number>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Shape::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Shadow::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="settings_panel_layout">
+          <property name="spacing">
+           <number>16</number>
+          </property>
+          <property name="leftMargin">
+           <number>16</number>
+          </property>
+          <property name="topMargin">
+           <number>16</number>
+          </property>
+          <property name="rightMargin">
+           <number>16</number>
+          </property>
+          <property name="bottomMargin">
+           <number>16</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="atlas_group">
+            <property name="title">
+             <string>Atlas Settings</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+            <property name="flat">
+             <bool>true</bool>
+            </property>
+            <layout class="QGridLayout" name="atlas_layout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0">
+             <property name="sizeConstraint">
+              <enum>QLayout::SizeConstraint::SetNoConstraint</enum>
+             </property>
+             <property name="leftMargin">
+              <number>2</number>
+             </property>
+             <property name="topMargin">
+              <number>2</number>
+             </property>
+             <property name="rightMargin">
+              <number>2</number>
+             </property>
+             <property name="bottomMargin">
+              <number>2</number>
+             </property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item row="21" column="2">
+              <widget class="QComboBox" name="atlas_size_method_combobox">
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Atlas sizing method:&lt;/span&gt;&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;Automatic&lt;/span&gt;: Detects smallest needed pixel size&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;MinMax&lt;/span&gt;: Limits size between min and max resolution&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;Manual&lt;/span&gt;: Enter exact resolution manually&lt;/p&gt;&lt;p&gt;Automatic is recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="statusTip">
+                <string>Choose how the atlas size is determined</string>
+               </property>
+               <property name="editable">
+                <bool>true</bool>
+               </property>
+               <item>
+                <property name="text">
+                 <string>Automatic</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>MinMax</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Manual</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QComboBox" name="packer_method_combobox">
+               <item>
+                <property name="text">
+                 <string>OrderedBlocks</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>GrowingBin</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="atlas_type_label">
+               <property name="text">
+                <string>Atlas type</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="2">
+              <widget class="QComboBox" name="image_format_combo">
+               <item>
+                <property name="text">
+                 <string>PNG</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>JPEG</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="23" column="2">
+              <widget class="QSpinBox" name="atlas_size_spinbox_1">
+               <property name="statusTip">
+                <string/>
+               </property>
+               <property name="suffix">
+                <string> px</string>
+               </property>
+               <property name="minimum">
+                <number>32</number>
+               </property>
+               <property name="maximum">
+                <number>65536</number>
+               </property>
+               <property name="value">
+                <number>512</number>
+               </property>
+              </widget>
+             </item>
+             <item row="21" column="0">
+              <widget class="QLabel" name="atlas_size_method_label">
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Atlas sizing method:&lt;/span&gt;&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;Automatic&lt;/span&gt;: Detects smallest needed pixel size&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;MinMax&lt;/span&gt;: Limits size between min and max resolution&lt;br/&gt;• &lt;span style=&quot; font-style:italic;&quot;&gt;Manual&lt;/span&gt;: Enter exact resolution manually&lt;/p&gt;&lt;p&gt;Automatic is recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="statusTip">
+                <string>Choose how the atlas size is determined</string>
+               </property>
+               <property name="text">
+                <string>Atlas size method</string>
+               </property>
+              </widget>
+             </item>
+             <item row="26" column="0">
+              <widget class="QCheckBox" name="power_of_2_check">
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Power-of-two sizes &lt;span style=&quot; font-style:italic;&quot;&gt;may&lt;/span&gt; enable faster loading, better compression, and full support for mipmaps and tiling.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;Older GPUs and WebGL 1&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt; often require Po2 textures for full compatibility or better performance&lt;br/&gt;&lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;Modern GPUs and WebGL 2+&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt; fully support non-Po2 textures without penalty.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Use Po2 textures when&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Memory usage is important or you're not using &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;mipmapping&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;, &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;texture wrapping&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;, or &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;GPU compression.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Use Po2 textures when&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Targeting older devices or you're using &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;mipmapping&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;, &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;texture wrapping&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;, or &lt;/span&gt;&lt;span style=&quot; font-weight:700; font-style:italic;&quot;&gt;GPU compression.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="toolTipDuration">
+                <number>1</number>
+               </property>
+               <property name="statusTip">
+                <string>Pads the atlas to the nearest power-of-two size (e.g., 512, 1024, 4096). Improves compatibility with older hardware.</string>
+               </property>
+               <property name="text">
+                <string>Use &quot;Power of 2&quot; sizes</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="23" column="0">
+              <widget class="QLabel" name="atlas_size_label_1">
+               <property name="statusTip">
+                <string/>
+               </property>
+               <property name="text">
+                <string>Min atlas size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="2">
+              <widget class="QComboBox" name="atlas_type_combo">
+               <item>
+                <property name="text">
+                 <string>Sparrow</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="12" column="2">
+              <widget class="QSlider" name="speed_optimization_slider">
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>10</number>
+               </property>
+               <property name="value">
+                <number>5</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TickPosition::TicksBelow</enum>
+               </property>
+               <property name="tickInterval">
+                <number>1</number>
+               </property>
+              </widget>
+             </item>
+             <item row="12" column="0">
+              <widget class="QLabel" name="speed_optimization_label">
+               <property name="text">
+                <string>Speed vs Optimization:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="24" column="2">
+              <widget class="QSpinBox" name="atlas_size_spinbox_2">
+               <property name="statusTip">
+                <string/>
+               </property>
+               <property name="suffix">
+                <string> px</string>
+               </property>
+               <property name="minimum">
+                <number>128</number>
+               </property>
+               <property name="maximum">
+                <number>65536</number>
+               </property>
+               <property name="value">
+                <number>8192</number>
+               </property>
+              </widget>
+             </item>
+             <item row="20" column="0">
+              <widget class="QLabel" name="speed_optimization_value_label">
+               <property name="text">
+                <string>Level: 5 (Balanced)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="packer_method_label">
+               <property name="text">
+                <string>Packer method</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="image_format_label">
+               <property name="text">
+                <string>Image format</string>
+               </property>
+              </widget>
+             </item>
+             <item row="24" column="0">
+              <widget class="QLabel" name="atlas_size_label_2">
+               <property name="statusTip">
+                <string/>
+               </property>
+               <property name="text">
+                <string>Max atlas size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="25" column="0">
+              <widget class="QLabel" name="padding_label">
+               <property name="statusTip">
+                <string>Adds some extra whitespace between textures or sprites to ensure they won't overlap</string>
+               </property>
+               <property name="text">
+                <string>Padding:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="25" column="2">
+              <widget class="QSpinBox" name="padding_spin">
+               <property name="statusTip">
+                <string notr="true">Adds some extra whitespace between textures or sprites to ensure they won't overlap</string>
+               </property>
+               <property name="frame">
+                <bool>true</bool>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+               </property>
+               <property name="suffix">
+                <string> px</string>
+               </property>
+               <property name="maximum">
+                <number>64</number>
+               </property>
+               <property name="value">
+                <number>2</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="generate_button">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>45</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Generate Atlas</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="progress_panel">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>150</height>
+         </size>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::Shape::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Shadow::Raised</enum>
+        </property>
+        <layout class="QVBoxLayout" name="progress_layout">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>10</number>
+         </property>
+         <property name="topMargin">
+          <number>10</number>
+         </property>
+         <property name="rightMargin">
+          <number>10</number>
+         </property>
+         <property name="bottomMargin">
+          <number>10</number>
+         </property>
+         <item>
+          <widget class="QProgressBar" name="progress_bar">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <property name="value">
+            <number>24</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="status_label">
+           <property name="text">
+            <string>Ready</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTextEdit" name="log_text">
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="html">
+            <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Atlas generation log will appear here...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>908</width>
+     <height>33</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="file_menu">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="select_directory"/>
+    <addaction name="select_files"/>
+    <addaction name="clear_export_list"/>
+   </widget>
+   <widget class="QMenu" name="import_menu">
+    <property name="title">
+     <string>Import</string>
+    </property>
+    <addaction name="fnf_import_settings"/>
+   </widget>
+   <widget class="QMenu" name="help_menu">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="help_manual"/>
+    <addaction name="help_fnf"/>
+   </widget>
+   <widget class="QMenu" name="contributors_menu">
+    <property name="title">
+     <string>Contributors</string>
+    </property>
+    <addaction name="show_contributors"/>
+   </widget>
+   <widget class="QMenu" name="advanced_menu">
+    <property name="title">
+     <string>Advanced</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="options_menu">
+    <property name="title">
+     <string>Options</string>
+    </property>
+    <addaction name="preferences"/>
+   </widget>
+   <addaction name="file_menu"/>
+   <addaction name="import_menu"/>
+   <addaction name="help_menu"/>
+   <addaction name="contributors_menu"/>
+   <addaction name="advanced_menu"/>
+   <addaction name="options_menu"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="select_directory">
+   <property name="text">
+    <string>Select directory</string>
+   </property>
+  </action>
+  <action name="select_files">
+   <property name="text">
+    <string>Select files</string>
+   </property>
+  </action>
+  <action name="clear_export_list">
+   <property name="text">
+    <string>Clear export list</string>
+   </property>
+  </action>
+  <action name="fnf_import_settings">
+   <property name="text">
+    <string>FNF: Import settings from character data file</string>
+   </property>
+  </action>
+  <action name="preferences">
+   <property name="text">
+    <string>Preferences</string>
+   </property>
+  </action>
+  <action name="help_manual">
+   <property name="text">
+    <string>User Manual</string>
+   </property>
+  </action>
+  <action name="help_fnf">
+   <property name="text">
+    <string>FNF Guide</string>
+   </property>
+  </action>
+  <action name="show_contributors">
+   <property name="text">
+    <string>Show Contributors</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -4,7 +4,7 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 echo ============================================================
-echo  TextureAtlas to GIF and Frames - Windows Nuitka Build Script
+echo  TextureAtlas Toolbox - Windows Nuitka Build Script
 echo ============================================================
 echo.
 echo  This script is provided as-is and I won't give support for it if any issues with it arise.
@@ -13,7 +13,7 @@ echo  This script will:
 echo    - Check for Python 3.10, 3.11, or 3.12 (3.13+ requires MSVC)
 echo    - Automatically install or upgrade Nuitka via pip
 echo    - Check for Visual Studio (MSVC)
-echo    - Build your 'TextureAtlas to GIFs and Frames' python code into a Windows executable
+echo    - Build the 'TextureAtlas Toolbox' python code into a Windows executable
 echo.
 echo  If you have Python 3.10-3.12 and Visual Studio installed,
 echo  you can choose to use MSVC or MinGW64 for building.
@@ -123,9 +123,13 @@ call nuitka ^
  --assume-yes-for-downloads^
  --deployment %NUITKA_COMPILER%^
  --follow-imports^
- --enable-plugin=tk-inter^
+ --include-qt-plugins=qml^
+ --enable-plugin=pyside6^
  --windows-console-mode=attach^
  --include-data-dir=assets=assets^
+ --include-data-files=src\translations\translations.qrc=translations\^
+ --include-data-files=src\translations\*.ts=translations\^
+ --include-data-files=src\translations\*.qm=translations\^
  --include-data-dir=docs=docs^
  --include-data-dir=ImageMagick=ImageMagick^
  --include-data-files=ImageMagick\*.dll=ImageMagick\^
@@ -134,12 +138,12 @@ call nuitka ^
  --include-package=src^
  --windows-icon-from-ico=assets\icon.ico^
  --company-name="AutisticLulu"^
- --product-name="TextureAtlas to GIF and Frames"^
+ --product-name="TextureAtlas Toolbox"^
  --file-version=%APP_VERSION%^
  --product-version=%APP_VERSION%^
  --copyright="Copyright © 2025 AutisticLulu. Licensed under the GNU Affero General Public License (AGPL)"^
- --file-description="TextureAtlas to GIF and Frames v%APP_VERSION%"^
- --output-filename="TextureAtlas to GIF and Frames.exe"^
+ --file-description="TextureAtlas Toolbox v%APP_VERSION%"^
+ --output-filename="TextureAtlasToolbox.exe"^
  --output-dir=_build-output src\Main.py %SHOW_SCONS% %NUITKA_CLANG%
 
 if %errorlevel%==0 (
@@ -159,23 +163,27 @@ if %errorlevel%==0 (
      --assume-yes-for-downloads^
      --deployment %NUITKA_COMPILER%^
      --follow-imports^
-     --enable-plugin=tk-inter^
      --windows-console-mode=attach^
      --include-data-dir=assets=assets^
+     --include-data-files=src\translations\translations.qrc=translations\^
+     --include-data-files=src\translations\*.ts=translations\^
+     --include-data-files=src\translations\*.qm=translations\^
      --include-data-dir=docs=docs^
      --include-data-dir=ImageMagick=ImageMagick^
      --include-data-files=ImageMagick\*.dll=ImageMagick\^
      --include-data-files=LICENSE=LICENSE^
      --include-data-files=README.md=README.md^
      --include-package=src^
+     --include-qt-plugins=qml^
+     --enable-plugin=pyside6^
      --windows-icon-from-ico=assets\icon.ico^
      --company-name="AutisticLulu"^
-     --product-name="TextureAtlas to GIF and Frames"^
+     --product-name="TextureAtlas Toolbox"^
      --file-version=%APP_VERSION%^
      --product-version=%APP_VERSION%^
      --copyright="Copyright © 2025 AutisticLulu. Licensed under the GNU Affero General Public License (AGPL)"^
-     --file-description="TextureAtlas to GIF and Frames v%APP_VERSION%"^
-     --output-filename="TextureAtlas to GIF and Frames.exe"^
+     --file-description="TextureAtlas Toolbox v%APP_VERSION%"^
+     --output-filename="TextureAtlasToolbox.exe"^
      --output-dir=_build-output src\Main.py %SHOW_SCONS%
 
     if %errorlevel%==0 (
