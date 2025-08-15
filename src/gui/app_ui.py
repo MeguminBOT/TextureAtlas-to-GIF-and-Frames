@@ -584,7 +584,7 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.retranslateUi(TextureAtlasToolboxApp)
 
-        self.tools_tab.setCurrentIndex(1)
+        self.tools_tab.setCurrentIndex(0)
         self.animation_format_combobox.setCurrentIndex(0)
         self.frame_format_combobox.setCurrentIndex(3)
         self.cropping_method_combobox.setCurrentIndex(1)
