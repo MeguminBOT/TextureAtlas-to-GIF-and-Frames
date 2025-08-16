@@ -49,25 +49,6 @@ class UnknownParser(BaseParser):
         super().__init__(directory, image_filename, name_callback)
         self.listbox_data = listbox_data
 
-    def get_data(self) -> Set[str]:
-        """Analyze the image and populate the listbox if provided."""
-        try:
-            names = self.extract_names()
-
-            # Populate listbox if provided
-            if self.listbox_data:
-                self.populate_listbox(names)
-
-            # Call the callback if provided
-            if self.name_callback:
-                for name in names:
-                    self.name_callback(name)
-
-            return names
-        except Exception as e:
-            print(f"Error analyzing image file {self.filename}: {e}")
-            return set()
-
     def extract_names(self) -> Set[str]:
         """Detect sprites in the image and return their names."""
         try:
@@ -107,7 +88,10 @@ class UnknownParser(BaseParser):
             Tuple of (processed_image, list_of_sprite_data)
         """
         try:
-            # Load the image
+            from PIL import Image
+
+            # Ignore any decompression bomb warnings/errors and always allow large images
+            Image.MAX_IMAGE_PIXELS = None
             image = Image.open(file_path)
 
             # Ensure the image has an alpha channel
@@ -132,6 +116,8 @@ class UnknownParser(BaseParser):
 
         except Exception as e:
             print(f"Error parsing unknown image {file_path}: {e}")
+            from PIL import Image
+
             return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), []
 
     @staticmethod
