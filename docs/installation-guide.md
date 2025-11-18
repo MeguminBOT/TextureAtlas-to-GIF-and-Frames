@@ -119,10 +119,11 @@ This will guide you through how to install Python and the required dependencies 
 
 ### Installing Python Dependencies
 
-#### Using requirements.txt (Recommended)
+#### Using requirements.txt (Recommended Stable Build)
 
 **Windows:**
 1. Double-click or run `setup/setup_windows.bat` from the project folder. This will attempt to install all required dependencies automatically.
+   - If Python 3.10+ is missing, the script now silently installs the bundled 64-bit build (3.12.x) with PATH integration, requesting elevation only when required.
 2. If you prefer manual steps, open a terminal or command prompt, navigate to the project root directory, and run:
    ```powershell
    pip install -r setup/requirements.txt
@@ -131,6 +132,7 @@ This will guide you through how to install Python and the required dependencies 
    ```powershell
    python -m pip install --user -r setup/requirements.txt
    ```
+   Need the bleeding edge dependency set? Replace `requirements.txt` with `requirements-experimental.txt` in the commands above.
 
 **macOS:**
 1. Open Terminal and run the setup script:
@@ -146,6 +148,7 @@ This will guide you through how to install Python and the required dependencies 
    ```bash
    python3 -m pip install --user -r setup/requirements.txt
    ```
+   For the experimental stack, swap in `setup/requirements-experimental.txt`.
 
 **Linux:**
 1. Open a terminal, navigate to the project root directory, and run:
@@ -156,6 +159,7 @@ This will guide you through how to install Python and the required dependencies 
    ```bash
    python3 -m pip install --user -r setup/requirements.txt
    ```
+   Swap the filename with `setup/requirements-experimental.txt` if you prefer the less-tested dependency set.
 
 ##### Full manual Installation
 
