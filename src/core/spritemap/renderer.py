@@ -15,7 +15,15 @@ from .symbols import Symbols
 class AdobeSpritemapRenderer:
     """Render symbol animations defined by Adobe Animate spritemaps."""
 
-    def __init__(self, animation_path: str, spritemap_json_path: str, atlas_image_path: str, canvas_size=None, resample=Image.BICUBIC):
+    def __init__(
+        self,
+        animation_path: str,
+        spritemap_json_path: str,
+        atlas_image_path: str,
+        canvas_size=None,
+        resample=Image.BICUBIC,
+        filter_single_frame: bool = True,
+    ):
         self.animation_path = animation_path
         self.spritemap_json_path = spritemap_json_path
         self.atlas_image_path = atlas_image_path
@@ -31,6 +39,7 @@ class AdobeSpritemapRenderer:
             canvas_size = atlas_image.size
 
         self.frame_rate = self.animation_json.get("MD", {}).get("FRT", 24)
+        self.filter_single_frame = filter_single_frame
         self.sprite_atlas = SpriteAtlas(spritemap_json, atlas_image, canvas_size, resample)
         self.symbols = Symbols(self.animation_json, self.sprite_atlas, canvas_size)
 
@@ -44,6 +53,8 @@ class AdobeSpritemapRenderer:
             frames = self._render_symbol_frames(symbol_name)
             if not frames:
                 continue
+            if self.filter_single_frame and len(frames) <= 1:
+                continue
             folder_name = Utilities.strip_trailing_digits(symbol_name)
             animations.setdefault(folder_name, []).extend(frames)
 
@@ -55,6 +66,8 @@ class AdobeSpritemapRenderer:
                 frame_name_prefix=label["name"],
             )
             if not frames:
+                continue
+            if self.filter_single_frame and len(frames) <= 1:
                 continue
             folder_name = label["name"]
             animations.setdefault(folder_name, []).extend(frames)

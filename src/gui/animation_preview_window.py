@@ -1364,6 +1364,7 @@ class AnimationPreviewWindow(QDialog):
                 settings=complete_settings,
                 animation_name=animation_name,
                 spritemap_info=spritemap_info,
+                spritesheet_label=spritesheet_name,
             )
 
             if temp_path and os.path.exists(temp_path):

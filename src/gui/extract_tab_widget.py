@@ -6,6 +6,7 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -28,6 +29,7 @@ from PySide6.QtGui import QAction
 
 from gui.enhanced_list_widget import EnhancedListWidget
 from utils.utilities import Utilities
+from core.spritemap.metadata import compute_symbol_lengths, extract_label_ranges
 
 
 class ExtractTabWidget(QWidget):
@@ -37,6 +39,7 @@ class ExtractTabWidget(QWidget):
         super().__init__(parent)
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
+        self.filter_single_frame_spritemaps = True
 
         if use_existing_ui and parent:
             # Use existing UI elements from parent
@@ -631,14 +634,33 @@ class ExtractTabWidget(QWidget):
         if not directory_path.exists():
             return
 
-        # Find PNG files
-        png_files = list(directory_path.glob("*.png"))
+        # Root-level PNGs
+        for png_file in sorted(directory_path.glob("*.png")):
+            display_name = self._format_display_name(directory_path, png_file)
+            self.listbox_png.add_item(display_name, str(png_file))
+            self.find_data_files_for_spritesheet(
+                png_file,
+                search_directory=png_file.parent,
+                display_name=display_name,
+            )
 
-        for png_file in png_files:
-            # Add to list
-            self.listbox_png.add_item(png_file.name, str(png_file))
-            # Look for corresponding data files (XML, TXT, etc.)
-            self.find_data_files_for_spritesheet(png_file)
+        # Nested spritemap folders (Animation.json + matching spritemap json)
+        for png_file in sorted(directory_path.rglob("*.png")):
+            if png_file.parent == directory_path:
+                continue
+            animation_json = png_file.parent / "Animation.json"
+            spritemap_json = png_file.parent / f"{png_file.stem}.json"
+            if not (animation_json.exists() and spritemap_json.exists()):
+                continue
+            display_name = self._format_display_name(directory_path, png_file)
+            if self.listbox_png.find_item_by_text(display_name):
+                continue
+            self.listbox_png.add_item(display_name, str(png_file))
+            self.find_data_files_for_spritesheet(
+                png_file,
+                search_directory=png_file.parent,
+                display_name=display_name,
+            )
 
     def populate_spritesheet_list_from_files(self, files, temp_folder=None):
         """Populates the spritesheet list from manually selected files."""
@@ -652,12 +674,30 @@ class ExtractTabWidget(QWidget):
         for file_path in files:
             path = Path(file_path)
             if path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-                self.listbox_png.add_item(path.name, str(path))
+                display_name = self._format_display_name(
+                    Path(temp_folder) if temp_folder else None, path
+                )
+                self.listbox_png.add_item(display_name, str(path))
                 # Use temp folder if provided, otherwise use original file location
                 search_directory = Path(temp_folder) if temp_folder else path.parent
-                self.find_data_files_for_spritesheet(path, search_directory)
+                self.find_data_files_for_spritesheet(
+                    path,
+                    search_directory=search_directory,
+                    display_name=display_name,
+                )
 
-    def find_data_files_for_spritesheet(self, spritesheet_path, search_directory=None):
+    def _format_display_name(self, base_directory: Optional[Path], spritesheet_path: Path) -> str:
+        if base_directory:
+            try:
+                relative = spritesheet_path.relative_to(base_directory)
+                return relative.as_posix()
+            except ValueError:
+                pass
+        return spritesheet_path.name
+
+    def find_data_files_for_spritesheet(
+        self, spritesheet_path, search_directory=None, display_name=None
+    ):
         """Find data files (XML, TXT) associated with a spritesheet."""
         if not self.parent_app:
             return
@@ -668,25 +708,26 @@ class ExtractTabWidget(QWidget):
         directory = Path(search_directory) if search_directory else spritesheet_path.parent
 
         # Initialize data dict entry
-        if spritesheet_path.name not in self.parent_app.data_dict:
-            self.parent_app.data_dict[spritesheet_path.name] = {}
+        record_key = display_name or spritesheet_path.name
+        if record_key not in self.parent_app.data_dict:
+            self.parent_app.data_dict[record_key] = {}
 
         # Look for XML files
         xml_file = directory / f"{base_name}.xml"
         if xml_file.exists():
-            self.parent_app.data_dict[spritesheet_path.name]["xml"] = str(xml_file)
+            self.parent_app.data_dict[record_key]["xml"] = str(xml_file)
 
         # Look for TXT files
         txt_file = directory / f"{base_name}.txt"
         if txt_file.exists():
-            self.parent_app.data_dict[spritesheet_path.name]["txt"] = str(txt_file)
+            self.parent_app.data_dict[record_key]["txt"] = str(txt_file)
 
         # Look for Adobe spritemap exports (Animation.json + matching spritemap JSON)
         animation_json = directory / "Animation.json"
         spritemap_json = directory / f"{base_name}.json"
         if animation_json.exists() and spritemap_json.exists():
             symbol_map = self._build_spritemap_symbol_map(animation_json)
-            self.parent_app.data_dict[spritesheet_path.name]["spritemap"] = {
+            self.parent_app.data_dict[record_key]["spritemap"] = {
                 "type": "spritemap",
                 "animation_json": str(animation_json),
                 "spritemap_json": str(spritemap_json),
@@ -696,7 +737,7 @@ class ExtractTabWidget(QWidget):
     def _build_spritemap_symbol_map(self, animation_json_path):
         symbol_map = {}
 
-        def register_entry(display_name, entry_type, entry_value):
+        def register_entry(display_name, entry_type, entry_value, frame_count):
             """Store entries with unique labels so symbols and labels never collide."""
             suffix = " (Timeline)" if entry_type == "timeline_label" else " (Symbol)"
             candidate = display_name
@@ -706,25 +747,34 @@ class ExtractTabWidget(QWidget):
                 while candidate in symbol_map:
                     candidate = f"{display_name}{suffix} #{counter}"
                     counter += 1
-            symbol_map[candidate] = {"type": entry_type, "value": entry_value}
+            symbol_map[candidate] = {
+                "type": entry_type,
+                "value": entry_value,
+                "frame_count": frame_count,
+            }
 
         try:
             with open(animation_json_path, "r", encoding="utf-8") as animation_file:
                 animation_json = json.load(animation_file)
 
+            symbol_lengths = compute_symbol_lengths(animation_json)
+
             for symbol in animation_json.get("SD", {}).get("S", []):
                 raw_name = symbol.get("SN")
                 if not raw_name:
                     continue
+                frame_count = symbol_lengths.get(raw_name, 0)
+                if self.filter_single_frame_spritemaps and frame_count <= 1:
+                    continue
                 display_name = Utilities.strip_trailing_digits(raw_name) or raw_name
-                register_entry(display_name, "symbol", raw_name)
+                register_entry(display_name, "symbol", raw_name, frame_count)
 
-            for layer in animation_json.get("AN", {}).get("TL", {}).get("L", []):
-                for frame in layer.get("FR", []):
-                    label_name = frame.get("N")
-                    if not label_name:
-                        continue
-                    register_entry(label_name, "timeline_label", label_name)
+            for label in extract_label_ranges(animation_json, None):
+                label_name = label["name"]
+                frame_count = label["end"] - label["start"]
+                if self.filter_single_frame_spritemaps and frame_count <= 1:
+                    continue
+                register_entry(label_name, "timeline_label", label_name, frame_count)
         except Exception as exc:
             print(f"Error parsing spritemap animation metadata {animation_json_path}: {exc}")
         return symbol_map
@@ -809,6 +859,7 @@ class ExtractTabWidget(QWidget):
                                 directory=str(Path(animation_path).parent),
                                 animation_filename=Path(animation_path).name,
                                 listbox_data=self.listbox_data,
+                                filter_single_frame=self.filter_single_frame_spritemaps,
                             )
                             parser.get_data()
                     except Exception as e:
@@ -1153,7 +1204,11 @@ class ExtractTabWidget(QWidget):
 
             # Use parent app's preview functionality
             self.parent_app.preview_animation_with_paths(
-                spritesheet_path, metadata_path, animation_name, spritemap_info
+                spritesheet_path,
+                metadata_path,
+                animation_name,
+                spritemap_info,
+                spritesheet_label=spritesheet_name,
             )
 
         except Exception as e:
@@ -1253,6 +1308,7 @@ class ExtractTabWidget(QWidget):
             "replace_rules": getattr(self.parent_app, "replace_rules", []),
             "var_delay": getattr(self.parent_app, "variable_delay", False),
             "fnf_idle_loop": getattr(self.parent_app, "fnf_idle_loop", False),
+            "filter_single_frame_spritemaps": self.filter_single_frame_spritemaps,
         }
 
         return settings
@@ -1305,31 +1361,34 @@ class ExtractTabWidget(QWidget):
 
         unknown_atlases = []
         input_directory = self.input_dir_label.text()
-
-        animation_json_path = os.path.join(input_directory, "Animation.json")
+        base_directory = Path(input_directory)
 
         for filename in spritesheet_list:
-            base_filename = filename.rsplit(".", 1)[0]
-            xml_path = os.path.join(input_directory, base_filename + ".xml")
-            txt_path = os.path.join(input_directory, base_filename + ".txt")
-            image_path = os.path.join(input_directory, filename)
-            spritemap_json_path = os.path.join(input_directory, base_filename + ".json")
+            relative_path = Path(filename)
+            atlas_path = base_directory / relative_path
+            atlas_dir = atlas_path.parent
+            base_filename = relative_path.stem
+            xml_path = atlas_dir / f"{base_filename}.xml"
+            txt_path = atlas_dir / f"{base_filename}.txt"
+            spritemap_json_path = atlas_dir / f"{base_filename}.json"
+            animation_json_path = atlas_dir / "Animation.json"
 
-            has_spritemap_metadata = os.path.isfile(animation_json_path) and os.path.isfile(
-                spritemap_json_path
-            )
+            has_spritemap_metadata = animation_json_path.is_file() and spritemap_json_path.is_file()
 
-            if (not has_spritemap_metadata and self.parent_app and filename in self.parent_app.data_dict):
+            if (
+                not has_spritemap_metadata
+                and self.parent_app
+                and filename in self.parent_app.data_dict
+            ):
                 data_entry = self.parent_app.data_dict.get(filename, {})
                 has_spritemap_metadata = isinstance(data_entry, dict) and "spritemap" in data_entry
 
-            # Check if this is an unknown atlas (no metadata file but is an image)
             if (
-                not os.path.isfile(xml_path)
-                and not os.path.isfile(txt_path)
+                not xml_path.is_file()
+                and not txt_path.is_file()
                 and not has_spritemap_metadata
-                and os.path.isfile(image_path)
-                and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
+                and atlas_path.is_file()
+                and atlas_path.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
             ):
                 unknown_atlases.append(filename)
 

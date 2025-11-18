@@ -26,12 +26,13 @@ class AnimationProcessor:
             Scales the image by the given size factor, optionally flipping it horizontally.
     """
 
-    def __init__(self, animations, atlas_path, output_dir, settings_manager, current_version):
+    def __init__(self, animations, atlas_path, output_dir, settings_manager, current_version, spritesheet_label=None):
         self.animations = animations
         self.atlas_path = atlas_path
         self.output_dir = output_dir
         self.settings_manager = settings_manager
         self.current_version = current_version
+        self.spritesheet_label = spritesheet_label or os.path.split(self.atlas_path)[1]
         self.frame_exporter = FrameExporter(
             self.output_dir, self.current_version, self.scale_image
         )
@@ -43,7 +44,7 @@ class AnimationProcessor:
         frames_generated = 0
         anims_generated = 0
 
-        spritesheet_name = os.path.split(self.atlas_path)[1]
+        spritesheet_name = self.spritesheet_label
 
         for animation_name, image_tuples in self.animations.items():
             print(f"Processing animation: {animation_name}")

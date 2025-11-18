@@ -11,14 +11,16 @@ from typing import Optional, Callable, Set
 
 from utils.utilities import Utilities
 from parsers.base_parser import BaseParser, populate_qt_listbox
+from core.spritemap.metadata import compute_symbol_lengths, extract_label_ranges
 
 
 class SpritemapParser(BaseParser):
     """Extract animation names from Adobe Animate spritemap exports."""
 
-    def __init__(self, directory: str, animation_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None):
+    def __init__(self, directory: str, animation_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None, filter_single_frame: bool = True):
         super().__init__(directory, animation_filename, name_callback)
         self.listbox_data = listbox_data
+        self.filter_single_frame = filter_single_frame
 
     def get_data(self) -> Set[str]:
         names = self.extract_names()
@@ -36,16 +38,20 @@ class SpritemapParser(BaseParser):
             with open(animation_path, "r", encoding="utf-8") as animation_file:
                 animation_json = json.load(animation_file)
 
+            symbol_lengths = compute_symbol_lengths(animation_json)
+
             for symbol in animation_json.get("SD", {}).get("S", []):
                 raw_name = symbol.get("SN")
                 if raw_name:
+                    if self.filter_single_frame and symbol_lengths.get(raw_name, 0) <= 1:
+                        continue
                     names.add(Utilities.strip_trailing_digits(raw_name))
 
-            for layer in animation_json.get("AN", {}).get("TL", {}).get("L", []):
-                for frame in layer.get("FR", []):
-                    label_name = frame.get("N")
-                    if label_name:
-                        names.add(label_name)
+            for label in extract_label_ranges(animation_json, None):
+                frame_count = label["end"] - label["start"]
+                if self.filter_single_frame and frame_count <= 1:
+                    continue
+                names.add(label["name"])
         except Exception as exc:
             print(f"Error parsing spritemap animation file {animation_path}: {exc}")
         return names

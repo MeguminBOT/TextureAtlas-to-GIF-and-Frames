@@ -10,6 +10,7 @@ from PIL import Image, ImageChops
 
 from .transform_matrix import TransformMatrix
 from .color_effect import ColorEffect
+from .metadata import compute_layers_length, extract_label_ranges_from_layers
 
 IDENTITY_M3D = [
     1,
@@ -48,19 +49,13 @@ class Symbols:
 
         self.timelines[None] = animation_json.get("AN", {}).get("TL", {}).get("L", [])
         self.label_map: Dict[Optional[str], List[Dict[str, int]]] = {
-            name: self._extract_label_ranges(layers)
+            name: extract_label_ranges_from_layers(layers)
             for name, layers in self.timelines.items()
         }
         self.center_in_canvas = TransformMatrix(c=canvas_size[0] // 2, f=canvas_size[1] // 2)
 
     def length(self, symbol_name):
-        length = 0
-        for layer in self.timelines.get(symbol_name, []):
-            frames = layer.get("FR", [])
-            if frames:
-                last_frame = frames[-1]
-                length = max(length, last_frame.get("I", 0) + last_frame.get("DU", 0))
-        return length
+        return compute_layers_length(self.timelines.get(symbol_name))
 
     def render_symbol(self, name, frame_index):
         canvas = Image.new("RGBA", self.canvas_size, color=self.background_color)
@@ -127,33 +122,6 @@ class Symbols:
                     base_canvas.alpha_composite(masked_canvas, dest=mask_bbox[:2])
 
                 canvas = base_canvas
-
-    def _extract_label_ranges(self, layers):
-        labels: List[Dict[str, int]] = []
-        if not layers:
-            return labels
-
-        for layer in layers:
-            frames = layer.get("FR", [])
-            for frame in frames:
-                label_name = frame.get("N")
-                if not label_name:
-                    continue
-                start = frame.get("I", 0)
-                duration = frame.get("DU", 1)
-                labels.append({"name": label_name, "start": start, "end": start + duration})
-            if labels:
-                break
-
-        labels.sort(key=lambda item: item["start"])
-        unique = []
-        seen = set()
-        for entry in labels:
-            if entry["name"] in seen:
-                continue
-            seen.add(entry["name"])
-            unique.append(entry)
-        return unique
 
     def get_label_ranges(self, symbol_name: Optional[str]):
         return self.label_map.get(symbol_name, [])

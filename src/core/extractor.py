@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from PIL import Image
 import tempfile
 from threading import Lock
+from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QCoreApplication
 
@@ -269,7 +270,7 @@ class Extractor:
                 # No more workers active
                 callback_to_use(len(self.completed_files), total_files, "Completing...")
 
-    def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None):
+    def extract_sprites(self, atlas_path, metadata_path, output_dir, settings, parent_window=None, spritesheet_label=None):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
@@ -281,7 +282,12 @@ class Extractor:
             sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
             animations = sprite_processor.process_sprites()
             animation_processor = AnimationProcessor(
-                animations, atlas_path, output_dir, self.settings_manager, self.current_version
+                animations,
+                atlas_path,
+                output_dir,
+                self.settings_manager,
+                self.current_version,
+                spritesheet_label=spritesheet_label,
             )
 
             frames_generated, anims_generated = animation_processor.process_animations(is_unknown_spritesheet)
@@ -309,14 +315,27 @@ class Extractor:
                 "sprites_failed": sprites_failed,
             }
 
-    def extract_spritemap_project(self, atlas_path, animation_json_path, spritemap_json_path, output_dir, settings):
+    def extract_spritemap_project(
+        self,
+        atlas_path,
+        animation_json_path,
+        spritemap_json_path,
+        output_dir,
+        settings,
+        spritesheet_label=None,
+    ):
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
 
         try:
-            spritesheet_name = os.path.basename(atlas_path)
-            renderer = AdobeSpritemapRenderer(animation_json_path, spritemap_json_path, atlas_path)
+            spritesheet_name = spritesheet_label or os.path.basename(atlas_path)
+            renderer = AdobeSpritemapRenderer(
+                animation_json_path,
+                spritemap_json_path,
+                atlas_path,
+                filter_single_frame=settings.get("filter_single_frame_spritemaps", True),
+            )
             renderer.ensure_animation_defaults(self.settings_manager, spritesheet_name)
             animations = renderer.build_animation_frames()
 
@@ -328,7 +347,12 @@ class Extractor:
                 }
 
             animation_processor = AnimationProcessor(
-                animations, atlas_path, output_dir, self.settings_manager, self.current_version
+                animations,
+                atlas_path,
+                output_dir,
+                self.settings_manager,
+                self.current_version,
+                spritesheet_label=spritesheet_name,
             )
             frames_generated, anims_generated = animation_processor.process_animations()
             return {
@@ -353,6 +377,7 @@ class Extractor:
         animation_name,
         temp_dir=None,
         spritemap_info=None,
+        spritesheet_label=None,
     ):
         """
         Optimized version that only processes the specific animation frames for regeneration.
@@ -362,6 +387,8 @@ class Extractor:
             import tempfile
 
             animations = {}
+
+            label = spritesheet_label or os.path.basename(atlas_path)
 
             if spritemap_info:
                 animation_json_path = spritemap_info.get("animation_json")
@@ -373,8 +400,9 @@ class Extractor:
                     animation_json_path,
                     spritemap_json_path,
                     atlas_path,
+                    filter_single_frame=settings.get("filter_single_frame_spritemaps", True),
                 )
-                renderer.ensure_animation_defaults(self.settings_manager, os.path.basename(atlas_path))
+                renderer.ensure_animation_defaults(self.settings_manager, label)
                 symbol_entry = spritemap_info.get("symbol_map", {}).get(animation_name, animation_name)
                 frames = renderer.render_animation(symbol_entry)
                 if not frames:
@@ -390,7 +418,13 @@ class Extractor:
                     animation_sprites = atlas_processor.parse_txt_for_preview(animation_name)
                 else:
                     return self.generate_temp_animation_for_preview(
-                        atlas_path, metadata_path, settings, animation_name, temp_dir
+                        atlas_path,
+                        metadata_path,
+                        settings,
+                        animation_name,
+                        temp_dir,
+                        spritemap_info,
+                        spritesheet_label=label,
                     )
 
                 if not animation_sprites:
@@ -420,7 +454,7 @@ class Extractor:
             )
 
             for anim_name, image_tuples in animations.items():
-                spritesheet_name = os.path.basename(atlas_path)
+                spritesheet_name = label
                 preview_settings = self.settings_manager.get_settings(
                     spritesheet_name, f"{spritesheet_name}/{anim_name}"
                 )
@@ -482,26 +516,28 @@ class Extractor:
                 f"[Extractor] Checking {len(spritesheet_list)} spritesheets for unknown files..."
             )
 
-            for filename in spritesheet_list:
-                base_filename = filename.rsplit(".", 1)[0]
-                xml_path = os.path.join(input_dir, base_filename + ".xml")
-                txt_path = os.path.join(input_dir, base_filename + ".txt")
-                image_path = os.path.join(input_dir, filename)
+            base_directory = Path(input_dir)
 
-                spritemap_json_path = os.path.join(input_dir, base_filename + ".json")
-                animation_json_path = os.path.join(input_dir, "Animation.json")
-                has_spritemap_metadata = os.path.isfile(animation_json_path) and os.path.isfile(
-                    spritemap_json_path
-                )
+            for filename in spritesheet_list:
+                relative_path = Path(filename)
+                atlas_path = base_directory / relative_path
+                base_filename = relative_path.stem
+                atlas_dir = atlas_path.parent
+
+                xml_path = atlas_dir / f"{base_filename}.xml"
+                txt_path = atlas_dir / f"{base_filename}.txt"
+
+                spritemap_json_path = atlas_dir / f"{base_filename}.json"
+                animation_json_path = atlas_dir / "Animation.json"
+                has_spritemap_metadata = animation_json_path.is_file() and spritemap_json_path.is_file()
 
                 if (
-                    not os.path.isfile(xml_path)
-                    and not os.path.isfile(txt_path)
+                    not xml_path.is_file()
+                    and not txt_path.is_file()
                     and not has_spritemap_metadata
-                    and os.path.isfile(image_path)
-                    and filename.lower().endswith(
-                        (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
-                    )
+                    and atlas_path.is_file()
+                    and atlas_path.suffix.lower()
+                    in (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
                 ):
                     unknown_spritesheets.append(filename)
                     print(f"[Extractor] Found unknown spritesheet: {filename}")
@@ -523,7 +559,7 @@ class Extractor:
             detection_results = []
 
             for filename in unknown_spritesheets:
-                image_path = os.path.join(input_dir, filename)
+                image_path = str(base_directory / Path(filename))
                 try:
                     image = Image.open(image_path)
                     if image.mode != "RGBA":
@@ -626,50 +662,55 @@ class FileProcessorWorker(QThread):
             thread_id = threading.get_ident()
             print(f"[FileProcessorWorker] Starting processing of {self.filename} on thread {thread_id} at {time.time():.3f}")
             
-            base_filename = self.filename.rsplit(".", 1)[0]
-            xml_path = os.path.join(self.input_dir, base_filename + ".xml")
-            txt_path = os.path.join(self.input_dir, base_filename + ".txt")
-            image_path = os.path.join(self.input_dir, self.filename)
-            sprite_output_dir = os.path.join(self.output_dir, base_filename)
+            relative_path = Path(self.filename)
+            atlas_path = Path(self.input_dir) / relative_path
+            atlas_dir = atlas_path.parent
+            base_filename = relative_path.stem
+            xml_path = atlas_dir / f"{base_filename}.xml"
+            txt_path = atlas_dir / f"{base_filename}.txt"
+            image_path = str(atlas_path)
+            sprite_output_dir = Path(self.output_dir) / relative_path.with_suffix("")
+            animation_json_path = atlas_dir / "Animation.json"
+            spritemap_json_path = atlas_dir / f"{base_filename}.json"
             
             os.makedirs(sprite_output_dir, exist_ok=True)
+            sprite_output_dir = str(sprite_output_dir)
             
             # Get settings for this file
             settings = self.extractor.settings_manager.get_settings(self.filename)
             
             print(f"[FileProcessorWorker] {self.filename} about to start extract_sprites on thread {thread_id}")
-            
-            animation_json_path = os.path.join(self.input_dir, "Animation.json")
-            spritemap_json_path = os.path.join(self.input_dir, base_filename + ".json")
 
             # Process Adobe spritemap exports first
-            if os.path.isfile(animation_json_path) and os.path.isfile(spritemap_json_path):
+            if animation_json_path.is_file() and spritemap_json_path.is_file():
                 print(f"[FileProcessorWorker] Processing {self.filename} as Adobe spritemap")
                 result = self.extractor.extract_spritemap_project(
                     image_path,
-                    animation_json_path,
-                    spritemap_json_path,
+                    str(animation_json_path),
+                    str(spritemap_json_path),
                     sprite_output_dir,
                     settings,
+                    spritesheet_label=self.filename,
                 )
                 print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
                 self.file_completed.emit(self.filename, result)
 
             # Process the file with XML/TXT metadata
-            elif os.path.isfile(xml_path) or os.path.isfile(txt_path):
+            elif xml_path.is_file() or txt_path.is_file():
                 print(f"[FileProcessorWorker] Processing {self.filename} with metadata")
                 result = self.extractor.extract_sprites(
-                    os.path.join(self.input_dir, self.filename),
-                    xml_path if os.path.isfile(xml_path) else txt_path,
+                    image_path,
+                    str(xml_path) if xml_path.is_file() else str(txt_path),
                     sprite_output_dir,
                     settings,
                     None,  # No parent window for worker threads to avoid Qt threading issues
+                    spritesheet_label=self.filename,
                 )
                 print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
                 self.file_completed.emit(self.filename, result)
                 
             elif (os.path.isfile(image_path) and 
-                  self.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
+                self.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'))):
                 print(f"[FileProcessorWorker] Processing {self.filename} as unknown spritesheet")
                 result = self.extractor.extract_sprites(
                     image_path,
@@ -677,6 +718,7 @@ class FileProcessorWorker(QThread):
                     sprite_output_dir,
                     settings,
                     None,  # No parent window for worker threads to avoid Qt threading issues
+                    spritesheet_label=self.filename,
                 )
                 print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
                 self.file_completed.emit(self.filename, result)

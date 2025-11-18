@@ -78,7 +78,10 @@ class OverrideSettingsWindow(QDialog):
         self.local_settings = {}
 
         if self.settings_type == "animation":
-            spritesheet_name = self.name.split("/", 1)[0] if "/" in self.name else self.name
+            if "/" in self.name:
+                spritesheet_name = self.name.rsplit("/", 1)[0]
+            else:
+                spritesheet_name = self.name
             animation_name = self.name
             self.local_settings = self.settings_manager.animation_settings.get(animation_name, {})
             self.spritesheet_name = spritesheet_name
@@ -371,7 +374,7 @@ class OverrideSettingsWindow(QDialog):
                 filename = Utilities.format_filename(
                     self.settings.get("prefix"),
                     self.spritesheet_name,
-                    self.name.split("/", 1)[1],
+                    self.name.rsplit("/", 1)[1],
                     self.settings.get("filename_format"),
                     self.settings.get("replace_rules"),
                     self.settings.get("suffix"),
@@ -402,7 +405,7 @@ class OverrideSettingsWindow(QDialog):
                     )
                     return
 
-                spritesheet_name, animation_name = self.name.split("/", 1)
+                spritesheet_name, animation_name = self.name.rsplit("/", 1)
 
                 # Find and select the spritesheet and animation in the main window
                 # First, find the spritesheet
