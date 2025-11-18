@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import json
 import os
 import tempfile
 import shutil
@@ -26,6 +27,7 @@ from PySide6.QtCore import Qt, QCoreApplication
 from PySide6.QtGui import QAction
 
 from gui.enhanced_list_widget import EnhancedListWidget
+from utils.utilities import Utilities
 
 
 class ExtractTabWidget(QWidget):
@@ -679,6 +681,54 @@ class ExtractTabWidget(QWidget):
         if txt_file.exists():
             self.parent_app.data_dict[spritesheet_path.name]["txt"] = str(txt_file)
 
+        # Look for Adobe spritemap exports (Animation.json + matching spritemap JSON)
+        animation_json = directory / "Animation.json"
+        spritemap_json = directory / f"{base_name}.json"
+        if animation_json.exists() and spritemap_json.exists():
+            symbol_map = self._build_spritemap_symbol_map(animation_json)
+            self.parent_app.data_dict[spritesheet_path.name]["spritemap"] = {
+                "type": "spritemap",
+                "animation_json": str(animation_json),
+                "spritemap_json": str(spritemap_json),
+                "symbol_map": symbol_map,
+            }
+
+    def _build_spritemap_symbol_map(self, animation_json_path):
+        symbol_map = {}
+
+        def register_entry(display_name, entry_type, entry_value):
+            """Store entries with unique labels so symbols and labels never collide."""
+            suffix = " (Timeline)" if entry_type == "timeline_label" else " (Symbol)"
+            candidate = display_name
+            if candidate in symbol_map:
+                candidate = f"{display_name}{suffix}"
+                counter = 2
+                while candidate in symbol_map:
+                    candidate = f"{display_name}{suffix} #{counter}"
+                    counter += 1
+            symbol_map[candidate] = {"type": entry_type, "value": entry_value}
+
+        try:
+            with open(animation_json_path, "r", encoding="utf-8") as animation_file:
+                animation_json = json.load(animation_file)
+
+            for symbol in animation_json.get("SD", {}).get("S", []):
+                raw_name = symbol.get("SN")
+                if not raw_name:
+                    continue
+                display_name = Utilities.strip_trailing_digits(raw_name) or raw_name
+                register_entry(display_name, "symbol", raw_name)
+
+            for layer in animation_json.get("AN", {}).get("TL", {}).get("L", []):
+                for frame in layer.get("FR", []):
+                    label_name = frame.get("N")
+                    if not label_name:
+                        continue
+                    register_entry(label_name, "timeline_label", label_name)
+        except Exception as exc:
+            print(f"Error parsing spritemap animation metadata {animation_json_path}: {exc}")
+        return symbol_map
+
     def on_select_spritesheet(self, current, previous):
         """Handles the event when a PNG file is selected from the listbox."""
         if not current or not self.parent_app:
@@ -716,52 +766,74 @@ class ExtractTabWidget(QWidget):
 
         data_files = self.parent_app.data_dict[spritesheet_name]
 
-        # Parse XML files for animations
-        if "xml" in data_files:
-            try:
-                from parsers.xml_parser import XmlParser
+        if isinstance(data_files, dict):
+            if "xml" in data_files:
+                try:
+                    from parsers.xml_parser import XmlParser
 
-                xml_parser = XmlParser(
-                    directory=str(Path(data_files["xml"]).parent),
-                    xml_filename=Path(data_files["xml"]).name,
-                    listbox_data=self.listbox_data,
-                )
-                xml_parser.get_data()
-            except Exception as e:
-                print(f"Error parsing XML: {e}")
+                    xml_parser = XmlParser(
+                        directory=str(Path(data_files["xml"]).parent),
+                        xml_filename=Path(data_files["xml"]).name,
+                        listbox_data=self.listbox_data,
+                    )
+                    xml_parser.get_data()
+                except Exception as e:
+                    print(f"Error parsing XML: {e}")
 
-        # Parse TXT files for animations (only if no XML found)
-        elif "txt" in data_files:
-            try:
-                from parsers.txt_parser import TxtParser
+            elif "txt" in data_files:
+                try:
+                    from parsers.txt_parser import TxtParser
 
-                txt_parser = TxtParser(
-                    directory=str(Path(data_files["txt"]).parent),
-                    txt_filename=Path(data_files["txt"]).name,
-                    listbox_data=self.listbox_data,
-                )
-                txt_parser.get_data()
-            except Exception as e:
-                print(f"Error parsing TXT: {e}")
+                    txt_parser = TxtParser(
+                        directory=str(Path(data_files["txt"]).parent),
+                        txt_filename=Path(data_files["txt"]).name,
+                        listbox_data=self.listbox_data,
+                    )
+                    txt_parser.get_data()
+                except Exception as e:
+                    print(f"Error parsing TXT: {e}")
 
-        # If no data files found, try to use the unknown parser
+            elif "spritemap" in data_files:
+                spritemap_info = data_files.get("spritemap", {})
+                symbol_map = spritemap_info.get("symbol_map", {})
+                if symbol_map:
+                    for display_name in sorted(symbol_map.keys()):
+                        self.listbox_data.add_item(display_name)
+                else:
+                    try:
+                        from parsers.spritemap_parser import SpritemapParser
+
+                        animation_path = spritemap_info.get("animation_json")
+                        if animation_path:
+                            parser = SpritemapParser(
+                                directory=str(Path(animation_path).parent),
+                                animation_filename=Path(animation_path).name,
+                                listbox_data=self.listbox_data,
+                            )
+                            parser.get_data()
+                    except Exception as e:
+                        print(f"Error parsing spritemap animations: {e}")
+            else:
+                self._populate_unknown_parser_fallback()
         else:
-            try:
-                from parsers.unknown_parser import UnknownParser
+            self._populate_unknown_parser_fallback()
 
-                # Get the spritesheet file path from the listbox
-                current_item = self.listbox_png.currentItem()
-                if current_item:
-                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
-                    if spritesheet_path:
-                        unknown_parser = UnknownParser(
-                            directory=str(Path(spritesheet_path).parent),
-                            png_filename=Path(spritesheet_path).name,
-                            listbox_data=self.listbox_data,
-                        )
-                        unknown_parser.get_data()
-            except Exception as e:
-                print(f"Error using unknown parser: {e}")
+    def _populate_unknown_parser_fallback(self):
+        try:
+            from parsers.unknown_parser import UnknownParser
+
+            current_item = self.listbox_png.currentItem()
+            if current_item:
+                spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
+                if spritesheet_path:
+                    unknown_parser = UnknownParser(
+                        directory=str(Path(spritesheet_path).parent),
+                        png_filename=Path(spritesheet_path).name,
+                        listbox_data=self.listbox_data,
+                    )
+                    unknown_parser.get_data()
+        except Exception as exc:
+            print(f"Error using unknown parser: {exc}")
 
     def clear_filelist(self):
         """Clears the file list and resets settings."""
@@ -1068,16 +1140,20 @@ class ExtractTabWidget(QWidget):
 
             # Find the metadata file
             metadata_path = None
+            spritemap_info = None
             if spritesheet_name in self.parent_app.data_dict:
                 data_files = self.parent_app.data_dict[spritesheet_name]
-                if "xml" in data_files:
-                    metadata_path = data_files["xml"]
-                elif "txt" in data_files:
-                    metadata_path = data_files["txt"]
+                if isinstance(data_files, dict):
+                    if "xml" in data_files:
+                        metadata_path = data_files["xml"]
+                    elif "txt" in data_files:
+                        metadata_path = data_files["txt"]
+                    elif "spritemap" in data_files:
+                        spritemap_info = data_files["spritemap"]
 
             # Use parent app's preview functionality
             self.parent_app.preview_animation_with_paths(
-                spritesheet_path, metadata_path, animation_name
+                spritesheet_path, metadata_path, animation_name, spritemap_info
             )
 
         except Exception as e:
@@ -1230,16 +1306,28 @@ class ExtractTabWidget(QWidget):
         unknown_atlases = []
         input_directory = self.input_dir_label.text()
 
+        animation_json_path = os.path.join(input_directory, "Animation.json")
+
         for filename in spritesheet_list:
             base_filename = filename.rsplit(".", 1)[0]
             xml_path = os.path.join(input_directory, base_filename + ".xml")
             txt_path = os.path.join(input_directory, base_filename + ".txt")
             image_path = os.path.join(input_directory, filename)
+            spritemap_json_path = os.path.join(input_directory, base_filename + ".json")
+
+            has_spritemap_metadata = os.path.isfile(animation_json_path) and os.path.isfile(
+                spritemap_json_path
+            )
+
+            if (not has_spritemap_metadata and self.parent_app and filename in self.parent_app.data_dict):
+                data_entry = self.parent_app.data_dict.get(filename, {})
+                has_spritemap_metadata = isinstance(data_entry, dict) and "spritemap" in data_entry
 
             # Check if this is an unknown atlas (no metadata file but is an image)
             if (
                 not os.path.isfile(xml_path)
                 and not os.path.isfile(txt_path)
+                and not has_spritemap_metadata
                 and os.path.isfile(image_path)
                 and filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"))
             ):

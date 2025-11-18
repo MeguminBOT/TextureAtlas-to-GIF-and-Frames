@@ -13,6 +13,7 @@ from core.sprite_processor import SpriteProcessor
 from core.frame_selector import FrameSelector
 from core.animation_processor import AnimationProcessor
 from core.animation_exporter import AnimationExporter
+from core.spritemap import AdobeSpritemapRenderer
 from utils.utilities import Utilities
 
 
@@ -308,7 +309,51 @@ class Extractor:
                 "sprites_failed": sprites_failed,
             }
 
-    def generate_temp_animation_for_preview(self, atlas_path, metadata_path, settings, animation_name, temp_dir=None):
+    def extract_spritemap_project(self, atlas_path, animation_json_path, spritemap_json_path, output_dir, settings):
+        frames_generated = 0
+        anims_generated = 0
+        sprites_failed = 0
+
+        try:
+            spritesheet_name = os.path.basename(atlas_path)
+            renderer = AdobeSpritemapRenderer(animation_json_path, spritemap_json_path, atlas_path)
+            renderer.ensure_animation_defaults(self.settings_manager, spritesheet_name)
+            animations = renderer.build_animation_frames()
+
+            if not animations:
+                return {
+                    "frames_generated": 0,
+                    "anims_generated": 0,
+                    "sprites_failed": 0,
+                }
+
+            animation_processor = AnimationProcessor(
+                animations, atlas_path, output_dir, self.settings_manager, self.current_version
+            )
+            frames_generated, anims_generated = animation_processor.process_animations()
+            return {
+                "frames_generated": frames_generated,
+                "anims_generated": anims_generated,
+                "sprites_failed": 0,
+            }
+        except Exception as exc:
+            sprites_failed += 1
+            print(f"[extract_spritemap_project] Error processing {atlas_path}: {exc}")
+            return {
+                "frames_generated": 0,
+                "anims_generated": 0,
+                "sprites_failed": sprites_failed,
+            }
+
+    def generate_temp_animation_for_preview(
+        self,
+        atlas_path,
+        metadata_path,
+        settings,
+        animation_name,
+        temp_dir=None,
+        spritemap_info=None,
+    ):
         """
         Optimized version that only processes the specific animation frames for regeneration.
         This reduces performance overhead by not processing the entire atlas.
@@ -316,29 +361,50 @@ class Extractor:
         try:
             import tempfile
 
-            atlas_processor = AtlasProcessor(atlas_path, metadata_path)
+            animations = {}
 
-            if metadata_path and metadata_path.endswith(".xml"):
-                animation_sprites = atlas_processor.parse_xml_for_preview(animation_name)
-            elif metadata_path and metadata_path.endswith(".txt"):
-                animation_sprites = atlas_processor.parse_txt_for_preview(animation_name)
-            else:
-                return self.generate_temp_animation_for_preview(
-                    atlas_path, metadata_path, settings, animation_name, temp_dir
+            if spritemap_info:
+                animation_json_path = spritemap_info.get("animation_json")
+                spritemap_json_path = spritemap_info.get("spritemap_json")
+                if not animation_json_path or not spritemap_json_path:
+                    return None
+
+                renderer = AdobeSpritemapRenderer(
+                    animation_json_path,
+                    spritemap_json_path,
+                    atlas_path,
                 )
+                renderer.ensure_animation_defaults(self.settings_manager, os.path.basename(atlas_path))
+                symbol_entry = spritemap_info.get("symbol_map", {}).get(animation_name, animation_name)
+                frames = renderer.render_animation(symbol_entry)
+                if not frames:
+                    print(f"No frames rendered for spritemap animation: {animation_name}")
+                    return None
+                animations[animation_name] = frames
+            else:
+                atlas_processor = AtlasProcessor(atlas_path, metadata_path)
 
-            if not animation_sprites:
-                print(f"No sprites found for animation: {animation_name}")
-                return None
+                if metadata_path and metadata_path.endswith(".xml"):
+                    animation_sprites = atlas_processor.parse_xml_for_preview(animation_name)
+                elif metadata_path and metadata_path.endswith(".txt"):
+                    animation_sprites = atlas_processor.parse_txt_for_preview(animation_name)
+                else:
+                    return self.generate_temp_animation_for_preview(
+                        atlas_path, metadata_path, settings, animation_name, temp_dir
+                    )
 
-            sprite_processor = SpriteProcessor(atlas_processor.atlas, animation_sprites)
-            animations = sprite_processor.process_specific_animation(animation_name)
+                if not animation_sprites:
+                    print(f"No sprites found for animation: {animation_name}")
+                    return None
 
-            if animation_name not in animations:
-                print(f"Animation {animation_name} not found in processed sprites")
-                return None
+                sprite_processor = SpriteProcessor(atlas_processor.atlas, animation_sprites)
+                processed = sprite_processor.process_specific_animation(animation_name)
 
-            animations = {animation_name: animations[animation_name]}
+                if animation_name not in processed:
+                    print(f"Animation {animation_name} not found in processed sprites")
+                    return None
+
+                animations = {animation_name: processed[animation_name]}
 
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
@@ -422,9 +488,16 @@ class Extractor:
                 txt_path = os.path.join(input_dir, base_filename + ".txt")
                 image_path = os.path.join(input_dir, filename)
 
+                spritemap_json_path = os.path.join(input_dir, base_filename + ".json")
+                animation_json_path = os.path.join(input_dir, "Animation.json")
+                has_spritemap_metadata = os.path.isfile(animation_json_path) and os.path.isfile(
+                    spritemap_json_path
+                )
+
                 if (
                     not os.path.isfile(xml_path)
                     and not os.path.isfile(txt_path)
+                    and not has_spritemap_metadata
                     and os.path.isfile(image_path)
                     and filename.lower().endswith(
                         (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
@@ -566,8 +639,24 @@ class FileProcessorWorker(QThread):
             
             print(f"[FileProcessorWorker] {self.filename} about to start extract_sprites on thread {thread_id}")
             
-            # Process the file
-            if os.path.isfile(xml_path) or os.path.isfile(txt_path):
+            animation_json_path = os.path.join(self.input_dir, "Animation.json")
+            spritemap_json_path = os.path.join(self.input_dir, base_filename + ".json")
+
+            # Process Adobe spritemap exports first
+            if os.path.isfile(animation_json_path) and os.path.isfile(spritemap_json_path):
+                print(f"[FileProcessorWorker] Processing {self.filename} as Adobe spritemap")
+                result = self.extractor.extract_spritemap_project(
+                    image_path,
+                    animation_json_path,
+                    spritemap_json_path,
+                    sprite_output_dir,
+                    settings,
+                )
+                print(f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}")
+                self.file_completed.emit(self.filename, result)
+
+            # Process the file with XML/TXT metadata
+            elif os.path.isfile(xml_path) or os.path.isfile(txt_path):
                 print(f"[FileProcessorWorker] Processing {self.filename} with metadata")
                 result = self.extractor.extract_sprites(
                     os.path.join(self.input_dir, self.filename),
