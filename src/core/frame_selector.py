@@ -20,12 +20,41 @@ class FrameSelector:
 
     @staticmethod
     def is_single_frame(image_tuples):
-        for i in image_tuples:
-            if i[2] != image_tuples[0][2]:
-                for i in image_tuples:
-                    if i[1] != image_tuples[0][1]:
+        """Return True only when all rendered frames are identical."""
+        if not image_tuples or len(image_tuples) == 1:
+            return True
+
+        _, first_image, first_meta = image_tuples[0]
+
+        try:
+            first_bytes = first_image.tobytes()
+        except Exception:
+            first_bytes = None
+
+        for _, image, metadata in image_tuples[1:]:
+            if metadata != first_meta:
+                return False
+
+            if first_bytes is not None:
+                try:
+                    if image.tobytes() != first_bytes:
                         return False
-                return True
+                    continue
+                except Exception:
+                    first_bytes = None
+
+            if image.size != first_image.size:
+                return False
+
+            try:
+                from PIL import ImageChops
+
+                if ImageChops.difference(image, first_image).getbbox():
+                    return False
+            except Exception:
+                if image is not first_image:
+                    return False
+
         return True
 
     @staticmethod

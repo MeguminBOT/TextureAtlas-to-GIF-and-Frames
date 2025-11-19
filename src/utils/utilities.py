@@ -115,4 +115,4 @@ class Utilities:
             else:
                 base_name = base_name.replace(rule["find"], rule["replace"])
 
-        return base_name
+        return Utilities.replace_invalid_chars(base_name)

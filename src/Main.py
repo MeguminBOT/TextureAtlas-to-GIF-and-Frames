@@ -811,7 +811,7 @@ class TextureAtlasExtractorApp(QMainWindow):
             ),
         )
 
-    def preview_animation_with_paths(self, spritesheet_path, metadata_path, animation_name):
+    def preview_animation_with_paths(self, spritesheet_path, metadata_path, animation_name, spritemap_info=None, spritesheet_label=None):
         """Preview an animation given the paths and animation name. Used by ExtractTabWidget."""
         try:
             # Generate temp animation for preview
@@ -820,7 +820,7 @@ class TextureAtlasExtractorApp(QMainWindow):
             extractor = Extractor(None, self.current_version, self.settings_manager)
 
             # Get spritesheet name from path for settings lookup
-            spritesheet_name = os.path.basename(spritesheet_path)
+            spritesheet_name = spritesheet_label or os.path.basename(spritesheet_path)
 
             # Get complete preview settings that include global, spritesheet, and animation overrides
             preview_settings = self.get_complete_preview_settings(spritesheet_name, animation_name)
@@ -830,6 +830,8 @@ class TextureAtlasExtractorApp(QMainWindow):
                 metadata_path=metadata_path,
                 settings=preview_settings,
                 animation_name=animation_name,
+                spritemap_info=spritemap_info,
+                spritesheet_label=spritesheet_name,
             )
 
             if temp_path and os.path.exists(temp_path):

@@ -42,7 +42,8 @@ class FrameExporter:
         frame_format = settings.get("frame_format", "PNG")
         frame_scale = settings.get("frame_scale", scale)
 
-        frames_folder = os.path.join(self.output_dir, animation_name)
+        safe_animation_folder = Utilities.replace_invalid_chars(animation_name)
+        frames_folder = os.path.join(self.output_dir, safe_animation_folder)
         os.makedirs(frames_folder, exist_ok=True)
 
         crop_option = settings.get("crop_option")

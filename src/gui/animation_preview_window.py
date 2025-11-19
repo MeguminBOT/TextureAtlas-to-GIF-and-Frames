@@ -1295,12 +1295,16 @@ class AnimationPreviewWindow(QDialog):
             # Find the metadata file
             spritesheet_name = current_spritesheet_item.text()
             metadata_path = None
+            spritemap_info = None
             if spritesheet_name in self.parent().data_dict:
                 data_files = self.parent().data_dict[spritesheet_name]
-                if "xml" in data_files:
-                    metadata_path = data_files["xml"]
-                elif "txt" in data_files:
-                    metadata_path = data_files["txt"]
+                if isinstance(data_files, dict):
+                    if "xml" in data_files:
+                        metadata_path = data_files["xml"]
+                    elif "txt" in data_files:
+                        metadata_path = data_files["txt"]
+                    elif "spritemap" in data_files:
+                        spritemap_info = data_files["spritemap"]
 
             # Generate new preview with current settings
             extractor = Extractor(None, "2.0.0", self.parent().settings_manager)
@@ -1359,6 +1363,8 @@ class AnimationPreviewWindow(QDialog):
                 metadata_path=metadata_path,
                 settings=complete_settings,
                 animation_name=animation_name,
+                spritemap_info=spritemap_info,
+                spritesheet_label=spritesheet_name,
             )
 
             if temp_path and os.path.exists(temp_path):

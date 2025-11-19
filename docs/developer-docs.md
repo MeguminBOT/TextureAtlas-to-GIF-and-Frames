@@ -282,8 +282,11 @@ python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (stable set)
+pip install -r setup/requirements.txt
+
+# Optional: install the experimental/latest stack
+# pip install -r setup/requirements-experimental.txt
 
 # Install development dependencies (Optional)
 pip install pytest black flake8 mypy

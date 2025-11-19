@@ -1,0 +1,14 @@
+certifi
+charset-normalizer
+colorama
+idna
+numpy
+pillow
+pillow-avif-plugin
+psutil
+py7zr
+pyside6
+requests
+tqdm
+urllib3
+Wand

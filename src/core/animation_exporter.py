@@ -42,6 +42,10 @@ class AnimationExporter:
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
         anims_generated = 0
 
+        if not image_tuples:
+            print(f"No frames available for animation: {animation_name}, skipping animation export")
+            return anims_generated
+
         fps = settings.get("fps")
         delay = settings.get("delay")
         period = settings.get("period")

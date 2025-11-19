@@ -30,9 +30,10 @@ Perfect for creating showcases and galleries of game sprites.
 - ✅ **Sparrow** (XML format)
 - ✅ **Starling** (XML format)  
 - ✅ **Packer TXT** (TXT format)
-- 🟨 (*) **Unknown/Unsupported** (Attempts to extract sprites despite missing official support)
+- 🟨 (/) **Adobe TextureAtlas/Spritemaps** (JSON format) *[NOTE: Only working on "Optimized" spritemap exports and needs more testing before being marked as stable]*
+- 🟨 (/) **Unknown/Unsupported** (Attempts to extract sprites despite missing official support)
 
-(*) = *Feature may have bad results or are not fully stable yet*
+(/) = *Feature may have bad results or are not fully stable yet*
 
 ## ✨ Features
 
@@ -110,5 +111,14 @@ For Windows users, all necessary ImageMagick libraries are included with the rel
 - [🔀 Submit Pull Requests →](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/pulls)
 
 ---
+## Special Thanks
+- Jsfasdf250
+    - For major contribution to the project.
+- PluieElectrique's [TextureAtlas Renderer](https://github.com/PluieElectrique/texture-atlas-renderer). 
+    - Parts of their code was used to bring Adobe TextureAtlas (Spritemap) support.
+- Funkipedia Mods Wiki
+    - Members of their Discord server for supporting and using this tool. They are the biggest motivation force that makes me want to continue refining this tool.
+
+
 
 *Last updated: June 23, 2025 - Visit the [📚 Documentation →](docs/README.md) for more details*
