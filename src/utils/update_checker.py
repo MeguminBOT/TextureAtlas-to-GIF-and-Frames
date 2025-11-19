@@ -1,4 +1,6 @@
-import platform
+from itertools import zip_longest
+from typing import Any, Dict, List, Optional
+
 import requests
 
 from PySide6.QtWidgets import (
@@ -11,6 +13,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt
+
+from version import (
+    APP_VERSION,
+    GITHUB_RELEASE_BY_TAG_URL,
+    GITHUB_TAGS_URL,
+    version_to_tuple,
+)
 
 
 class UpdateDialog(QDialog):
@@ -152,24 +161,10 @@ class UpdateDialog(QDialog):
 
 
 class UpdateChecker:
-    """
-    A class for checking and managing updates.
+    """Check GitHub tags to determine whether a newer version exists."""
 
-    Methods:
-        check_for_updates():
-            Check if a new version is available.
-        get_current_version():
-            Get the current version from the app.
-        download_and_install_update(download_url, latest_version):
-            Download and install the latest version.
-        run_update_installer(installer_path, latest_version):
-            Run the update installer.
-        determine_update_type(current_version, latest_version):
-            Determine if the update is major, minor, or patch.
-    """
-
-    def __init__(self, current_version):
-        self.current_version = current_version
+    def __init__(self, current_version: Optional[str] = None):
+        self.current_version = current_version or APP_VERSION
 
     def check_for_updates(self, parent_window=None):
         """
@@ -179,30 +174,44 @@ class UpdateChecker:
             parent_window: Parent Qt window for the dialog
 
         Returns:
-            tuple: (bool, str, str) - (update_available, latest_version, download_url)
+            tuple: (bool, str, dict | None)
         """
         try:
-            api_url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
+            tags = self._fetch_tags()
+            selected_tag = self._find_newer_tag(tags)
+            if not selected_tag:
+                return False, self.current_version, None
 
-            response = requests.get(api_url, timeout=10)
-            response.raise_for_status()
+            tag_name = selected_tag["name"]
+            latest_version = tag_name.lstrip("vV")
+            release_data = self._fetch_release_for_tag(tag_name)
+            changelog = (
+                release_data.get("body", "No changelog available.")
+                if release_data
+                else "No changelog available."
+            )
 
-            release_data = response.json()
-            latest_version = release_data["tag_name"].lstrip("v")
-            changelog = release_data.get("body", "No changelog available.")
+            metadata = {
+                "tag_name": tag_name,
+                "zipball_url": (release_data or selected_tag).get("zipball_url"),
+                "tarball_url": (release_data or selected_tag).get("tarball_url"),
+            }
 
-            if self._is_newer_version(latest_version, self.current_version):
-                update_type = self.determine_update_type(self.current_version, latest_version)
-
-                # Show update dialog
-                dialog = UpdateDialog(
-                    parent_window, self.current_version, latest_version, changelog, update_type
+            if not metadata["zipball_url"]:
+                QMessageBox.warning(
+                    parent_window,
+                    "Update Error",
+                    "Could not find a downloadable archive for this release.",
                 )
-                if dialog.show_dialog():
-                    return True, latest_version, None
                 return False, latest_version, None
-            else:
-                return False, latest_version, None
+
+            update_type = self.determine_update_type(self.current_version, latest_version)
+            dialog = UpdateDialog(
+                parent_window, self.current_version, latest_version, changelog, update_type
+            )
+            if dialog.show_dialog():
+                return True, latest_version, metadata
+            return False, latest_version, None
 
         except requests.RequestException as e:
             QMessageBox.critical(
@@ -217,18 +226,9 @@ class UpdateChecker:
             )
             return False, None, None
 
-    def _is_newer_version(self, latest, current):
+    def _is_newer_version(self, latest: str, current: str) -> bool:
         """Compare version strings to determine if latest is newer than current."""
-        try:
-
-            def version_tuple(version_str):
-                # Remove 'v' prefix if present and split by '.'
-                clean_version = version_str.lstrip("v")
-                return tuple(map(int, clean_version.split(".")))
-
-            return version_tuple(latest) > version_tuple(current)
-        except (ValueError, AttributeError):
-            return False
+        return self._compare_versions(version_to_tuple(latest), version_to_tuple(current)) > 0
 
     def determine_update_type(self, current_version, latest_version):
         """
@@ -242,45 +242,35 @@ class UpdateChecker:
             str: Update type ('major', 'minor', or 'patch')
         """
         try:
+            current_parts = version_to_tuple(current_version)
+            latest_parts = version_to_tuple(latest_version)
 
-            def parse_version(version_str):
-                clean_version = version_str.lstrip("v")
-                parts = clean_version.split(".")
-                return [int(part) for part in parts[:3]]  # Take only major.minor.patch
-
-            current_parts = parse_version(current_version)
-            latest_parts = parse_version(latest_version)
-
-            # Pad with zeros if necessary
-            while len(current_parts) < 3:
-                current_parts.append(0)
-            while len(latest_parts) < 3:
-                latest_parts.append(0)
-
-            if latest_parts[0] > current_parts[0]:
-                return "major"
-            elif latest_parts[1] > current_parts[1]:
-                return "minor"
-            else:
+            for idx, (latest_val, current_val) in enumerate(
+                zip_longest(latest_parts, current_parts, fillvalue=0)
+            ):
+                if latest_val == current_val:
+                    continue
+                if idx == 0:
+                    return "major"
+                if idx == 1:
+                    return "minor"
                 return "patch"
-
+            return "patch"
         except (ValueError, IndexError):
             return "patch"  # Default to patch if version parsing fails
 
-    def download_and_install_update(self, download_url=None, latest_version=None, parent_window=None):
-        """
-        Download and install the update.
-
-        Args:
-            download_url (str): URL to download the update
-            latest_version (str): Version being downloaded
-            parent_window: Parent Qt window for dialogs
-        """
+    def download_and_install_update(self, update_payload=None, latest_version=None, parent_window=None):
+        """Launch the standalone updater process and report success."""
         try:
-            from utils.update_installer import UpdateInstaller
+            from utils.update_installer import UpdateUtilities, launch_external_updater
 
-            installer = UpdateInstaller(parent_window)
-            installer.download_and_install(download_url, latest_version, parent_window)
+            exe_mode = UpdateUtilities.is_compiled()
+            launch_external_updater(
+                release_metadata=update_payload,
+                latest_version=latest_version,
+                exe_mode=exe_mode,
+            )
+            return True
 
         except ImportError:
             QMessageBox.critical(
@@ -290,5 +280,50 @@ class UpdateChecker:
             )
         except Exception as e:
             QMessageBox.critical(
-                parent_window, "Update Error", f"Failed to download and install update:\n{str(e)}"
+                parent_window, "Update Error", f"Failed to start updater:\n{str(e)}"
             )
+
+        return False
+
+    def _fetch_tags(self) -> List[Dict[str, Any]]:
+        response = requests.get(GITHUB_TAGS_URL, params={"per_page": 100}, timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def _find_newer_tag(self, tags: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        try:
+            current_tuple = version_to_tuple(self.current_version)
+        except ValueError:
+            current_tuple = (0,)
+        newest_tag: Optional[Dict[str, Any]] = None
+        newest_tuple: Optional[tuple[int, ...]] = None
+
+        for tag in tags:
+            name = tag.get("name") or ""
+            try:
+                candidate_tuple = version_to_tuple(name)
+            except ValueError:
+                continue
+            if self._compare_versions(candidate_tuple, current_tuple) <= 0:
+                continue
+            if not newest_tuple or self._compare_versions(candidate_tuple, newest_tuple) > 0:
+                newest_tag = tag
+                newest_tuple = candidate_tuple
+
+        return newest_tag
+
+    def _fetch_release_for_tag(self, tag_name: str) -> Optional[Dict[str, Any]]:
+        response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=15)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    @staticmethod
+    def _compare_versions(latest_parts: tuple[int, ...], current_parts: tuple[int, ...]) -> int:
+        for latest_val, current_val in zip_longest(latest_parts, current_parts, fillvalue=0):
+            if latest_val > current_val:
+                return 1
+            if latest_val < current_val:
+                return -1
+        return 0

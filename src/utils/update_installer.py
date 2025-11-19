@@ -14,9 +14,22 @@ import threading
 from datetime import datetime
 import html
 import ctypes
+import json
+from pathlib import Path
+
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from version import ( # noqa: E402
+    APP_VERSION,
+    GITHUB_LATEST_RELEASE_URL,
+    GITHUB_RELEASE_BY_TAG_URL,
+)
 
 try:
     import py7zr
+
     PY7ZR_AVAILABLE = True
 except ImportError:
     PY7ZR_AVAILABLE = False
@@ -34,6 +47,7 @@ try:
         QProgressBar,
     )
     from PySide6.QtCore import Qt, QTimer, QThread
+
     QT_AVAILABLE = True
 except ImportError:
     pass
@@ -262,15 +276,54 @@ class UpdateUtilities:
             print(f"Failed to request administrator privileges: {exc}")
             return False
 
+def _write_metadata_file(metadata):
+    """Persist release metadata to a temporary JSON file for external launcher."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="tatgf_update_"))
+    metadata_path = temp_dir / "release_metadata.json"
+    with metadata_path.open("w", encoding="utf-8") as handle:
+        json.dump(metadata or {}, handle)
+    return metadata_path
+
+
+def launch_external_updater(
+    release_metadata=None,
+    latest_version=None,
+    exe_mode=False,
+    wait_seconds=3,
+):
+    """Spawn a fresh Python process to run the updater with optional metadata."""
+
+    script_path = Path(__file__).resolve()
+    project_root = script_path.parents[2]
+    args = [sys.executable, str(script_path)]
+
+    if wait_seconds is not None:
+        args.extend(["--wait", str(wait_seconds)])
+
+    if exe_mode:
+        args.append("--exe-mode")
+
+    if release_metadata:
+        metadata_path = _write_metadata_file(release_metadata)
+        args.extend(["--metadata-file", str(metadata_path)])
+
+    if latest_version:
+        args.extend(["--latest-version", latest_version])
+
+    subprocess.Popen(args, cwd=str(project_root))
+    return True
+
 
 class Updater:
     """Download and apply updates, optionally reporting progress through the Qt UI."""
 
-    def __init__(self, ui=None, exe_mode=False):
+    def __init__(self, ui=None, exe_mode=False, target_tag=None, release_metadata=None):
         """Initialize the updater and create a log file in the app directory when possible."""
         self.ui = ui
         self.exe_mode = exe_mode
         self.log_file = None
+        self.target_tag = target_tag
+        self.release_metadata = release_metadata or {}
         self._setup_log_file()
 
     def _setup_log_file(self):
@@ -321,16 +374,18 @@ class Updater:
             print("Update complete! Please restart the application manually.")
 
     @staticmethod
-    def get_latest_release_info():
-        """Fetch the latest GitHub release metadata and return the parsed JSON."""
-        url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
+    def get_latest_release_info(tag_name=None, fallback_metadata=None):
+        """Fetch release metadata for a tag or fall back to the latest release."""
+        if tag_name:
+            response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=30)
+            if response.status_code == 404 and fallback_metadata:
+                data = {"tag_name": tag_name}
+                data.update(fallback_metadata)
+                return data
+            response.raise_for_status()
+            return response.json()
 
-        ### URLs for testing purposes:
-        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-quick"
-        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-source-update"
-        # url = "https://api.github.com/repos/MeguminBOT/for-testing-purposes/releases/tags/tatgf-test-executable-update"
-
-        response = requests.get(url)
+        response = requests.get(GITHUB_LATEST_RELEASE_URL, timeout=30)
         response.raise_for_status()
         return response.json()
 
@@ -497,7 +552,7 @@ class Updater:
 
             self.set_progress(15, "Fetching release information...")
 
-            info = self.get_latest_release_info()
+            info = self.get_latest_release_info(self.target_tag, self.release_metadata)
             zip_url = info["zipball_url"]
             self.log(f"Found latest release: {info.get('tag_name', 'unknown')}", "info")
 
@@ -521,6 +576,8 @@ class Updater:
                         if total_size:
                             progress = 20 + (downloaded * 40 // total_size)
                             self.set_progress(progress, f"Downloaded {downloaded / 1024 / 1024:.1f} MB")
+
+            self._verify_download_size(tmp_path, total_size, downloaded, "source archive")
 
             self.log(f"Download complete: {tmp_path}", "success")
             self.set_progress(60, "Extracting archive...")
@@ -561,6 +618,8 @@ class Updater:
                             if total_size:
                                 progress = 25 + (downloaded * 35 // total_size)
                                 self.set_progress(progress, f"Downloaded {downloaded / 1024 / 1024:.1f} MB")
+
+                self._verify_download_size(tmp_path, total_size, downloaded, "fallback source archive")
 
                 with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
                     extract_dir = tempfile.mkdtemp()
@@ -677,7 +736,7 @@ class Updater:
 
             self.set_progress(15, "Fetching release information...")
 
-            info = self.get_latest_release_info()
+            info = self.get_latest_release_info(self.target_tag, self.release_metadata)
             self.log(f"Found latest release: {info.get('tag_name', 'unknown')}", "info")
 
             assets = info.get('assets', [])
@@ -713,6 +772,8 @@ class Updater:
                         if file_size:
                             progress = 20 + (downloaded * 40 // file_size)
                             self.set_progress(progress, f"Downloaded {downloaded / 1024 / 1024:.1f} MB")
+
+            self._verify_download_size(tmp_path, file_size, downloaded, "executable archive")
 
             self.log(f"Download complete: {tmp_path}", "success")
             self.set_progress(60, "Extracting archive...")
@@ -916,6 +977,17 @@ class Updater:
                             self.log(f"Temp file method also failed for {os.path.basename(dst_file)}: {temp_e}", "error")
                     raise e
 
+    @staticmethod
+    def _verify_download_size(file_path, expected_size, recorded_size, label):
+        """Ensure the downloaded file size matches GitHub's reported size when available."""
+        if not expected_size:
+            return
+        actual_size = os.path.getsize(file_path)
+        if actual_size != expected_size or (recorded_size and recorded_size != expected_size):
+            raise IOError(
+                f"{label} integrity check failed (expected {expected_size} bytes, got {actual_size})."
+            )
+
     def _ensure_write_permissions(self, target_dir):
         """Request elevation when the updater lacks permission to modify `target_dir`."""
         if not target_dir:
@@ -969,22 +1041,35 @@ class UpdateInstaller:
             raise ImportError("PySide6 is required for the integrated updater UI")
         self.parent = parent
 
-    def download_and_install(self, download_url=None, latest_version=None, parent_window=None, exe_mode=None):
+    def download_and_install(
+        self,
+        release_metadata=None,
+        latest_version=None,
+        parent_window=None,
+        exe_mode=None,
+    ):
         """Launch the updater dialog and run the appropriate update flow."""
 
         dialog_parent = parent_window or self.parent
         QApplication.instance() or QApplication(sys.argv)
         dialog = QtUpdateDialog(dialog_parent)
         exe_mode = UpdateUtilities.is_compiled() if exe_mode is None else exe_mode
-        updater = Updater(ui=dialog, exe_mode=exe_mode)
+        metadata = release_metadata or {}
+        updater = Updater(
+            ui=dialog,
+            exe_mode=exe_mode,
+            target_tag=metadata.get("tag_name"),
+            release_metadata=metadata,
+        )
 
         mode_label = "executable" if exe_mode else "source"
         dialog.log(f"Starting {mode_label} update...", "info")
+        dialog.log(f"Currently running version {APP_VERSION}", "info")
         if latest_version:
             dialog.log(f"Target version: {latest_version}", "info")
-        if download_url:
+        if not metadata.get("zipball_url"):
             dialog.log(
-                "Fetch the latest release.",
+                "No download URL provided; falling back to GitHub release discovery.",
                 "warning",
             )
 
@@ -1010,6 +1095,8 @@ def main():
     parser.add_argument("--no-gui", action="store_true", help="Run in console mode without GUI")
     parser.add_argument("--exe-mode", action="store_true", help="Run in executable update mode")
     parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
+    parser.add_argument("--metadata-file", help="Path to release metadata JSON", default=None)
+    parser.add_argument("--latest-version", help="Target version label", default=None)
 
     args = parser.parse_args()
 
@@ -1017,12 +1104,32 @@ def main():
         print(f"Waiting {args.wait} seconds for main application to close...")
         time.sleep(args.wait)
 
+    release_metadata = None
+    if args.metadata_file:
+        metadata_path = Path(args.metadata_file)
+        try:
+            release_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        finally:
+            try:
+                metadata_path.unlink()
+            except OSError:
+                pass
+
     if not args.no_gui and QT_AVAILABLE:
         installer = UpdateInstaller()
-        installer.download_and_install(exe_mode=args.exe_mode)
+        installer.download_and_install(
+            release_metadata=release_metadata,
+            latest_version=args.latest_version,
+            exe_mode=args.exe_mode,
+        )
         return
 
-    updater = Updater(ui=None, exe_mode=args.exe_mode)
+    updater = Updater(
+        ui=None,
+        exe_mode=args.exe_mode,
+        target_tag=(release_metadata or {}).get("tag_name"),
+        release_metadata=release_metadata,
+    )
     if args.exe_mode:
         updater.update_exe()
     else:

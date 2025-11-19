@@ -29,6 +29,7 @@ from gui.contributors_window import ContributorsWindow  # noqa: E402
 from gui.processing_window import ProcessingWindow  # noqa: E402
 from gui.compression_settings_window import CompressionSettingsWindow  # noqa: E402
 from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog  # noqa: E402
+from version import APP_VERSION  # noqa: E402
 
 
 class ExtractorWorker(QThread):
@@ -88,7 +89,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         super().__init__()
 
         # Initialize core attributes
-        self.current_version = "2.0.0"
+        self.current_version = APP_VERSION
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
@@ -107,7 +108,6 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.fnf_utilities = FnfUtilities()
         self.fnf_char_json_directory = ""
         self.replace_rules = []
-        self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
 
         # Initialize UI
         self.ui = Ui_TextureAtlasToolboxApp()
@@ -129,10 +129,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.setup_connections()
         self.ui.retranslateUi(self)
 
-        self._startup_update_timer = QTimer(self)
-        self._startup_update_timer.setSingleShot(True)
-        self._startup_update_timer.timeout.connect(self._run_startup_update_check)
-        self._startup_update_timer.start(500)
+        QTimer.singleShot(250, self.check_version)
 
     def setup_advanced_menu(self):
         """Set up the advanced menu with variable delay and FNF options."""
@@ -428,16 +425,18 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Checks for updates to the application."""
         try:
             update_checker = UpdateChecker(self.current_version)
-            update_available, latest_version, download_url = update_checker.check_for_updates(
+            update_available, latest_version, update_payload = update_checker.check_for_updates(
                 self
             )
 
             if update_available:
-                update_checker.download_and_install_update(
-                    download_url=download_url,
+                launched = update_checker.download_and_install_update(
+                    update_payload=update_payload,
                     latest_version=latest_version,
                     parent_window=self,
                 )
+                if launched:
+                    self._prepare_for_update_shutdown(latest_version)
             elif force and latest_version:
                 QMessageBox.information(
                     self,
@@ -454,9 +453,28 @@ class TextureAtlasExtractorApp(QMainWindow):
                     self.tr("Could not check for updates: {error}").format(error=str(e)),
                 )
 
-    def _run_startup_update_check(self):
-        """Kick off the automatic update check shortly after launch."""
-        self.check_version()
+    def _prepare_for_update_shutdown(self, target_version):
+        """Notify the user and close the application so the external updater can run."""
+        version_label = target_version or self.tr("latest")
+        QMessageBox.information(
+            self,
+            self.tr("Launching Updater"),
+            self.tr(
+                "The updater for version {version} will launch in a new window. "
+                "The application will now close."
+            ).format(version=version_label),
+        )
+
+        QTimer.singleShot(0, self._shutdown_for_update)
+
+    def _shutdown_for_update(self):
+        app = QApplication.instance()
+        if app:
+            app.setQuitOnLastWindowClosed(True)
+        self.close()
+        if app:
+            app.quit()
+        os._exit(0)
 
     def update_ui_state(self, *args):
         """Updates the UI state based on current selections and settings."""
@@ -876,7 +894,7 @@ def main():
 
     # Set application properties
     app.setApplicationName("TextureAtlas Toolbox")
-    app.setApplicationVersion("2.0.0")
+    app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("AutisticLulu")
 
     # Create and show the main window
