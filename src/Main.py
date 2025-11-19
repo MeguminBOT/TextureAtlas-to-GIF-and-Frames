@@ -5,7 +5,6 @@ import sys
 import os
 import shutil
 import tempfile
-import webbrowser
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
@@ -16,20 +15,20 @@ from PySide6.QtGui import QIcon, QAction
 from utils.dependencies_checker import DependenciesChecker
 
 DependenciesChecker.check_and_configure_imagemagick()  # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
-from utils.app_config import AppConfig
-from utils.update_checker import UpdateChecker
-from utils.settings_manager import SettingsManager
-from utils.fnf_utilities import FnfUtilities
-from core.extractor import Extractor
-from gui.app_ui import Ui_TextureAtlasToolboxApp
-from gui.app_config_window import AppConfigWindow
-from gui.settings_window import SettingsWindow
-from gui.find_replace_window import FindReplaceWindow
-from gui.help_window import HelpWindow
-from gui.contributors_window import ContributorsWindow
-from gui.processing_window import ProcessingWindow
-from gui.compression_settings_window import CompressionSettingsWindow
-from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog
+from utils.app_config import AppConfig  # noqa: E402
+from utils.update_checker import UpdateChecker  # noqa: E402
+from utils.settings_manager import SettingsManager  # noqa: E402
+from utils.fnf_utilities import FnfUtilities  # noqa: E402
+from core.extractor import Extractor  # noqa: E402
+from gui.app_ui import Ui_TextureAtlasToolboxApp  # noqa: E402
+from gui.app_config_window import AppConfigWindow  # noqa: E402
+from gui.settings_window import SettingsWindow  # noqa: E402
+from gui.find_replace_window import FindReplaceWindow  # noqa: E402
+from gui.help_window import HelpWindow  # noqa: E402
+from gui.contributors_window import ContributorsWindow  # noqa: E402
+from gui.processing_window import ProcessingWindow  # noqa: E402
+from gui.compression_settings_window import CompressionSettingsWindow  # noqa: E402
+from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog  # noqa: E402
 
 
 class ExtractorWorker(QThread):
@@ -130,7 +129,10 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.setup_connections()
         self.ui.retranslateUi(self)
 
-        QTimer.singleShot(250, self.check_version)
+        self._startup_update_timer = QTimer(self)
+        self._startup_update_timer.setSingleShot(True)
+        self._startup_update_timer.timeout.connect(self._run_startup_update_check)
+        self._startup_update_timer.start(500)
 
     def setup_advanced_menu(self):
         """Set up the advanced menu with variable delay and FNF options."""
@@ -426,19 +428,24 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Checks for updates to the application."""
         try:
             update_checker = UpdateChecker(self.current_version)
-            if update_checker.check_for_updates() or force:
-                # Show update dialog
-                reply = QMessageBox.question(
-                    self,
-                    self.tr("Update Available"),
-                    self.tr(
-                        "A new version is available! Would you like to visit the download page?"
-                    ),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
+            update_available, latest_version, download_url = update_checker.check_for_updates(
+                self
+            )
 
-                if reply == QMessageBox.StandardButton.Yes:
-                    webbrowser.open(self.linkSourceCode)
+            if update_available:
+                update_checker.download_and_install_update(
+                    download_url=download_url,
+                    latest_version=latest_version,
+                    parent_window=self,
+                )
+            elif force and latest_version:
+                QMessageBox.information(
+                    self,
+                    self.tr("Up to Date"),
+                    self.tr("You are already running the latest version ({version}).").format(
+                        version=latest_version
+                    ),
+                )
         except Exception as e:
             if force:
                 QMessageBox.warning(
@@ -446,6 +453,10 @@ class TextureAtlasExtractorApp(QMainWindow):
                     self.tr("Update Check Failed"),
                     self.tr("Could not check for updates: {error}").format(error=str(e)),
                 )
+
+    def _run_startup_update_check(self):
+        """Kick off the automatic update check shortly after launch."""
+        self.check_version()
 
     def update_ui_state(self, *args):
         """Updates the UI state based on current selections and settings."""

@@ -182,7 +182,6 @@ class UpdateChecker:
             tuple: (bool, str, str) - (update_available, latest_version, download_url)
         """
         try:
-            # URL to check for latest version
             api_url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
 
             response = requests.get(api_url, timeout=10)
@@ -192,23 +191,6 @@ class UpdateChecker:
             latest_version = release_data["tag_name"].lstrip("v")
             changelog = release_data.get("body", "No changelog available.")
 
-            # Find download URL for the appropriate platform
-            download_url = None
-            assets = release_data.get("assets", [])
-
-            system = platform.system().lower()
-            for asset in assets:
-                name = asset["name"].lower()
-                if system == "windows" and "windows" in name and name.endswith(".zip"):
-                    download_url = asset["browser_download_url"]
-                    break
-                elif system == "darwin" and "mac" in name and name.endswith(".zip"):
-                    download_url = asset["browser_download_url"]
-                    break
-                elif system == "linux" and "linux" in name and name.endswith(".zip"):
-                    download_url = asset["browser_download_url"]
-                    break
-
             if self._is_newer_version(latest_version, self.current_version):
                 update_type = self.determine_update_type(self.current_version, latest_version)
 
@@ -217,18 +199,8 @@ class UpdateChecker:
                     parent_window, self.current_version, latest_version, changelog, update_type
                 )
                 if dialog.show_dialog():
-                    if download_url:
-                        return True, latest_version, download_url
-                    else:
-                        QMessageBox.warning(
-                            parent_window,
-                            "Update Error",
-                            f"No download available for {platform.system()}.\n"
-                            f"Please visit the GitHub releases page to download manually.",
-                        )
-                        return False, latest_version, None
-                else:
-                    return False, latest_version, None
+                    return True, latest_version, None
+                return False, latest_version, None
             else:
                 return False, latest_version, None
 
@@ -295,7 +267,7 @@ class UpdateChecker:
         except (ValueError, IndexError):
             return "patch"  # Default to patch if version parsing fails
 
-    def download_and_install_update(self, download_url, latest_version, parent_window=None):
+    def download_and_install_update(self, download_url=None, latest_version=None, parent_window=None):
         """
         Download and install the update.
 
@@ -307,7 +279,7 @@ class UpdateChecker:
         try:
             from utils.update_installer import UpdateInstaller
 
-            installer = UpdateInstaller()
+            installer = UpdateInstaller(parent_window)
             installer.download_and_install(download_url, latest_version, parent_window)
 
         except ImportError:
