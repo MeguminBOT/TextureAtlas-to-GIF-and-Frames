@@ -3,7 +3,7 @@
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageOps
 import numpy as np
 import re
 from typing import List, Dict, Tuple, Optional, Callable
@@ -12,7 +12,12 @@ from enum import Enum
 import time
 
 # Import our own modules
-from packers import GrowingPacker, OrderedPacker
+from packers import (
+    GrowingPacker,
+    OrderedPacker,
+    MaxRectsPacker,
+    HybridAdaptivePacker,
+)
 
 
 class PackingAlgorithm(Enum):
@@ -21,6 +26,8 @@ class PackingAlgorithm(Enum):
     NONE = 0  # No optimization - simple grid
     GROWING_PACKER = 1  # Growing packer (dynamically expands)
     ORDERED_PACKER = 2  # Ordered packer (preserves order)
+    MAXRECTS_PACKER = 3  # MaxRects implementation
+    HYBRID_PACKER = 4  # Future-facing hybrid packer
 
 
 @dataclass
@@ -34,6 +41,7 @@ class Frame:
     x: int = 0
     y: int = 0
     rotated: bool = False
+    flip_y: bool = False
     # Original frame dimensions before trimming
     original_width: int = 0
     original_height: int = 0
@@ -63,16 +71,32 @@ class AtlasSettings:
     power_of_2: bool = True
     optimization_level: int = 5
     allow_rotation: bool = True
+    algorithm_hint: Optional[str] = None
+    optimization_mode_index: int = 0
+    allow_vertical_flip: bool = False
+    preferred_width: Optional[int] = None
+    preferred_height: Optional[int] = None
+    forced_width: Optional[int] = None
+    forced_height: Optional[int] = None
 
     @property
     def algorithm(self) -> PackingAlgorithm:
         """Get packing algorithm based on optimization level."""
-        if self.optimization_level == 0:
-            return PackingAlgorithm.NONE
-        elif self.optimization_level <= 5:
-            return PackingAlgorithm.GROWING_PACKER
-        else:  # Level 6-10 - Use ordered packer for preserving frame order when needed
-            return PackingAlgorithm.ORDERED_PACKER
+        hint = (self.algorithm_hint or "growing").lower()
+        hint_map = {
+            "grid": PackingAlgorithm.NONE,
+            "growing": PackingAlgorithm.GROWING_PACKER,
+            "ordered": PackingAlgorithm.ORDERED_PACKER,
+            "maxrects": PackingAlgorithm.MAXRECTS_PACKER,
+            "hybrid": PackingAlgorithm.HYBRID_PACKER,
+        }
+        return hint_map.get(hint, PackingAlgorithm.GROWING_PACKER)
+
+    @property
+    def allow_flip(self) -> bool:
+        if self.algorithm_hint:
+            return self.allow_vertical_flip
+        return self.allow_vertical_flip or self.optimization_level >= 9
 
 
 class Rectangle:
@@ -218,7 +242,7 @@ class SparrowAtlasGenerator:
                             frame_y = 0
                             left, top = 0, 0
 
-                        frame_name = f"{animation_name}_{i:04d}"
+                        frame_name = f"{animation_name}{i:04d}"
                         frame = Frame(
                             name=frame_name,
                             image_path=frame_path,
@@ -239,26 +263,38 @@ class SparrowAtlasGenerator:
                     continue
 
     def _sort_frames(self, settings: AtlasSettings):
-        """Sort frames for optimal packing based on optimization level."""
-        if settings.optimization_level == 0:
-            # No sorting - keep original order
+        """Sort frames for optimal packing based on selected algorithm and mode."""
+        mode = max(0, settings.optimization_mode_index)
+        algorithm = settings.algorithm
+
+        if algorithm == PackingAlgorithm.NONE:
+            # Grid mode keeps incoming order for compatibility
             return
-        elif settings.optimization_level <= 3:
-            # Simple area-based sorting
-            self.frames.sort(key=lambda f: f.area, reverse=True)
-        elif settings.optimization_level <= 6:
-            # Height-based sorting for better packing
-            self.frames.sort(key=lambda f: f.height, reverse=True)
-        elif settings.optimization_level <= 9:
-            # Advanced sorting: area, then height, then width
-            self.frames.sort(key=lambda f: (f.area, f.height, f.width), reverse=True)
-        else:
-            # Level 10: Best multi-criteria sorting for optimal packing
-            # Sort by area first, then by the longer dimension, then by shorter dimension
-            # This generally produces better results than simple area sorting
-            self.frames.sort(
-                key=lambda f: (f.area, max(f.width, f.height), min(f.width, f.height)), reverse=True
-            )
+
+        if algorithm == PackingAlgorithm.GROWING_PACKER:
+            if mode == 0:
+                return  # fastest path, preserve import order
+            if mode == 1:
+                self.frames.sort(key=lambda f: f.height, reverse=True)
+            else:
+                self.frames.sort(key=lambda f: (max(f.width, f.height), f.area), reverse=True)
+            return
+
+        if algorithm == PackingAlgorithm.ORDERED_PACKER:
+            if mode == 0:
+                return
+            self.frames.sort(key=lambda f: (f.height, f.width), reverse=True)
+            return
+
+        if algorithm in (PackingAlgorithm.MAXRECTS_PACKER, PackingAlgorithm.HYBRID_PACKER):
+            if mode <= 1:
+                self.frames.sort(key=lambda f: f.area, reverse=True)
+            else:
+                self.frames.sort(key=lambda f: (max(f.width, f.height), f.area), reverse=True)
+            return
+
+        # Default fallback: prefer area sorting for any future algorithm types
+        self.frames.sort(key=lambda f: f.area, reverse=True)
 
     def _calculate_atlas_size(self, settings: AtlasSettings) -> Tuple[int, int]:
         """Calculate optimal atlas dimensions."""
@@ -271,6 +307,10 @@ class SparrowAtlasGenerator:
         elif settings.algorithm == PackingAlgorithm.ORDERED_PACKER:
             # Ordered packer determines its own optimal size
             return self._get_ordered_packer_size(settings)
+        elif settings.algorithm == PackingAlgorithm.MAXRECTS_PACKER:
+            return self._get_maxrects_packer_size(settings)
+        elif settings.algorithm == PackingAlgorithm.HYBRID_PACKER:
+            return self._get_hybrid_packer_size(settings)
         else:
             # Default to growing packer
             return self._get_growing_packer_size(settings)
@@ -354,6 +394,151 @@ class SparrowAtlasGenerator:
 
         return width, height
 
+    def _build_blocks_for_advanced_packers(
+        self, settings: AtlasSettings, include_frame: bool = False
+    ) -> List[Dict[str, object]]:
+        """Create reusable block dictionaries for MaxRects-like packers."""
+
+        pad = settings.padding * 2
+        blocks: List[Dict[str, object]] = []
+
+        for frame in self.frames:
+            block: Dict[str, object] = {
+                "w": frame.width + pad,
+                "h": frame.height + pad,
+                "id": frame.name,
+            }
+            if include_frame:
+                block["frame"] = frame
+            self._apply_mode_hints(block, settings)
+            blocks.append(block)
+
+        blocks.sort(key=lambda b: max(b["w"], b["h"]), reverse=True)
+        return blocks
+
+    def _apply_mode_hints(self, block: Dict[str, object], settings: AtlasSettings) -> None:
+        """Annotate blocks with rotation/flip hints derived from UI mode selection."""
+
+        if not settings.algorithm_hint:
+            return
+
+        algorithm = settings.algorithm
+        mode = settings.optimization_mode_index
+
+        if algorithm == PackingAlgorithm.MAXRECTS_PACKER:
+            width = block.get("w", 0)
+            height = block.get("h", 0)
+            aspect = width / height if height else 1.0
+
+            if mode >= 2 and settings.allow_rotation:
+                # Encourage rotating tall sprites to free columns when running tight
+                if aspect < 0.85:
+                    block["force_rotate"] = True
+                else:
+                    block.pop("force_rotate", None)
+
+            if mode >= 3 and settings.allow_flip:
+                block["force_flip_y"] = height > width and height - width > 8
+            else:
+                block.pop("force_flip_y", None)
+
+        elif algorithm == PackingAlgorithm.HYBRID_PACKER:
+            if mode == 0:
+                block.pop("force_rotate", None)
+                block.pop("force_flip_y", None)
+            elif mode >= 2 and settings.allow_flip:
+                height = block.get("h", 0)
+                width = block.get("w", 0)
+                block["force_flip_y"] = height > width * 1.05
+
+    def _generate_candidate_bins(self, settings: AtlasSettings) -> List[Tuple[int, int]]:
+        """Generate bin candidates sorted by total area ascending."""
+
+        if not self.frames:
+            return [(settings.min_size, settings.min_size)]
+
+        candidates: List[Tuple[int, int]] = []
+
+        def register(width: int, height: int) -> None:
+            width = int(min(max(width, settings.min_size), settings.max_size))
+            height = int(min(max(height, settings.min_size), settings.max_size))
+            if settings.power_of_2:
+                width = self._next_power_of_2(width)
+                height = self._next_power_of_2(height)
+            candidate = (width, height)
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+        if settings.forced_width and settings.forced_height:
+            register(settings.forced_width, settings.forced_height)
+
+        if settings.preferred_width and settings.preferred_height:
+            register(settings.preferred_width, settings.preferred_height)
+
+        pad = settings.padding * 2
+        max_dim = max(max(frame.width, frame.height) + pad for frame in self.frames)
+        register(max_dim, max_dim)
+
+        total_area = sum((frame.width + pad) * (frame.height + pad) for frame in self.frames)
+        square_side = int(np.ceil(np.sqrt(total_area)))
+        register(square_side, square_side)
+
+        side = max_dim
+        while side < settings.max_size:
+            side *= 2
+            register(side, side)
+            register(side * 2, side)
+            register(side, side * 2)
+
+        candidates.sort(key=lambda dims: dims[0] * dims[1])
+        return candidates
+
+    def _search_size_with_packer(
+        self,
+        settings: AtlasSettings,
+        packer_cls,
+        allow_flip: bool = False,
+    ) -> Tuple[int, int]:
+        """Try packing with progressively larger bins until it succeeds."""
+
+        blocks = self._build_blocks_for_advanced_packers(settings, include_frame=False)
+        if not blocks:
+            return settings.min_size, settings.min_size
+
+        candidates = self._generate_candidate_bins(settings)
+        best_dims = candidates[-1]
+
+        for width, height in candidates:
+            trial_blocks = [dict(block) for block in blocks]
+            packer = packer_cls()
+            if isinstance(packer, HybridAdaptivePacker):
+                success = packer.fit(
+                    trial_blocks,
+                    width,
+                    height,
+                    allow_rotation=settings.allow_rotation,
+                    allow_flip=allow_flip,
+                )
+            else:
+                success = packer.fit(
+                    trial_blocks,
+                    width,
+                    height,
+                    allow_rotation=settings.allow_rotation,
+                )
+
+            if success:
+                best_dims = (width, height)
+                break
+
+        return best_dims
+
+    def _get_maxrects_packer_size(self, settings: AtlasSettings) -> Tuple[int, int]:
+        return self._search_size_with_packer(settings, MaxRectsPacker)
+
+    def _get_hybrid_packer_size(self, settings: AtlasSettings) -> Tuple[int, int]:
+        return self._search_size_with_packer(settings, HybridAdaptivePacker, allow_flip=settings.allow_flip)
+
     def _get_ordered_packer_size(self, settings: AtlasSettings) -> Tuple[int, int]:
         """Get size from ordered packer by doing a test pack."""
         if not self.frames:
@@ -420,6 +605,8 @@ class SparrowAtlasGenerator:
             frame = block["frame"]
             frame.x = fit["x"] + settings.padding
             frame.y = fit["y"] + settings.padding
+            frame.rotated = False
+            frame.flip_y = False
 
         return True
 
@@ -453,7 +640,62 @@ class SparrowAtlasGenerator:
             frame.x = fit["x"] + settings.padding
             frame.y = fit["y"] + settings.padding
 
+            # Ordered packer never rotates or flips
+            frame.rotated = False
+            frame.flip_y = False
+
         return True
+
+    def _pack_maxrects(self, atlas_width: int, atlas_height: int, settings: AtlasSettings) -> bool:
+        if not self.frames:
+            return True
+
+        blocks = self._build_blocks_for_advanced_packers(settings, include_frame=True)
+        packer = MaxRectsPacker()
+        success = packer.fit(
+            blocks,
+            atlas_width,
+            atlas_height,
+            allow_rotation=settings.allow_rotation,
+        )
+
+        if not success:
+            return False
+
+        return self._apply_block_positions(blocks, settings)
+
+    def _pack_hybrid(self, atlas_width: int, atlas_height: int, settings: AtlasSettings) -> bool:
+        if not self.frames:
+            return True
+
+        blocks = self._build_blocks_for_advanced_packers(settings, include_frame=True)
+        packer = HybridAdaptivePacker()
+        success = packer.fit(
+            blocks,
+            atlas_width,
+            atlas_height,
+            allow_rotation=settings.allow_rotation,
+            allow_flip=settings.allow_flip,
+        )
+
+        if not success:
+            return False
+
+        return self._apply_block_positions(blocks, settings)
+
+    def _apply_block_positions(
+        self, blocks: List[Dict[str, object]], settings: AtlasSettings
+    ) -> bool:
+        for block in blocks:
+            fit = block.get("fit")
+            frame = block.get("frame")
+            if not fit or frame is None:
+                return False
+
+            frame.x = fit["x"] + settings.padding
+            frame.y = fit["y"] + settings.padding
+            frame.rotated = bool(fit.get("rotated", False))
+            frame.flip_y = bool(fit.get("flip_y", False))
 
         return True
 
@@ -465,6 +707,10 @@ class SparrowAtlasGenerator:
             return self._pack_growing(atlas_width, atlas_height, settings)
         elif settings.algorithm == PackingAlgorithm.ORDERED_PACKER:
             return self._pack_ordered(atlas_width, atlas_height, settings)
+        elif settings.algorithm == PackingAlgorithm.MAXRECTS_PACKER:
+            return self._pack_maxrects(atlas_width, atlas_height, settings)
+        elif settings.algorithm == PackingAlgorithm.HYBRID_PACKER:
+            return self._pack_hybrid(atlas_width, atlas_height, settings)
         else:
             # Default to growing packer for other algorithms
             return self._pack_growing(atlas_width, atlas_height, settings)
@@ -502,6 +748,8 @@ class SparrowAtlasGenerator:
 
             frame.x = x
             frame.y = y
+            frame.rotated = False
+            frame.flip_y = False
 
         return True
 
@@ -518,6 +766,9 @@ class SparrowAtlasGenerator:
                         trimmed_img = img.crop((left, top, right, bottom))
                     else:
                         trimmed_img = img
+
+                    if frame.flip_y:
+                        trimmed_img = ImageOps.flip(trimmed_img)
 
                     if frame.rotated:
                         trimmed_img = trimmed_img.rotate(90, expand=True)
@@ -538,8 +789,9 @@ class SparrowAtlasGenerator:
         settings: AtlasSettings = None,
     ) -> str:
         """Generate Sparrow XML format metadata."""
+        atlas_png_name = Path(f"{output_path}.png").name
         root = ET.Element("TextureAtlas")
-        root.set("imagePath", f"{Path(output_path).name}.png")
+        root.set("imagePath", atlas_png_name)
 
         # Sort frames alphabetically and numerically by name
         sorted_frames = sorted(self.frames, key=lambda f: self._natural_sort_key(f.name))
@@ -559,7 +811,7 @@ class SparrowAtlasGenerator:
             subtexture.set("frameWidth", str(frame.original_width))
             subtexture.set("frameHeight", str(frame.original_height))
             subtexture.set("flipX", "false")
-            subtexture.set("flipY", "false")
+            subtexture.set("flipY", str(frame.flip_y).lower())
             subtexture.set("rotated", str(frame.rotated).lower())
 
         # Create XML string with proper header and comments
@@ -579,12 +831,26 @@ class SparrowAtlasGenerator:
 
         # Add our custom header and comments
         result_lines = [xml_declaration.rstrip()]
-        result_lines.append(f'<TextureAtlas imagePath="{Path(output_path).name}.png">')
+        result_lines.append(f'<TextureAtlas imagePath="{atlas_png_name}">')
         result_lines.append(f"    <!-- Generated by TextureAtlas Toolbox v{current_version} -->")
 
         # Add optimization level info if available
         if settings:
             result_lines.append(f"    <!-- Optimization Level: {settings.optimization_level} -->")
+            try:
+                algorithm_label_map = {
+                    PackingAlgorithm.NONE: "Grid",
+                    PackingAlgorithm.GROWING_PACKER: "Growing",
+                    PackingAlgorithm.ORDERED_PACKER: "Ordered",
+                    PackingAlgorithm.MAXRECTS_PACKER: "MaxRects",
+                    PackingAlgorithm.HYBRID_PACKER: "Hybrid Adaptive",
+                }
+                algorithm_label = algorithm_label_map.get(
+                    settings.algorithm, settings.algorithm.name.title()
+                )
+                result_lines.append(f"    <!-- Packing Algorithm: {algorithm_label} -->")
+            except Exception:
+                pass
 
         result_lines.append("    <!-- https://textureatlastoolbox.com/ -->")
         result_lines.append(
@@ -597,7 +863,7 @@ class SparrowAtlasGenerator:
                 f'    <SubTexture name="{frame.name}" x="{frame.x}" y="{frame.y}" '
                 + f'width="{frame.width}" height="{frame.height}" frameX="{-frame.frame_x}" frameY="{-frame.frame_y}" '
                 + f'frameWidth="{frame.original_width}" frameHeight="{frame.original_height}" '
-                + f'flipX="false" flipY="false" rotated="{str(frame.rotated).lower()}"/>'
+                + f'flipX="false" flipY="{str(frame.flip_y).lower()}" rotated="{str(frame.rotated).lower()}"/>'
             )
 
         result_lines.append("</TextureAtlas>")

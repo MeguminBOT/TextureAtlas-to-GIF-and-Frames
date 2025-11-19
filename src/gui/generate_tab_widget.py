@@ -47,6 +47,13 @@ class GeneratorWorker(QThread):
                 power_of_2=self.atlas_settings.get("power_of_2", True),
                 optimization_level=self.atlas_settings.get("optimization_level", 5),
                 allow_rotation=self.atlas_settings.get("allow_rotation", True),
+                allow_vertical_flip=self.atlas_settings.get("allow_vertical_flip", False),
+                algorithm_hint=self.atlas_settings.get("preferred_algorithm"),
+                optimization_mode_index=self.atlas_settings.get("optimization_mode_index", 0),
+                preferred_width=self.atlas_settings.get("preferred_width"),
+                preferred_height=self.atlas_settings.get("preferred_height"),
+                forced_width=self.atlas_settings.get("forced_width"),
+                forced_height=self.atlas_settings.get("forced_height"),
             )
 
             # Use animation groups if available, otherwise create default
@@ -85,6 +92,10 @@ class GenerateTabWidget(QWidget):
         self.output_path = ""
         self.worker = None
         self.animation_groups = {}
+        self.atlas_settings = {}
+        self._initial_mode_index = 0
+        self._algorithm_slider_initialized = False
+        self._mode_by_algorithm = {}
 
         self.APP_NAME = Utilities.APP_NAME
         self.ALL_FILES_FILTER = f"{self.tr('All files')} (*.*)"
@@ -112,6 +123,10 @@ class GenerateTabWidget(QWidget):
         self.bind_ui_elements()
         self.setup_custom_widgets()
         self.setup_connections()
+        self._configure_packer_combo()
+
+        # Initialize slider/algorithm state before size wiring
+        self.on_algorithm_changed(self.packer_method_combobox.currentText())
 
         # Initialize atlas sizing state
         self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
@@ -196,6 +211,7 @@ class GenerateTabWidget(QWidget):
         # Output format
         self.image_format_combo = self.ui.image_format_combo
         self.atlas_type_combo = self.ui.atlas_type_combo
+        self.packer_method_combobox = self.ui.packer_method_combobox
 
         # Generate button
         self.generate_button = self.ui.generate_button
@@ -245,7 +261,8 @@ class GenerateTabWidget(QWidget):
         self.power_of_2_check.toggled.connect(self.update_atlas_size_estimates)
         self.padding_spin.valueChanged.connect(self.update_atlas_size_estimates)
         self.image_format_combo.currentTextChanged.connect(self.on_format_change)
-        self.speed_optimization_slider.valueChanged.connect(self.update_speed_opt_label)
+        self.speed_optimization_slider.valueChanged.connect(self.on_speed_slider_changed)
+        self.packer_method_combobox.currentTextChanged.connect(self.on_algorithm_changed)
 
         # Generation
         self.generate_button.clicked.connect(self.generate_atlas)
@@ -508,65 +525,140 @@ class GenerateTabWidget(QWidget):
                 self.tr("Error importing atlas: {0}").format(str(e))
             )
 
-    def update_speed_opt_label(self, value):
-        """Update the speed optimization label based on slider value."""
-        labels = {
-            0: self.tr("Level: 0 (Ultra-Fast, Minimal Packing)"),
-            1: self.tr("Level: 1 (Ultra-Fast, Tight Packing)"),
-            2: self.tr("Level: 2 (Ultra-Fast, Reduced Padding)"),
-            3: self.tr("Level: 3 (Fast, No Rotation)"),
-            4: self.tr("Level: 4 (Fast, Basic Packing)"),
-            5: self.tr("Level: 5 (Fast, Standard Packing)"),
-            6: self.tr("Level: 6 (Balanced, Some Rotation)"),
-            7: self.tr("Level: 7 (Balanced, Full Rotation)"),
-            8: self.tr("Level: 8 (Optimized, Advanced)"),
-            9: self.tr("Level: 9 (Optimized, Maximum)"),
-            10: self.tr("Level: 10 (Ultra-Optimized, Slowest)"),
+    def _configure_packer_combo(self):
+        """Populate the packer combo box with supported algorithms."""
+        algorithm_options = [
+            (self.tr("Growing (Auto Expand)"), "growing"),
+            (self.tr("Grid (Legacy Fill)"), "grid"),
+            (self.tr("Ordered Rows"), "ordered"),
+            (self.tr("MaxRects (Tightest)"), "maxrects"),
+            (self.tr("Hybrid Adaptive (Experimental)"), "hybrid"),
+        ]
+
+        self.packer_method_combobox.blockSignals(True)
+        self.packer_method_combobox.clear()
+        for label, key in algorithm_options:
+            self.packer_method_combobox.addItem(label, key)
+        self.packer_method_combobox.setCurrentIndex(0)
+        self.packer_method_combobox.blockSignals(False)
+
+    def _current_algorithm_key(self):
+        data = self.packer_method_combobox.currentData()
+        if data:
+            return data
+        text = self.packer_method_combobox.currentText().lower()
+        if "grow" in text:
+            return "growing"
+        if "order" in text:
+            return "ordered"
+        if "max" in text:
+            return "maxrects"
+        if "hybrid" in text or "advanced" in text:
+            return "hybrid"
+        if "grid" in text:
+            return "grid"
+        return "growing"
+
+    def _algorithm_level_specs(self):
+        return {
+            "grid": {
+                "steps": [self.tr("Grid Fill")],
+                "allow_rotation": [False],
+                "allow_flip": [False],
+            },
+            "growing": {
+                "steps": [
+                    self.tr("Fast Fill"),
+                    self.tr("Balanced Height"),
+                    self.tr("Dense Packing"),
+                ],
+                "allow_rotation": [False, False, True],
+                "allow_flip": [False, False, False],
+            },
+            "ordered": {
+                "steps": [
+                    self.tr("Preserve Rows"),
+                    self.tr("Row Optimize"),
+                ],
+                "allow_rotation": [False, False],
+                "allow_flip": [False, False],
+            },
+            "maxrects": {
+                "steps": [
+                    self.tr("Basic Fit"),
+                    self.tr("Allow Rotation"),
+                    self.tr("Tight Fit"),
+                    self.tr("Aggressive"),
+                ],
+                "allow_rotation": [False, True, True, True],
+                "allow_flip": [False, False, False, True],
+            },
+            "hybrid": {
+                "steps": [
+                    self.tr("Analyzer"),
+                    self.tr("Adaptive"),
+                    self.tr("Experimental"),
+                ],
+                "allow_rotation": [False, True, True],
+                "allow_flip": [False, True, True],
+            },
         }
-        self.speed_optimization_value_label.setText(labels.get(value, self.tr("Level: {0}").format(value)))
+
+    def on_algorithm_changed(self, _text):
+        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
+        if not specs:
+            return
+        max_value = len(specs["steps"]) - 1
+        key = self._current_algorithm_key()
+        if key in self._mode_by_algorithm:
+            cached_value = self._mode_by_algorithm[key]
+        else:
+            cached_value = self.speed_optimization_slider.value()
+        cached_value = max(0, min(cached_value, max_value))
+
+        self.speed_optimization_slider.blockSignals(True)
+        self.speed_optimization_slider.setMaximum(max_value)
+        if self.speed_optimization_slider.value() != cached_value:
+            self.speed_optimization_slider.setValue(cached_value)
+        self.speed_optimization_slider.blockSignals(False)
+
+        self._mode_by_algorithm[key] = cached_value
+        self.update_speed_opt_label(cached_value)
+
+        if not self._algorithm_slider_initialized:
+            self._initial_mode_index = cached_value
+            self._algorithm_slider_initialized = True
+
+    def on_speed_slider_changed(self, value):
+        key = self._current_algorithm_key()
+        self._mode_by_algorithm[key] = value
+        self.update_speed_opt_label(value)
+
+    def update_speed_opt_label(self, value):
+        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
+        if not specs:
+            self.speed_optimization_value_label.setText(self.tr("Level: {0}").format(value))
+            return
+        steps = specs["steps"]
+        value = max(0, min(value, len(steps) - 1))
+        description = steps[value]
+        self.speed_optimization_value_label.setText(
+            f"{self.tr('Mode')} {value + 1}/{len(steps)} - {description}"
+        )
 
     def get_optimization_settings(self, slider_value):
         """Convert slider value to optimization settings."""
-        if slider_value <= 2:
-            # Ultra-fast mode - absolutely minimal optimization
-            return {
-                "use_numpy": False,
-                "use_advanced_numpy": False,
-                "orientation_optimization": False,
-                "packing_strategy": "ultra_simple",
-                "tight_packing": True,
-                "use_multithreading": True,
-            }
-        elif slider_value <= 5:
-            # Fast mode - minimal optimization
-            return {
-                "use_numpy": False,
-                "use_advanced_numpy": False,
-                "orientation_optimization": False,
-                "packing_strategy": "simple",
-                "tight_packing": True,
-                "use_multithreading": True,
-            }
-        elif slider_value <= 7:
-            # Balanced mode - moderate optimization
-            return {
-                "use_numpy": True,
-                "use_advanced_numpy": False,
-                "orientation_optimization": True,
-                "packing_strategy": "balanced",
-                "tight_packing": False,
-                "use_multithreading": True,
-            }
-        else:
-            # Optimized mode - full optimization
-            return {
-                "use_numpy": True,
-                "use_advanced_numpy": True,
-                "orientation_optimization": True,
-                "packing_strategy": "advanced",
-                "tight_packing": False,
-                "use_multithreading": True,
-            }
+        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
+        if not specs:
+            return {}
+        index = max(0, min(slider_value, len(specs["steps"]) - 1))
+        return {
+            "allow_rotation": specs["allow_rotation"][index],
+            "allow_flip": specs["allow_flip"][index],
+        }
+
+    def _determine_algorithm_hint(self):
+        return self._current_algorithm_key()
 
     def add_frames_to_default_animation(self, file_paths):
         """Add frame files to a default animation group."""
@@ -683,6 +775,10 @@ class GenerateTabWidget(QWidget):
             # User cancelled the save dialog
             return
 
+        selected_path = Path(file_path)
+        if selected_path.suffix:
+            file_path = str(selected_path.with_suffix(""))
+
         self.output_path = file_path
 
         # Get all animations from the tree
@@ -697,6 +793,10 @@ class GenerateTabWidget(QWidget):
 
         # Prepare settings for the new generator
         method = self.atlas_size_method_combobox.currentText()
+        algorithm_hint = self._determine_algorithm_hint()
+        level_settings = self.get_optimization_settings(self.speed_optimization_slider.value())
+        allow_rotation = level_settings.get("allow_rotation", False)
+        allow_vertical_flip = level_settings.get("allow_flip", False)
         
         if method == "Automatic":
             # For automatic mode, calculate optimal sizes
@@ -711,10 +811,13 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "automatic",
                 "preferred_width": width_est,
-                "preferred_height": height_est
+                "preferred_height": height_est,
+                "preferred_algorithm": algorithm_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "MinMax":
             atlas_settings = {
@@ -723,8 +826,11 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
-                "atlas_size_method": "minmax"
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
+                "atlas_size_method": "minmax",
+                "preferred_algorithm": algorithm_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "Manual":
             atlas_settings = {
@@ -733,10 +839,13 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "manual",
                 "forced_width": self.atlas_size_spinbox_1.value(),
-                "forced_height": self.atlas_size_spinbox_2.value()
+                "forced_height": self.atlas_size_spinbox_2.value(),
+                "preferred_algorithm": algorithm_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
             
             # Show warning for manual mode
