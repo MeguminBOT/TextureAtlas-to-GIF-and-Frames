@@ -70,6 +70,13 @@ class AnimationProcessor:
                 kept_frames, image_tuples
             )
 
+            alignment_overrides = settings.get("alignment_overrides")
+            aligned_tuples = (
+                self._apply_alignment_overrides(image_tuples, alignment_overrides)
+                if alignment_overrides
+                else image_tuples
+            )
+
             if settings.get("fnf_idle_loop") and "idle" in animation_name.lower():
                 settings["delay"] = 0
 
@@ -77,7 +84,7 @@ class AnimationProcessor:
             frame_export = settings.get("frame_export", False)
             if frame_export and settings.get("frame_format") != "None":
                 frames_generated += self.frame_exporter.save_frames(
-                    image_tuples,
+                    aligned_tuples,
                     kept_frame_indices,
                     spritesheet_name,
                     animation_name,
@@ -91,10 +98,41 @@ class AnimationProcessor:
             animation_format = settings.get("animation_format")
             if not single_frame and animation_export and animation_format != "None":
                 anims_generated += self.animation_exporter.save_animations(
-                    image_tuples, spritesheet_name, animation_name, settings
+                    aligned_tuples, spritesheet_name, animation_name, settings
                 )
 
         return frames_generated, anims_generated
+
+    def _apply_alignment_overrides(self, image_tuples, overrides):
+        """Rebuild frames using the manual offsets configured in the editor."""
+        canvas = overrides.get("canvas") or []
+        default_offset = overrides.get("default", {})
+        default_x = int(default_offset.get("x", 0))
+        default_y = int(default_offset.get("y", 0))
+        frames_map = overrides.get("frames", {})
+
+        if len(canvas) == 2:
+            canvas_width = max(1, int(canvas[0]))
+            canvas_height = max(1, int(canvas[1]))
+        else:
+            widths = [img[1].width for img in image_tuples]
+            heights = [img[1].height for img in image_tuples]
+            canvas_width = max(widths) if widths else 1
+            canvas_height = max(heights) if heights else 1
+
+        adjusted = []
+        for name, frame_image, metadata in image_tuples:
+            offset_data = frames_map.get(name, {})
+            offset_x = int(offset_data.get("x", default_x))
+            offset_y = int(offset_data.get("y", default_y))
+            canvas_image = Image.new("RGBA", (canvas_width, canvas_height))
+            # Anchor around the center so offsets nudge relative to the origin crosshair
+            target_x = (canvas_width - frame_image.width) // 2 + offset_x
+            target_y = (canvas_height - frame_image.height) // 2 + offset_y
+            canvas_image.paste(frame_image, (target_x, target_y), frame_image)
+            adjusted.append((name, canvas_image, metadata))
+
+        return adjusted
 
     def scale_image(self, img, size):
         if size < 0:

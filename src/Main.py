@@ -7,9 +7,10 @@ import shutil
 import tempfile
 import webbrowser
 from pathlib import Path
+from typing import Optional
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
-from PySide6.QtCore import QThread, Signal, QTimer, Qt, QCoreApplication
+from PySide6.QtCore import QThread, Signal, QTimer, Qt, QCoreApplication, QSize
 from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules
@@ -113,6 +114,11 @@ class TextureAtlasExtractorApp(QMainWindow):
         # Initialize UI
         self.ui = Ui_TextureAtlasToolboxApp()
         self.ui.setupUi(self)
+        self._resize_tools_tab_to_window()
+        self._default_minimum_size = QSize(900, 770)
+        self._editor_minimum_size = QSize(1280, 850)
+        self._pre_editor_size: Optional[QSize] = None
+        self.setMinimumSize(self._default_minimum_size)
 
         # Initialize advanced menu variables
         defaults = (
@@ -127,8 +133,12 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.setup_gui()
         self.setup_extract_tab()
         self.setup_generate_tab()
+        self.setup_editor_tab()
         self.setup_connections()
         self.ui.retranslateUi(self)
+        self.update_dynamic_tab_labels()
+        self.ui.tools_tab.currentChanged.connect(self._on_tools_tab_changed)
+        self._on_tools_tab_changed(self.ui.tools_tab.currentIndex())
 
         QTimer.singleShot(250, self.check_version)
 
@@ -173,6 +183,21 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.generate_tab_widget = GenerateTabWidget(self.ui, self)
 
         print("Generate tab setup completed successfully")
+
+    def setup_editor_tab(self):
+        """Add the editor tab for manual alignment workflows."""
+        from gui.editor_tab_widget import EditorTabWidget
+
+        self.editor_tab_widget = EditorTabWidget(self)
+        self._editor_tab_index = self.ui.tools_tab.addTab(self.editor_tab_widget, self.tr("Editor"))
+        print("Editor tab setup completed successfully")
+
+    def update_dynamic_tab_labels(self):
+        """Refresh translated titles for tabs that are added at runtime."""
+        if hasattr(self, "editor_tab_widget"):
+            index = self.ui.tools_tab.indexOf(self.editor_tab_widget)
+            if index != -1:
+                self.ui.tools_tab.setTabText(index, self.tr("Editor"))
 
     def setup_extract_tab(self):
         """Set up the Extract tab with proper functionality."""
@@ -264,6 +289,40 @@ class TextureAtlasExtractorApp(QMainWindow):
             except ValueError:
                 format_index = 3  # Default to PNG
             self.ui.frame_format_combobox.setCurrentIndex(format_index)
+
+    def _on_tools_tab_changed(self, index: int):
+        editor_active = hasattr(self, "_editor_tab_index") and index == getattr(self, "_editor_tab_index", -1)
+        self._apply_editor_window_constraints(editor_active)
+
+    def _apply_editor_window_constraints(self, editor_active: bool):
+        if not hasattr(self, "_default_minimum_size"):
+            return
+        if editor_active:
+            if self._pre_editor_size is None:
+                self._pre_editor_size = self.size()
+            self.setMinimumSize(self._editor_minimum_size)
+            target_width = max(self.width(), self._editor_minimum_size.width())
+            target_height = max(self.height(), self._editor_minimum_size.height())
+            if target_width != self.width() or target_height != self.height():
+                self.resize(target_width, target_height)
+        else:
+            self.setMinimumSize(self._default_minimum_size)
+            if self._pre_editor_size is not None:
+                target_width = max(self._default_minimum_size.width(), self._pre_editor_size.width())
+                target_height = max(self._default_minimum_size.height(), self._pre_editor_size.height())
+                self.resize(target_width, target_height)
+                self._pre_editor_size = None
+        self._resize_tools_tab_to_window()
+
+    def resizeEvent(self, event):  # noqa: D401 - Qt API
+        super().resizeEvent(event)
+        self._resize_tools_tab_to_window()
+
+    def _resize_tools_tab_to_window(self):
+        central = self.centralWidget()
+        if not central or not hasattr(self.ui, "tools_tab"):
+            return
+        self.ui.tools_tab.setGeometry(central.rect())
 
     def setup_connections(self):
         """Sets up signal-slot connections for UI elements."""
@@ -706,8 +765,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                     # Refresh the UI with new translations
                     self.translation_manager.refresh_ui(self)
 
-                    # Retranslate all UI elements
+                    # Retranslate all UI elements and update runtime tab labels
                     self.ui.retranslateUi(self)
+                    self.update_dynamic_tab_labels()
 
                     # Show success message (in the new language)
                     from PySide6.QtCore import QCoreApplication
@@ -852,6 +912,34 @@ class TextureAtlasExtractorApp(QMainWindow):
                 self.tr("Preview Error"),
                 self.tr("Failed to preview animation: {error}").format(error=str(e)),
             )
+
+    def open_animation_in_editor(
+        self,
+        spritesheet_name: str,
+        animation_name: str,
+        spritesheet_path: str,
+        metadata_path: Optional[str],
+        spritemap_info: Optional[dict] = None,
+        spritemap_target: Optional[dict] = None,
+    ):
+        """Send an animation to the editor tab for manual alignment."""
+        if not hasattr(self, "editor_tab_widget") or not self.editor_tab_widget:
+            QMessageBox.warning(
+                self,
+                self.tr("Editor"),
+                self.tr("The editor tab is not available in this session."),
+            )
+            return
+
+        self.editor_tab_widget.add_animation_from_extractor(
+            spritesheet_name,
+            animation_name,
+            spritesheet_path,
+            metadata_path,
+            spritemap_info,
+            spritemap_target,
+        )
+        self.ui.tools_tab.setCurrentWidget(self.editor_tab_widget)
 
 
 def main():

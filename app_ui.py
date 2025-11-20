@@ -263,6 +263,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.filename_format_combobox.addItem("")
         self.filename_format_combobox.setObjectName(u"filename_format_combobox")
         self.filename_format_combobox.setGeometry(QRect(690, 470, 131, 24))
+        self.filename_format_combobox.setMaximumSize(QSize(16777215, 16777215))
         self.filename_format_label = QLabel(self.tool_extract)
         self.filename_format_label.setObjectName(u"filename_format_label")
         self.filename_format_label.setGeometry(QRect(700, 450, 111, 16))
@@ -394,6 +395,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_layout.addWidget(self.atlas_size_method_combobox, 21, 2, 1, 1)
 
         self.packer_method_combobox = QComboBox(self.atlas_group)
+        self.packer_method_combobox.addItem("")
         self.packer_method_combobox.addItem("")
         self.packer_method_combobox.addItem("")
         self.packer_method_combobox.setObjectName(u"packer_method_combobox")
@@ -1119,7 +1121,8 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_size_method_combobox.setStatusTip(QCoreApplication.translate("TextureAtlasToolboxApp", u"Choose how the atlas size is determined", None))
 #endif // QT_CONFIG(statustip)
         self.packer_method_combobox.setItemText(0, QCoreApplication.translate("TextureAtlasToolboxApp", u"OrderedBlocks", None))
-        self.packer_method_combobox.setItemText(1, QCoreApplication.translate("TextureAtlasToolboxApp", u"GrowingBin", None))
+        self.packer_method_combobox.setItemText(1, QCoreApplication.translate("TextureAtlasToolboxApp", u"MaxRects", None))
+        self.packer_method_combobox.setItemText(2, QCoreApplication.translate("TextureAtlasToolboxApp", u"GrowingBin", None))
 
         self.atlas_type_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Atlas type", None))
         self.image_format_combo.setItemText(0, QCoreApplication.translate("TextureAtlasToolboxApp", u"PNG", None))

@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import shutil
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -40,6 +41,7 @@ class ExtractTabWidget(QWidget):
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
         self.filter_single_frame_spritemaps = True
+        self.editor_composites = defaultdict(dict)
 
         if use_existing_ui and parent:
             # Use existing UI elements from parent
@@ -779,6 +781,31 @@ class ExtractTabWidget(QWidget):
             print(f"Error parsing spritemap animation metadata {animation_json_path}: {exc}")
         return symbol_map
 
+    def register_editor_composite(self, spritesheet_name: str, animation_name: str, editor_animation_id: str):
+        """Register an editor-created composite so it appears in the animation list."""
+        if not spritesheet_name or not animation_name or not editor_animation_id:
+            return
+        entries = self.editor_composites[spritesheet_name]
+        entries[animation_name] = editor_animation_id
+        current_item = self.listbox_png.currentItem()
+        if current_item and current_item.text() == spritesheet_name:
+            self.populate_animation_list(spritesheet_name)
+
+    def _append_editor_composites_to_list(self, spritesheet_name: str):
+        composites = self.editor_composites.get(spritesheet_name, {})
+        for animation_name, editor_id in sorted(composites.items()):
+            if self.listbox_data.find_item_by_text(animation_name):
+                continue
+            item = self.listbox_data.add_item(
+                animation_name,
+                {
+                    "type": "editor_composite",
+                    "editor_id": editor_id,
+                    "name": animation_name,
+                },
+            )
+            item.setToolTip(self.tr("Composite created in the Editor tab"))
+
     def on_select_spritesheet(self, current, previous):
         """Handles the event when a PNG file is selected from the listbox."""
         if not current or not self.parent_app:
@@ -812,6 +839,7 @@ class ExtractTabWidget(QWidget):
                         unknown_parser.get_data()
             except Exception as e:
                 print(f"Error using unknown parser: {e}")
+            self._append_editor_composites_to_list(spritesheet_name)
             return
 
         data_files = self.parent_app.data_dict[spritesheet_name]
@@ -848,7 +876,8 @@ class ExtractTabWidget(QWidget):
                 symbol_map = spritemap_info.get("symbol_map", {})
                 if symbol_map:
                     for display_name in sorted(symbol_map.keys()):
-                        self.listbox_data.add_item(display_name)
+                        target_data = symbol_map.get(display_name)
+                        self.listbox_data.add_item(display_name, target_data)
                 else:
                     try:
                         from parsers.spritemap_parser import SpritemapParser
@@ -868,6 +897,8 @@ class ExtractTabWidget(QWidget):
                 self._populate_unknown_parser_fallback()
         else:
             self._populate_unknown_parser_fallback()
+
+        self._append_editor_composites_to_list(spritesheet_name)
 
     def _populate_unknown_parser_fallback(self):
         try:
@@ -963,6 +994,12 @@ class ExtractTabWidget(QWidget):
             return
 
         menu = QMenu(self)
+        spritesheet_name = item.text()
+
+        editor_action = QAction(self.tr("Add to Editor Tab"), self)
+        editor_action.triggered.connect(lambda checked=False, entry=item: self.open_spritesheet_in_editor(entry))
+        menu.addAction(editor_action)
+        menu.addSeparator()
 
         settings_action = QAction(self.tr("Override Settings"), self)
         settings_action.triggered.connect(self.override_spritesheet_settings)
@@ -986,16 +1023,31 @@ class ExtractTabWidget(QWidget):
             return
 
         menu = QMenu(self)
+        item_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
+            editor_action = QAction(self.tr("Focus in Editor Tab"), self)
+            editor_action.triggered.connect(
+                lambda checked=False, entry=item: self.open_animation_item_in_editor(entry)
+            )
+            menu.addAction(editor_action)
+        else:
+            editor_action = QAction(self.tr("Add to Editor Tab"), self)
+            editor_action.triggered.connect(
+                lambda checked=False, entry=item: self.open_animation_item_in_editor(entry)
+            )
+            menu.addAction(editor_action)
 
-        preview_action = QAction(self.tr("Preview Animation"), self)
-        preview_action.triggered.connect(self.preview_selected_animation)
-        menu.addAction(preview_action)
+            menu.addSeparator()
 
-        menu.addSeparator()
+            preview_action = QAction(self.tr("Preview Animation"), self)
+            preview_action.triggered.connect(self.preview_selected_animation)
+            menu.addAction(preview_action)
 
-        settings_action = QAction(self.tr("Override Settings"), self)
-        settings_action.triggered.connect(self.override_animation_settings)
-        menu.addAction(settings_action)
+            menu.addSeparator()
+
+            settings_action = QAction(self.tr("Override Settings"), self)
+            settings_action.triggered.connect(self.override_animation_settings)
+            menu.addAction(settings_action)
 
         menu.exec(self.listbox_data.mapToGlobal(position))
 
@@ -1107,6 +1159,111 @@ class ExtractTabWidget(QWidget):
                 self.tr("Error"),
                 self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
             )
+
+    def open_spritesheet_in_editor(self, spritesheet_item):
+        """Open the currently selected spritesheet (and its current animation) in the editor tab."""
+        if not self.parent_app or not spritesheet_item:
+            return
+
+        # Ensure UI selection matches the requested item so animation list is in sync
+        self.listbox_png.setCurrentItem(spritesheet_item)
+        if self.listbox_data.count() == 0:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("Load animations for this spritesheet before sending it to the editor."),
+            )
+            return
+
+        eligible_items = []
+        for index in range(self.listbox_data.count()):
+            item = self.listbox_data.item(index)
+            item_data = item.data(Qt.ItemDataRole.UserRole)
+            if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
+                continue
+            eligible_items.append(item)
+
+        if not eligible_items:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("No animations were found for this spritesheet."),
+            )
+            return
+
+        self.listbox_data.setCurrentItem(eligible_items[0])
+        for item in eligible_items:
+            self._open_animation_in_editor(spritesheet_item, item)
+
+    def open_animation_item_in_editor(self, animation_item):
+        """Send a specific animation to the editor tab."""
+        if not self.parent_app or not animation_item:
+            return
+
+        spritesheet_item = self.listbox_png.currentItem()
+        if not spritesheet_item:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("Select a spritesheet first."),
+            )
+            return
+
+        item_data = animation_item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
+            editor_id = item_data.get("editor_id")
+            if editor_id and hasattr(self.parent_app, "editor_tab_widget"):
+                focused = self.parent_app.editor_tab_widget.focus_animation_by_id(editor_id)
+                if focused and hasattr(self.parent_app, "ui") and hasattr(self.parent_app.ui, "tools_tab"):
+                    self.parent_app.ui.tools_tab.setCurrentWidget(self.parent_app.editor_tab_widget)
+                else:
+                    QMessageBox.information(
+                        self,
+                        self.tr("Editor"),
+                        self.tr("Unable to locate the exported composite in the editor."),
+                    )
+            return
+
+        self._open_animation_in_editor(spritesheet_item, animation_item)
+
+    def _open_animation_in_editor(self, spritesheet_item, animation_item):
+        if not self.parent_app or not hasattr(self.parent_app, "open_animation_in_editor"):
+            return
+
+        spritesheet_name = spritesheet_item.text()
+        animation_name = animation_item.text()
+        spritesheet_path = spritesheet_item.data(Qt.ItemDataRole.UserRole)
+        if not spritesheet_path:
+            QMessageBox.warning(
+                self,
+                self.tr("Editor"),
+                self.tr("The spritesheet path could not be determined."),
+            )
+            return
+
+        data_entry = self.parent_app.data_dict.get(spritesheet_name, {})
+        metadata_path = None
+        if isinstance(data_entry, dict):
+            metadata_path = data_entry.get("xml") or data_entry.get("txt")
+        spritemap_info = data_entry.get("spritemap") if isinstance(data_entry, dict) else None
+        spritemap_target = animation_item.data(Qt.ItemDataRole.UserRole) if spritemap_info else None
+
+        if not metadata_path and not spritemap_info:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("No metadata was located for this spritesheet."),
+            )
+            return
+
+        self.parent_app.open_animation_in_editor(
+            spritesheet_name,
+            animation_name,
+            spritesheet_path,
+            metadata_path,
+            spritemap_info,
+            spritemap_target,
+        )
 
     def override_animation_settings(self):
         """Opens window to override settings for selected animation."""
