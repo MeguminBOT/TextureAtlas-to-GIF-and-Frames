@@ -1,0 +1,197 @@
+{
+    "ar": {
+        "name": "العربية",
+        "english_name": "Arabic",
+        "quality": "machine"
+    },
+    "bg": {
+        "name": "Български",
+        "english_name": "Bulgarian",
+        "quality": "machine"
+    },
+    "cs": {
+        "name": "Čeština",
+        "english_name": "Czech",
+        "quality": "machine"
+    },
+    "da": {
+        "name": "Dansk",
+        "english_name": "Danish",
+        "quality": "machine"
+    },
+    "de": {
+        "name": "Deutsch",
+        "english_name": "German",
+        "quality": "machine"
+    },
+    "el": {
+        "name": "Ελληνικά",
+        "english_name": "Greek",
+        "quality": "machine"
+    },
+    "en": {
+        "name": "English",
+        "english_name": "English",
+        "quality": "native"
+    },
+    "es": {
+        "name": "Español",
+        "english_name": "Spanish",
+        "quality": "machine"
+    },
+    "et": {
+        "name": "Eesti",
+        "english_name": "Estonian",
+        "quality": "machine"
+    },
+    "fi": {
+        "name": "Suomi",
+        "english_name": "Finnish",
+        "quality": "machine"
+    },
+    "fr": {
+        "name": "Français",
+        "english_name": "French",
+        "quality": "machine"
+    },
+    "fr_CA": {
+        "name": "Français canadien",
+        "english_name": "French (Canadian)",
+        "quality": "machine"
+    },
+    "he": {
+        "name": "עברית",
+        "english_name": "Hebrew",
+        "quality": "machine"
+    },
+    "hi": {
+        "name": "हिन्दी",
+        "english_name": "Hindi",
+        "quality": "machine"
+    },
+    "hr": {
+        "name": "Hrvatski",
+        "english_name": "Croatian",
+        "quality": "machine"
+    },
+    "hu": {
+        "name": "Magyar",
+        "english_name": "Hungarian",
+        "quality": "machine"
+    },
+    "is": {
+        "name": "Íslenska",
+        "english_name": "Icelandic",
+        "quality": "machine"
+    },
+    "it": {
+        "name": "Italiano",
+        "english_name": "Italian",
+        "quality": "machine"
+    },
+    "ja": {
+        "name": "日本語",
+        "english_name": "Japanese",
+        "quality": "machine"
+    },
+    "ko": {
+        "name": "한국어",
+        "english_name": "Korean",
+        "quality": "machine"
+    },
+    "lt": {
+        "name": "Lietuvių",
+        "english_name": "Lithuanian",
+        "quality": "machine"
+    },
+    "lv": {
+        "name": "Latviešu",
+        "english_name": "Latvian",
+        "quality": "machine"
+    },
+    "nl": {
+        "name": "Nederlands",
+        "english_name": "Dutch",
+        "quality": "machine"
+    },
+    "nn": {
+        "name": "Norsk nynorsk",
+        "english_name": "Norwegian (Nynorsk)",
+        "quality": "machine"
+    },
+    "no": {
+        "name": "Norsk bokmål",
+        "english_name": "Norwegian (Bokmål)",
+        "quality": "machine"
+    },
+    "pl": {
+        "name": "Polski",
+        "english_name": "Polish",
+        "quality": "machine"
+    },
+    "pt": {
+        "name": "Português",
+        "english_name": "Portuguese",
+        "quality": "machine"
+    },
+    "pt_br": {
+        "name": "Português (Brasil)",
+        "english_name": "Portuguese (Brazil)",
+        "quality": "native"
+    },
+    "ro": {
+        "name": "Română",
+        "english_name": "Romanian",
+        "quality": "machine"
+    },
+    "ru": {
+        "name": "Русский",
+        "english_name": "Russian",
+        "quality": "machine"
+    },
+    "sk": {
+        "name": "Slovenčina",
+        "english_name": "Slovak",
+        "quality": "machine"
+    },
+    "sl": {
+        "name": "Slovenščina",
+        "english_name": "Slovenian",
+        "quality": "machine"
+    },
+    "sv": {
+        "name": "Svenska",
+        "english_name": "Swedish",
+        "quality": "native"
+    },
+    "th": {
+        "name": "ไทย",
+        "english_name": "Thai",
+        "quality": "machine"
+    },
+    "tr": {
+        "name": "Türkçe",
+        "english_name": "Turkish",
+        "quality": "machine"
+    },
+    "uk": {
+        "name": "Українська",
+        "english_name": "Ukrainian",
+        "quality": "machine"
+    },
+    "vi": {
+        "name": "Tiếng Việt",
+        "english_name": "Vietnamese",
+        "quality": "machine"
+    },
+    "zh_CN": {
+        "name": "简体中文",
+        "english_name": "Chinese (Simplified)",
+        "quality": "machine"
+    },
+    "zh_TW": {
+        "name": "繁體中文",
+        "english_name": "Chinese (Traditional)",
+        "quality": "machine"
+    }
+}
