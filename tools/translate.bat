@@ -20,7 +20,7 @@ if errorlevel 1 (
 )
 
 REM Check if translate.py exists
-if not exist "%SCRIPT_DIR%translate.py" (
+if not exist "%SCRIPT_DIR%translate_utils.py" (
     echo Error: translate.py not found in tools directory
     echo Expected location: %SCRIPT_DIR%translate.py
     pause
@@ -32,13 +32,13 @@ cd /d "%PROJECT_ROOT%"
 
 REM If no arguments provided, show help
 if "%~1"=="" (
-    python "%SCRIPT_DIR%translate.py"
+    python "%SCRIPT_DIR%translate_utils.py"
     pause
     exit /b 0
 )
 
 REM Run the translation script with all provided arguments
-python "%SCRIPT_DIR%translate.py" %*
+python "%SCRIPT_DIR%translate_utils.py" %*
 
 REM Pause if running interactively (not from command line with arguments)
 if "%~1"=="extract" pause

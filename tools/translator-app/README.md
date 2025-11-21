@@ -11,6 +11,7 @@ A comprehensive Qt-based GUI tool for editing translation files (.ts) for the Te
 - **Validation System**: Prevents saving files with missing or extra placeholders
 - **Context Information**: Shows all contexts where each string is used
 - **Copy Source**: Quick button to copy source text as a starting point for translation
+- **Translation Services Integration**: Supports usage of Google Cloud, DeepL and LibreTranslate services.
 
 ## Usage
 

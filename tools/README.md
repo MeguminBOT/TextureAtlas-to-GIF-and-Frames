@@ -7,7 +7,7 @@ This directory contains utility scripts and tools for managing the TextureAtlas 
 ```
 tools/
 ├── translations/           # Translation management tools
-│   ├── update_translations.py    # Main translation management script
+│   ├── translate_utils.py    # Main translation management script
 │   ├── migrate_translations.py   # Legacy translation migration tool
 │   └── README.md                 # Translation tools documentation
 └── README.md              # This file
@@ -23,21 +23,21 @@ The translation tools are located in `tools/translations/` and can be run from e
 
 ```bash
 # From project root
-python tools/translations/update_translations.py all
+python tools/translations/translate_utils.py all
 
 # From tools/translations directory
 cd tools/translations
-python update_translations.py all
+python translate_utils.py all
 ```
 
 ### Available Commands
 
 **Translation Management:**
 ```bash
-python update_translations.py extract   # Extract strings from source code
-python update_translations.py compile   # Compile .ts files to .qm files
-python update_translations.py status    # Show translation status
-python update_translations.py all       # Run full update cycle
+python translate_utils.py extract   # Extract strings from source code
+python translate_utils.py compile   # Compile .ts files to .qm files
+python translate_utils.py status    # Show translation status
+python translate_utils.py all       # Run full update cycle
 ```
 
 **Legacy Migration:**
@@ -58,9 +58,9 @@ python migrate_translations.py status   # Check migration status
 ## 🎯 Workflow
 
 1. **Development**: Add `self.tr("Text")` to new strings in Python code
-2. **Extract**: Run `update_translations.py extract` to update translation files
+2. **Extract**: Run `translate_utils.py extract` to update translation files
 3. **Translate**: Edit `.ts` files with translations or use Qt Linguist
-4. **Compile**: Run `update_translations.py compile` to create `.qm` files
+4. **Compile**: Run `translate_utils.py compile` to create `.qm` files
 5. **Test**: Test language switching in the application
 
 ## 📂 File Locations

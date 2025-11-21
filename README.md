@@ -16,6 +16,7 @@ Perfect for creating showcases and galleries of game sprites.
 - [🔮 Planned Features](#-planned-features)
 - [💾 Downloads](#-official-download-sites)
 - [📖 Documentation](docs/README.md)
+- [🌍 Community Translations](#-community-translations)
 
 ## 🚀 Quick Start
 
@@ -75,6 +76,13 @@ Perfect for creating showcases and galleries of game sprites.
 **Need help getting started?** Check out the documentation:
 - [📖 Installation Guide →](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/wiki/Installation)
 - [📚 Full Documentation →](docs/README.md)
+
+## 🌍 Community Translations
+
+Help localize the TextureAtlas Toolbox with our **Translation Editor** located in `tools/translator-app/`. The Qt-based helper offers placeholder-aware syntax highlighting, grouped context editing, validation, dark mode, and optional machine-translation providers (DeepL, Google Translate, LibreTranslate) so you can translate `.ts` files quickly and safely.
+
+- Read the dedicated guide: [`tools/translator-app/README.md`](tools/translator-app/README.md)
+- Launch the packaged executable or run `python tools/translator-app/src/translation_editor.py` to start contributing translations.
 
 ## 💾 Official Download Sites
 ***Note: Mac OSX and Linux users need to download source code from GitHub!***

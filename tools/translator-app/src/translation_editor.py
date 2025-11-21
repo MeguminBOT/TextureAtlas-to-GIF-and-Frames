@@ -12,13 +12,20 @@ It provides a clean, user-friendly interface with features like
 * Simple syntax highlighting for placeholders
 * Real-time validation
 
+Machine translation requires the optional 'requests' package and an API key:
+* Set DEEPL_API_KEY for DeepL (optionally override DEEPL_API_ENDPOINT).
+* Set GOOGLE_TRANSLATE_API_KEY for Google Cloud Translation API usage.
+
 """
 
 import sys
 import os
 import re
+import html
+import uuid
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 import xml.etree.ElementTree as ET
 
 from PySide6.QtWidgets import (
@@ -27,22 +34,33 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QListWidget,
     QListWidgetItem,
     QTextEdit,
+    QTextBrowser,
     QLineEdit,
     QLabel,
     QPushButton,
     QSplitter,
     QFileDialog,
     QMessageBox,
+    QDialog,
+    QDialogButtonBox,
     QScrollArea,
     QGroupBox,
     QStatusBar,
     QCheckBox,
+    QComboBox,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QTextCharFormat, QSyntaxHighlighter, QIcon
+
+try:
+    import requests
+except ImportError:  # Lazy dependency for translation services
+    requests = None
 
 
 class PlaceholderHighlighter(QSyntaxHighlighter):
@@ -57,14 +75,13 @@ class PlaceholderHighlighter(QSyntaxHighlighter):
         """Setup text formats for highlighting"""
         self.placeholder_format = QTextCharFormat()
         if self.dark_mode:
-            self.placeholder_format.setForeground(QColor(100, 200, 255))  # Light blue
+            self.placeholder_format.setForeground(QColor(100, 200, 255))
         else:
-            self.placeholder_format.setForeground(QColor(0, 100, 200))  # Dark blue
+            self.placeholder_format.setForeground(QColor(0, 100, 200))
         self.placeholder_format.setFontWeight(QFont.Bold)
 
     def highlightBlock(self, text):
         """Highlight placeholders in the given text block"""
-        # Pattern to match {placeholder} and {placeholder:format}
         pattern = r"\{[^}]*\}"
 
         import re
@@ -93,9 +110,9 @@ class TranslationItem:
         line: int = 0,
     ):
         self.source = source
-        self.translation = translation or ""  # Handle None values
-        self.contexts = [context] if context else []  # List of all contexts using this source
-        self.locations = [(filename, line)] if filename else []  # List of all file locations
+        self.translation = translation or ""
+        self.contexts = [context] if context else []
+        self.locations = [(filename, line)] if filename else []
         self.is_translated = bool(self.translation.strip())
 
     def add_context(self, context: str, filename: str = "", line: int = 0):
@@ -157,14 +174,12 @@ class TranslationItem:
         placeholders = self.get_placeholders()
 
         for placeholder in placeholders:
-            # Remove braces for lookup
             key = placeholder.strip("{}")
             if key in placeholder_values:
                 preview = preview.replace(placeholder, placeholder_values[key])
             elif placeholder in placeholder_values:
                 preview = preview.replace(placeholder, placeholder_values[placeholder])
             else:
-                # Use placeholder as fallback
                 preview = preview.replace(placeholder, f"[{key}]")
 
         return preview
@@ -172,7 +187,7 @@ class TranslationItem:
     def validate_translation(self) -> tuple[bool, str]:
         """Validate that translation contains all required placeholders from source"""
         if not self.translation.strip():
-            return True, ""  # Empty translation is valid (unfinished)
+            return True, ""
 
         source_placeholders = set(self.get_placeholders())
         translation_placeholders = set(re.findall(r"\{[^}]*\}", self.translation))
@@ -191,18 +206,382 @@ class TranslationItem:
         return True, ""
 
 
+class TranslationError(Exception):
+    """Raised when a machine translation request fails"""
+
+
+class TranslationProvider(ABC):
+    """Abstract translation provider"""
+
+    name: str = "Translation Provider"
+
+    @abstractmethod
+    def is_available(self) -> tuple[bool, str]:
+        """Return availability flag and status message"""
+
+    @abstractmethod
+    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        """Translate text and return the translated string"""
+
+
+class DeepLProvider(TranslationProvider):
+    """DeepL translation provider"""
+
+    name = "DeepL"
+    _SUPPORTED_CODES = {
+        "BG",
+        "CS",
+        "DA",
+        "DE",
+        "EL",
+        "EN",
+        "ES",
+        "ET",
+        "FI",
+        "FR",
+        "HU",
+        "ID",
+        "IT",
+        "JA",
+        "KO",
+        "LT",
+        "LV",
+        "NB",
+        "NL",
+        "PL",
+        "PT",
+        "RO",
+        "RU",
+        "SK",
+        "SL",
+        "SV",
+        "TR",
+        "UK",
+        "ZH",
+    }
+
+    def __init__(self):
+        self._endpoint = os.environ.get(
+            "DEEPL_API_ENDPOINT", "https://api-free.deepl.com/v2/translate"
+        )
+
+    @staticmethod
+    def _api_key() -> Optional[str]:
+        return os.environ.get("DEEPL_API_KEY")
+
+    def is_available(self) -> tuple[bool, str]:
+        if requests is None:
+            return False, "Install the 'requests' package to enable machine translation."
+        if not self._api_key():
+            return False, "Set the DEEPL_API_KEY environment variable to enable DeepL."
+        return True, "DeepL ready"
+
+    def _map_language(self, code: Optional[str], *, is_target: bool) -> Optional[str]:
+        if not code:
+            return None
+        normalized = code.upper()
+
+        if normalized not in self._SUPPORTED_CODES and normalized not in {
+            "EN-US",
+            "EN-GB",
+            "PT-BR",
+            "PT-PT",
+        }:
+            raise TranslationError(f"DeepL does not support the language code '{code}'.")
+
+        if normalized == "EN" and is_target:
+            return os.environ.get("DEEPL_TARGET_EN_VARIANT", "EN-US").upper()
+        if normalized == "PT" and is_target:
+            return os.environ.get("DEEPL_TARGET_PT_VARIANT", "PT-BR").upper()
+        if normalized == "EN" and not is_target:
+            return "EN"
+        if normalized == "PT" and not is_target:
+            return "PT"
+        return normalized
+
+    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        if not text.strip():
+            return ""
+        api_key = self._api_key()
+        if not api_key:
+            raise TranslationError("DEEPL_API_KEY is not configured.")
+        if requests is None:
+            raise TranslationError("The 'requests' package is required for DeepL translations.")
+
+        mapped_target = self._map_language(target_lang, is_target=True)
+        mapped_source = self._map_language(source_lang, is_target=False)
+
+        payload = {"text": text, "target_lang": mapped_target}
+        if mapped_source:
+            payload["source_lang"] = mapped_source
+
+        headers = {"Authorization": f"DeepL-Auth-Key {api_key}"}
+
+        try:
+            response = requests.post(self._endpoint, data=payload, headers=headers, timeout=15)
+        except Exception as exc:  # pragma: no cover - network error surface to user
+            raise TranslationError(f"DeepL request failed: {exc}") from exc
+
+        if response.status_code >= 400:
+            raise TranslationError(f"DeepL error {response.status_code}: {response.text}")
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise TranslationError("Failed to decode DeepL response.") from exc
+
+        translations = data.get("translations") or []
+        if not translations:
+            raise TranslationError("DeepL returned no translation result.")
+
+        return translations[0].get("text", "")
+
+
+class GoogleTranslateProvider(TranslationProvider):
+    """Google Cloud Translation API provider"""
+
+    name = "Google Translate"
+    _ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
+
+    def __init__(self):
+        self._supported_codes = {
+            "EN",
+            "ES",
+            "DE",
+            "FR",
+            "IT",
+            "JA",
+            "KO",
+            "PL",
+            "PT",
+            "RU",
+            "TR",
+            "ZH",
+        }
+
+    @staticmethod
+    def _api_key() -> Optional[str]:
+        return os.environ.get("GOOGLE_TRANSLATE_API_KEY")
+
+    def is_available(self) -> tuple[bool, str]:
+        if requests is None:
+            return False, "Install the 'requests' package to enable machine translation."
+        if not self._api_key():
+            return False, "Set GOOGLE_TRANSLATE_API_KEY to enable Google Translate."
+        return True, "Google Translate ready"
+
+    def _map_language(self, code: Optional[str]) -> Optional[str]:
+        if not code:
+            return None
+        normalized = code.upper()
+        if normalized not in self._supported_codes:
+            raise TranslationError(f"Google Translate does not support '{code}'.")
+        return normalized.lower()
+
+    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        if not text.strip():
+            return ""
+        api_key = self._api_key()
+        if not api_key:
+            raise TranslationError("GOOGLE_TRANSLATE_API_KEY is not configured.")
+        if requests is None:
+            raise TranslationError("The 'requests' package is required for Google Translate.")
+
+        mapped_target = self._map_language(target_lang)
+        mapped_source = self._map_language(source_lang)
+
+        payload = {
+            "q": text,
+            "target": mapped_target,
+            "format": "text",
+        }
+        if mapped_source:
+            payload["source"] = mapped_source
+
+        params = {"key": api_key}
+
+        try:
+            response = requests.post(self._ENDPOINT, params=params, json=payload, timeout=15)
+        except Exception as exc:  # pragma: no cover - network issues surface to user
+            raise TranslationError(f"Google Translate request failed: {exc}") from exc
+
+        if response.status_code >= 400:
+            raise TranslationError(
+                f"Google Translate error {response.status_code}: {response.text}"
+            )
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise TranslationError("Failed to decode Google Translate response.") from exc
+
+        translations = data.get("data", {}).get("translations") or []
+        if not translations:
+            raise TranslationError("Google Translate returned no translation result.")
+
+        translated_text = translations[0].get("translatedText", "")
+        return html.unescape(translated_text)
+
+
+class LibreTranslateProvider(TranslationProvider):
+    """LibreTranslate self-hosted translation provider"""
+
+    name = "LibreTranslate"
+
+    def __init__(self):
+        self._endpoint = os.environ.get(
+            "LIBRETRANSLATE_ENDPOINT", "http://127.0.0.1:5000/translate"
+        )
+        self._api_key = os.environ.get("LIBRETRANSLATE_API_KEY")
+
+    def _map_language(self, code: Optional[str], *, is_target: bool) -> str:
+        if not code:
+            return "auto" if not is_target else "en"
+        return code.lower()
+
+    def is_available(self) -> tuple[bool, str]:
+        if requests is None:
+            return False, "Install the 'requests' package to enable machine translation."
+        return True, f"Endpoint: {self._endpoint}"
+
+    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        if not text.strip():
+            return ""
+        if requests is None:
+            raise TranslationError("The 'requests' package is required for LibreTranslate.")
+
+        mapped_target = self._map_language(target_lang, is_target=True)
+        mapped_source = self._map_language(source_lang, is_target=False)
+
+        payload = {
+            "q": text,
+            "source": mapped_source,
+            "target": mapped_target,
+            "format": "text",
+        }
+        if self._api_key:
+            payload["api_key"] = self._api_key
+
+        try:
+            response = requests.post(self._endpoint, data=payload, timeout=15)
+        except Exception as exc:
+            raise TranslationError(f"LibreTranslate request failed: {exc}") from exc
+
+        if response.status_code >= 400:
+            raise TranslationError(f"LibreTranslate error {response.status_code}: {response.text}")
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise TranslationError("Failed to decode LibreTranslate response.") from exc
+
+        if "error" in data:
+            raise TranslationError(f"LibreTranslate error: {data['error']}")
+
+        translated_text = data.get("translatedText", "")
+        return translated_text
+
+
+class TranslationManager:
+    """Coordinates translation providers and helper utilities"""
+
+    LANGUAGE_CHOICES = [
+        ("EN", "English"),
+        ("ES", "Spanish"),
+        ("DE", "German"),
+        ("FR", "French"),
+        ("IT", "Italian"),
+        ("JA", "Japanese"),
+        ("KO", "Korean"),
+        ("PL", "Polish"),
+        ("PT", "Portuguese"),
+        ("RU", "Russian"),
+        ("TR", "Turkish"),
+        ("ZH", "Chinese"),
+    ]
+
+    def __init__(self):
+        """Set up the available providers and reusable helper state."""
+        self.providers: Dict[str, TranslationProvider] = {
+            "deepl": DeepLProvider(),
+            "google": GoogleTranslateProvider(),
+            "libretranslate": LibreTranslateProvider(),
+        }
+
+    def get_provider_name(self, key: Optional[str]) -> str:
+        """Return a display name for a provider key, defaulting to human text."""
+        if not key:
+            return "Manual"
+        provider = self.providers.get(key)
+        return provider.name if provider else "Unknown"
+
+    def is_provider_available(self, key: Optional[str]) -> tuple[bool, str]:
+        """Report whether the requested provider can be used right now."""
+        if not key:
+            return False, "Machine translation disabled."
+        provider = self.providers.get(key)
+        if not provider:
+            return False, "Selected provider is not available."
+        return provider.is_available()
+
+    def translate(
+        self,
+        provider_key: str,
+        text: str,
+        target_lang: str,
+        source_lang: Optional[str] = None,
+    ) -> str:
+        """Delegate translation work to the provider after availability checks."""
+        provider = self.providers.get(provider_key)
+        if not provider:
+            raise TranslationError("Selected translation provider is not supported.")
+        available, reason = provider.is_available()
+        if not available:
+            raise TranslationError(reason)
+        return provider.translate(text, target_lang, source_lang)
+
+    @staticmethod
+    def protect_placeholders(text: str) -> tuple[str, Dict[str, str]]:
+        """Replace placeholders with ASCII tokens that providers leave untouched"""
+        mapping: Dict[str, str] = {}
+
+        def repl(match):
+            token = f"PH{len(mapping)}{uuid.uuid4().hex[:8].upper()}"
+            mapping[token] = match.group(0)
+            return token
+
+        protected_text = re.sub(r"\{[^}]*\}", repl, text)
+        return protected_text, mapping
+
+    @staticmethod
+    def restore_placeholders(text: str, mapping: Dict[str, str]) -> str:
+        """Swap placeholder tokens back to their original brace-wrapped text."""
+        restored = text
+        for token, original in mapping.items():
+            restored = restored.replace(token, original)
+        return restored
+
+
 class TranslationEditor(QMainWindow):
     """Main translation editor window"""
 
     def __init__(self):
+        """Initialize the editor window, widgets, and theme defaults."""
         super().__init__()
         self.current_file = None
         self.translations: List[TranslationItem] = []
         self.current_item: Optional[TranslationItem] = None
         self.is_modified = False
         self.dark_mode = False
+        self.translation_manager = TranslationManager()
+        self.selected_provider_key: Optional[str] = None
+        self.source_lang_combo = None
+        self.target_lang_combo = None
+        self.provider_combo = None
+        self.translate_btn = None
+        self.auto_translate_all_btn = None
+        self.provider_status_label = None
 
-        # Placeholder highlighters
         self.source_highlighter = None
         self.translation_highlighter = None
 
@@ -210,61 +589,68 @@ class TranslationEditor(QMainWindow):
         self.setup_connections()
         self.apply_theme()
 
+    @staticmethod
+    def _find_asset(relative_path: str) -> Optional[Path]:
+        """Locate an asset path starting from common project roots"""
+        script_path = Path(__file__).resolve()
+        candidates = [Path.cwd()]
+        candidates.extend(list(script_path.parents)[:4])
+        checked: Set[Path] = set()
+        for base in candidates:
+            if base is None:
+                continue
+            candidate = (base / relative_path).resolve()
+            if candidate in checked:
+                continue
+            checked.add(candidate)
+            if candidate.exists():
+                return candidate
+        return None
+
     def init_ui(self):
         """Initialize the user interface"""
         self.setWindowTitle("Translation Editor - TextureAtlas Toolbox")
         self.setGeometry(100, 100, 1200, 800)
 
-        # Set application icon if available (with fallback to PNG)
-        icon_path = Path("assets/icon-ts.ico")
+        icon_path = self._find_asset("assets/icon-ts.ico")
         icon_set = False
-        
-        # Try ICO first
-        if icon_path.exists():
+
+        if icon_path and icon_path.exists():
             try:
                 icon = QIcon(str(icon_path))
                 if not icon.isNull():
                     self.setWindowIcon(icon)
                     icon_set = True
             except Exception:
-                pass  # Fall back to PNG
-        
-        # Fallback to PNG if ICO failed or doesn't exist
+                pass
+
         if not icon_set:
-            png_icon_path = Path("assets/icon-ts.png")
-            if png_icon_path.exists():
+            png_icon_path = self._find_asset("assets/icon-ts.png")
+            if png_icon_path and png_icon_path.exists():
                 try:
                     icon = QIcon(str(png_icon_path))
                     if not icon.isNull():
                         self.setWindowIcon(icon)
                 except Exception:
-                    pass  # No icon available
+                    pass
 
-        # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Main layout
         main_layout = QHBoxLayout(central_widget)
 
-        # Create splitter for resizable panels
         splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter)
 
-        # Left panel - Translation list
         self.create_left_panel(splitter)
 
-        # Right panel - Translation editor
         self.create_right_panel(splitter)
 
-        # Set splitter proportions (30% list, 70% editor)
         splitter.setSizes([360, 840])
 
-        # Create menu bar and toolbar
         self.create_menu_bar()
         self.create_toolbar()
 
-        # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready - Open a .ts file to start editing")
@@ -274,7 +660,6 @@ class TranslationEditor(QMainWindow):
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
 
-        # Filter controls
         filter_layout = QHBoxLayout()
         filter_label = QLabel("Filter:")
         self.filter_input = QLineEdit()
@@ -283,12 +668,10 @@ class TranslationEditor(QMainWindow):
         filter_layout.addWidget(self.filter_input)
         left_layout.addLayout(filter_layout)
 
-        # Translation list
         self.translation_list = QListWidget()
         self.translation_list.setAlternatingRowColors(True)  # Required for CSS ::alternate selector
         left_layout.addWidget(self.translation_list)
 
-        # Stats
         self.stats_label = QLabel("No file loaded")
         self.stats_label.setStyleSheet("font-weight: bold; padding: 5px;")
         left_layout.addWidget(self.stats_label)
@@ -300,7 +683,6 @@ class TranslationEditor(QMainWindow):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
 
-        # Source text (read-only)
         source_group = QGroupBox("Source Text")
         source_layout = QVBoxLayout(source_group)
         self.source_text = QTextEdit()
@@ -308,7 +690,6 @@ class TranslationEditor(QMainWindow):
         self.source_text.setMaximumHeight(100)
         self.source_text.setFont(QFont("Consolas", 10))
 
-        # Add syntax highlighting for source text
         self.source_highlighter = PlaceholderHighlighter(
             self.source_text.document(), self.dark_mode
         )
@@ -316,30 +697,58 @@ class TranslationEditor(QMainWindow):
         source_layout.addWidget(self.source_text)
         right_layout.addWidget(source_group)
 
-        # Translation text (editable)
         translation_group = QGroupBox("Translation")
         translation_layout = QVBoxLayout(translation_group)
 
-        # Add a horizontal layout for translation controls
-        translation_controls = QHBoxLayout()
+        # Use a compact grid to keep controls aligned regardless of translations
+        translation_controls = QGridLayout()
+        translation_controls.setContentsMargins(0, 0, 0, 0)
+        translation_controls.setHorizontalSpacing(12)
+        translation_controls.setVerticalSpacing(6)
 
-        # Copy button to copy source to translation
-        self.copy_source_btn = QPushButton("📋 Copy Source")
+        self.copy_source_btn = QPushButton("Copy Source")
         self.copy_source_btn.setToolTip("Copy source text to translation field")
         self.copy_source_btn.clicked.connect(self.copy_source_to_translation)
         self.copy_source_btn.setEnabled(False)
-        translation_controls.addWidget(self.copy_source_btn)
+        translation_controls.addWidget(self.copy_source_btn, 0, 0, 1, 2)
 
-        # Add stretch to push button to the left
-        translation_controls.addStretch()
+        provider_label = QLabel("Service:")
+        translation_controls.addWidget(provider_label, 0, 2, alignment=Qt.AlignRight)
+
+        self.provider_combo = QComboBox()
+        self.provider_combo.setToolTip("Select a machine translation provider")
+        translation_controls.addWidget(self.provider_combo, 0, 3)
+
+        self.translate_btn = QPushButton("Auto-Translate")
+        self.translate_btn.setEnabled(False)
+        translation_controls.addWidget(self.translate_btn, 0, 4)
+
+        from_label = QLabel("From:")
+        translation_controls.addWidget(from_label, 1, 0, alignment=Qt.AlignRight)
+        self.source_lang_combo = QComboBox()
+        translation_controls.addWidget(self.source_lang_combo, 1, 1)
+
+        to_label = QLabel("To:")
+        translation_controls.addWidget(to_label, 1, 2, alignment=Qt.AlignRight)
+        self.target_lang_combo = QComboBox()
+        translation_controls.addWidget(self.target_lang_combo, 1, 3)
+
+        translation_controls.setColumnStretch(1, 1)
+        translation_controls.setColumnStretch(3, 1)
 
         translation_layout.addLayout(translation_controls)
+
+        self.provider_status_label = QLabel(
+            "Machine translation disabled. Configure an API key to enable providers."
+        )
+        self.provider_status_label.setWordWrap(True)
+        self.provider_status_label.setStyleSheet("font-size: 11px; padding: 2px 0; color: #666666;")
+        translation_layout.addWidget(self.provider_status_label)
 
         self.translation_text = QTextEdit()
         self.translation_text.setMaximumHeight(100)
         self.translation_text.setFont(QFont("Consolas", 10))
 
-        # Add syntax highlighting for translation text
         self.translation_highlighter = PlaceholderHighlighter(
             self.translation_text.document(), self.dark_mode
         )
@@ -347,11 +756,12 @@ class TranslationEditor(QMainWindow):
         translation_layout.addWidget(self.translation_text)
         right_layout.addWidget(translation_group)
 
-        # Placeholder values (shown only when needed)
+        self.populate_language_combos()
+        self.populate_provider_combo()
+
         self.placeholder_group = QGroupBox("Placeholder Values (for preview)")
         placeholder_layout = QVBoxLayout(self.placeholder_group)
 
-        # Scrollable area for dynamic placeholder inputs
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -365,19 +775,16 @@ class TranslationEditor(QMainWindow):
         self.placeholder_group.setVisible(False)
         right_layout.addWidget(self.placeholder_group)
 
-        # Preview text (read-only)
         preview_group = QGroupBox("Preview")
         preview_layout = QVBoxLayout(preview_group)
         self.preview_text = QTextEdit()
         self.preview_text.setReadOnly(True)
         self.preview_text.setMaximumHeight(100)
         self.preview_text.setFont(QFont("Consolas", 10))
-        # Style preview differently
         self.preview_text.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc;")
         preview_layout.addWidget(self.preview_text)
         right_layout.addWidget(preview_group)
 
-        # Context info
         context_group = QGroupBox("Context Information")
         context_layout = QVBoxLayout(context_group)
         self.context_label = QLabel("No translation selected")
@@ -392,7 +799,6 @@ class TranslationEditor(QMainWindow):
         """Create menu bar"""
         menubar = self.menuBar()
 
-        # File menu
         file_menu = menubar.addMenu("File")
 
         open_action = file_menu.addAction("Open .ts file...")
@@ -413,40 +819,107 @@ class TranslationEditor(QMainWindow):
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
 
+        help_menu = menubar.addMenu("Help")
+
+        usage_action = help_menu.addAction("Using the Translator App")
+        usage_action.triggered.connect(self.show_usage_help)
+
+        api_help_action = help_menu.addAction("Translation API Keys")
+        api_help_action.triggered.connect(self.show_api_key_help)
+
+    def show_usage_help(self):
+        """Show usage instructions for the translator app"""
+        html = (
+            "<h3>Getting started</h3>"
+            "<ol>"
+            "<li>Use <strong>File &gt; Open</strong> to load a Qt <code>.ts</code> file.</li>"
+            "<li>Select a source entry on the left to review and edit its translation.</li>"
+            "<li>Keep placeholders such as <code>{value}</code> intact.</li>"
+            "<li>Use the placeholder panel to preview strings with sample values.</li>"
+            "<li>Click <em>Auto-Translate</em> or <em>Translate All Missing</em> after configuring a provider.</li>"
+            "<li>Save regularly with <kbd>Ctrl</kbd>+<kbd>S</kbd> or <strong>File &gt; Save</strong>.</li>"
+            "</ol>"
+        )
+        self.show_help_dialog("Translator App Help", html)
+
+    def show_api_key_help(self):
+        """Explain how to configure machine translation API keys"""
+        html = (
+            "<p>Machine translation is optional. Provide your own API key or request one from the maintainer if needed.</p>"
+            "<h3>DeepL (paid subscription)</h3>"
+            "<ul><li>Requires an active DeepL API plan.</li>"
+            "<li>Set <code>DEEPL_API_KEY</code> (and <code>DEEPL_API_ENDPOINT</code> for Pro/custom).</li></ul>"
+            "<h3>Google Cloud Translation (paid per usage)</h3>"
+            "<ul><li>Requires a Google Cloud project with billing enabled.</li>"
+            "<li>Set <code>GOOGLE_TRANSLATE_API_KEY</code>.</li></ul>"
+            "<h3>LibreTranslate (self-hosted / free)</h3>"
+            "<ul><li>Install Docker (<a href='https://docs.docker.com/desktop/setup/install/windows-install/'>Windows guide</a>) and run the official container (see <a href='https://github.com/LibreTranslate/LibreTranslate#docker'>instructions</a>).</li>"
+            "<li>Set <code>LIBRETRANSLATE_ENDPOINT</code> if your container exposes a different URL (defaults to http://127.0.0.1:5000/translate).</li>"
+            "<li>Set <code>LIBRETRANSLATE_API_KEY</code> only if your instance enforces a key.</li></ul>"
+            "<p>Restart the app after changing environment variables so the providers can detect your keys.</p>"
+        )
+        self.show_help_dialog("Translation API Keys", html)
+
+    def show_help_dialog(self, title: str, html: str):
+        """Show rich-text help content with clickable links"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        layout = QVBoxLayout(dialog)
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setHtml(html)
+        layout.addWidget(browser)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+
+        dialog.resize(520, 380)
+        dialog.exec()
+
     def create_toolbar(self):
         """Create toolbar with main actions"""
         toolbar = self.addToolBar("Main")
 
-        # Open button
         open_btn = QPushButton("Open .ts File")
         open_btn.clicked.connect(self.open_file)
         toolbar.addWidget(open_btn)
 
-        # Save button
         self.save_btn = QPushButton("Save .ts File")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setEnabled(False)
         toolbar.addWidget(self.save_btn)
 
-        # Save as button
         self.save_as_btn = QPushButton("Save As...")
         self.save_as_btn.clicked.connect(self.save_file_as)
         self.save_as_btn.setEnabled(False)
         toolbar.addWidget(self.save_as_btn)
 
-        # Spacer
         toolbar.addSeparator()
 
-        # Dark mode toggle
         self.dark_mode_checkbox = QCheckBox("Dark Mode")
         self.dark_mode_checkbox.toggled.connect(self.toggle_dark_mode)
         toolbar.addWidget(self.dark_mode_checkbox)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer)
+
+        self.auto_translate_all_btn = QPushButton("Translate All Missing")
+        self.auto_translate_all_btn.setEnabled(False)
+        self.auto_translate_all_btn.clicked.connect(self.auto_translate_all_entries)
+        toolbar.addWidget(self.auto_translate_all_btn)
 
     def setup_connections(self):
         """Setup signal connections"""
         self.translation_list.currentItemChanged.connect(self.on_translation_selected)
         self.translation_text.textChanged.connect(self.on_translation_changed)
         self.filter_input.textChanged.connect(self.filter_translations)
+        if self.provider_combo:
+            self.provider_combo.currentIndexChanged.connect(self.on_provider_changed)
+        if self.translate_btn:
+            self.translate_btn.clicked.connect(self.handle_auto_translate)
 
     def open_file(self):
         """Open a .ts translation file"""
@@ -467,7 +940,7 @@ class TranslationEditor(QMainWindow):
             root = tree.getroot()
 
             self.translations.clear()
-            translation_groups = {}  # Dictionary to group by source string
+            translation_groups = {}
 
             for context in root.findall("context"):
                 context_name = context.find("name")
@@ -489,31 +962,25 @@ class TranslationEditor(QMainWindow):
                         else ""
                     )
 
-                    # Get file location info
                     filename = ""
                     line = 0
                     if location_elem is not None:
                         filename = location_elem.get("filename", "")
                         line = int(location_elem.get("line", 0))
 
-                    # Skip empty sources
                     if source.strip():
                         if source in translation_groups:
-                            # Add this context to existing group
                             existing_item = translation_groups[source]
                             existing_item.add_context(context_name, filename, line)
-                            # If this context has a translation and the existing doesn't, use it
                             if translation.strip() and not existing_item.translation.strip():
                                 existing_item.translation = translation
                                 existing_item.is_translated = True
                         else:
-                            # Create new translation item
                             item = TranslationItem(
                                 source, translation, context_name, filename, line
                             )
                             translation_groups[source] = item
 
-            # Convert grouped translations to list
             self.translations = list(translation_groups.values())
 
             self.current_file = file_path
@@ -523,12 +990,13 @@ class TranslationEditor(QMainWindow):
             self.save_btn.setEnabled(True)
             self.save_as_btn.setEnabled(True)
 
-            # Update status message to show grouping info
             total_entries = sum(len(item.contexts) for item in self.translations)
             grouped_msg = f"Loaded {len(self.translations)} unique translations ({total_entries} total entries) from {Path(file_path).name}"
 
             self.setWindowTitle(f"Translation Editor - {Path(file_path).name}")
             self.status_bar.showMessage(grouped_msg)
+            if self.provider_combo:
+                self.update_provider_status(self.provider_combo.currentData())
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load file:\n{str(e)}")
@@ -540,7 +1008,6 @@ class TranslationEditor(QMainWindow):
         filter_text = self.filter_input.text().lower()
 
         for item in self.translations:
-            # Apply filter
             if (
                 filter_text
                 and filter_text not in item.source.lower()
@@ -548,25 +1015,20 @@ class TranslationEditor(QMainWindow):
             ):
                 continue
 
-            # Create list item
             list_item = QListWidgetItem()
 
-            # Visual indicators instead of background colors for dark mode compatibility
             if item.is_translated:
-                status = "✅"  # Green checkmark for translated
+                status = "✅"
             else:
-                status = "❌"  # Red X for untranslated
+                status = "❌"
 
-            # Add grouping indicator if multiple contexts
             group_indicator = ""
             if len(item.contexts) > 1:
-                group_indicator = f" 📎{len(item.contexts)}"  # Paperclip with count
+                group_indicator = f" 📎{len(item.contexts)}"
 
-            # Format display text
             display_text = f"{status}{group_indicator} {item.source[:75]}{'...' if len(item.source) > 75 else ''}"
             list_item.setText(display_text)
 
-            # Store reference to translation item
             list_item.setData(Qt.UserRole, item)
 
             self.translation_list.addItem(list_item)
@@ -603,18 +1065,14 @@ class TranslationEditor(QMainWindow):
         if not self.current_item:
             return
 
-        # Enable copy button
         self.copy_source_btn.setEnabled(True)
 
-        # Update source text
         self.source_text.setPlainText(self.current_item.source)
 
-        # Update translation text
-        self.translation_text.blockSignals(True)  # Prevent triggering change event
+        self.translation_text.blockSignals(True)
         self.translation_text.setPlainText(self.current_item.translation)
         self.translation_text.blockSignals(False)
 
-        # Update context info to show all contexts
         if len(self.current_item.contexts) == 1:
             context_info = f"Context: {self.current_item.contexts[0]}\n"
             context_info += f"File: {self.current_item.filename}:{self.current_item.line}"
@@ -624,10 +1082,8 @@ class TranslationEditor(QMainWindow):
 
         self.context_label.setText(context_info)
 
-        # Handle placeholders
         self.setup_placeholders()
 
-        # Update preview
         self.update_preview()
 
     def setup_placeholders(self):
@@ -636,34 +1092,29 @@ class TranslationEditor(QMainWindow):
             self.placeholder_group.setVisible(False)
             return
 
-        # Clear existing placeholder widgets
         for i in reversed(range(self.placeholder_layout.count())):
             child = self.placeholder_layout.itemAt(i).widget()
             if child:
                 child.setParent(None)
 
-        # Create input fields for each placeholder
         placeholders = self.current_item.get_placeholders()
         for placeholder in placeholders:
             placeholder_key = placeholder.strip("{}")
 
-            # Create label and input
             label = QLabel(f"{placeholder}:")
             input_field = QLineEdit()
             input_field.setPlaceholderText(f"Example value for {placeholder}")
             input_field.textChanged.connect(self.update_preview)
 
-            # Style placeholder input with distinct color
             if self.dark_mode:
                 input_field.setStyleSheet(
                     "QLineEdit { color: #FFA500; background-color: #3a3a3a; }"
-                )  # Orange text on dark
+                )
             else:
                 input_field.setStyleSheet(
                     "QLineEdit { color: #FF6600; background-color: #ffffff; }"
-                )  # Orange text on light
+                )
 
-            # Add some default values for common patterns
             if "name" in placeholder_key.lower():
                 input_field.setText("John Doe")
             elif "count" in placeholder_key.lower() or "number" in placeholder_key.lower():
@@ -699,7 +1150,6 @@ class TranslationEditor(QMainWindow):
                 input_widget = input_item.widget()
 
                 if isinstance(label_widget, QLabel) and isinstance(input_widget, QLineEdit):
-                    # Extract placeholder from label text
                     label_text = label_widget.text().rstrip(":")
                     placeholder_key = label_text.strip("{}")
 
@@ -707,6 +1157,238 @@ class TranslationEditor(QMainWindow):
                     values[placeholder_key] = input_widget.text()
 
         return values
+
+    def populate_language_combos(self):
+        """Populate language combo boxes"""
+        if not self.source_lang_combo or not self.target_lang_combo:
+            return
+
+        self.source_lang_combo.blockSignals(True)
+        self.target_lang_combo.blockSignals(True)
+
+        self.source_lang_combo.clear()
+        self.target_lang_combo.clear()
+
+        self.source_lang_combo.addItem("Auto detect", None)
+
+        for code, name in TranslationManager.LANGUAGE_CHOICES:
+            label = f"{name} ({code})"
+            self.source_lang_combo.addItem(label, code)
+            self.target_lang_combo.addItem(label, code)
+
+        default_index = self.target_lang_combo.findData("EN")
+        if default_index >= 0:
+            self.target_lang_combo.setCurrentIndex(default_index)
+
+        self.source_lang_combo.blockSignals(False)
+        self.target_lang_combo.blockSignals(False)
+
+    def populate_provider_combo(self):
+        """Populate provider combo with available providers"""
+        if not self.provider_combo:
+            return
+
+        self.provider_combo.blockSignals(True)
+        self.provider_combo.clear()
+        self.provider_combo.addItem("Manual (disabled)", None)
+
+        for key, provider in self.translation_manager.providers.items():
+            available, message = provider.is_available()
+            label = provider.name
+            if not available:
+                label = f"{label} (setup required)"
+            self.provider_combo.addItem(label, key)
+            index = self.provider_combo.count() - 1
+            self.provider_combo.setItemData(index, message, Qt.ToolTipRole)
+
+        self.provider_combo.blockSignals(False)
+        self.provider_combo.setCurrentIndex(0)
+        self.update_provider_status(None)
+
+    def on_provider_changed(self):
+        """Handle provider combo selection"""
+        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        self.selected_provider_key = provider_key
+        self.update_provider_status(provider_key)
+
+    def update_provider_status(self, provider_key: Optional[str]):
+        """Update provider status label and button state"""
+        if not self.provider_status_label or not self.translate_btn:
+            return
+
+        if not provider_key:
+            self.provider_status_label.setText(
+                "Machine translation disabled. Select a provider and configure its API key to enable auto-translate."
+            )
+            self.translate_btn.setEnabled(False)
+            if self.auto_translate_all_btn:
+                self.auto_translate_all_btn.setEnabled(False)
+            return
+
+        available, message = self.translation_manager.is_provider_available(provider_key)
+        provider_name = self.translation_manager.get_provider_name(provider_key)
+        if available:
+            self.provider_status_label.setText(f"{provider_name} ready: {message}")
+            self.selected_provider_key = provider_key
+        else:
+            self.provider_status_label.setText(message)
+            self.selected_provider_key = None
+
+        self.translate_btn.setEnabled(available)
+        if self.auto_translate_all_btn:
+            self.auto_translate_all_btn.setEnabled(available and bool(self.translations))
+
+    def handle_auto_translate(self):
+        """Perform machine translation using the configured provider"""
+        if not self.current_item:
+            QMessageBox.information(self, "Auto-Translate", "Select a source string first.")
+            return
+
+        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        if not provider_key:
+            QMessageBox.information(
+                self,
+                "Auto-Translate",
+                "Select a translation provider and configure its API key before using auto-translate.",
+            )
+            return
+
+        target_lang = self.target_lang_combo.currentData() if self.target_lang_combo else None
+        if not target_lang:
+            QMessageBox.warning(self, "Missing Target Language", "Please select a target language.")
+            return
+
+        source_lang = self.source_lang_combo.currentData() if self.source_lang_combo else None
+        source_text = self.current_item.source
+        if not source_text.strip():
+            QMessageBox.information(self, "Auto-Translate", "Source text is empty.")
+            return
+
+        protected_text, placeholder_map = self.translation_manager.protect_placeholders(source_text)
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            translated = self.translation_manager.translate(
+                provider_key,
+                protected_text,
+                target_lang,
+                source_lang,
+            )
+        except TranslationError as exc:
+            QMessageBox.warning(self, "Translation Failed", str(exc))
+            self.status_bar.showMessage(f"Translation failed: {exc}")
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        restored = self.translation_manager.restore_placeholders(translated, placeholder_map)
+        self.translation_text.setPlainText(restored)
+        self.status_bar.showMessage(
+            f"Translated using {self.translation_manager.get_provider_name(provider_key)}"
+        )
+
+    def auto_translate_all_entries(self):
+        """Auto-translate every untranslated entry using current provider"""
+        if not self.translations:
+            QMessageBox.information(
+                self, "Translate All Missing", "Load a translation file before running this action."
+            )
+            return
+
+        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        if not provider_key:
+            QMessageBox.information(
+                self,
+                "Translate All Missing",
+                "Select a translation provider and configure its API key before translating.",
+            )
+            return
+
+        target_lang = self.target_lang_combo.currentData() if self.target_lang_combo else None
+        if not target_lang:
+            QMessageBox.warning(self, "Missing Target Language", "Please select a target language.")
+            return
+
+        source_lang = self.source_lang_combo.currentData() if self.source_lang_combo else None
+        items_to_translate = [item for item in self.translations if not item.translation.strip()]
+
+        if not items_to_translate:
+            QMessageBox.information(
+                self, "Translate All Missing", "Every entry already has a translation."
+            )
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Translate All Missing",
+            (
+                "This will send all untranslated strings to the selected provider.\n\n"
+                "Placeholder values may need manual review, and automatic translations may overwrite manual work.\n\n"
+                "Do you want to continue?"
+            ),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        if self.auto_translate_all_btn:
+            self.auto_translate_all_btn.setEnabled(False)
+        translated_count = 0
+        errors: List[str] = []
+
+        provider_name = self.translation_manager.get_provider_name(provider_key)
+
+        for item in items_to_translate:
+            protected_text, mapping = self.translation_manager.protect_placeholders(item.source)
+            try:
+                translated = self.translation_manager.translate(
+                    provider_key,
+                    protected_text,
+                    target_lang,
+                    source_lang,
+                )
+            except TranslationError as exc:
+                errors.append(f"{item.source[:40]}…: {exc}")
+                continue
+
+            restored = self.translation_manager.restore_placeholders(translated, mapping)
+            item.translation = restored
+            item.is_translated = bool(restored.strip())
+            translated_count += 1
+
+        QApplication.restoreOverrideCursor()
+        if self.provider_combo:
+            self.update_provider_status(self.provider_combo.currentData())
+
+        if translated_count:
+            self.is_modified = True
+            current_row = self.translation_list.currentRow()
+            self.update_translation_list()
+            self.update_stats()
+            if 0 <= current_row < self.translation_list.count():
+                self.translation_list.setCurrentRow(current_row)
+            if self.current_item:
+                self.translation_text.blockSignals(True)
+                self.translation_text.setPlainText(self.current_item.translation)
+                self.translation_text.blockSignals(False)
+            self.status_bar.showMessage(
+                f"Auto-translated {translated_count} entries using {provider_name}."
+            )
+
+        if errors:
+            preview = "\n".join(errors[:5])
+            message = f"Completed with {len(errors)} issue(s)." + (
+                "\n\n" + preview if preview else ""
+            )
+            QMessageBox.warning(self, "Translate All Missing", message)
+        elif not translated_count:
+            QMessageBox.warning(
+                self,
+                "Translate All Missing",
+                "No entries were translated. Verify the provider configuration and try again.",
+            )
 
     def update_preview(self):
         """Update the preview text"""
@@ -734,12 +1416,10 @@ class TranslationEditor(QMainWindow):
             self.current_item.is_translated = bool(new_translation.strip())
             self.is_modified = True
 
-            # Update list item appearance
             current_list_item = self.translation_list.currentItem()
             if current_list_item:
                 status = "✅" if self.current_item.is_translated else "❌"
 
-                # Add grouping indicator if multiple contexts
                 group_indicator = ""
                 if len(self.current_item.contexts) > 1:
                     group_indicator = f" 📎{len(self.current_item.contexts)}"
@@ -747,16 +1427,13 @@ class TranslationEditor(QMainWindow):
                 display_text = f"{status}{group_indicator} {self.current_item.source[:75]}{'...' if len(self.current_item.source) > 75 else ''}"
                 current_list_item.setText(display_text)
 
-            # Update stats and preview
             self.update_stats()
             self.update_preview()
 
-            # Update window title to show modification
             if self.current_file:
                 filename = Path(self.current_file).name
                 self.setWindowTitle(f"Translation Editor - {filename} *")
 
-            # Show validation status for current item
             if self.current_item.translation.strip():
                 is_valid, error_msg = self.current_item.validate_translation()
                 if not is_valid:
@@ -774,27 +1451,23 @@ class TranslationEditor(QMainWindow):
         """Copy source text to translation field"""
         if self.current_item:
             self.translation_text.setPlainText(self.current_item.source)
-            # This will trigger on_translation_changed automatically
 
     def toggle_dark_mode(self, checked):
         """Toggle between dark and light mode"""
         self.dark_mode = checked
         self.apply_theme()
 
-        # Update highlighters
         if self.source_highlighter:
             self.source_highlighter.set_dark_mode(self.dark_mode)
         if self.translation_highlighter:
             self.translation_highlighter.set_dark_mode(self.dark_mode)
 
-        # Refresh placeholder inputs if any are shown
         if self.placeholder_group.isVisible():
             self.setup_placeholders()
 
     def apply_theme(self):
         """Apply dark or light theme to the application"""
         if self.dark_mode:
-            # Dark theme
             self.setStyleSheet("""
                 QMainWindow {
                     background-color: #2b2b2b;
@@ -897,7 +1570,6 @@ class TranslationEditor(QMainWindow):
                 }
             """)
         else:
-            # Light theme (default)
             self.setStyleSheet("""
                 QMainWindow {
                     background-color: #ffffff;
@@ -979,7 +1651,6 @@ class TranslationEditor(QMainWindow):
                 }
             """)
 
-        # Update preview text styling
         if hasattr(self, "preview_text"):
             if self.dark_mode:
                 self.preview_text.setStyleSheet(
@@ -990,12 +1661,22 @@ class TranslationEditor(QMainWindow):
                     "background-color: #f0f0f0; border: 1px solid #ccc; color: #000000;"
                 )
 
+        if hasattr(self, "provider_status_label") and self.provider_status_label:
+            if self.dark_mode:
+                self.provider_status_label.setStyleSheet(
+                    "font-size: 11px; padding: 2px 0; color: #cccccc;"
+                )
+            else:
+                self.provider_status_label.setStyleSheet(
+                    "font-size: 11px; padding: 2px 0; color: #666666;"
+                )
+
     def validate_all_translations(self) -> tuple[bool, List[str]]:
         """Validate all translations for missing placeholders"""
         errors = []
 
         for i, item in enumerate(self.translations):
-            if item.translation.strip():  # Only validate non-empty translations
+            if item.translation.strip():
                 is_valid, error_msg = item.validate_translation()
                 if not is_valid:
                     errors.append(
@@ -1010,11 +1691,10 @@ class TranslationEditor(QMainWindow):
             self.save_file_as()
             return
 
-        # Validate translations before saving
         is_valid, errors = self.validate_all_translations()
         if not is_valid:
             error_msg = "Cannot save: Found placeholder validation errors:\n\n"
-            error_msg += "\n\n".join(errors[:5])  # Show first 5 errors
+            error_msg += "\n\n".join(errors[:5])
             if len(errors) > 5:
                 error_msg += f"\n\n... and {len(errors) - 5} more errors."
             error_msg += "\n\nPlease fix these issues before saving."
@@ -1030,11 +1710,10 @@ class TranslationEditor(QMainWindow):
             QMessageBox.warning(self, "Warning", "No translations to save.")
             return
 
-        # Validate translations before saving
         is_valid, errors = self.validate_all_translations()
         if not is_valid:
             error_msg = "Cannot save: Found placeholder validation errors:\n\n"
-            error_msg += "\n\n".join(errors[:5])  # Show first 5 errors
+            error_msg += "\n\n".join(errors[:5])
             if len(errors) > 5:
                 error_msg += f"\n\n... and {len(errors) - 5} more errors."
             error_msg += "\n\nPlease fix these issues before saving."
@@ -1055,26 +1734,21 @@ class TranslationEditor(QMainWindow):
     def save_ts_file(self, file_path: str):
         """Save translations to a .ts file"""
         try:
-            # Create XML structure
             root = ET.Element("TS")
             root.set("version", "2.1")
             root.set("language", "en")  # You might want to make this configurable
 
-            # Group translations by context, expanding grouped items
             contexts = {}
             for item in self.translations:
-                # For each context this source string appears in
                 for i, context_name in enumerate(item.contexts):
                     if context_name not in contexts:
                         contexts[context_name] = []
 
-                    # Create individual entry for each context
                     filename = ""
                     line = 0
                     if i < len(item.locations):
                         filename, line = item.locations[i]
 
-                    # Create a temporary item for this specific context
                     context_item = type(
                         "ContextItem",
                         (),
@@ -1088,7 +1762,6 @@ class TranslationEditor(QMainWindow):
 
                     contexts[context_name].append(context_item)
 
-            # Create context elements
             for context_name, items in contexts.items():
                 context_elem = ET.SubElement(root, "context")
 
@@ -1098,7 +1771,6 @@ class TranslationEditor(QMainWindow):
                 for item in items:
                     message_elem = ET.SubElement(context_elem, "message")
 
-                    # Add location if available
                     if item.filename:
                         location_elem = ET.SubElement(message_elem, "location")
                         location_elem.set("filename", item.filename)
@@ -1114,9 +1786,8 @@ class TranslationEditor(QMainWindow):
                     else:
                         translation_elem.set("type", "unfinished")
 
-            # Write to file
             tree = ET.ElementTree(root)
-            ET.indent(tree, space="    ")  # Pretty formatting
+            ET.indent(tree, space="    ")
             tree.write(file_path, encoding="utf-8", xml_declaration=True)
 
             self.current_file = file_path
@@ -1125,7 +1796,6 @@ class TranslationEditor(QMainWindow):
             filename = Path(file_path).name
             self.setWindowTitle(f"Translation Editor - {filename}")
 
-            # Calculate total entries for status message
             total_entries = sum(len(item.contexts) for item in self.translations)
             self.status_bar.showMessage(
                 f"Saved {len(self.translations)} unique translations ({total_entries} total entries) to {filename}"
@@ -1159,17 +1829,14 @@ def main():
     """Main entry point"""
     app = QApplication(sys.argv)
 
-    # Set application info
     app.setApplicationName("Translation Editor")
     app.setApplicationDisplayName("Translation Editor - TextureAtlas Toolbox")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.1.0")
     app.setOrganizationName("AutisticLulu")
 
-    # Create and show main window
     window = TranslationEditor()
     window.show()
 
-    # Check for command line file argument
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
         if os.path.exists(file_path) and file_path.endswith(".ts"):
