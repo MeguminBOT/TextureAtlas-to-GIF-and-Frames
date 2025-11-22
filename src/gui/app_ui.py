@@ -396,6 +396,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.packer_method_combobox = QComboBox(self.atlas_group)
         self.packer_method_combobox.addItem("")
         self.packer_method_combobox.addItem("")
+        self.packer_method_combobox.addItem("")
         self.packer_method_combobox.setObjectName(u"packer_method_combobox")
 
         self.atlas_layout.addWidget(self.packer_method_combobox, 5, 2, 1, 1)
@@ -801,6 +802,16 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.display_layout.setWidget(1, QFormLayout.ItemRole.FieldRole, self.canvas_height_spin)
 
+        self.label_canvas_origin = QLabel(self.display_group)
+        self.label_canvas_origin.setObjectName(u"label_canvas_origin")
+
+        self.display_layout.setWidget(2, QFormLayout.ItemRole.LabelRole, self.label_canvas_origin)
+
+        self.origin_mode_combo = QComboBox(self.display_group)
+        self.origin_mode_combo.setObjectName(u"origin_mode_combo")
+
+        self.display_layout.setWidget(2, QFormLayout.ItemRole.FieldRole, self.origin_mode_combo)
+
         self.ghost_widget = QWidget(self.display_group)
         self.ghost_widget.setObjectName(u"ghost_widget")
         self.ghost_layout = QHBoxLayout(self.ghost_widget)
@@ -916,7 +927,7 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.retranslateUi(TextureAtlasToolboxApp)
 
-        self.tools_tab.setCurrentIndex(2)
+        self.tools_tab.setCurrentIndex(0)
         self.animation_format_combobox.setCurrentIndex(0)
         self.frame_format_combobox.setCurrentIndex(3)
         self.cropping_method_combobox.setCurrentIndex(1)
@@ -1204,6 +1215,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.canvas_width_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
         self.label_canvas_height.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Canvas height", None))
         self.canvas_height_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
+        self.label_canvas_origin.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Canvas origin", None))
         self.ghost_checkbox.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Enable", None))
         self.label_snapping.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Snapping", None))
         self.snap_checkbox.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Enable", None))

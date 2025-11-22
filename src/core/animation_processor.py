@@ -1,10 +1,13 @@
 from PIL import Image
 import os
+from typing import Set
 
 # Import our own modules
 from core.frame_selector import FrameSelector
 from core.frame_exporter import FrameExporter
 from core.animation_exporter import AnimationExporter
+from core.editor_composite import clone_animation_map, build_editor_composite_frames
+from utils.fnf_alignment import resolve_fnf_offset
 
 
 class AnimationProcessor:
@@ -27,7 +30,9 @@ class AnimationProcessor:
     """
 
     def __init__(self, animations, atlas_path, output_dir, settings_manager, current_version, spritesheet_label=None):
-        self.animations = animations
+        base_animations = clone_animation_map(animations)
+        self._source_frames = clone_animation_map(base_animations)
+        self.animations = clone_animation_map(base_animations)
         self.atlas_path = atlas_path
         self.output_dir = output_dir
         self.settings_manager = settings_manager
@@ -39,6 +44,8 @@ class AnimationProcessor:
         self.animation_exporter = AnimationExporter(
             self.output_dir, self.current_version, self.scale_image
         )
+        self._editor_composite_names: Set[str] = set()
+        self._inject_editor_composites()
 
     def process_animations(self, is_unknown_spritesheet=False):
         frames_generated = 0
@@ -53,7 +60,19 @@ class AnimationProcessor:
                 spritesheet_name, f"{spritesheet_name}/{animation_name}"
             )
             scale = settings.get("scale")
-            image_tuples.sort(key=lambda x: x[0])
+            preserve_sequence = any(
+                isinstance(frame, (list, tuple))
+                and len(frame) >= 3
+                and isinstance(frame[2], dict)
+                and "editor_sequence_index" in frame[2]
+                for frame in image_tuples
+            )
+            if preserve_sequence:
+                image_tuples.sort(
+                    key=lambda x: (x[2].get("editor_sequence_index") if isinstance(x[2], dict) else 0)
+                )
+            else:
+                image_tuples.sort(key=lambda x: x[0])
 
             indices = settings.get("indices")
             if indices:
@@ -71,9 +90,12 @@ class AnimationProcessor:
             )
 
             alignment_overrides = settings.get("alignment_overrides")
+            use_overrides = (
+                alignment_overrides if self._is_editor_composite(animation_name) else None
+            )
             aligned_tuples = (
-                self._apply_alignment_overrides(image_tuples, alignment_overrides)
-                if alignment_overrides
+                self._apply_alignment_overrides(image_tuples, use_overrides)
+                if use_overrides
                 else image_tuples
             )
 
@@ -103,6 +125,41 @@ class AnimationProcessor:
 
         return frames_generated, anims_generated
 
+    def _inject_editor_composites(self):
+        """Build synthetic animations defined in the editor so they export like normal."""
+        definitions = self._get_editor_composites()
+        if not definitions:
+            return
+
+        injected = 0
+        for animation_name, definition in definitions.items():
+            frames = build_editor_composite_frames(
+                definition,
+                self._source_frames,
+                log_warning=lambda message: print(message),
+            )
+            if not frames:
+                continue
+            self.animations[animation_name] = frames
+            self._editor_composite_names.add(animation_name)
+            injected += 1
+
+        if injected:
+            print(
+                f"[AnimationProcessor] Injected {injected} editor composite animation(s) for {self.spritesheet_label}."
+            )
+
+    def _get_editor_composites(self):
+        if not self.settings_manager or not self.spritesheet_label:
+            return {}
+        spritesheet_settings = self.settings_manager.get_settings(self.spritesheet_label)
+        composites = spritesheet_settings.get("editor_composites")
+        return composites if isinstance(composites, dict) else {}
+
+    def _is_editor_composite(self, animation_name: str) -> bool:
+        return animation_name in self._editor_composite_names
+
+
     def _apply_alignment_overrides(self, image_tuples, overrides):
         """Rebuild frames using the manual offsets configured in the editor."""
         canvas = overrides.get("canvas") or []
@@ -110,6 +167,11 @@ class AnimationProcessor:
         default_x = int(default_offset.get("x", 0))
         default_y = int(default_offset.get("y", 0))
         frames_map = overrides.get("frames", {})
+        origin_mode = overrides.get("origin_mode")
+        top_left_origin = isinstance(origin_mode, str) and origin_mode.lower() == "top_left"
+        translation_block = overrides.get("composite_translation", {})
+        translate_x = int(translation_block.get("x", 0)) if isinstance(translation_block, dict) else 0
+        translate_y = int(translation_block.get("y", 0)) if isinstance(translation_block, dict) else 0
 
         if len(canvas) == 2:
             canvas_width = max(1, int(canvas[0]))
@@ -125,10 +187,19 @@ class AnimationProcessor:
             offset_data = frames_map.get(name, {})
             offset_x = int(offset_data.get("x", default_x))
             offset_y = int(offset_data.get("y", default_y))
+            fnf_override = resolve_fnf_offset(overrides, name, metadata)
+            if fnf_override is not None:
+                offset_x, offset_y = fnf_override
+            offset_x += translate_x
+            offset_y += translate_y
             canvas_image = Image.new("RGBA", (canvas_width, canvas_height))
-            # Anchor around the center so offsets nudge relative to the origin crosshair
-            target_x = (canvas_width - frame_image.width) // 2 + offset_x
-            target_y = (canvas_height - frame_image.height) // 2 + offset_y
+            if top_left_origin:
+                target_x = offset_x
+                target_y = offset_y
+            else:
+                # Anchor around the center so offsets nudge relative to the origin crosshair
+                target_x = (canvas_width - frame_image.width) // 2 + offset_x
+                target_y = (canvas_height - frame_image.height) // 2 + offset_y
             canvas_image.paste(frame_image, (target_x, target_y), frame_image)
             adjusted.append((name, canvas_image, metadata))
 

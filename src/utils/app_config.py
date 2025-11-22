@@ -87,6 +87,9 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "editor_settings": {
+            "origin_mode": "center",
+        },
         "ui_state": {
             "last_input_directory": "",
             "last_output_directory": "",
@@ -131,6 +134,7 @@ class AppConfig:
         "last_output_directory": str,
         "remember_input_directory": bool,
         "remember_output_directory": bool,
+        "origin_mode": str,
     }
 
     def __init__(self, config_path=None):
@@ -158,6 +162,14 @@ class AppConfig:
         defaults.update(kwargs)
         self.set("extraction_defaults", defaults)
         self.save()
+
+    def get_editor_settings(self):
+        return dict(self.get("editor_settings", self.DEFAULTS.get("editor_settings", {})))
+
+    def set_editor_settings(self, **kwargs):
+        current = self.get_editor_settings()
+        current.update(kwargs)
+        self.set("editor_settings", current)
 
     def load(self):
         if os.path.isfile(self.config_path):

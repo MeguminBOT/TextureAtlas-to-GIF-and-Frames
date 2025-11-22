@@ -781,19 +781,40 @@ class ExtractTabWidget(QWidget):
             print(f"Error parsing spritemap animation metadata {animation_json_path}: {exc}")
         return symbol_map
 
-    def register_editor_composite(self, spritesheet_name: str, animation_name: str, editor_animation_id: str):
+    def register_editor_composite(
+        self,
+        spritesheet_name: str,
+        animation_name: str,
+        editor_animation_id: str,
+        definition: Optional[dict] = None,
+    ):
         """Register an editor-created composite so it appears in the animation list."""
         if not spritesheet_name or not animation_name or not editor_animation_id:
             return
         entries = self.editor_composites[spritesheet_name]
-        entries[animation_name] = editor_animation_id
+        entries[animation_name] = {"editor_id": editor_animation_id, "definition": definition}
+        if definition and hasattr(self.parent_app, "settings_manager"):
+            sheet_settings = self.parent_app.settings_manager.spritesheet_settings.setdefault(
+                spritesheet_name, {}
+            )
+            composites = sheet_settings.setdefault("editor_composites", {})
+            composites[animation_name] = definition
+
+            alignment_payload = definition.get("alignment")
+            if alignment_payload:
+                full_name = f"{spritesheet_name}/{animation_name}"
+                animation_settings = self.parent_app.settings_manager.animation_settings.setdefault(
+                    full_name, {}
+                )
+                animation_settings["alignment_overrides"] = alignment_payload
         current_item = self.listbox_png.currentItem()
         if current_item and current_item.text() == spritesheet_name:
             self.populate_animation_list(spritesheet_name)
 
     def _append_editor_composites_to_list(self, spritesheet_name: str):
         composites = self.editor_composites.get(spritesheet_name, {})
-        for animation_name, editor_id in sorted(composites.items()):
+        for animation_name, entry in sorted(composites.items()):
+            editor_id = entry.get("editor_id") if isinstance(entry, dict) else entry
             if self.listbox_data.find_item_by_text(animation_name):
                 continue
             item = self.listbox_data.add_item(

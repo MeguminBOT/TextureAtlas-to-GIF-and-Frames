@@ -115,114 +115,18 @@ class FnfUtilities:
             listbox_png_callback: Callback to add PNG items to UI (optional)
             listbox_data_callback: Callback to add data items to UI (optional)
         """
+        if not self.fnf_char_json_directory:
+            return
+
         for filename in os.listdir(self.fnf_char_json_directory):
             file_path = os.path.join(self.fnf_char_json_directory, filename)
-
-            # Detect which engine character data is from.
-            engine_type, parsed_data = self.detect_engine(file_path)
-            print(f"Found {engine_type} data for {filename}.")
-
-            if engine_type == "Psych Engine" and parsed_data:
-                image_base = os.path.splitext(os.path.basename(parsed_data.get("image", "")))[0]
-                png_filename = image_base + ".png"
-
-                # Add to data dict
-                if png_filename not in data_dict:
-                    data_dict[png_filename] = file_path
-                    
-                    # Use callback to add to UI if provided
-                    if listbox_png_callback:
-                        listbox_png_callback(png_filename)
-
-                scale = parsed_data.get("scale")
-                for anim in parsed_data.get("animations", []):
-                    raw_anim_name = anim.get("name", "")
-                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
-                    fps = anim.get("fps", 0)
-                    indices = anim.get("indices", None)
-                    loop = anim.get("loop", False)
-
-                    full_anim_name = f"{png_filename}/{anim_name}"
-                    settings = {"fps": fps}
-
-                    if scale != 1:
-                        settings["scale"] = scale
-                    if indices:
-                        settings["indices"] = indices
-                    if loop:
-                        settings["delay"] = 0  # Set delay to 0 for looping animations
-
-                    settings_manager.set_animation_settings(full_anim_name, **settings)
-
-            elif engine_type == "Codename Engine" and parsed_data:
-                image_base = os.path.splitext(filename)[0]
-                png_filename = image_base + ".png"
-
-                # Add to data dict
-                if png_filename not in data_dict:
-                    data_dict[png_filename] = file_path
-                    
-                    # Use callback to add to UI if provided
-                    if listbox_png_callback:
-                        listbox_png_callback(png_filename)
-
-                scale = float(parsed_data.attrib.get("scale", 1))
-                for anim in parsed_data.findall("anim"):
-                    raw_anim_name = anim.get("name", "")
-                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
-                    fps = int(anim.get("fps", 0))
-                    indices = anim.get("indices", None)
-                    loop = anim.get("loop", "false").lower() == "true"
-
-                    full_anim_name = f"{png_filename}/{anim_name}"
-                    settings = {"fps": fps}
-
-                    if scale != 1:
-                        settings["scale"] = scale
-                    if indices:
-                        settings["indices"] = (
-                            [int(i) for i in indices.split("..")]
-                            if ".." in indices
-                            else [int(i) for i in indices.split(",")]
-                        )
-                    if loop:
-                        settings["delay"] = 0  # Set delay to 0 for looping animations
-
-                    settings_manager.set_animation_settings(full_anim_name, **settings)
-
-            elif engine_type == "Kade Engine" and parsed_data:
-                image_base = os.path.splitext(filename)[0]
-                png_filename = image_base + ".png"
-
-                # Add to data dict
-                if png_filename not in data_dict:
-                    data_dict[png_filename] = file_path
-                    
-                    # Use callback to add to UI if provided
-                    if listbox_png_callback:
-                        listbox_png_callback(png_filename)
-
-                for anim in parsed_data.get("animations", []):
-                    raw_anim_name = anim.get("name", "")
-                    anim_name = Utilities.strip_trailing_digits(raw_anim_name)
-                    fps = parsed_data.get("frameRate", 0)
-                    indices = anim.get("frameIndices", None)
-                    loop = anim.get("looped", False)
-
-                    full_anim_name = f"{png_filename}/{anim_name}"
-                    settings = {"fps": fps}
-
-                    if indices:
-                        settings["indices"] = indices
-                    if loop:
-                        settings["delay"] = 0  # Set delay to 0 for looping animations
-
-                    settings_manager.set_animation_settings(full_anim_name, **settings)
-
-            else:
-                print(
-                    f"Skipping {filename}: Not a FNF character data file or unsupported engine type."
-                )
+            self._process_character_file(
+                file_path,
+                settings_manager,
+                data_dict=data_dict,
+                listbox_png_callback=listbox_png_callback,
+                listbox_data_callback=listbox_data_callback,
+            )
 
     def fnf_select_char_data_directory(
         self, settings_manager, data_dict, listbox_png_callback=None, listbox_data_callback=None, parent_window=None
@@ -245,3 +149,206 @@ class FnfUtilities:
             self.fnf_char_json_directory = directory
             self.fnf_load_char_data_settings(settings_manager, data_dict, listbox_png_callback, listbox_data_callback)
             print("Animation settings updated in SettingsManager.")
+
+    def import_character_settings(self, file_path, settings_manager):
+        """Import a single FNF character definition and store settings (including offsets)."""
+        processed = self._process_character_file(file_path, settings_manager)
+        if not processed:
+            raise ValueError("Unsupported or invalid FNF character data file.")
+
+    def _process_character_file(
+        self,
+        file_path,
+        settings_manager,
+        data_dict=None,
+        listbox_png_callback=None,
+        listbox_data_callback=None,
+    ):
+        if not file_path or not os.path.exists(file_path):
+            return False
+
+        engine_type, parsed_data = self.detect_engine(file_path)
+        filename = os.path.basename(file_path)
+        print(f"Found {engine_type} data for {filename}.")
+
+        if engine_type == "Psych Engine" and parsed_data:
+            png_filename = self._register_spritesheet_entry(
+                parsed_data.get("image", ""),
+                file_path,
+                data_dict,
+                listbox_png_callback,
+                listbox_data_callback,
+            )
+            scale = parsed_data.get("scale", 1)
+            for anim in parsed_data.get("animations", []):
+                anim_name = Utilities.strip_trailing_digits(anim.get("name", ""))
+                fps = anim.get("fps", 0)
+                indices = anim.get("indices") or None
+                loop = bool(anim.get("loop", False))
+                offsets = anim.get("offsets")
+                self._update_animation_settings(
+                    settings_manager,
+                    png_filename,
+                    anim_name,
+                    fps,
+                    indices=indices,
+                    loop=loop,
+                    scale=scale,
+                    offsets=offsets,
+                    flip_x=parsed_data.get("flip_x", False),
+                )
+            return True
+
+        if engine_type == "Codename Engine" and parsed_data is not None:
+            png_filename = self._register_spritesheet_entry(
+                filename,
+                file_path,
+                data_dict,
+                listbox_png_callback,
+                listbox_data_callback,
+            )
+            try:
+                scale = float(parsed_data.attrib.get("scale", 1))
+            except (TypeError, ValueError):
+                scale = 1
+            for anim in parsed_data.findall("anim"):
+                anim_name = Utilities.strip_trailing_digits(anim.get("name", ""))
+                fps = int(anim.get("fps", 0))
+                indices = self._parse_indices_attribute(anim.get("indices"))
+                loop = anim.get("loop", "false").lower() == "true"
+                offsets = self._parse_xml_offsets(anim)
+                self._update_animation_settings(
+                    settings_manager,
+                    png_filename,
+                    anim_name,
+                    fps,
+                    indices=indices,
+                    loop=loop,
+                    scale=scale,
+                    offsets=offsets,
+                )
+            return True
+
+        if engine_type == "Kade Engine" and parsed_data:
+            png_filename = self._register_spritesheet_entry(
+                filename,
+                file_path,
+                data_dict,
+                listbox_png_callback,
+                listbox_data_callback,
+            )
+            fps = parsed_data.get("frameRate", 0)
+            scale_value = parsed_data.get("scale", 1)
+            for anim in parsed_data.get("animations", []):
+                anim_name = Utilities.strip_trailing_digits(anim.get("name", ""))
+                indices = anim.get("frameIndices") or None
+                loop = bool(anim.get("looped", False))
+                offsets = anim.get("offsets")
+                self._update_animation_settings(
+                    settings_manager,
+                    png_filename,
+                    anim_name,
+                    fps,
+                    indices=indices,
+                    loop=loop,
+                    scale=scale_value,
+                    offsets=offsets,
+                )
+            return True
+
+        print(f"Skipping {filename}: Not a FNF character data file or unsupported engine type.")
+        return False
+
+    def _register_spritesheet_entry(
+        self,
+        image_hint,
+        file_path,
+        data_dict=None,
+        listbox_png_callback=None,
+        listbox_data_callback=None,
+    ):
+        base_name = image_hint or os.path.splitext(os.path.basename(file_path))[0]
+        png_base = os.path.splitext(os.path.basename(base_name))[0]
+        png_filename = f"{png_base}.png"
+
+        if data_dict is not None and png_filename not in data_dict:
+            data_dict[png_filename] = file_path
+            if listbox_png_callback:
+                listbox_png_callback(png_filename)
+        if listbox_data_callback:
+            listbox_data_callback(file_path)
+        return png_filename
+
+    @staticmethod
+    def _offsets_to_alignment(offsets, scale=1.0, flip_x=False):
+        if not isinstance(offsets, (list, tuple)) or len(offsets) != 2:
+            return None
+        try:
+            x_val = int(offsets[0])
+            y_val = int(offsets[1])
+        except (TypeError, ValueError):
+            return None
+        payload = {"default": {"x": -x_val, "y": -y_val}, "frames": {}}
+        raw_block = {"default": {"x": x_val, "y": y_val}, "frames": {}}
+        try:
+            scale_value = float(scale)
+        except (TypeError, ValueError):
+            scale_value = 1.0
+        raw_block["scale"] = scale_value
+        if flip_x:
+            raw_block["flip_x"] = bool(flip_x)
+        payload["_fnf_raw_offsets"] = raw_block
+        payload["origin_mode"] = "top_left"
+        return payload
+
+    @staticmethod
+    def _parse_indices_attribute(raw_indices):
+        if not raw_indices:
+            return None
+        if ".." in raw_indices:
+            return [int(i) for i in raw_indices.split("..")]
+        return [int(i.strip()) for i in raw_indices.split(",") if i.strip()]
+
+    @staticmethod
+    def _parse_xml_offsets(anim_element):
+        raw = anim_element.attrib.get("offset") or anim_element.attrib.get("offsets")
+        if not raw:
+            return None
+        parts = [part.strip() for part in raw.replace(" ", "").split(",") if part.strip()]
+        if len(parts) != 2:
+            return None
+        try:
+            return [int(parts[0]), int(parts[1])]
+        except (TypeError, ValueError):
+            return None
+
+    def _update_animation_settings(
+        self,
+        settings_manager,
+        png_filename,
+        anim_name,
+        fps,
+        indices=None,
+        loop=False,
+        scale=1,
+        offsets=None,
+        flip_x=False,
+    ):
+        if not settings_manager or not png_filename or not anim_name:
+            return
+
+        full_anim_name = f"{png_filename}/{anim_name}"
+        settings = {"fps": fps}
+
+        if scale not in (None, 1):
+            settings["scale"] = scale
+        if indices:
+            settings["indices"] = indices
+        if loop:
+            settings["delay"] = 0
+
+        alignment = self._offsets_to_alignment(offsets, scale=scale, flip_x=flip_x)
+        if alignment:
+            settings["alignment_overrides"] = alignment
+
+        settings_manager.set_animation_settings(full_anim_name, **settings)

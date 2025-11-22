@@ -17,20 +17,20 @@ from PySide6.QtGui import QIcon, QAction
 from utils.dependencies_checker import DependenciesChecker
 
 DependenciesChecker.check_and_configure_imagemagick()  # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
-from utils.app_config import AppConfig
-from utils.update_checker import UpdateChecker
-from utils.settings_manager import SettingsManager
-from utils.fnf_utilities import FnfUtilities
-from core.extractor import Extractor
-from gui.app_ui import Ui_TextureAtlasToolboxApp
-from gui.app_config_window import AppConfigWindow
-from gui.settings_window import SettingsWindow
-from gui.find_replace_window import FindReplaceWindow
-from gui.help_window import HelpWindow
-from gui.contributors_window import ContributorsWindow
-from gui.processing_window import ProcessingWindow
-from gui.compression_settings_window import CompressionSettingsWindow
-from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog
+from utils.app_config import AppConfig  # noqa: E402
+from utils.update_checker import UpdateChecker  # noqa: E402
+from utils.settings_manager import SettingsManager  # noqa: E402
+from utils.fnf_utilities import FnfUtilities  # noqa: E402
+from core.extractor import Extractor  # noqa: E402
+from gui.app_ui import Ui_TextureAtlasToolboxApp  # noqa: E402
+from gui.app_config_window import AppConfigWindow  # noqa: E402
+from gui.settings_window import SettingsWindow  # noqa: E402
+from gui.find_replace_window import FindReplaceWindow  # noqa: E402
+from gui.help_window import HelpWindow  # noqa: E402
+from gui.contributors_window import ContributorsWindow  # noqa: E402
+from gui.processing_window import ProcessingWindow  # noqa: E402
+from gui.compression_settings_window import CompressionSettingsWindow  # noqa: E402
+from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog  # noqa: E402
 
 
 class ExtractorWorker(QThread):
@@ -188,16 +188,26 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Add the editor tab for manual alignment workflows."""
         from gui.editor_tab_widget import EditorTabWidget
 
-        self.editor_tab_widget = EditorTabWidget(self)
-        self._editor_tab_index = self.ui.tools_tab.addTab(self.editor_tab_widget, self.tr("Editor"))
+        use_existing_ui = hasattr(self.ui, "tool_editor") and self.ui.tool_editor is not None
+        self.editor_tab_widget = EditorTabWidget(self, use_existing_ui=use_existing_ui)
+
+        if use_existing_ui:
+            existing_index = self.ui.tools_tab.indexOf(self.ui.tool_editor)
+            if existing_index == -1:
+                existing_index = self.ui.tools_tab.addTab(self.ui.tool_editor, self.tr("Editor"))
+            self._editor_tab_index = existing_index
+            self.ui.tools_tab.setTabText(existing_index, self.tr("Editor"))
+        else:
+            self._editor_tab_index = self.ui.tools_tab.addTab(
+                self.editor_tab_widget, self.tr("Editor")
+            )
+
         print("Editor tab setup completed successfully")
 
     def update_dynamic_tab_labels(self):
         """Refresh translated titles for tabs that are added at runtime."""
-        if hasattr(self, "editor_tab_widget"):
-            index = self.ui.tools_tab.indexOf(self.editor_tab_widget)
-            if index != -1:
-                self.ui.tools_tab.setTabText(index, self.tr("Editor"))
+        if hasattr(self, "_editor_tab_index") and self._editor_tab_index != -1:
+            self.ui.tools_tab.setTabText(self._editor_tab_index, self.tr("Editor"))
 
     def setup_extract_tab(self):
         """Set up the Extract tab with proper functionality."""
@@ -470,10 +480,15 @@ class TextureAtlasExtractorApp(QMainWindow):
                 self.app_config.set_last_input_directory(file_dir)
 
                 # Use the existing FNF utilities
-                self.fnf_utilities.import_character_settings(file_path)
+                self.fnf_utilities.import_character_settings(file_path, self.settings_manager)
                 QMessageBox.information(
                     self, self.tr("Success"), self.tr("FNF settings imported successfully!")
                 )
+                if hasattr(self, "editor_tab_widget") and self.editor_tab_widget is not None:
+                    try:
+                        self.editor_tab_widget.enable_flxsprite_origin_mode()
+                    except AttributeError:
+                        pass
             except Exception as e:
                 QMessageBox.warning(
                     self,
@@ -559,9 +574,6 @@ class TextureAtlasExtractorApp(QMainWindow):
         if not is_ready:
             QMessageBox.warning(self, self.tr("Error"), error_message)
             return
-
-        # Handle background detection for unknown spritesheets in main thread
-        from core.extractor import Extractor
 
         # Create a temporary extractor instance with required arguments
         temp_extractor = Extractor(
@@ -673,7 +685,6 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Called when extraction fails."""
         print(f"[on_extraction_failed] {error_message}")
         self.extract_tab_widget.set_processing_state(False)
-
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(False, error_message)
 

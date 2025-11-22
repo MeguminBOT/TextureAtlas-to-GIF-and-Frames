@@ -13,6 +13,7 @@ from core.atlas_processor import AtlasProcessor
 from core.sprite_processor import SpriteProcessor
 from core.frame_selector import FrameSelector
 from core.animation_processor import AnimationProcessor
+from core.editor_composite import build_editor_composite_frames, clone_animation_map
 from core.animation_exporter import AnimationExporter
 from core.spritemap import AdobeSpritemapRenderer
 from utils.utilities import Utilities
@@ -390,7 +391,20 @@ class Extractor:
 
             label = spritesheet_label or os.path.basename(atlas_path)
 
-            if spritemap_info:
+            editor_definition = self._get_editor_composite_definition(label, animation_name)
+
+            if editor_definition:
+                frames = self._build_editor_composite_preview_frames(
+                    editor_definition,
+                    atlas_path,
+                    metadata_path,
+                    spritemap_info,
+                    label,
+                )
+                if not frames:
+                    return None
+                animations[animation_name] = frames
+            elif spritemap_info:
                 animation_json_path = spritemap_info.get("animation_json")
                 spritemap_json_path = spritemap_info.get("spritemap_json")
                 if not animation_json_path or not spritemap_json_path:
@@ -497,6 +511,75 @@ class Extractor:
         except Exception as e:
             print(f"Preview animation generation error: {e}")
             return None
+
+    def _build_editor_composite_preview_frames(
+        self,
+        definition,
+        atlas_path,
+        metadata_path,
+        spritemap_info,
+        spritesheet_label,
+    ):
+        source_frames = self._load_source_frames_for_preview(
+            atlas_path,
+            metadata_path,
+            spritemap_info,
+            spritesheet_label,
+        )
+        if not source_frames:
+            print("[Extractor] Unable to load source frames for composite preview.")
+            return []
+        return build_editor_composite_frames(
+            definition,
+            source_frames,
+            log_warning=lambda message: print(message),
+        )
+
+    def _load_source_frames_for_preview(
+        self,
+        atlas_path,
+        metadata_path,
+        spritemap_info,
+        spritesheet_label,
+    ):
+        try:
+            if spritemap_info:
+                animation_json_path = spritemap_info.get("animation_json")
+                spritemap_json_path = spritemap_info.get("spritemap_json")
+                if not animation_json_path or not spritemap_json_path:
+                    return {}
+                renderer = AdobeSpritemapRenderer(
+                    animation_json_path,
+                    spritemap_json_path,
+                    atlas_path,
+                    filter_single_frame=False,
+                )
+                renderer.ensure_animation_defaults(self.settings_manager, spritesheet_label)
+                animations = renderer.build_animation_frames()
+                return clone_animation_map(animations)
+
+            if not metadata_path:
+                return {}
+
+            atlas_processor = AtlasProcessor(atlas_path, metadata_path)
+            sprite_processor = SpriteProcessor(atlas_processor.atlas, atlas_processor.sprites)
+            animations = sprite_processor.process_sprites()
+            return clone_animation_map(animations)
+        except Exception as exc:
+            print(f"[Extractor] Failed to load source frames for preview: {exc}")
+            return {}
+
+    def _get_editor_composite_definition(self, spritesheet_label, animation_name):
+        if not self.settings_manager:
+            return None
+        sheet_settings = self.settings_manager.spritesheet_settings.get(spritesheet_label)
+        if not isinstance(sheet_settings, dict):
+            return None
+        composites = sheet_settings.get("editor_composites")
+        if not isinstance(composites, dict):
+            return None
+        definition = composites.get(animation_name)
+        return definition if isinstance(definition, dict) else None
 
     def _handle_unknown_spritesheets_background_detection(self, input_dir, spritesheet_list, parent_window):
         """
