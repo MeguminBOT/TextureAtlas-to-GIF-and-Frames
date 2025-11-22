@@ -6,7 +6,7 @@ import re
 import uuid
 from typing import Dict, List, Optional, Tuple
 
-from qt_languages import QT_LANGUAGE_CHOICES
+from localization import QT_LANGUAGE_CHOICES
 from .translation_provider_base import TranslationError, TranslationProvider
 from providers import (
     DeepLTranslationProvider,

@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from language_registry import LANGUAGE_REGISTRY
+from .registry import LANGUAGE_REGISTRY
 
-ROOT_SENTINELS = ("Main.py", "app_config.cfg")
+ROOT_SENTINELS = ("main.py", "Main.py", "app_config.cfg")
 
 
 def resolve_language_code(code: Optional[str]) -> Optional[str]:
@@ -167,12 +167,12 @@ def _count_messages(ts_path: Path) -> Tuple[int, int]:
 DISCLAIMER_BLOCK = """<context>
     <name>MachineTranslationDisclaimer</name>
     <message>
-        <location filename="../Main.py" line="0"/>
+        <location filename="../main.py" line="0"/>
         <source>Machine Translation Notice</source>
         <translation type="unfinished">Machine Translation Notice</translation>
     </message>
     <message>
-        <location filename="../Main.py" line="1"/>
+        <location filename="../main.py" line="1"/>
         <source>This language was automatically translated and may contain inaccuracies. If you would like to contribute better translations, please visit our GitHub repository.</source>
         <translation type="unfinished">This language was automatically translated and may contain inaccuracies. If you would like to contribute better translations, please visit our GitHub repository.</translation>
     </message>
@@ -189,6 +189,31 @@ class LocalizationOperations:
         self.paths = paths or TranslationPaths.discover()
         self.runner = runner or CommandRunner()
         self._tool_cache: Dict[str, List[str]] = {}
+
+    def set_translations_dir(self, translations_dir: Path | str) -> TranslationPaths:
+        """Override the discovered translations directory at runtime."""
+
+        new_paths = self._build_paths_from_translations(translations_dir)
+        self.paths = new_paths
+        self._tool_cache.clear()
+        return self.paths
+
+    def _build_paths_from_translations(self, translations_dir: Path | str) -> TranslationPaths:
+        candidate = Path(translations_dir).expanduser().resolve()
+        if not candidate.exists() or not candidate.is_dir():
+            raise ValueError("Translations directory does not exist.")
+
+        src_dir = candidate.parent
+        if not src_dir.exists():
+            raise ValueError("Translations directory must live inside a src folder.")
+
+        if not TranslationPaths._looks_like_project_root(src_dir):
+            raise ValueError(
+                "Selected folder is not part of a recognized TextureAtlas Toolbox source tree."
+            )
+
+        project_root = src_dir.parent
+        return TranslationPaths(project_root, src_dir, candidate)
 
     def _ensure_translations_dir(self) -> None:
         self.paths.translations_dir.mkdir(parents=True, exist_ok=True)
@@ -354,18 +379,23 @@ class LocalizationOperations:
             meta = LANGUAGE_REGISTRY.get(lang, {})
             ts_file = self.paths.translations_dir / f"app_{lang}.ts"
             qm_file = ts_file.with_suffix(".qm")
+            ts_exists = ts_file.exists()
+            qm_exists = qm_file.exists()
             total, finished = _count_messages(ts_file)
+            unfinished = max(total - finished, 0)
             entry = {
                 "language": lang,
                 "name": meta.get("name", lang),
                 "english_name": meta.get("english_name", meta.get("name", lang)),
                 "quality": meta.get("quality", "unknown"),
-                "ts_exists": ts_file.exists(),
-                "qm_exists": qm_file.exists(),
+                "ts_exists": ts_exists,
+                "qm_exists": qm_exists,
                 "ts_file": str(ts_file),
                 "qm_file": str(qm_file),
                 "total_messages": total,
                 "finished_messages": finished,
+                "unfinished_messages": unfinished,
+                "needs_update": (not ts_exists) or unfinished > 0,
             }
             entries.append(entry)
             progress = f"{finished}/{total}" if total else "0/0"
@@ -407,7 +437,6 @@ class LocalizationOperations:
 
 
 __all__ = [
-    "LANGUAGE_REGISTRY",
     "LocalizationOperations",
     "TranslationPaths",
     "CommandRunner",

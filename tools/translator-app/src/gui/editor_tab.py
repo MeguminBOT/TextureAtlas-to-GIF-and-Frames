@@ -61,11 +61,6 @@ class EditorTab(QWidget):
         self.populate_language_combos()
         self.populate_provider_combo()
 
-    def attach_auto_translate_button(self, button: QPushButton) -> None:
-        self.auto_translate_all_btn = button
-        button.setEnabled(False)
-        button.clicked.connect(self.auto_translate_all_entries)
-
     def load_translations(self, file_path: str, translations: List[TranslationItem]) -> None:
         self.translations = translations
         self.current_file = file_path
@@ -141,6 +136,7 @@ class EditorTab(QWidget):
             self.translation_highlighter.set_dark_mode(enabled)
         if self.placeholder_group.isVisible():
             self.setup_placeholders()
+        self._apply_preview_theme()
 
     def _build_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -191,7 +187,6 @@ class EditorTab(QWidget):
 
         translation_group = QGroupBox("Translation")
         translation_layout = QVBoxLayout(translation_group)
-
         controls = QGridLayout()
         controls.setContentsMargins(0, 0, 0, 0)
         controls.setHorizontalSpacing(12)
@@ -212,6 +207,14 @@ class EditorTab(QWidget):
         self.translate_btn = QPushButton("Auto-Translate")
         self.translate_btn.setEnabled(False)
         controls.addWidget(self.translate_btn, 0, 4)
+
+        self.auto_translate_all_btn = QPushButton("Translate All Missing")
+        self.auto_translate_all_btn.setEnabled(False)
+        self.auto_translate_all_btn.setToolTip(
+            "Machine translate every unfinished entry in the current file."
+        )
+        self.auto_translate_all_btn.clicked.connect(self.auto_translate_all_entries)
+        controls.addWidget(self.auto_translate_all_btn, 0, 5, alignment=Qt.AlignRight)
 
         from_label = QLabel("From:")
         controls.addWidget(from_label, 1, 0, alignment=Qt.AlignRight)
@@ -262,7 +265,6 @@ class EditorTab(QWidget):
         self.preview_text.setReadOnly(True)
         self.preview_text.setMaximumHeight(100)
         self.preview_text.setFont(QFont("Consolas", 10))
-        self.preview_text.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc;")
         preview_layout.addWidget(self.preview_text)
         right_layout.addWidget(preview_group)
 
@@ -275,6 +277,7 @@ class EditorTab(QWidget):
         right_layout.addWidget(context_group)
 
         parent.addWidget(right_widget)
+        self._apply_preview_theme()
 
     def _setup_connections(self) -> None:
         self.translation_list.currentItemChanged.connect(self.on_translation_selected)
@@ -389,6 +392,18 @@ class EditorTab(QWidget):
             self.placeholder_layout.addWidget(input_field)
         self.placeholder_group.setVisible(True)
 
+    def _apply_preview_theme(self) -> None:
+        if not hasattr(self, "preview_text") or self.preview_text is None:
+            return
+        if self.dark_mode:
+            self.preview_text.setStyleSheet(
+                "QTextEdit { background-color: #2f2f2f; color: #ffffff; border: 1px solid #555555; }"
+            )
+        else:
+            self.preview_text.setStyleSheet(
+                "QTextEdit { background-color: #f0f0f0; color: #000000; border: 1px solid #cccccc; }"
+            )
+
     def get_placeholder_values(self) -> Dict[str, str]:
         values: Dict[str, str] = {}
         for i in range(0, self.placeholder_layout.count(), 2):
@@ -423,7 +438,8 @@ class EditorTab(QWidget):
         self.target_lang_combo.clear()
         self.source_lang_combo.addItem("Auto detect", None)
         for code, name in language_choices:
-            label = f"{name} ({code})"
+            display_code = code.lower().replace("-", "_")
+            label = f"{name} ({display_code})"
             self.source_lang_combo.addItem(label, code)
             self.target_lang_combo.addItem(label, code)
         if previous_source and previous_source in available_codes:

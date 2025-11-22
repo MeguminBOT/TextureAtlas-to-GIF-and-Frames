@@ -17,18 +17,28 @@ from PySide6.QtWidgets import (
 
 
 class AddLanguageDialog(QDialog):
-    """Dialog for adding new language metadata."""
+    """Dialog for adding or editing language metadata."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        *,
+        initial_data: Optional[Dict[str, str]] = None,
+        code_editable: bool = True,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Add Language")
         self._data: Optional[Dict[str, str]] = None
+        self._code_editable = code_editable
+        self._initial = initial_data or {}
+        self.setWindowTitle("Edit Language" if initial_data else "Add Language")
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.code_edit = QLineEdit()
         self.code_edit.setPlaceholderText("e.g. es_mx")
+        if not code_editable:
+            self.code_edit.setReadOnly(True)
         form.addRow("Code", self.code_edit)
 
         self.native_name_edit = QLineEdit()
@@ -56,14 +66,18 @@ class AddLanguageDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        self.code_edit.setFocus()
+        self._apply_initial_data()
+        if self._initial:
+            self.native_name_edit.setFocus()
+        else:
+            self.code_edit.setFocus()
 
     def _handle_accept(self) -> None:
         code = self.code_edit.text().strip().lower()
         if not code:
             QMessageBox.warning(self, "Missing Code", "Enter a language code before continuing.")
             return
-        if not re.fullmatch(r"[a-z0-9_\-]+", code):
+        if self._code_editable and not re.fullmatch(r"[a-z0-9_\-]+", code):
             QMessageBox.warning(
                 self, "Invalid Code", "Language codes may use letters, numbers, '_' or '-'."
             )
@@ -83,6 +97,18 @@ class AddLanguageDialog(QDialog):
 
     def get_data(self) -> Optional[Dict[str, str]]:
         return self._data
+
+    def _apply_initial_data(self) -> None:
+        if not self._initial:
+            return
+        self.code_edit.setText(self._initial.get("code", ""))
+        self.native_name_edit.setText(self._initial.get("native_name", ""))
+        self.english_name_edit.setText(self._initial.get("english_name", ""))
+        quality_value = self._initial.get("quality")
+        if quality_value:
+            index = self.quality_combo.findData(quality_value)
+            if index >= 0:
+                self.quality_combo.setCurrentIndex(index)
 
 
 __all__ = ["AddLanguageDialog"]

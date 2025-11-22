@@ -18,28 +18,25 @@ Machine translation requires the optional 'requests' package and an API key:
 """
 
 import os
+import re
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import xml.etree.ElementTree as ET
 
 from PySide6.QtCore import QThreadPool
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QMainWindow,
     QMessageBox,
-    QPushButton,
-    QSizePolicy,
     QStatusBar,
     QTabWidget,
     QTextBrowser,
     QVBoxLayout,
-    QWidget,
 )
 
 from core import TranslationItem
@@ -47,7 +44,8 @@ from core.translation_manager import TranslationManager
 from gui import apply_app_theme
 from gui.editor_tab import EditorTab
 from gui.manage_tab import ManageTab
-from translation_tasks import LocalizationOperations
+from localization import LocalizationOperations
+from utils.preferences import load_preferences, save_preferences
 
 
 class TranslationEditor(QMainWindow):
@@ -55,20 +53,19 @@ class TranslationEditor(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.dark_mode = False
         self.translation_manager = TranslationManager()
         self.localization_ops = LocalizationOperations()
         self.thread_pool = QThreadPool.globalInstance()
+        self.current_ts_language: Optional[str] = None
+        self.preferences: Dict[str, Any] = load_preferences()
+        self.dark_mode = bool(self.preferences.get("dark_mode", False))
+        self._apply_saved_translations_dir()
 
         self.tabs: Optional[QTabWidget] = None
         self.status_bar: Optional[QStatusBar] = None
         self.editor_tab: Optional[EditorTab] = None
         self.manage_tab: Optional[ManageTab] = None
-
-        self.save_btn: Optional[QPushButton] = None
-        self.save_as_btn: Optional[QPushButton] = None
-        self.auto_translate_all_btn: Optional[QPushButton] = None
-        self.dark_mode_checkbox: Optional[QCheckBox] = None
+        self.dark_mode_action: Optional[QAction] = None
 
         self.init_ui()
         self.apply_theme()
@@ -137,13 +134,15 @@ class TranslationEditor(QMainWindow):
             localization_ops=self.localization_ops,
             thread_pool=self.thread_pool,
             status_bar=self.status_bar,
+            on_translations_dir_changed=self._handle_translations_dir_change,
+            open_ts_callback=self._open_ts_file_from_manage,
         )
 
-        self.tabs.addTab(self.editor_tab, "Editor")
         self.tabs.addTab(self.manage_tab, "Manage Files")
+        self.tabs.addTab(self.editor_tab, "Editor")
+        self.tabs.setCurrentWidget(self.manage_tab)
 
         self.create_menu_bar()
-        self.create_toolbar()
 
     def create_menu_bar(self) -> None:
         menubar = self.menuBar()
@@ -168,6 +167,12 @@ class TranslationEditor(QMainWindow):
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
 
+        options_menu = menubar.addMenu("Options")
+        self.dark_mode_action = options_menu.addAction("Dark Mode")
+        self.dark_mode_action.setCheckable(True)
+        self.dark_mode_action.setChecked(self.dark_mode)
+        self.dark_mode_action.toggled.connect(self.toggle_dark_mode)
+
         help_menu = menubar.addMenu("Help")
 
         usage_action = help_menu.addAction("Using the Translator App")
@@ -175,40 +180,6 @@ class TranslationEditor(QMainWindow):
 
         api_help_action = help_menu.addAction("Translation API Keys")
         api_help_action.triggered.connect(self.show_api_key_help)
-
-    def create_toolbar(self) -> None:
-        toolbar = self.addToolBar("Main")
-
-        open_btn = QPushButton("Open .ts File")
-        open_btn.clicked.connect(self.open_file)
-        toolbar.addWidget(open_btn)
-
-        self.save_btn = QPushButton("Save .ts File")
-        self.save_btn.clicked.connect(self.save_file)
-        self.save_btn.setEnabled(False)
-        toolbar.addWidget(self.save_btn)
-
-        self.save_as_btn = QPushButton("Save As...")
-        self.save_as_btn.clicked.connect(self.save_file_as)
-        self.save_as_btn.setEnabled(False)
-        toolbar.addWidget(self.save_as_btn)
-
-        toolbar.addSeparator()
-
-        self.dark_mode_checkbox = QCheckBox("Dark Mode")
-        self.dark_mode_checkbox.toggled.connect(self.toggle_dark_mode)
-        toolbar.addWidget(self.dark_mode_checkbox)
-
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        toolbar.addWidget(spacer)
-
-        self.auto_translate_all_btn = QPushButton("Translate All Missing")
-        self.auto_translate_all_btn.setEnabled(False)
-        toolbar.addWidget(self.auto_translate_all_btn)
-
-        if self.editor_tab:
-            self.editor_tab.attach_auto_translate_button(self.auto_translate_all_btn)
 
     def show_usage_help(self) -> None:
         html = (
@@ -274,6 +245,9 @@ class TranslationEditor(QMainWindow):
         try:
             tree = ET.parse(file_path)
             root = tree.getroot()
+            self.current_ts_language = self._extract_language_from_root(root)
+            if not self.current_ts_language:
+                self.current_ts_language = self._infer_language_from_path(file_path)
             translation_groups: dict[str, TranslationItem] = {}
 
             for context in root.findall("context"):
@@ -316,10 +290,6 @@ class TranslationEditor(QMainWindow):
 
             translations = list(translation_groups.values())
             self.editor_tab.load_translations(file_path, translations)
-            if self.save_btn:
-                self.save_btn.setEnabled(True)
-            if self.save_as_btn:
-                self.save_as_btn.setEnabled(True)
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"Failed to load file:\n{exc}")
 
@@ -371,7 +341,10 @@ class TranslationEditor(QMainWindow):
             translations = self.editor_tab.get_translations()
             root = ET.Element("TS")
             root.set("version", "2.1")
-            root.set("language", "en")
+            language = self._infer_language_from_path(file_path) or self.current_ts_language
+            if language:
+                root.set("language", language)
+                self.current_ts_language = language
 
             contexts: dict[str, List[tuple[TranslationItem, int]]] = {}
             for item in translations:
@@ -413,6 +386,16 @@ class TranslationEditor(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{exc}")
 
+    def _extract_language_from_root(self, root: ET.Element) -> Optional[str]:
+        return root.get("language") or root.get("sourcelanguage")
+
+    def _infer_language_from_path(self, file_path: str) -> Optional[str]:
+        filename = Path(file_path).name
+        match = re.search(r"app_([A-Za-z0-9_\-]+)\.ts$", filename, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return None
+
     def closeEvent(self, event) -> None:  # type: ignore[override]
         if self.editor_tab and self.editor_tab.has_unsaved_changes():
             reply = QMessageBox.question(
@@ -433,12 +416,47 @@ class TranslationEditor(QMainWindow):
 
     def toggle_dark_mode(self, checked: bool) -> None:
         self.dark_mode = checked
+        if self.dark_mode_action and self.dark_mode_action.isChecked() != checked:
+            self.dark_mode_action.blockSignals(True)
+            self.dark_mode_action.setChecked(checked)
+            self.dark_mode_action.blockSignals(False)
         self.apply_theme()
         if self.editor_tab:
             self.editor_tab.set_dark_mode(self.dark_mode)
 
     def apply_theme(self) -> None:
         apply_app_theme(self, dark_mode=self.dark_mode)
+
+    def _open_ts_file_from_manage(self, ts_path: Path) -> None:
+        if not ts_path.exists():
+            QMessageBox.warning(self, "File Missing", f"Translation file not found:\n{ts_path}")
+            return
+        self.load_ts_file(str(ts_path))
+        if self.tabs and self.editor_tab:
+            editor_index = self.tabs.indexOf(self.editor_tab)
+            if editor_index != -1:
+                self.tabs.setCurrentIndex(editor_index)
+
+    def _handle_translations_dir_change(self, path: Path) -> None:
+        self.preferences["translations_folder"] = str(path)
+        self._persist_preferences()
+
+    def _apply_saved_translations_dir(self) -> None:
+        saved_path = self.preferences.get("translations_folder")
+        if not saved_path:
+            return
+        try:
+            self.localization_ops.set_translations_dir(Path(saved_path))
+        except ValueError:
+            self.preferences.pop("translations_folder", None)
+            self._persist_preferences()
+
+    def _persist_preferences(self) -> None:
+        prefs = dict(self.preferences)
+        prefs["dark_mode"] = self.dark_mode
+        prefs["translations_folder"] = str(self.localization_ops.paths.translations_dir)
+        save_preferences(prefs)
+        self.preferences = prefs
 
 
 def main() -> None:

@@ -1,0 +1,22 @@
+{
+	"en": {
+		"name": "English",
+		"english_name": "English",
+		"quality": "native"
+	},
+	"ja": {
+		"name": "日本語",
+		"english_name": "Japanese",
+		"quality": "machine"
+	},
+	"pt_br": {
+		"name": "Português (Brasil)",
+		"english_name": "Portuguese (Brazil)",
+		"quality": "native"
+	},
+	"sv": {
+		"name": "Svenska",
+		"english_name": "Swedish",
+		"quality": "native"
+	}
+}

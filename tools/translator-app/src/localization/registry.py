@@ -8,7 +8,7 @@ from typing import Dict
 
 RegistryDict = Dict[str, Dict[str, str]]
 
-_REGISTRY_PATH = Path(__file__).resolve().parent / "language_registry.json"
+_REGISTRY_PATH = Path(__file__).resolve().with_name("language_registry.json")
 _FALLBACK_REGISTRY: RegistryDict = {
     "en": {"name": "English", "english_name": "English", "quality": "native"}
 }
@@ -95,3 +95,13 @@ def save_language_registry(registry: RegistryDict | None = None) -> RegistryDict
 
 # Load registry immediately so other modules can import LANGUAGE_REGISTRY directly.
 load_language_registry()
+
+
+__all__ = [
+    "LANGUAGE_REGISTRY",
+    "RegistryDict",
+    "get_registry_path",
+    "load_language_registry",
+    "reload_language_registry",
+    "save_language_registry",
+]
