@@ -1,12 +1,12 @@
 import os
 import numpy
-from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 from wand.color import Color
 from wand.image import Image as WandImg
 
 from core.extractor.frame_pipeline import (
     build_frame_durations,
+    compute_shared_bbox,
     prepare_scaled_sequence,
 )
 from core.extractor.image_utils import pad_frames_to_canvas
@@ -120,9 +120,13 @@ class AnimationExporter:
 
     def remove_dups(self, animation):
         animation.iterator_reset()
+        if len(animation.sequence) < 2:
+            return
 
         while animation.iterator_next():
             index = animation.iterator_get()
+            if index == 0:
+                continue
 
             if (
                 animation.get_image_distortion(
@@ -150,51 +154,52 @@ class AnimationExporter:
             return
 
         width, height = images[0].size
+        crop_option = settings.get("crop_option")
+        crop_mode = (crop_option or "None").lower()
+        should_crop = crop_mode != "none"
+        crop_bounds = None
+        if should_crop:
+            crop_bounds = compute_shared_bbox(images)
+            if crop_bounds is None:
+                should_crop = False
+
         left, upper, right, lower = width, height, 0, 0
         with WandImg(width=width, height=height) as animation:
             animation.image_remove()
             for index, pil_frame in enumerate(images):
                 arr = numpy.array(pil_frame)
                 with WandImg.from_array(arr) as wand_frame:
-                    if threshold == 1:
-                        wand_frame.negate(channel="alpha")
-                        wand_frame.threshold(0, channel="alpha")
-                        wand_frame.negate(channel="alpha")
-                    else:
-                        wand_frame.threshold(threshold, channel="alpha")
+                    if should_crop:
+                        if threshold == 1:
+                            wand_frame.negate(channel="alpha")
+                            wand_frame.threshold(0, channel="alpha")
+                            wand_frame.negate(channel="alpha")
+                        else:
+                            wand_frame.threshold(threshold, channel="alpha")
 
                     wand_frame.background_color = Color("None")
                     wand_frame.alpha_channel = "background"
-                    wand_frame.trim(color="None")
+
                     wand_frame.delay = int(durations[index] / 10)
                     wand_frame.dispose = "background"
-
-                    if wand_frame.size > (1, 1) or wand_frame[0][0].alpha > 0:
-                        left = min(wand_frame.page_x, left)
-                        upper = min(wand_frame.page_y, upper)
-                        right = max(wand_frame.page_x + wand_frame.width, right)
-                        lower = max(wand_frame.page_y + wand_frame.height, lower)
-                    else:
-                        wand_frame.sample(width=width, height=height)
                     animation.sequence.append(wand_frame)
-            if left > right:
+            if should_crop and crop_bounds is None:
+                print(f"Warning: No frames to save for GIF: {filename}.gif")
+                return
+            if should_crop and crop_bounds:
+                left, upper, right, lower = crop_bounds
+            if should_crop and left > right:
                 print(f"Warning: No frames to save for GIF: {filename}.gif")
                 return
             self.remove_dups(animation)
-            animation.iterator_reset()
-            for i in range(len(animation.sequence)):
-                animation.iterator_set(i)
-                animation.quantize(
-                    number_colors=256, colorspace_type="undefined", dither=False
-                )
-            # We remove duplicate frames twice because different frames may become the same after quantization.
+            animation.quantize(
+                number_colors=256, colorspace_type="undefined", dither=False
+            )
+            # Removing duplicates after quantization ensures palette changes are accounted for once.
             self.remove_dups(animation)
             for i in range(len(animation.sequence)):
                 animation.iterator_set(i)
-                animation.extent(width, height, -animation.page_x, -animation.page_y)
-                animation.reset_coords()
-
-                if settings.get("crop_option") != "None":
+                if should_crop and crop_bounds:
                     animation.crop(left, upper, right, lower)
 
                 animation.sample(

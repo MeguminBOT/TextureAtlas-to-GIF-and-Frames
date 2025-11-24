@@ -41,6 +41,14 @@ class ProcessingWindow(QDialog):
         self.start_time = None
 
         self.setup_ui()
+        self._progress_dirty = False
+        self._stats_dirty = False
+        self._pending_current_files_text = None
+        self._log_buffer = []
+
+        self._ui_update_timer = QTimer(self)
+        self._ui_update_timer.setInterval(100)
+        self._ui_update_timer.timeout.connect(self._flush_pending_updates)
 
     def tr(self, text):
         """Translation helper method."""
@@ -158,6 +166,9 @@ class ProcessingWindow(QDialog):
 
         self.start_time = time.time()
 
+        if not self._ui_update_timer.isActive():
+            self._ui_update_timer.start()
+
         self.update_display()
         self.log_text.append(
             self.tr("Starting extraction of {count} files...").format(count=total_files)
@@ -176,36 +187,20 @@ class ProcessingWindow(QDialog):
         self.current_file_index = current_file
         self.total_files = total_files
         self.current_filename = filename
-
-        # Update the display immediately
-        self.update_display()
-
-        # Update current files being processed
-        self.update_current_files(filename)
+        self._pending_current_files_text = filename
 
         if (
             filename
             and not filename.startswith("Processing:")
             and not filename.endswith("...")
         ):
-            # Only add to log if it's not a status message
             if ", " in filename:
-                # Multiple files being processed
-                self.log_text.append(
-                    self.tr("Processing: {filename}").format(filename=filename)
-                )
+                log_entry = self.tr("Processing: {filename}").format(filename=filename)
             else:
-                self.log_text.append(
-                    self.tr("Processing: {filename}").format(filename=filename)
-                )
-            # Auto-scroll to bottom
-            cursor = self.log_text.textCursor()
-            cursor.movePosition(cursor.MoveOperation.End)
-            self.log_text.setTextCursor(cursor)
+                log_entry = self.tr("Processing: {filename}").format(filename=filename)
+            self._log_buffer.append(log_entry)
 
-        # Force immediate UI refresh
-        self.repaint()
-        self.update()
+        self._progress_dirty = True
         QCoreApplication.processEvents()
 
     def update_display(self):
@@ -262,22 +257,7 @@ class ProcessingWindow(QDialog):
         print(
             f"[ProcessingWindow] Updated internal stats to: F:{self.frames_generated}, A:{self.animations_generated}, S:{self.sprites_failed}"
         )
-
-        self.frames_label.setText(
-            self.tr("Frames Generated: {count}").format(count=self.frames_generated)
-        )
-        self.animations_label.setText(
-            self.tr("Animations Generated: {count}").format(
-                count=self.animations_generated
-            )
-        )
-        self.failed_label.setText(
-            self.tr("Sprites Failed: {count}").format(count=self.sprites_failed)
-        )
-
-        # Force UI update
-        self.repaint()
-        self.update()
+        self._stats_dirty = True
 
     def processing_completed(self, success=True, message=""):
         """Called when processing is completed."""
@@ -307,6 +287,9 @@ class ProcessingWindow(QDialog):
         self.progress_bar.setValue(
             self.total_files
         )  # Set to total files instead of maximum
+        self._flush_pending_updates()
+        if self._ui_update_timer.isActive():
+            self._ui_update_timer.stop()
         self.cancel_button.setEnabled(False)
         self.close_button.setEnabled(True)
 
@@ -350,12 +333,39 @@ class ProcessingWindow(QDialog):
 
     def add_debug_message(self, message):
         """Add a debug message to the processing log."""
-        self.log_text.append(message)
-        # Auto-scroll to bottom
-        cursor = self.log_text.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self.log_text.setTextCursor(cursor)
+        self._log_buffer.append(message)
 
+    def _flush_pending_updates(self):
+        if self._progress_dirty:
+            self.update_display()
+            if self._pending_current_files_text is not None:
+                self.update_current_files(self._pending_current_files_text)
+                self._pending_current_files_text = None
+            self._progress_dirty = False
+
+        if self._stats_dirty:
+            self.frames_label.setText(
+                self.tr("Frames Generated: {count}").format(count=self.frames_generated)
+            )
+            self.animations_label.setText(
+                self.tr("Animations Generated: {count}").format(
+                    count=self.animations_generated
+                )
+            )
+            self.failed_label.setText(
+                self.tr("Sprites Failed: {count}").format(count=self.sprites_failed)
+            )
+            self.repaint()
+            self.update()
+            self._stats_dirty = False
+
+        if self._log_buffer:
+            for entry in self._log_buffer:
+                self.log_text.append(entry)
+            self._log_buffer.clear()
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(cursor.MoveOperation.End)
+            self.log_text.setTextCursor(cursor)
     def update_current_files(self, current_files_text):
         """Update the current files being processed."""
         if current_files_text:

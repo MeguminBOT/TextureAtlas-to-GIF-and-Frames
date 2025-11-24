@@ -10,6 +10,8 @@ class SpriteProcessor:
 
     def __init__(self, atlas, sprites):
         self.atlas = atlas
+        # Cache an RGBA atlas so downstream crops avoid repeated conversions.
+        self._atlas_rgba = atlas if atlas.mode == "RGBA" else atlas.convert("RGBA")
         self.sprites = sprites
 
     def process_sprites(self):
@@ -74,7 +76,9 @@ class SpriteProcessor:
         frame_height = sprite.get("frameHeight", height)
         rotated = sprite.get("rotated", False)
 
-        sprite_image = self.atlas.crop((x, y, x + width, y + height))
+        sprite_image = self._atlas_rgba.crop((x, y, x + width, y + height))
+        requires_canvas = rotated or frame_x or frame_y
+
         if rotated:
             sprite_image = sprite_image.rotate(90, expand=True)
             frame_width = max(height - frame_x, frame_width, 1)
@@ -83,10 +87,14 @@ class SpriteProcessor:
             frame_width = max(width - frame_x, frame_width, 1)
             frame_height = max(height - frame_y, frame_height, 1)
 
-        frame_image = Image.new("RGBA", (frame_width, frame_height))
-        frame_image.paste(sprite_image, (-frame_x, -frame_y))
-        if frame_image.mode != "RGBA":
-            frame_image = frame_image.convert("RGBA")
+        if frame_width != sprite_image.width or frame_height != sprite_image.height:
+            requires_canvas = True
+
+        if requires_canvas:
+            frame_image = Image.new("RGBA", (frame_width, frame_height))
+            frame_image.paste(sprite_image, (-frame_x, -frame_y))
+        else:
+            frame_image = sprite_image
 
         metadata = (x, y, width, height, frame_x, frame_y)
         return name, frame_image, metadata

@@ -1,7 +1,7 @@
 import os
 import time
 import xml.etree.ElementTree as ET
-from threading import Lock
+from threading import Lock, Event
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QCoreApplication
@@ -74,6 +74,8 @@ class Extractor:
         cpu_threads = self._resolve_cpu_threads()
         filenames = spritesheet_list
         self.remaining_files = filenames.copy()
+        if not self.remaining_files:
+            self._workers_done_event.set()
         self.start_time = time.time()
 
         max_threads = self._determine_worker_budget(cpu_threads, len(filenames))
@@ -107,6 +109,10 @@ class Extractor:
         self.processed_count = 0
         self.active_workers = []
         self.completed_files = []
+        if hasattr(self, "_workers_done_event"):
+            self._workers_done_event.clear()
+        else:
+            self._workers_done_event = Event()
 
     def _choose_progress_callback(self, override_callback):
         return self.progress_callback or override_callback
@@ -172,20 +178,13 @@ class Extractor:
         print(
             f"[process_directory] Remaining files after initial start: {len(self.remaining_files)}"
         )
+        if not self.active_workers and not self.remaining_files:
+            self._workers_done_event.set()
 
     def _monitor_workers(self):
-        while self.active_workers or self.remaining_files:
+        # Poll less aggressively so we do not spend meaningful time sleeping.
+        while not self._workers_done_event.wait(timeout=0.25):
             QCoreApplication.processEvents()
-            time.sleep(0.01)
-            for worker in self.active_workers[:]:
-                if worker.isFinished():
-                    worker.wait()
-                    worker.deleteLater()
-                    self.active_workers.remove(worker)
-            time.sleep(0.01)
-
-        QCoreApplication.processEvents()
-        time.sleep(0.1)
         QCoreApplication.processEvents()
 
     def _finalize_directory_processing(self):
@@ -256,6 +255,8 @@ class Extractor:
     def _on_file_completed(self, filename, result):
         """Handle successful file completion."""
         print(f"[_on_file_completed] {filename} completed with result: {result}")
+        debug_message = None
+        stats_snapshot = None
         with self.stats_lock:
             if result:
                 frames_added = result.get("frames_generated", 0)
@@ -274,9 +275,8 @@ class Extractor:
                     f"[_on_file_completed] New totals: {self.total_frames_generated} frames, {self.total_anims_generated} anims, {self.total_sprites_failed} failed"
                 )
 
-                # Emit debug info to processing log if callback supports it
                 if hasattr(self, "debug_callback") and self.debug_callback:
-                    self.debug_callback(
+                    debug_message = (
                         f"✓ {filename}: {frames_added} frames, {anims_added} animations generated"
                     )
             else:
@@ -284,24 +284,26 @@ class Extractor:
                 print(f"[_on_file_completed] {filename} failed - no result returned")
 
                 if hasattr(self, "debug_callback") and self.debug_callback:
-                    self.debug_callback(
-                        f"✗ {filename}: Processing failed - no result returned"
-                    )
+                    debug_message = f"✗ {filename}: Processing failed - no result returned"
 
             self.processed_count += 1
             self.completed_files.append(filename)
-
-            print(
-                f"[_on_file_completed] Calling statistics_callback with: {self.total_frames_generated}, {self.total_anims_generated}, {self.total_sprites_failed}"
+            stats_snapshot = (
+                self.total_frames_generated,
+                self.total_anims_generated,
+                self.total_sprites_failed,
             )
 
-            # Update statistics in real-time
+        if debug_message and hasattr(self, "debug_callback") and self.debug_callback:
+            self.debug_callback(debug_message)
+
+        if stats_snapshot:
+            print(
+                f"[_on_file_completed] Calling statistics_callback with: {stats_snapshot[0]}, {stats_snapshot[1]}, {stats_snapshot[2]}"
+            )
+
             if self.statistics_callback:
-                self.statistics_callback(
-                    self.total_frames_generated,
-                    self.total_anims_generated,
-                    self.total_sprites_failed,
-                )
+                self.statistics_callback(*stats_snapshot)
             else:
                 print("[_on_file_completed] No statistics_callback available")
 
@@ -311,19 +313,19 @@ class Extractor:
             self.total_sprites_failed += 1
             self.processed_count += 1
             self.completed_files.append(filename)
-            print(f"Error processing {filename}: {error}")
+            stats_snapshot = (
+                self.total_frames_generated,
+                self.total_anims_generated,
+                self.total_sprites_failed,
+            )
 
-            # Emit debug info to processing log
-            if hasattr(self, "debug_callback") and self.debug_callback:
-                self.debug_callback(f"✗ {filename}: Error - {error}")
+        print(f"Error processing {filename}: {error}")
 
-            # Update statistics even when there's an error
-            if self.statistics_callback:
-                self.statistics_callback(
-                    self.total_frames_generated,
-                    self.total_anims_generated,
-                    self.total_sprites_failed,
-                )
+        if hasattr(self, "debug_callback") and self.debug_callback:
+            self.debug_callback(f"✗ {filename}: Error - {error}")
+
+        if self.statistics_callback:
+            self.statistics_callback(*stats_snapshot)
 
     def _worker_finished(
         self, worker, input_dir, output_dir, parent_window, callback_to_use, total_files
@@ -332,6 +334,11 @@ class Extractor:
         print(
             f"[_worker_finished] Worker for {getattr(worker, 'filename', 'unknown')} finished"
         )
+
+        if worker in self.active_workers:
+            worker.wait()
+            worker.deleteLater()
+            self.active_workers.remove(worker)
 
         # Start next worker if files remain and we're not at max capacity
         if self.remaining_files:
@@ -357,6 +364,9 @@ class Extractor:
             else:
                 # No more workers active
                 callback_to_use(len(self.completed_files), total_files, "Completing...")
+
+        if not self.active_workers and not self.remaining_files:
+            self._workers_done_event.set()
 
     def extract_sprites(
         self,
@@ -555,6 +565,26 @@ class FileProcessorWorker(QThread):
             os.makedirs(sprite_output_dir, exist_ok=True)
             sprite_output_dir = str(sprite_output_dir)
 
+            has_animation_project = (
+                animation_json_path.is_file() and spritemap_json_path.is_file()
+            )
+            xml_exists = xml_path.is_file()
+            txt_exists = txt_path.is_file()
+            has_metadata = xml_exists or txt_exists
+            metadata_file = str(xml_path) if xml_exists else str(txt_path)
+            image_is_supported = self.filename.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
+            )
+
+            if not has_animation_project and not has_metadata and not (
+                os.path.isfile(image_path) and image_is_supported
+            ):
+                print(
+                    f"[FileProcessorWorker] No valid processing path found for {self.filename}"
+                )
+                self.file_failed.emit(self.filename, "No valid processing path found")
+                return
+
             # Get settings for this file
             settings = self.extractor.settings_manager.get_settings(self.filename)
 
@@ -563,7 +593,7 @@ class FileProcessorWorker(QThread):
             )
 
             # Process Adobe spritemap exports first
-            if animation_json_path.is_file() and spritemap_json_path.is_file():
+            if has_animation_project:
                 print(
                     f"[FileProcessorWorker] Processing {self.filename} as Adobe spritemap"
                 )
@@ -581,11 +611,11 @@ class FileProcessorWorker(QThread):
                 self.file_completed.emit(self.filename, result)
 
             # Process the file with XML/TXT metadata
-            elif xml_path.is_file() or txt_path.is_file():
+            elif has_metadata:
                 print(f"[FileProcessorWorker] Processing {self.filename} with metadata")
                 result = self.extractor.extract_sprites(
                     image_path,
-                    str(xml_path) if xml_path.is_file() else str(txt_path),
+                    metadata_file,
                     sprite_output_dir,
                     settings,
                     None,  # No parent window for worker threads to avoid Qt threading issues
@@ -596,9 +626,7 @@ class FileProcessorWorker(QThread):
                 )
                 self.file_completed.emit(self.filename, result)
 
-            elif os.path.isfile(image_path) and self.filename.lower().endswith(
-                (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
-            ):
+            else:
                 print(
                     f"[FileProcessorWorker] Processing {self.filename} as unknown spritesheet"
                 )
@@ -614,11 +642,6 @@ class FileProcessorWorker(QThread):
                     f"[FileProcessorWorker] {self.filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}"
                 )
                 self.file_completed.emit(self.filename, result)
-            else:
-                print(
-                    f"[FileProcessorWorker] No valid processing path found for {self.filename}"
-                )
-                self.file_failed.emit(self.filename, "No valid processing path found")
 
         except Exception as e:
             print(f"[FileProcessorWorker] Error processing {self.filename}: {str(e)}")
