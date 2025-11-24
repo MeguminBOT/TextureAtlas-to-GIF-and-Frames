@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import shutil
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -27,9 +28,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QCoreApplication
 from PySide6.QtGui import QAction
 
-from gui.enhanced_list_widget import EnhancedListWidget
+from gui.extractor.enhanced_list_widget import EnhancedListWidget
 from utils.utilities import Utilities
-from core.spritemap.metadata import compute_symbol_lengths, extract_label_ranges
+from core.extractor.spritemap.metadata import (
+    compute_symbol_lengths,
+    extract_label_ranges,
+)
 
 
 class ExtractTabWidget(QWidget):
@@ -40,6 +44,7 @@ class ExtractTabWidget(QWidget):
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
         self.filter_single_frame_spritemaps = True
+        self.editor_composites = defaultdict(dict)
 
         if use_existing_ui and parent:
             # Use existing UI elements from parent
@@ -83,7 +88,9 @@ class ExtractTabWidget(QWidget):
         self.filename_prefix_entry = self.parent_app.ui.filename_prefix_entry
         self.filename_suffix_entry = self.parent_app.ui.filename_suffix_entry
         self.advanced_filename_button = self.parent_app.ui.advanced_filename_button
-        self.show_override_settings_button = self.parent_app.ui.show_override_settings_button
+        self.show_override_settings_button = (
+            self.parent_app.ui.show_override_settings_button
+        )
         self.override_spritesheet_settings_button = (
             self.parent_app.ui.override_spritesheet_settings_button
         )
@@ -95,10 +102,14 @@ class ExtractTabWidget(QWidget):
 
         # Create missing elements that might not be in the UI file
         if not hasattr(self.parent_app.ui, "compression_settings_button"):
-            self.compression_settings_button = QPushButton(self.tr("Compression Settings"))
+            self.compression_settings_button = QPushButton(
+                self.tr("Compression Settings")
+            )
             # You might need to position this somewhere in the frame export group
         else:
-            self.compression_settings_button = self.parent_app.ui.compression_settings_button
+            self.compression_settings_button = (
+                self.parent_app.ui.compression_settings_button
+            )
 
         # Convert QListView to EnhancedListWidget if needed
         if hasattr(self.listbox_png, "add_item"):
@@ -106,7 +117,7 @@ class ExtractTabWidget(QWidget):
             pass
         else:
             # Need to enhance the existing QListView
-            from gui.enhanced_list_widget import EnhancedListWidget
+            from gui.extractor.enhanced_list_widget import EnhancedListWidget
 
             # Replace the listbox_png with EnhancedListWidget
             parent_widget = self.listbox_png.parent()
@@ -117,7 +128,9 @@ class ExtractTabWidget(QWidget):
             self.listbox_png.setGeometry(geometry)
             self.listbox_png.setObjectName("listbox_png")
             self.listbox_png.setAlternatingRowColors(False)
-            self.listbox_png.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.listbox_png.setContextMenuPolicy(
+                Qt.ContextMenuPolicy.CustomContextMenu
+            )
 
             # Do the same for listbox_data
             parent_widget = self.listbox_data.parent()
@@ -127,7 +140,9 @@ class ExtractTabWidget(QWidget):
             self.listbox_data = EnhancedListWidget(parent_widget)
             self.listbox_data.setGeometry(geometry)
             self.listbox_data.setObjectName("listbox_data")
-            self.listbox_data.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.listbox_data.setContextMenuPolicy(
+                Qt.ContextMenuPolicy.CustomContextMenu
+            )
 
     def setup_ui(self):
         """Set up the UI components for the extract tab."""
@@ -235,7 +250,9 @@ class ExtractTabWidget(QWidget):
 
         self.animation_format_combobox = QComboBox(group)
         self.animation_format_combobox.setGeometry(10, 50, 171, 24)
-        self.animation_format_combobox.addItems(["GIF", "WebP", "APNG", "Custom FFMPEG"])
+        self.animation_format_combobox.addItems(
+            ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+        )
 
         # Frame rate
         frame_rate_label = QLabel(self.tr("Frame rate"))
@@ -312,7 +329,9 @@ class ExtractTabWidget(QWidget):
 
         self.frame_format_combobox = QComboBox(group)
         self.frame_format_combobox.setGeometry(10, 50, 171, 24)
-        self.frame_format_combobox.addItems(["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"])
+        self.frame_format_combobox.addItems(
+            ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
+        )
 
         # Frame selection
         selection_label = QLabel(self.tr("Frame Selection"))
@@ -372,7 +391,9 @@ class ExtractTabWidget(QWidget):
         layout.addWidget(cropping_label)
 
         self.cropping_method_combobox = QComboBox()
-        self.cropping_method_combobox.addItems(["None", "Animation based", "Frame based"])
+        self.cropping_method_combobox.addItems(
+            ["None", "Animation based", "Frame based"]
+        )
         layout.addWidget(self.cropping_method_combobox)
 
         # Filename format
@@ -414,10 +435,14 @@ class ExtractTabWidget(QWidget):
         self.show_override_settings_button = QPushButton(self.tr("Override settings"))
         layout.addWidget(self.show_override_settings_button)
 
-        self.override_spritesheet_settings_button = QPushButton(self.tr("Override spritesheet"))
+        self.override_spritesheet_settings_button = QPushButton(
+            self.tr("Override spritesheet")
+        )
         layout.addWidget(self.override_spritesheet_settings_button)
 
-        self.override_animation_settings_button = QPushButton(self.tr("Override animation"))
+        self.override_animation_settings_button = QPushButton(
+            self.tr("Override animation")
+        )
         layout.addWidget(self.override_animation_settings_button)
 
         # Control buttons
@@ -471,12 +496,16 @@ class ExtractTabWidget(QWidget):
             self.listbox_png.currentItemChanged.connect(self.on_select_spritesheet)
             self.listbox_png.currentItemChanged.connect(self.update_ui_state)
             self.listbox_png.itemDoubleClicked.connect(self.on_double_click_spritesheet)
-            self.listbox_png.customContextMenuRequested.connect(self.show_listbox_png_menu)
+            self.listbox_png.customContextMenuRequested.connect(
+                self.show_listbox_png_menu
+            )
 
         if hasattr(self, "listbox_data"):
             self.listbox_data.itemDoubleClicked.connect(self.on_double_click_animation)
             self.listbox_data.currentItemChanged.connect(self.update_ui_state)
-            self.listbox_data.customContextMenuRequested.connect(self.show_listbox_data_menu)
+            self.listbox_data.customContextMenuRequested.connect(
+                self.show_listbox_data_menu
+            )
 
         # Format change handlers
         if hasattr(self, "animation_format_combobox"):
@@ -484,7 +513,9 @@ class ExtractTabWidget(QWidget):
                 self.on_animation_format_change
             )
         if hasattr(self, "frame_format_combobox"):
-            self.frame_format_combobox.currentTextChanged.connect(self.on_frame_format_change)
+            self.frame_format_combobox.currentTextChanged.connect(
+                self.on_frame_format_change
+            )
 
         # Export group checkbox changes
         if hasattr(self, "animation_export_group"):
@@ -510,12 +541,16 @@ class ExtractTabWidget(QWidget):
             self.frame_scale_entry.setValue(defaults.get("frame_scale", 1.0))
 
             # Set default groupbox states
-            self.animation_export_group.setChecked(defaults.get("animation_export", True))
+            self.animation_export_group.setChecked(
+                defaults.get("animation_export", True)
+            )
             self.frame_export_group.setChecked(defaults.get("frame_export", True))
 
             # Set default selections
             if "animation_format" in defaults:
-                format_index = self.get_animation_format_index(defaults["animation_format"])
+                format_index = self.get_animation_format_index(
+                    defaults["animation_format"]
+                )
                 self.animation_format_combobox.setCurrentIndex(format_index)
 
             if "frame_format" in defaults:
@@ -529,7 +564,15 @@ class ExtractTabWidget(QWidget):
 
     def get_frame_format_index(self, format_name):
         """Get the index for frame format."""
-        format_map = {"AVIF": 0, "BMP": 1, "DDS": 2, "PNG": 3, "TGA": 4, "TIFF": 5, "WebP": 6}
+        format_map = {
+            "AVIF": 0,
+            "BMP": 1,
+            "DDS": 2,
+            "PNG": 3,
+            "TGA": 4,
+            "TIFF": 5,
+            "WebP": 6,
+        }
         return format_map.get(format_name, 0)
 
     # === File Management Methods ===
@@ -606,7 +649,9 @@ class ExtractTabWidget(QWidget):
                 and self.parent_app.manual_selection_temp_dir
             ):
                 try:
-                    shutil.rmtree(self.parent_app.manual_selection_temp_dir, ignore_errors=True)
+                    shutil.rmtree(
+                        self.parent_app.manual_selection_temp_dir, ignore_errors=True
+                    )
                 except Exception:
                     pass
 
@@ -686,7 +731,9 @@ class ExtractTabWidget(QWidget):
                     display_name=display_name,
                 )
 
-    def _format_display_name(self, base_directory: Optional[Path], spritesheet_path: Path) -> str:
+    def _format_display_name(
+        self, base_directory: Optional[Path], spritesheet_path: Path
+    ) -> str:
         if base_directory:
             try:
                 relative = spritesheet_path.relative_to(base_directory)
@@ -705,7 +752,9 @@ class ExtractTabWidget(QWidget):
         spritesheet_path = Path(spritesheet_path)
         base_name = spritesheet_path.stem
         # Use provided search directory or default to spritesheet's directory
-        directory = Path(search_directory) if search_directory else spritesheet_path.parent
+        directory = (
+            Path(search_directory) if search_directory else spritesheet_path.parent
+        )
 
         # Initialize data dict entry
         record_key = display_name or spritesheet_path.name
@@ -776,8 +825,63 @@ class ExtractTabWidget(QWidget):
                     continue
                 register_entry(label_name, "timeline_label", label_name, frame_count)
         except Exception as exc:
-            print(f"Error parsing spritemap animation metadata {animation_json_path}: {exc}")
+            print(
+                f"Error parsing spritemap animation metadata {animation_json_path}: {exc}"
+            )
         return symbol_map
+
+    def register_editor_composite(
+        self,
+        spritesheet_name: str,
+        animation_name: str,
+        editor_animation_id: str,
+        definition: Optional[dict] = None,
+    ):
+        """Register an editor-created composite so it appears in the animation list."""
+        if not spritesheet_name or not animation_name or not editor_animation_id:
+            return
+        entries = self.editor_composites[spritesheet_name]
+        entries[animation_name] = {
+            "editor_id": editor_animation_id,
+            "definition": definition,
+        }
+        if definition and hasattr(self.parent_app, "settings_manager"):
+            sheet_settings = (
+                self.parent_app.settings_manager.spritesheet_settings.setdefault(
+                    spritesheet_name, {}
+                )
+            )
+            composites = sheet_settings.setdefault("editor_composites", {})
+            composites[animation_name] = definition
+
+            alignment_overrides = definition.get("alignment")
+            if alignment_overrides:
+                full_name = f"{spritesheet_name}/{animation_name}"
+                animation_settings = (
+                    self.parent_app.settings_manager.animation_settings.setdefault(
+                        full_name, {}
+                    )
+                )
+                animation_settings["alignment_overrides"] = alignment_overrides
+        current_item = self.listbox_png.currentItem()
+        if current_item and current_item.text() == spritesheet_name:
+            self.populate_animation_list(spritesheet_name)
+
+    def _append_editor_composites_to_list(self, spritesheet_name: str):
+        composites = self.editor_composites.get(spritesheet_name, {})
+        for animation_name, entry in sorted(composites.items()):
+            editor_id = entry.get("editor_id") if isinstance(entry, dict) else entry
+            if self.listbox_data.find_item_by_text(animation_name):
+                continue
+            item = self.listbox_data.add_item(
+                animation_name,
+                {
+                    "type": "editor_composite",
+                    "editor_id": editor_id,
+                    "name": animation_name,
+                },
+            )
+            item.setToolTip(self.tr("Composite created in the Editor tab"))
 
     def on_select_spritesheet(self, current, previous):
         """Handles the event when a PNG file is selected from the listbox."""
@@ -812,6 +916,7 @@ class ExtractTabWidget(QWidget):
                         unknown_parser.get_data()
             except Exception as e:
                 print(f"Error using unknown parser: {e}")
+            self._append_editor_composites_to_list(spritesheet_name)
             return
 
         data_files = self.parent_app.data_dict[spritesheet_name]
@@ -848,7 +953,8 @@ class ExtractTabWidget(QWidget):
                 symbol_map = spritemap_info.get("symbol_map", {})
                 if symbol_map:
                     for display_name in sorted(symbol_map.keys()):
-                        self.listbox_data.add_item(display_name)
+                        target_data = symbol_map.get(display_name)
+                        self.listbox_data.add_item(display_name, target_data)
                 else:
                     try:
                         from parsers.spritemap_parser import SpritemapParser
@@ -868,6 +974,8 @@ class ExtractTabWidget(QWidget):
                 self._populate_unknown_parser_fallback()
         else:
             self._populate_unknown_parser_fallback()
+
+        self._append_editor_composites_to_list(spritesheet_name)
 
     def _populate_unknown_parser_fallback(self):
         try:
@@ -899,7 +1007,9 @@ class ExtractTabWidget(QWidget):
             try:
                 import shutil
 
-                shutil.rmtree(self.parent_app.manual_selection_temp_dir, ignore_errors=True)
+                shutil.rmtree(
+                    self.parent_app.manual_selection_temp_dir, ignore_errors=True
+                )
                 self.parent_app.manual_selection_temp_dir = None
             except Exception:
                 pass
@@ -945,13 +1055,17 @@ class ExtractTabWidget(QWidget):
         self.listbox_data.clear()
 
         # Remove related settings
-        self.parent_app.settings_manager.spritesheet_settings.pop(spritesheet_name, None)
+        self.parent_app.settings_manager.spritesheet_settings.pop(
+            spritesheet_name, None
+        )
 
         # Clear animation list
         self.listbox_data.clear()
 
         # Remove related settings
-        self.parent_app.settings_manager.spritesheet_settings.pop(spritesheet_name, None)
+        self.parent_app.settings_manager.spritesheet_settings.pop(
+            spritesheet_name, None
+        )
 
     def show_listbox_png_menu(self, position):
         """Shows the context menu for the PNG listbox."""
@@ -963,6 +1077,14 @@ class ExtractTabWidget(QWidget):
             return
 
         menu = QMenu(self)
+        spritesheet_name = item.text()
+
+        editor_action = QAction(self.tr("Add to Editor Tab"), self)
+        editor_action.triggered.connect(
+            lambda checked=False, entry=item: self.open_spritesheet_in_editor(entry)
+        )
+        menu.addAction(editor_action)
+        menu.addSeparator()
 
         settings_action = QAction(self.tr("Override Settings"), self)
         settings_action.triggered.connect(self.override_spritesheet_settings)
@@ -986,16 +1108,35 @@ class ExtractTabWidget(QWidget):
             return
 
         menu = QMenu(self)
+        item_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
+            editor_action = QAction(self.tr("Focus in Editor Tab"), self)
+            editor_action.triggered.connect(
+                lambda checked=False, entry=item: self.open_animation_item_in_editor(
+                    entry
+                )
+            )
+            menu.addAction(editor_action)
+        else:
+            editor_action = QAction(self.tr("Add to Editor Tab"), self)
+            editor_action.triggered.connect(
+                lambda checked=False, entry=item: self.open_animation_item_in_editor(
+                    entry
+                )
+            )
+            menu.addAction(editor_action)
 
-        preview_action = QAction(self.tr("Preview Animation"), self)
-        preview_action.triggered.connect(self.preview_selected_animation)
-        menu.addAction(preview_action)
+            menu.addSeparator()
 
-        menu.addSeparator()
+            preview_action = QAction(self.tr("Preview Animation"), self)
+            preview_action.triggered.connect(self.preview_selected_animation)
+            menu.addAction(preview_action)
 
-        settings_action = QAction(self.tr("Override Settings"), self)
-        settings_action.triggered.connect(self.override_animation_settings)
-        menu.addAction(settings_action)
+            menu.addSeparator()
+
+            settings_action = QAction(self.tr("Override Settings"), self)
+            settings_action.triggered.connect(self.override_animation_settings)
+            menu.addAction(settings_action)
 
         menu.exec(self.listbox_data.mapToGlobal(position))
 
@@ -1020,10 +1161,14 @@ class ExtractTabWidget(QWidget):
 
         def store_settings(settings):
             """Callback to store animation settings."""
-            self.parent_app.settings_manager.animation_settings[full_anim_name] = settings
+            self.parent_app.settings_manager.animation_settings[full_anim_name] = (
+                settings
+            )
 
         try:
-            from gui.override_settings_window import OverrideSettingsWindow
+            from gui.extractor.override_settings_window import (
+                OverrideSettingsWindow,
+            )
 
             dialog = OverrideSettingsWindow(
                 self.parent_app,
@@ -1038,7 +1183,9 @@ class ExtractTabWidget(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open animation settings: {error}").format(error=str(e)),
+                self.tr("Could not open animation settings: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def on_double_click_spritesheet(self, item):
@@ -1050,10 +1197,14 @@ class ExtractTabWidget(QWidget):
 
         def store_settings(settings):
             """Callback to store spritesheet settings."""
-            self.parent_app.settings_manager.spritesheet_settings[spritesheet_name] = settings
+            self.parent_app.settings_manager.spritesheet_settings[spritesheet_name] = (
+                settings
+            )
 
         try:
-            from gui.override_settings_window import OverrideSettingsWindow
+            from gui.extractor.override_settings_window import (
+                OverrideSettingsWindow,
+            )
 
             dialog = OverrideSettingsWindow(
                 self.parent_app,
@@ -1068,7 +1219,9 @@ class ExtractTabWidget(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
+                self.tr("Could not open spritesheet settings: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def override_spritesheet_settings(self):
@@ -1087,10 +1240,14 @@ class ExtractTabWidget(QWidget):
 
         def store_settings(settings):
             """Callback to store spritesheet settings."""
-            self.parent_app.settings_manager.spritesheet_settings[spritesheet_name] = settings
+            self.parent_app.settings_manager.spritesheet_settings[spritesheet_name] = (
+                settings
+            )
 
         try:
-            from gui.override_settings_window import OverrideSettingsWindow
+            from gui.extractor.override_settings_window import (
+                OverrideSettingsWindow,
+            )
 
             dialog = OverrideSettingsWindow(
                 self.parent_app,
@@ -1105,8 +1262,136 @@ class ExtractTabWidget(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open spritesheet settings: {error}").format(error=str(e)),
+                self.tr("Could not open spritesheet settings: {error}").format(
+                    error=str(e)
+                ),
             )
+
+    def open_spritesheet_in_editor(self, spritesheet_item):
+        """Open the currently selected spritesheet (and its current animation) in the editor tab."""
+        if not self.parent_app or not spritesheet_item:
+            return
+
+        # Ensure UI selection matches the requested item so animation list is in sync
+        self.listbox_png.setCurrentItem(spritesheet_item)
+        if self.listbox_data.count() == 0:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr(
+                    "Load animations for this spritesheet before sending it to the editor."
+                ),
+            )
+            return
+
+        eligible_items = []
+        for index in range(self.listbox_data.count()):
+            item = self.listbox_data.item(index)
+            item_data = item.data(Qt.ItemDataRole.UserRole)
+            if (
+                isinstance(item_data, dict)
+                and item_data.get("type") == "editor_composite"
+            ):
+                continue
+            eligible_items.append(item)
+
+        if not eligible_items:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("No animations were found for this spritesheet."),
+            )
+            return
+
+        self.listbox_data.setCurrentItem(eligible_items[0])
+        for item in eligible_items:
+            self._open_animation_in_editor(spritesheet_item, item)
+
+    def open_animation_item_in_editor(self, animation_item):
+        """Send a specific animation to the editor tab."""
+        if not self.parent_app or not animation_item:
+            return
+
+        spritesheet_item = self.listbox_png.currentItem()
+        if not spritesheet_item:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("Select a spritesheet first."),
+            )
+            return
+
+        item_data = animation_item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
+            editor_id = item_data.get("editor_id")
+            if editor_id and hasattr(self.parent_app, "editor_tab_widget"):
+                focused = self.parent_app.editor_tab_widget.focus_animation_by_id(
+                    editor_id
+                )
+                if (
+                    focused
+                    and hasattr(self.parent_app, "ui")
+                    and hasattr(self.parent_app.ui, "tools_tab")
+                ):
+                    self.parent_app.ui.tools_tab.setCurrentWidget(
+                        self.parent_app.editor_tab_widget
+                    )
+                else:
+                    QMessageBox.information(
+                        self,
+                        self.tr("Editor"),
+                        self.tr(
+                            "Unable to locate the exported composite in the editor."
+                        ),
+                    )
+            return
+
+        self._open_animation_in_editor(spritesheet_item, animation_item)
+
+    def _open_animation_in_editor(self, spritesheet_item, animation_item):
+        if not self.parent_app or not hasattr(
+            self.parent_app, "open_animation_in_editor"
+        ):
+            return
+
+        spritesheet_name = spritesheet_item.text()
+        animation_name = animation_item.text()
+        spritesheet_path = spritesheet_item.data(Qt.ItemDataRole.UserRole)
+        if not spritesheet_path:
+            QMessageBox.warning(
+                self,
+                self.tr("Editor"),
+                self.tr("The spritesheet path could not be determined."),
+            )
+            return
+
+        data_entry = self.parent_app.data_dict.get(spritesheet_name, {})
+        metadata_path = None
+        if isinstance(data_entry, dict):
+            metadata_path = data_entry.get("xml") or data_entry.get("txt")
+        spritemap_info = (
+            data_entry.get("spritemap") if isinstance(data_entry, dict) else None
+        )
+        spritemap_target = (
+            animation_item.data(Qt.ItemDataRole.UserRole) if spritemap_info else None
+        )
+
+        if not metadata_path and not spritemap_info:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("No metadata was located for this spritesheet."),
+            )
+            return
+
+        self.parent_app.open_animation_in_editor(
+            spritesheet_name,
+            animation_name,
+            spritesheet_path,
+            metadata_path,
+            spritemap_info,
+            spritemap_target,
+        )
 
     def override_animation_settings(self):
         """Opens window to override settings for selected animation."""
@@ -1136,10 +1421,14 @@ class ExtractTabWidget(QWidget):
 
         def store_settings(settings):
             """Callback to store animation settings."""
-            self.parent_app.settings_manager.animation_settings[full_anim_name] = settings
+            self.parent_app.settings_manager.animation_settings[full_anim_name] = (
+                settings
+            )
 
         try:
-            from gui.override_settings_window import OverrideSettingsWindow
+            from gui.extractor.override_settings_window import (
+                OverrideSettingsWindow,
+            )
 
             dialog = OverrideSettingsWindow(
                 self.parent_app,
@@ -1154,7 +1443,9 @@ class ExtractTabWidget(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open animation settings: {error}").format(error=str(e)),
+                self.tr("Could not open animation settings: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def preview_selected_animation(self):
@@ -1185,7 +1476,9 @@ class ExtractTabWidget(QWidget):
             spritesheet_path = current_spritesheet_item.data(Qt.ItemDataRole.UserRole)
             if not spritesheet_path:
                 QMessageBox.warning(
-                    self, self.tr("Preview Error"), self.tr("Could not find spritesheet file path.")
+                    self,
+                    self.tr("Preview Error"),
+                    self.tr("Could not find spritesheet file path."),
                 )
                 return
 
@@ -1226,7 +1519,8 @@ class ExtractTabWidget(QWidget):
             return
 
         both_export_unchecked = not (
-            self.animation_export_group.isChecked() or self.frame_export_group.isChecked()
+            self.animation_export_group.isChecked()
+            or self.frame_export_group.isChecked()
         )
         self.start_process_button.setEnabled(not both_export_unchecked)
 
@@ -1248,13 +1542,19 @@ class ExtractTabWidget(QWidget):
             self.threshold_entry.setEnabled(True)
             # Find the threshold label and enable it
             for child in self.animation_export_group.children():
-                if isinstance(child, QLabel) and "threshold" in child.objectName().lower():
+                if (
+                    isinstance(child, QLabel)
+                    and "threshold" in child.objectName().lower()
+                ):
                     child.setEnabled(True)
         else:
             self.threshold_entry.setEnabled(False)
             # Find the threshold label and disable it
             for child in self.animation_export_group.children():
-                if isinstance(child, QLabel) and "threshold" in child.objectName().lower():
+                if (
+                    isinstance(child, QLabel)
+                    and "threshold" in child.objectName().lower()
+                ):
                     child.setEnabled(False)
 
     def on_frame_format_change(self):
@@ -1274,15 +1574,28 @@ class ExtractTabWidget(QWidget):
         # Get format options directly from comboboxes using index mapping to avoid translation issues
         animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
         frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
-        frame_selection_map = ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
+        frame_selection_map = [
+            "All",
+            "No duplicates",
+            "First",
+            "Last",
+            "First, Last",
+            "Custom",
+        ]
         crop_option_map = ["None", "Animation based", "Frame based"]
         filename_format_map = ["Standardized", "No spaces", "No special characters"]
 
-        animation_format = animation_format_map[self.animation_format_combobox.currentIndex()]
+        animation_format = animation_format_map[
+            self.animation_format_combobox.currentIndex()
+        ]
         frame_format = frame_format_map[self.frame_format_combobox.currentIndex()]
-        frame_selection = frame_selection_map[self.frame_selection_combobox.currentIndex()]
+        frame_selection = frame_selection_map[
+            self.frame_selection_combobox.currentIndex()
+        ]
         crop_option = crop_option_map[self.cropping_method_combobox.currentIndex()]
-        filename_format = filename_format_map[self.filename_format_combobox.currentIndex()]
+        filename_format = filename_format_map[
+            self.filename_format_combobox.currentIndex()
+        ]
 
         # Get export enable states from groupboxes
         animation_export = self.animation_export_group.isChecked()
@@ -1336,12 +1649,19 @@ class ExtractTabWidget(QWidget):
             return False, self.tr("Please select an output directory first.")
 
         # Check if at least one export option is enabled
-        if not (self.animation_export_group.isChecked() or self.frame_export_group.isChecked()):
-            return False, self.tr("Please enable at least one export option (Animation or Frame).")
+        if not (
+            self.animation_export_group.isChecked()
+            or self.frame_export_group.isChecked()
+        ):
+            return False, self.tr(
+                "Please enable at least one export option (Animation or Frame)."
+            )
 
         # Check if there are spritesheets to process
         if self.listbox_png.count() == 0:
-            return False, self.tr("No spritesheets found. Please select a directory with images.")
+            return False, self.tr(
+                "No spritesheets found. Please select a directory with images."
+            )
 
         return True, ""
 
@@ -1373,7 +1693,9 @@ class ExtractTabWidget(QWidget):
             spritemap_json_path = atlas_dir / f"{base_filename}.json"
             animation_json_path = atlas_dir / "Animation.json"
 
-            has_spritemap_metadata = animation_json_path.is_file() and spritemap_json_path.is_file()
+            has_spritemap_metadata = (
+                animation_json_path.is_file() and spritemap_json_path.is_file()
+            )
 
             if (
                 not has_spritemap_metadata
@@ -1381,14 +1703,17 @@ class ExtractTabWidget(QWidget):
                 and filename in self.parent_app.data_dict
             ):
                 data_entry = self.parent_app.data_dict.get(filename, {})
-                has_spritemap_metadata = isinstance(data_entry, dict) and "spritemap" in data_entry
+                has_spritemap_metadata = (
+                    isinstance(data_entry, dict) and "spritemap" in data_entry
+                )
 
             if (
                 not xml_path.is_file()
                 and not txt_path.is_file()
                 and not has_spritemap_metadata
                 and atlas_path.is_file()
-                and atlas_path.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
+                and atlas_path.suffix.lower()
+                in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
             ):
                 unknown_atlases.append(filename)
 
@@ -1428,7 +1753,9 @@ class ExtractTabWidget(QWidget):
         # Check for unknown atlases and handle user choice
         has_unknown, unknown_atlases = self.check_for_unknown_atlases(spritesheet_list)
         if has_unknown:
-            from gui.unknown_atlas_warning_window import UnknownAtlasWarningWindow
+            from gui.extractor.unknown_atlas_warning_window import (
+                UnknownAtlasWarningWindow,
+            )
 
             input_directory = self.input_dir_label.text()
             action = UnknownAtlasWarningWindow.show_warning(

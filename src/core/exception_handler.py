@@ -13,9 +13,7 @@ class ExceptionHandler:
             )
         else:
             sprites_failed += 1
-            raise Exception(
-                f"An error occurred: {str(e)}.\n\nFile:{metadata_path}"
-            )
+            raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
 
     @staticmethod
     def handle_validation_error(key, expected_type):

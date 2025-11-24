@@ -55,8 +55,8 @@ class AppConfigWindow(QDialog):
     def tr(self, text):
         """Translation helper method."""
         from PySide6.QtCore import QCoreApplication
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_system_info(self):
         """Get system information for display."""
@@ -75,7 +75,9 @@ class AppConfigWindow(QDialog):
                     .strip()
                 )
                 self.max_threads = int(
-                    subprocess.check_output("wmic cpu get NumberOfLogicalProcessors", shell=True)
+                    subprocess.check_output(
+                        "wmic cpu get NumberOfLogicalProcessors", shell=True
+                    )
                     .decode(errors="ignore")
                     .split("\n")[1]
                     .strip()
@@ -90,7 +92,9 @@ class AppConfigWindow(QDialog):
                 self.max_threads = multiprocessing.cpu_count()
             elif platform.system() == "Darwin":
                 self.cpu_model = (
-                    subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"])
+                    subprocess.check_output(
+                        ["sysctl", "-n", "machdep.cpu.brand_string"]
+                    )
                     .decode(errors="ignore")
                     .strip()
                 )
@@ -182,11 +186,17 @@ class AppConfigWindow(QDialog):
         sys_group = QGroupBox("Your Computer")
         sys_layout = QVBoxLayout(sys_group)
 
-        cpu_label = QLabel(self.tr("CPU: {cpu} (Threads: {threads})").format(cpu=self.cpu_model, threads=self.max_threads))
+        cpu_label = QLabel(
+            self.tr("CPU: {cpu} (Threads: {threads})").format(
+                cpu=self.cpu_model, threads=self.max_threads
+            )
+        )
         cpu_label.setFont(QFont("Arial", 9))
         sys_layout.addWidget(cpu_label)
 
-        ram_label = QLabel(self.tr("RAM: {memory:,} MB").format(memory=self.max_memory_mb))
+        ram_label = QLabel(
+            self.tr("RAM: {memory:,} MB").format(memory=self.max_memory_mb)
+        )
         ram_label.setFont(QFont("Arial", 9))
         sys_layout.addWidget(ram_label)
 
@@ -197,7 +207,11 @@ class AppConfigWindow(QDialog):
         resource_layout = QGridLayout(resource_group)
 
         # CPU threads
-        cpu_label = QLabel(self.tr("CPU threads to use (max: {max_threads}):").format(max_threads=self.max_threads))
+        cpu_label = QLabel(
+            self.tr("CPU threads to use (max: {max_threads}):").format(
+                max_threads=self.max_threads
+            )
+        )
         resource_layout.addWidget(cpu_label, 0, 0)
 
         self.cpu_threads_edit = QSpinBox()
@@ -205,7 +219,11 @@ class AppConfigWindow(QDialog):
         resource_layout.addWidget(self.cpu_threads_edit, 0, 1)
 
         # Memory limit
-        mem_label = QLabel(self.tr("Memory limit (MB, max: {max_memory}):").format(max_memory=self.max_memory_mb))
+        mem_label = QLabel(
+            self.tr("Memory limit (MB, max: {max_memory}):").format(
+                max_memory=self.max_memory_mb
+            )
+        )
         resource_layout.addWidget(mem_label, 1, 0)
 
         self.memory_limit_edit = QSpinBox()
@@ -213,7 +231,9 @@ class AppConfigWindow(QDialog):
         self.memory_limit_edit.setSuffix(" MB")
         resource_layout.addWidget(self.memory_limit_edit, 1, 1)
 
-        mem_note = QLabel(self.tr("Note: Memory limit is for future use and not yet implemented."))
+        mem_note = QLabel(
+            self.tr("Note: Memory limit is for future use and not yet implemented.")
+        )
         mem_note.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
         mem_note.setStyleSheet("QLabel { color: #666; }")
         resource_layout.addWidget(mem_note, 2, 0, 1, 2)
@@ -539,7 +559,11 @@ class AppConfigWindow(QDialog):
         self.auto_update_cb = QCheckBox("Auto-download and install updates")
         group_layout.addWidget(self.auto_update_cb)
 
-        note_label = QLabel(self.tr("Note: Auto-update will download and install updates automatically when available."))
+        note_label = QLabel(
+            self.tr(
+                "Note: Auto-update will download and install updates automatically when available."
+            )
+        )
         note_label.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
         note_label.setStyleSheet("QLabel { color: #666; }")
         note_label.setWordWrap(True)
@@ -611,15 +635,23 @@ class AppConfigWindow(QDialog):
 
         # Update settings
         update_settings = self.app_config.get("update_settings", {})
-        self.check_updates_cb.setChecked(update_settings.get("check_updates_on_startup", True))
-        self.auto_update_cb.setChecked(update_settings.get("auto_download_updates", False))
+        self.check_updates_cb.setChecked(
+            update_settings.get("check_updates_on_startup", True)
+        )
+        self.auto_update_cb.setChecked(
+            update_settings.get("auto_download_updates", False)
+        )
 
         # UI settings
         ui_state = self.app_config.get("ui_state", {})
         if self.remember_input_dir_cb:
-            self.remember_input_dir_cb.setChecked(ui_state.get("remember_input_directory", True))
+            self.remember_input_dir_cb.setChecked(
+                ui_state.get("remember_input_directory", True)
+            )
         if self.remember_output_dir_cb:
-            self.remember_output_dir_cb.setChecked(ui_state.get("remember_output_directory", True))
+            self.remember_output_dir_cb.setChecked(
+                ui_state.get("remember_output_directory", True)
+            )
 
         # Update auto-update enabled state
         self.on_check_updates_change(self.check_updates_cb.checkState())
@@ -667,7 +699,10 @@ class AppConfigWindow(QDialog):
                     format_name = key.split("_", 1)[0]
                     setting_name = "_".join(key.split("_")[1:])
 
-                    if format_name in comp_defaults and setting_name in comp_defaults[format_name]:
+                    if (
+                        format_name in comp_defaults
+                        and setting_name in comp_defaults[format_name]
+                    ):
                         default_value = comp_defaults[format_name][setting_name]
 
                         if isinstance(control, QCheckBox):
@@ -679,8 +714,12 @@ class AppConfigWindow(QDialog):
 
             # Reset update settings
             update_defaults = self.app_config.DEFAULTS["update_settings"]
-            self.check_updates_cb.setChecked(update_defaults.get("check_updates_on_startup", True))
-            self.auto_update_cb.setChecked(update_defaults.get("auto_download_updates", False))
+            self.check_updates_cb.setChecked(
+                update_defaults.get("check_updates_on_startup", True)
+            )
+            self.auto_update_cb.setChecked(
+                update_defaults.get("auto_download_updates", False)
+            )
 
     def save_config(self):
         """Save the configuration settings."""
@@ -690,12 +729,20 @@ class AppConfigWindow(QDialog):
 
             cpu_threads = self.cpu_threads_edit.value()
             if cpu_threads > self.max_threads:
-                raise ValueError(self.tr("CPU threads cannot exceed {max_threads}").format(max_threads=self.max_threads))
+                raise ValueError(
+                    self.tr("CPU threads cannot exceed {max_threads}").format(
+                        max_threads=self.max_threads
+                    )
+                )
             resource_limits["cpu_cores"] = cpu_threads
 
             memory_limit = self.memory_limit_edit.value()
             if memory_limit > self.max_memory_mb:
-                raise ValueError(self.tr("Memory limit cannot exceed {max_memory} MB").format(max_memory=self.max_memory_mb))
+                raise ValueError(
+                    self.tr("Memory limit cannot exceed {max_memory} MB").format(
+                        max_memory=self.max_memory_mb
+                    )
+                )
             resource_limits["memory_limit_mb"] = memory_limit
 
             # Save extraction defaults
@@ -714,7 +761,11 @@ class AppConfigWindow(QDialog):
                         else:
                             extraction_defaults[key] = int(control.text())
                     except ValueError:
-                        raise ValueError(self.tr("Invalid value for {key}: {value}").format(key=key, value=control.text()))
+                        raise ValueError(
+                            self.tr("Invalid value for {key}: {value}").format(
+                                key=key, value=control.text()
+                            )
+                        )
 
             # Save compression defaults
             compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
@@ -727,11 +778,17 @@ class AppConfigWindow(QDialog):
 
                     if format_name in compression_defaults:
                         if isinstance(control, QCheckBox):
-                            compression_defaults[format_name][setting_name] = control.isChecked()
+                            compression_defaults[format_name][
+                                setting_name
+                            ] = control.isChecked()
                         elif isinstance(control, QSpinBox):
-                            compression_defaults[format_name][setting_name] = control.value()
+                            compression_defaults[format_name][
+                                setting_name
+                            ] = control.value()
                         elif isinstance(control, QComboBox):
-                            compression_defaults[format_name][setting_name] = control.currentText()
+                            compression_defaults[format_name][
+                                setting_name
+                            ] = control.currentText()
 
             # Save update settings
             update_settings = {
@@ -742,9 +799,13 @@ class AppConfigWindow(QDialog):
             # Save UI settings
             ui_state = self.app_config.settings.setdefault("ui_state", {})
             if self.remember_input_dir_cb:
-                ui_state["remember_input_directory"] = self.remember_input_dir_cb.isChecked()
+                ui_state["remember_input_directory"] = (
+                    self.remember_input_dir_cb.isChecked()
+                )
             if self.remember_output_dir_cb:
-                ui_state["remember_output_directory"] = self.remember_output_dir_cb.isChecked()
+                ui_state["remember_output_directory"] = (
+                    self.remember_output_dir_cb.isChecked()
+                )
 
             # Update app config
             self.app_config.settings["resource_limits"] = resource_limits
@@ -761,9 +822,17 @@ class AppConfigWindow(QDialog):
             self.accept()
 
         except ValueError as e:
-            QMessageBox.critical(self, self.tr("Invalid Input"), self.tr("Error: {error}").format(error=str(e)))
+            QMessageBox.critical(
+                self,
+                self.tr("Invalid Input"),
+                self.tr("Error: {error}").format(error=str(e)),
+            )
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save configuration: {error}").format(error=str(e)))
+            QMessageBox.critical(
+                self,
+                self.tr("Error"),
+                self.tr("Failed to save configuration: {error}").format(error=str(e)),
+            )
 
     @staticmethod
     def parse_value(key, val, expected_type):
@@ -803,12 +872,20 @@ class AppConfigWindow(QDialog):
 
         # Remember input directory checkbox
         self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
-        self.remember_input_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used input directory on startup"))
+        self.remember_input_dir_cb.setToolTip(
+            self.tr(
+                "When enabled, the app will remember and restore the last used input directory on startup"
+            )
+        )
         dir_layout.addWidget(self.remember_input_dir_cb)
 
         # Remember output directory checkbox
         self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
-        self.remember_output_dir_cb.setToolTip(self.tr("When enabled, the app will remember and restore the last used output directory on startup"))
+        self.remember_output_dir_cb.setToolTip(
+            self.tr(
+                "When enabled, the app will remember and restore the last used output directory on startup"
+            )
+        )
         dir_layout.addWidget(self.remember_output_dir_cb)
 
         layout.addWidget(dir_group)

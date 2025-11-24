@@ -124,7 +124,9 @@ class LanguageSelectionWindow(QDialog):
         lang_layout.addWidget(self.language_label)
 
         self.language_combo = QComboBox()
-        self.language_combo.setMinimumWidth(280)  # Increased width for native + English names
+        self.language_combo.setMinimumWidth(
+            280
+        )  # Increased width for native + English names
         lang_layout.addWidget(self.language_combo)
 
         lang_layout.addStretch()
@@ -168,14 +170,28 @@ class LanguageSelectionWindow(QDialog):
 
     def populate_languages(self):
         """Populate the language combobox with available languages."""
-        if self.parent_window and hasattr(self.parent_window, "get_available_languages"):
+        if self.parent_window and hasattr(
+            self.parent_window, "get_available_languages"
+        ):
             available_languages = self.parent_window.get_available_languages()
         else:
             # Fallback if parent doesn't have the method
             available_languages = {
-                "en": {"name": "English", "english_name": "English", "quality": "native"},
-                "pt_br": {"name": "Portuguese (Brazil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
-                "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
+                "en": {
+                    "name": "English",
+                    "english_name": "English",
+                    "quality": "native",
+                },
+                "pt_br": {
+                    "name": "Portuguese (Brazil)",
+                    "english_name": "Portuguese (Brazil)",
+                    "quality": "native",
+                },
+                "sv": {
+                    "name": "Svenska",
+                    "english_name": "Swedish",
+                    "quality": "native",
+                },
             }
 
         # Get translation manager for helper methods
@@ -199,7 +215,9 @@ class LanguageSelectionWindow(QDialog):
 
         # Get display name for auto-detected language
         if translation_manager:
-            auto_detected_display = translation_manager.get_display_name(auto_detected_lang)
+            auto_detected_display = translation_manager.get_display_name(
+                auto_detected_lang
+            )
         elif auto_detected_lang in available_languages:
             lang_info = available_languages[auto_detected_lang]
             if isinstance(lang_info, dict):
@@ -229,7 +247,9 @@ class LanguageSelectionWindow(QDialog):
                     quality = lang_info.get("quality", "unknown")
 
                     if english_name and lang_code != "en":
-                        display_name = self._format_language_display_name(native_name, english_name)
+                        display_name = self._format_language_display_name(
+                            native_name, english_name
+                        )
                     else:
                         display_name = native_name
 
@@ -267,18 +287,24 @@ class LanguageSelectionWindow(QDialog):
         """Apply the language change."""
         if self.new_language != self.current_language:
             try:
-                if self.parent_window and hasattr(self.parent_window, "change_language"):
+                if self.parent_window and hasattr(
+                    self.parent_window, "change_language"
+                ):
                     self.parent_window.change_language(self.new_language)
                     self.accept()
                 else:
                     QMessageBox.warning(
                         self,
                         self.tr("Error"),
-                        self.tr("Could not change language: Parent window not available"),
+                        self.tr(
+                            "Could not change language: Parent window not available"
+                        ),
                     )
             except Exception as e:
                 QMessageBox.warning(
-                    self, self.tr("Error"), self.tr("Failed to change language: {}").format(str(e))
+                    self,
+                    self.tr("Error"),
+                    self.tr("Failed to change language: {}").format(str(e)),
                 )
         else:
             self.accept()
@@ -312,6 +338,8 @@ def show_language_selection(parent=None):
                 "LanguageSelectionWindow", "Could not open language selection: {error}"
             ).format(error=str(e))
             QMessageBox.warning(
-                parent, QCoreApplication.translate("LanguageSelectionWindow", "Error"), error_msg
+                parent,
+                QCoreApplication.translate("LanguageSelectionWindow", "Error"),
+                error_msg,
             )
         return False

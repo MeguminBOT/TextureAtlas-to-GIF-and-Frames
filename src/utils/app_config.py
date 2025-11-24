@@ -87,6 +87,9 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "editor_settings": {
+            "origin_mode": "center",
+        },
         "ui_state": {
             "last_input_directory": "",
             "last_output_directory": "",
@@ -131,11 +134,14 @@ class AppConfig:
         "last_output_directory": str,
         "remember_input_directory": bool,
         "remember_output_directory": bool,
+        "origin_mode": str,
     }
 
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), "..", "app_config.cfg")
+            config_path = os.path.join(
+                os.path.dirname(__file__), "..", "app_config.cfg"
+            )
         self.config_path = os.path.abspath(config_path)
         self.settings = dict(self.DEFAULTS)
 
@@ -145,13 +151,17 @@ class AppConfig:
             )
             self.save()
         else:
-            print(f"[Config] Configuration file found at '{self.config_path}'. Loading settings...")
+            print(
+                f"[Config] Configuration file found at '{self.config_path}'. Loading settings..."
+            )
 
         self.load()
         self.migrate()
 
     def get_extraction_defaults(self):
-        return dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
+        return dict(
+            self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"])
+        )
 
     def set_extraction_defaults(self, **kwargs):
         defaults = self.get_extraction_defaults()
@@ -159,12 +169,24 @@ class AppConfig:
         self.set("extraction_defaults", defaults)
         self.save()
 
+    def get_editor_settings(self):
+        return dict(
+            self.get("editor_settings", self.DEFAULTS.get("editor_settings", {}))
+        )
+
+    def set_editor_settings(self, **kwargs):
+        current = self.get_editor_settings()
+        current.update(kwargs)
+        self.set("editor_settings", current)
+
     def load(self):
         if os.path.isfile(self.config_path):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     self.settings.update(json.load(f))
-                print(f"[Config] Configuration loaded successfully from '{self.config_path}'.")
+                print(
+                    f"[Config] Configuration loaded successfully from '{self.config_path}'."
+                )
             except Exception as e:
                 print(f"[Config] Failed to load configuration: {e}")
                 pass
@@ -187,7 +209,9 @@ class AppConfig:
                 if key not in current:
                     current[key] = default_value
                     needs_migration = True
-                    print(f"[Config] Added new setting '{key}' with default value: {default_value}")
+                    print(
+                        f"[Config] Added new setting '{key}' with default value: {default_value}"
+                    )
                 elif isinstance(default_value, dict) and isinstance(current[key], dict):
                     merge_defaults(current[key], default_value)
 
@@ -220,7 +244,9 @@ class AppConfig:
             print("[Config] No migration needed - configuration is up to date.")
 
     def get(self, key, default=None):
-        return self.settings.get(key, default if default is not None else self.DEFAULTS.get(key))
+        return self.settings.get(
+            key, default if default is not None else self.DEFAULTS.get(key)
+        )
 
     def set(self, key, value):
         print(f"[Config] Setting '{key}' to: {value}")

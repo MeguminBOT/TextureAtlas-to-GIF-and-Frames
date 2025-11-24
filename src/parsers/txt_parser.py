@@ -22,10 +22,16 @@ class TxtParser(BaseParser):
     This class is UI-agnostic and can work with both Qt and tkinter interfaces.
     """
 
-    def __init__(self, directory: str, txt_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        directory: str,
+        txt_filename: str,
+        listbox_data=None,
+        name_callback: Optional[Callable[[str], None]] = None,
+    ):
         """
         Initialize the TXT parser.
-        
+
         Args:
             directory: The directory where the TXT file is located
             txt_filename: The name of the TXT file to parse
@@ -39,16 +45,16 @@ class TxtParser(BaseParser):
         """Parse the TXT file and populate the listbox if provided."""
         try:
             names = self.extract_names()
-            
+
             # Populate listbox if provided
             if self.listbox_data:
                 self.populate_listbox(names)
-            
+
             # Call the callback if provided
             if self.name_callback:
                 for name in names:
                     self.name_callback(name)
-                    
+
             return names
         except Exception as e:
             print(f"Error parsing TXT file {self.filename}: {e}")
@@ -67,24 +73,24 @@ class TxtParser(BaseParser):
                             names.add(name)
         except Exception as e:
             print(f"Error extracting names from TXT file {self.filename}: {e}")
-        
+
         return names
 
     def populate_listbox(self, names: Set[str]):
         """Populate the Qt listbox with names."""
         if self.listbox_data is None:
             return
-            
+
         populate_qt_listbox(self.listbox_data, names)
 
     @staticmethod
     def parse_txt_packer(file_path: str) -> List[Dict[str, Any]]:
         """
         Static method to parse TXT data from a file and return sprite information.
-        
+
         Args:
             file_path: Path to the TXT file
-            
+
         Returns:
             List of dictionaries containing sprite data
         """
@@ -106,12 +112,14 @@ class TxtParser(BaseParser):
                                         "x": x,
                                         "y": y,
                                         "width": width,
-                                        "height": height
+                                        "height": height,
                                     }
                                     sprites.append(sprite_data)
                                 except ValueError as e:
-                                    print(f"Error parsing coordinates for sprite '{name}': {e}")
+                                    print(
+                                        f"Error parsing coordinates for sprite '{name}': {e}"
+                                    )
         except Exception as e:
             print(f"Error parsing TXT data from {file_path}: {e}")
-        
+
         return sprites

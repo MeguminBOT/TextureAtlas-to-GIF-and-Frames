@@ -13,15 +13,20 @@ from typing import Set, Optional, Callable
 class BaseParser(ABC):
     """
     Abstract base class for sprite data parsers.
-    
+
     This provides a UI-agnostic interface for parsing sprite data files.
     Parsers can work with callbacks instead of directly manipulating UI widgets.
     """
-    
-    def __init__(self, directory: str, filename: str, name_callback: Optional[Callable[[str], None]] = None):
+
+    def __init__(
+        self,
+        directory: str,
+        filename: str,
+        name_callback: Optional[Callable[[str], None]] = None,
+    ):
         """
         Initialize the parser.
-        
+
         Args:
             directory: Directory containing the file to parse
             filename: Name of the file to parse
@@ -30,22 +35,22 @@ class BaseParser(ABC):
         self.directory = directory
         self.filename = filename
         self.name_callback = name_callback
-    
+
     @abstractmethod
     def extract_names(self) -> Set[str]:
         """
         Extract sprite names from the file.
-        
+
         Returns:
             Set of unique sprite names
         """
         pass
-    
+
     def get_data(self) -> Set[str]:
         """
         Parse the file and extract names.
         If a callback is provided, call it for each name.
-        
+
         Returns:
             Set of extracted names
         """
@@ -59,7 +64,7 @@ class BaseParser(ABC):
 def populate_qt_listbox(listbox, names: Set[str]):
     """
     Helper function to populate a Qt listbox with names.
-    
+
     Args:
         listbox: Qt listbox widget (QListWidget)
         names: Set of names to add to the listbox

@@ -23,10 +23,16 @@ class XmlParser(BaseParser):
     This class is UI-agnostic and can work with both Qt and tkinter interfaces.
     """
 
-    def __init__(self, directory: str, xml_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        directory: str,
+        xml_filename: str,
+        listbox_data=None,
+        name_callback: Optional[Callable[[str], None]] = None,
+    ):
         """
         Initialize the XML parser.
-        
+
         Args:
             directory: The directory where the XML file is located
             xml_filename: The name of the XML file to parse
@@ -42,16 +48,16 @@ class XmlParser(BaseParser):
             tree = ET.parse(os.path.join(self.directory, self.filename))
             xml_root = tree.getroot()
             names = self.extract_names_from_root(xml_root)
-            
+
             # Populate listbox if provided
             if self.listbox_data:
                 self.populate_listbox(names)
-            
+
             # Call the callback if provided
             if self.name_callback:
                 for name in names:
                     self.name_callback(name)
-                    
+
             return names
         except Exception as e:
             print(f"Error parsing XML file {self.filename}: {e}")
@@ -81,17 +87,17 @@ class XmlParser(BaseParser):
         """Populate the Qt listbox with names."""
         if self.listbox_data is None:
             return
-            
+
         populate_qt_listbox(self.listbox_data, names)
 
     @staticmethod
     def parse_xml_data(file_path: str) -> List[Dict[str, Any]]:
         """
         Static method to parse XML data from a file and return sprite information.
-        
+
         Args:
             file_path: Path to the XML file
-            
+
         Returns:
             List of dictionaries containing sprite data
         """
@@ -99,7 +105,7 @@ class XmlParser(BaseParser):
             tree = ET.parse(file_path)
             xml_root = tree.getroot()
             sprites = []
-            
+
             for sprite in xml_root.findall("SubTexture"):
                 sprite_data = {
                     "name": sprite.get("name"),
@@ -110,11 +116,13 @@ class XmlParser(BaseParser):
                     "frameX": int(sprite.get("frameX", 0)),
                     "frameY": int(sprite.get("frameY", 0)),
                     "frameWidth": int(sprite.get("frameWidth", sprite.get("width", 0))),
-                    "frameHeight": int(sprite.get("frameHeight", sprite.get("height", 0))),
+                    "frameHeight": int(
+                        sprite.get("frameHeight", sprite.get("height", 0))
+                    ),
                     "rotated": sprite.get("rotated", "false") == "true",
                 }
                 sprites.append(sprite_data)
-                
+
             return sprites
         except Exception as e:
             print(f"Error parsing XML data from {file_path}: {e}")

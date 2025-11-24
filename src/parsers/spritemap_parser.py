@@ -11,13 +11,23 @@ from typing import Optional, Callable, Set
 
 from utils.utilities import Utilities
 from parsers.base_parser import BaseParser, populate_qt_listbox
-from core.spritemap.metadata import compute_symbol_lengths, extract_label_ranges
+from core.extractor.spritemap.metadata import (
+    compute_symbol_lengths,
+    extract_label_ranges,
+)
 
 
 class SpritemapParser(BaseParser):
     """Extract animation names from Adobe Animate spritemap exports."""
 
-    def __init__(self, directory: str, animation_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None, filter_single_frame: bool = True):
+    def __init__(
+        self,
+        directory: str,
+        animation_filename: str,
+        listbox_data=None,
+        name_callback: Optional[Callable[[str], None]] = None,
+        filter_single_frame: bool = True,
+    ):
         super().__init__(directory, animation_filename, name_callback)
         self.listbox_data = listbox_data
         self.filter_single_frame = filter_single_frame
@@ -43,7 +53,10 @@ class SpritemapParser(BaseParser):
             for symbol in animation_json.get("SD", {}).get("S", []):
                 raw_name = symbol.get("SN")
                 if raw_name:
-                    if self.filter_single_frame and symbol_lengths.get(raw_name, 0) <= 1:
+                    if (
+                        self.filter_single_frame
+                        and symbol_lengths.get(raw_name, 0) <= 1
+                    ):
                         continue
                     names.add(Utilities.strip_trailing_digits(raw_name))
 

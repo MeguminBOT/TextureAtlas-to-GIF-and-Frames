@@ -75,7 +75,11 @@ class TranslationManager:
         """
         available = {
             "en": {"name": "English", "english_name": "English", "quality": "native"},
-            "pt_br": {"name": "Português (Brasil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+            "pt_br": {
+                "name": "Português (Brasil)",
+                "english_name": "Portuguese (Brazil)",
+                "quality": "native",
+            },
             "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
         }
 
@@ -127,7 +131,7 @@ class TranslationManager:
             # "fi": {"name": "Suomi", "english_name": "Finnish", "quality": "machine"},
             # "fr": {"name": "Français", "english_name": "French", "quality": "machine"},
             # "fr_CA": {"name": "Français canadien", "english_name": "French (Canadian)",
-            #"de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
+            # "de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
             # "el": {"name": "Ελληνικά", "english_name": "Greek", "quality": "machine"},
             # "he": {"name": "עברית", "english_name": "Hebrew", "quality": "machine"},
             # "hi": {"name": "हिन्दी", "english_name": "Hindi", "quality": "machine"},
@@ -142,7 +146,11 @@ class TranslationManager:
             # "nn": {"name": "Norsk nynorsk", "english_name": "Norwegian (Nynorsk)", "quality": "machine"},
             # "pl": {"name": "Polski", "english_name": "Polish", "quality": "machine"},
             # "pt": {"name": "Português", "english_name": "Portuguese", "quality": "machine"},
-            "pt_br": {"name": "Português (Brasil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+            "pt_br": {
+                "name": "Português (Brasil)",
+                "english_name": "Portuguese (Brazil)",
+                "quality": "native",
+            },
             # "ro": {"name": "Română", "english_name": "Romanian", "quality": "machine"},
             # "ru": {"name": "Русский", "english_name": "Russian", "quality": "machine"},
             # "sk": {"name": "Slovenčina", "english_name": "Slovak", "quality": "machine"},
