@@ -34,7 +34,9 @@ class ErrorDialogWithLinks(QDialog):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Error"))
         self.setFixedSize(400, 300)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
+        self.setWindowFlags(
+            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
+        )
 
         # Center the dialog
         if parent:
@@ -45,8 +47,8 @@ class ErrorDialogWithLinks(QDialog):
     def tr(self, text):
         """Translation helper method."""
         from PySide6.QtCore import QCoreApplication
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
+        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self, message: str, links: List[Tuple[str, str]]):
         """Setup the UI components."""
@@ -86,7 +88,9 @@ class DependenciesChecker:
     """Qt-compatible dependencies checker for the application."""
 
     @staticmethod
-    def show_error_popup_with_links(message: str, links: List[Tuple[str, str]], parent=None):
+    def show_error_popup_with_links(
+        message: str, links: List[Tuple[str, str]], parent=None
+    ):
         """
         Shows an error popup with clickable links using Qt.
 
@@ -129,7 +133,9 @@ class DependenciesChecker:
         """Configure bundled ImageMagick by setting environment variables."""
         imagemagick_path = Utilities.find_root("ImageMagick")
         if imagemagick_path is None:
-            raise FileNotFoundError("Could not find 'ImageMagick' folder in any parent directory.")
+            raise FileNotFoundError(
+                "Could not find 'ImageMagick' folder in any parent directory."
+            )
 
         dll_path = os.path.join(imagemagick_path, "ImageMagick")
         if not os.path.isdir(dll_path):
@@ -156,7 +162,9 @@ class DependenciesChecker:
             return True
 
         if platform.system() == "Windows":
-            print("System ImageMagick not found. Attempting to configure bundled version.")
+            print(
+                "System ImageMagick not found. Attempting to configure bundled version."
+            )
             try:
                 DependenciesChecker.configure_imagemagick()
                 print("Configured bundled ImageMagick.")

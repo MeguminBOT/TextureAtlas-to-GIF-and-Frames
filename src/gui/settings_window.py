@@ -78,16 +78,22 @@ class SettingsWindow(QDialog):
         # Animation Settings Section
         animation_label = QLabel(self.tr("Animation Settings"))
         animation_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        animation_label.setStyleSheet("QLabel { color: #2E86AB; margin: 10px 0 5px 0; }")
+        animation_label.setStyleSheet(
+            "QLabel { color: #2E86AB; margin: 10px 0 5px 0; }"
+        )
         self.content_layout.addWidget(animation_label)
 
         if self.settings_manager.animation_settings:
             for key, value in self.settings_manager.animation_settings.items():
-                setting_label = QLabel(self.tr("  {key}: {value}").format(key=key, value=value))
+                setting_label = QLabel(
+                    self.tr("  {key}: {value}").format(key=key, value=value)
+                )
                 setting_label.setStyleSheet("QLabel { margin-left: 20px; }")
                 self.content_layout.addWidget(setting_label)
         else:
-            no_settings_label = QLabel(self.tr("  No animation-specific settings configured"))
+            no_settings_label = QLabel(
+                self.tr("  No animation-specific settings configured")
+            )
             no_settings_label.setStyleSheet(
                 "QLabel { margin-left: 20px; color: #777; font-style: italic; }"
             )
@@ -103,16 +109,22 @@ class SettingsWindow(QDialog):
         # Spritesheet Settings Section
         spritesheet_label = QLabel(self.tr("Spritesheet Settings"))
         spritesheet_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        spritesheet_label.setStyleSheet("QLabel { color: #A23B72; margin: 10px 0 5px 0; }")
+        spritesheet_label.setStyleSheet(
+            "QLabel { color: #A23B72; margin: 10px 0 5px 0; }"
+        )
         self.content_layout.addWidget(spritesheet_label)
 
         if self.settings_manager.spritesheet_settings:
             for key, value in self.settings_manager.spritesheet_settings.items():
-                setting_label = QLabel(self.tr("  {key}: {value}").format(key=key, value=value))
+                setting_label = QLabel(
+                    self.tr("  {key}: {value}").format(key=key, value=value)
+                )
                 setting_label.setStyleSheet("QLabel { margin-left: 20px; }")
                 self.content_layout.addWidget(setting_label)
         else:
-            no_settings_label = QLabel(self.tr("  No spritesheet-specific settings configured"))
+            no_settings_label = QLabel(
+                self.tr("  No spritesheet-specific settings configured")
+            )
             no_settings_label.setStyleSheet(
                 "QLabel { margin-left: 20px; color: #777; font-style: italic; }"
             )

@@ -21,13 +21,17 @@ class GrowingPacker:
         for block in blocks:
             node = self.find_node(self.root, block.get("w", 0), block.get("h", 0))
             if node:
-                block["fit"] = self.split_node(node, block.get("w", 0), block.get("h", 0))
+                block["fit"] = self.split_node(
+                    node, block.get("w", 0), block.get("h", 0)
+                )
             else:
                 block["fit"] = self.grow_node(block.get("w", 0), block.get("h", 0))
 
     def find_node(self, root, w, h):
         if root.get("used"):
-            return self.find_node(root.get("right"), w, h) or self.find_node(root.get("down"), w, h)
+            return self.find_node(root.get("right"), w, h) or self.find_node(
+                root.get("down"), w, h
+            )
         elif w <= root.get("w", 0) and h <= root.get("h", 0):
             return root
         else:
@@ -41,15 +45,24 @@ class GrowingPacker:
             "w": node.get("w"),
             "h": node.get("h") - h,
         }
-        node["right"] = {"x": node.get("x") + w, "y": node.get("y"), "w": node.get("w") - w, "h": h}
+        node["right"] = {
+            "x": node.get("x") + w,
+            "y": node.get("y"),
+            "w": node.get("w") - w,
+            "h": h,
+        }
         return node
 
     def grow_node(self, w, h):
         canGrowDown = w <= self.root.get("w")
         canGrowRight = h <= self.root.get("h")
 
-        shouldGrowRight = canGrowRight and (self.root.get("h") >= (self.root.get("w") + w))
-        shouldGrowDown = canGrowDown and (self.root.get("w") >= (self.root.get("h") + h))
+        shouldGrowRight = canGrowRight and (
+            self.root.get("h") >= (self.root.get("w") + w)
+        )
+        shouldGrowDown = canGrowDown and (
+            self.root.get("w") >= (self.root.get("h") + h)
+        )
 
         if shouldGrowRight:
             return self.grow_right(w, h)

@@ -61,19 +61,13 @@ class UpdateDialog(QDialog):
         # Header
         if update_type == "major":
             title_text = "🎉 Major Update Available! 🎉"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
         elif update_type == "minor":
             title_text = "✨ New Update Available! ✨"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
         else:  # patch
             title_text = "🔧 Bug Fix Update Available"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
 
         title_label = QLabel(title_text)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -99,7 +93,8 @@ class UpdateDialog(QDialog):
         button_layout = QHBoxLayout()
 
         self.update_btn = QPushButton(self.tr("Update Now"))
-        self.update_btn.setStyleSheet("""
+        self.update_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
@@ -112,11 +107,13 @@ class UpdateDialog(QDialog):
             QPushButton:hover {
                 background-color: #45a049;
             }
-        """)
+        """
+        )
         self.update_btn.clicked.connect(self._on_update)
 
         self.cancel_btn = QPushButton(self.tr("Cancel"))
-        self.cancel_btn.setStyleSheet("""
+        self.cancel_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -128,7 +125,8 @@ class UpdateDialog(QDialog):
             QPushButton:hover {
                 background-color: #da190b;
             }
-        """)
+        """
+        )
         self.cancel_btn.clicked.connect(self._on_cancel)
 
         button_layout.addWidget(self.update_btn)
@@ -210,11 +208,17 @@ class UpdateChecker:
                     break
 
             if self._is_newer_version(latest_version, self.current_version):
-                update_type = self.determine_update_type(self.current_version, latest_version)
+                update_type = self.determine_update_type(
+                    self.current_version, latest_version
+                )
 
                 # Show update dialog
                 dialog = UpdateDialog(
-                    parent_window, self.current_version, latest_version, changelog, update_type
+                    parent_window,
+                    self.current_version,
+                    latest_version,
+                    changelog,
+                    update_type,
                 )
                 if dialog.show_dialog():
                     if download_url:
@@ -234,7 +238,9 @@ class UpdateChecker:
 
         except requests.RequestException as e:
             QMessageBox.critical(
-                parent_window, "Update Check Failed", f"Failed to check for updates:\n{str(e)}"
+                parent_window,
+                "Update Check Failed",
+                f"Failed to check for updates:\n{str(e)}",
             )
             return False, None, None
         except Exception as e:
@@ -295,7 +301,9 @@ class UpdateChecker:
         except (ValueError, IndexError):
             return "patch"  # Default to patch if version parsing fails
 
-    def download_and_install_update(self, download_url, latest_version, parent_window=None):
+    def download_and_install_update(
+        self, download_url, latest_version, parent_window=None
+    ):
         """
         Download and install the update.
 
@@ -318,5 +326,7 @@ class UpdateChecker:
             )
         except Exception as e:
             QMessageBox.critical(
-                parent_window, "Update Error", f"Failed to download and install update:\n{str(e)}"
+                parent_window,
+                "Update Error",
+                f"Failed to download and install update:\n{str(e)}",
             )

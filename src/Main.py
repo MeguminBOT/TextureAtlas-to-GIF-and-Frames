@@ -20,17 +20,21 @@ DependenciesChecker.check_and_configure_imagemagick()  # This function must be c
 from utils.app_config import AppConfig  # noqa: E402
 from utils.update_checker import UpdateChecker  # noqa: E402
 from utils.settings_manager import SettingsManager  # noqa: E402
-from utils.fnf_utilities import FnfUtilities  # noqa: E402
+from utils.FNF.character_data import CharacterData  # noqa: E402
 from core.extractor import Extractor  # noqa: E402
 from gui.app_ui import Ui_TextureAtlasToolboxApp  # noqa: E402
 from gui.app_config_window import AppConfigWindow  # noqa: E402
 from gui.settings_window import SettingsWindow  # noqa: E402
-from gui.find_replace_window import FindReplaceWindow  # noqa: E402
+from gui.extractor.find_replace_window import FindReplaceWindow  # noqa: E402
 from gui.help_window import HelpWindow  # noqa: E402
 from gui.contributors_window import ContributorsWindow  # noqa: E402
-from gui.processing_window import ProcessingWindow  # noqa: E402
-from gui.compression_settings_window import CompressionSettingsWindow  # noqa: E402
-from gui.machine_translation_disclaimer_dialog import MachineTranslationDisclaimerDialog  # noqa: E402
+from gui.extractor.processing_window import ProcessingWindow  # noqa: E402
+from gui.extractor.compression_settings_window import (  # noqa: E402
+    CompressionSettingsWindow,
+)
+from gui.machine_translation_disclaimer_dialog import (
+    MachineTranslationDisclaimerDialog,
+)  # noqa: E402
 
 
 class ExtractorWorker(QThread):
@@ -54,7 +58,9 @@ class ExtractorWorker(QThread):
 
     def run(self):
         try:
-            print(f"[ExtractorWorker] Starting extraction of {len(self.spritesheet_list)} files")
+            print(
+                f"[ExtractorWorker] Starting extraction of {len(self.spritesheet_list)} files"
+            )
             completion_message = self.app_instance.run_extractor_core(
                 self.spritesheet_list, self.emit_progress
             )
@@ -74,7 +80,9 @@ class ExtractorWorker(QThread):
         print(
             f"[ExtractorWorker] Stats: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
         )
-        self.statistics_updated.emit(frames_generated, animations_generated, sprites_failed)
+        self.statistics_updated.emit(
+            frames_generated, animations_generated, sprites_failed
+        )
 
 
 class TextureAtlasExtractorApp(QMainWindow):
@@ -106,10 +114,12 @@ class TextureAtlasExtractorApp(QMainWindow):
         effective_language = self.app_config.get_effective_language()
         self.translation_manager.load_translation(effective_language)
 
-        self.fnf_utilities = FnfUtilities()
+        self.fnf_character_data = CharacterData()
         self.fnf_char_json_directory = ""
         self.replace_rules = []
-        self.linkSourceCode = "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
+        self.linkSourceCode = (
+            "https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames"
+        )
 
         # Initialize UI
         self.ui = Ui_TextureAtlasToolboxApp()
@@ -145,7 +155,9 @@ class TextureAtlasExtractorApp(QMainWindow):
     def setup_advanced_menu(self):
         """Set up the advanced menu with variable delay and FNF options."""
         # Create variable delay action
-        self.variable_delay_action = QAction(self.tr("Variable delay"), self, checkable=True)
+        self.variable_delay_action = QAction(
+            self.tr("Variable delay"), self, checkable=True
+        )
         self.variable_delay_action.setChecked(self.variable_delay)
         self.variable_delay_action.setStatusTip(
             self.tr("Enable variable delay between frames for more accurate timing")
@@ -157,7 +169,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         )
         self.fnf_idle_loop_action.setChecked(self.fnf_idle_loop)
         self.fnf_idle_loop_action.setStatusTip(
-            self.tr("Automatically set loop delay to 0 for animations with 'idle' in their name")
+            self.tr(
+                "Automatically set loop delay to 0 for animations with 'idle' in their name"
+            )
         )
 
         # Add actions to advanced menu
@@ -188,13 +202,17 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Add the editor tab for manual alignment workflows."""
         from gui.editor_tab_widget import EditorTabWidget
 
-        use_existing_ui = hasattr(self.ui, "tool_editor") and self.ui.tool_editor is not None
+        use_existing_ui = (
+            hasattr(self.ui, "tool_editor") and self.ui.tool_editor is not None
+        )
         self.editor_tab_widget = EditorTabWidget(self, use_existing_ui=use_existing_ui)
 
         if use_existing_ui:
             existing_index = self.ui.tools_tab.indexOf(self.ui.tool_editor)
             if existing_index == -1:
-                existing_index = self.ui.tools_tab.addTab(self.ui.tool_editor, self.tr("Editor"))
+                existing_index = self.ui.tools_tab.addTab(
+                    self.ui.tool_editor, self.tr("Editor")
+                )
             self._editor_tab_index = existing_index
             self.ui.tools_tab.setTabText(existing_index, self.tr("Editor"))
         else:
@@ -223,16 +241,24 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.scale_entry = self.extract_tab_widget.scale_entry
         self.ui.threshold_entry = self.extract_tab_widget.threshold_entry
         self.ui.frame_scale_entry = self.extract_tab_widget.frame_scale_entry
-        self.ui.frame_selection_combobox = self.extract_tab_widget.frame_selection_combobox
-        self.ui.cropping_method_combobox = self.extract_tab_widget.cropping_method_combobox
-        self.ui.filename_format_combobox = self.extract_tab_widget.filename_format_combobox
+        self.ui.frame_selection_combobox = (
+            self.extract_tab_widget.frame_selection_combobox
+        )
+        self.ui.cropping_method_combobox = (
+            self.extract_tab_widget.cropping_method_combobox
+        )
+        self.ui.filename_format_combobox = (
+            self.extract_tab_widget.filename_format_combobox
+        )
         self.ui.filename_prefix_entry = self.extract_tab_widget.filename_prefix_entry
         self.ui.filename_suffix_entry = self.extract_tab_widget.filename_suffix_entry
         self.ui.input_button = self.extract_tab_widget.input_button
         self.ui.output_button = self.extract_tab_widget.output_button
         self.ui.start_process_button = self.extract_tab_widget.start_process_button
         self.ui.reset_button = self.extract_tab_widget.reset_button
-        self.ui.advanced_filename_button = self.extract_tab_widget.advanced_filename_button
+        self.ui.advanced_filename_button = (
+            self.extract_tab_widget.advanced_filename_button
+        )
         self.ui.show_override_settings_button = (
             self.extract_tab_widget.show_override_settings_button
         )
@@ -242,14 +268,18 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.override_animation_settings_button = (
             self.extract_tab_widget.override_animation_settings_button
         )
-        self.ui.compression_settings_button = self.extract_tab_widget.compression_settings_button
+        self.ui.compression_settings_button = (
+            self.extract_tab_widget.compression_settings_button
+        )
 
         print("Extract tab setup completed successfully")
 
     def setup_gui(self):
         """Sets up the GUI components of the application."""
         self.setWindowTitle(
-            self.tr("TextureAtlas Toolbox v{version}").format(version=self.current_version)
+            self.tr("TextureAtlas Toolbox v{version}").format(
+                version=self.current_version
+            )
         )
         self.resize(900, 770)
 
@@ -280,7 +310,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.ui.frame_scale_entry.setValue(defaults.get("frame_scale", 1.0))
 
         # Set default groupbox states
-        self.ui.animation_export_group.setChecked(defaults.get("animation_export", True))
+        self.ui.animation_export_group.setChecked(
+            defaults.get("animation_export", True)
+        )
         self.ui.frame_export_group.setChecked(defaults.get("frame_export", True))
 
         # Set default selections using index mapping to avoid translation issues
@@ -301,7 +333,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             self.ui.frame_format_combobox.setCurrentIndex(format_index)
 
     def _on_tools_tab_changed(self, index: int):
-        editor_active = hasattr(self, "_editor_tab_index") and index == getattr(self, "_editor_tab_index", -1)
+        editor_active = hasattr(self, "_editor_tab_index") and index == getattr(
+            self, "_editor_tab_index", -1
+        )
         self._apply_editor_window_constraints(editor_active)
 
     def _apply_editor_window_constraints(self, editor_active: bool):
@@ -318,8 +352,12 @@ class TextureAtlasExtractorApp(QMainWindow):
         else:
             self.setMinimumSize(self._default_minimum_size)
             if self._pre_editor_size is not None:
-                target_width = max(self._default_minimum_size.width(), self._pre_editor_size.width())
-                target_height = max(self._default_minimum_size.height(), self._pre_editor_size.height())
+                target_width = max(
+                    self._default_minimum_size.width(), self._pre_editor_size.width()
+                )
+                target_height = max(
+                    self._default_minimum_size.height(), self._pre_editor_size.height()
+                )
                 self.resize(target_width, target_height)
                 self._pre_editor_size = None
         self._resize_tools_tab_to_window()
@@ -337,9 +375,15 @@ class TextureAtlasExtractorApp(QMainWindow):
     def setup_connections(self):
         """Sets up signal-slot connections for UI elements."""
         # Menu actions - connect to extract tab widget methods
-        self.ui.select_directory.triggered.connect(self.extract_tab_widget.select_directory)
-        self.ui.select_files.triggered.connect(self.extract_tab_widget.select_files_manually)
-        self.ui.clear_export_list.triggered.connect(self.extract_tab_widget.clear_filelist)
+        self.ui.select_directory.triggered.connect(
+            self.extract_tab_widget.select_directory
+        )
+        self.ui.select_files.triggered.connect(
+            self.extract_tab_widget.select_files_manually
+        )
+        self.ui.clear_export_list.triggered.connect(
+            self.extract_tab_widget.clear_filelist
+        )
         self.ui.preferences.triggered.connect(self.create_app_config_window)
         self.ui.fnf_import_settings.triggered.connect(self.fnf_import_settings)
         self.ui.help_manual.triggered.connect(self.show_help_manual)
@@ -365,7 +409,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open language selection: {error}").format(error=str(e)),
+                self.tr("Could not open language selection: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def create_app_config_window(self):
@@ -410,7 +456,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open contributors window: {error}").format(error=str(e)),
+                self.tr("Could not open contributors window: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def show_compression_settings(self):
@@ -428,19 +476,25 @@ class TextureAtlasExtractorApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Error"),
-                self.tr("Could not open compression settings window: {error}").format(error=str(e)),
+                self.tr("Could not open compression settings window: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def create_find_and_replace_window(self):
         """Creates the Find and Replace window."""
         try:
-            dialog = FindReplaceWindow(self.store_replace_rules, self.replace_rules, self)
+            dialog = FindReplaceWindow(
+                self.store_replace_rules, self.replace_rules, self
+            )
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(
                 self,
                 self.tr("Warning"),
-                self.tr("Could not open find/replace window: {error}").format(error=str(e)),
+                self.tr("Could not open find/replace window: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def create_settings_window(self):
@@ -479,12 +533,19 @@ class TextureAtlasExtractorApp(QMainWindow):
                 file_dir = os.path.dirname(file_path)
                 self.app_config.set_last_input_directory(file_dir)
 
-                # Use the existing FNF utilities
-                self.fnf_utilities.import_character_settings(file_path, self.settings_manager)
-                QMessageBox.information(
-                    self, self.tr("Success"), self.tr("FNF settings imported successfully!")
+                # Use the shared FNF character data helper
+                self.fnf_character_data.import_character_settings(
+                    file_path, self.settings_manager
                 )
-                if hasattr(self, "editor_tab_widget") and self.editor_tab_widget is not None:
+                QMessageBox.information(
+                    self,
+                    self.tr("Success"),
+                    self.tr("FNF settings imported successfully!"),
+                )
+                if (
+                    hasattr(self, "editor_tab_widget")
+                    and self.editor_tab_widget is not None
+                ):
                     try:
                         self.editor_tab_widget.enable_flxsprite_origin_mode()
                     except AttributeError:
@@ -493,7 +554,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                 QMessageBox.warning(
                     self,
                     self.tr("Error"),
-                    self.tr("Failed to import FNF settings: {error}").format(error=str(e)),
+                    self.tr("Failed to import FNF settings: {error}").format(
+                        error=str(e)
+                    ),
                 )
 
     def check_version(self, force=False):
@@ -518,18 +581,23 @@ class TextureAtlasExtractorApp(QMainWindow):
                 QMessageBox.warning(
                     self,
                     self.tr("Update Check Failed"),
-                    self.tr("Could not check for updates: {error}").format(error=str(e)),
+                    self.tr("Could not check for updates: {error}").format(
+                        error=str(e)
+                    ),
                 )
 
     def update_ui_state(self, *args):
         """Updates the UI state based on current selections and settings."""
         both_export_unchecked = not (
-            self.ui.animation_export_group.isChecked() or self.ui.frame_export_group.isChecked()
+            self.ui.animation_export_group.isChecked()
+            or self.ui.frame_export_group.isChecked()
         )
         self.ui.start_process_button.setEnabled(not both_export_unchecked)
 
         has_spritesheet_selected = self.ui.listbox_png.currentItem() is not None
-        self.ui.override_spritesheet_settings_button.setEnabled(has_spritesheet_selected)
+        self.ui.override_spritesheet_settings_button.setEnabled(
+            has_spritesheet_selected
+        )
 
         has_animation_selected = self.ui.listbox_data.currentItem() is not None
         self.ui.override_animation_settings_button.setEnabled(has_animation_selected)
@@ -569,7 +637,9 @@ class TextureAtlasExtractorApp(QMainWindow):
     def start_process(self):
         """Prepares and starts the processing thread."""
         # Use the extract tab widget's preparation method
-        is_ready, error_message, spritesheet_list = self.extract_tab_widget.prepare_for_extraction()
+        is_ready, error_message, spritesheet_list = (
+            self.extract_tab_widget.prepare_for_extraction()
+        )
 
         if not is_ready:
             QMessageBox.warning(self, self.tr("Error"), error_message)
@@ -620,7 +690,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                 progress_signal(current, total, filename)
 
             # Create statistics callback to track generation statistics
-            def statistics_callback(frames_generated, animations_generated, sprites_failed):
+            def statistics_callback(
+                frames_generated, animations_generated, sprites_failed
+            ):
                 print(
                     f"[statistics_callback] F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
                 )
@@ -632,7 +704,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                         frames_generated, animations_generated, sprites_failed
                     )
                 else:
-                    print("[statistics_callback] No worker available to emit statistics")
+                    print(
+                        "[statistics_callback] No worker available to emit statistics"
+                    )
 
             # Create debug callback to send processing log updates
             def debug_callback(message):
@@ -696,7 +770,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         else:
             print("[on_progress_updated] No processing window available")
 
-    def on_statistics_updated(self, frames_generated, animations_generated, sprites_failed):
+    def on_statistics_updated(
+        self, frames_generated, animations_generated, sprites_failed
+    ):
         """Updates the processing window with statistics information."""
         print(
             f"[on_statistics_updated] F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
@@ -723,7 +799,10 @@ class TextureAtlasExtractorApp(QMainWindow):
     def on_worker_question(self, title, message):
         """Handle question dialogs from worker thread."""
         reply = QMessageBox.question(
-            self, title, message, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         # Send the response back to the worker
         if hasattr(self, "worker"):
@@ -837,7 +916,9 @@ class TextureAtlasExtractorApp(QMainWindow):
     def show_animation_preview_window(self, animation_path, settings):
         """Shows the animation preview window for the given animation file."""
         try:
-            from gui.animation_preview_window import AnimationPreviewWindow
+            from gui.extractor.animation_preview_window import (
+                AnimationPreviewWindow,
+            )
 
             # Create and show the preview window
             preview_window = AnimationPreviewWindow(self, animation_path, settings)
@@ -850,7 +931,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 self.tr("Preview Error"),
-                self.tr("Could not open animation preview: {error}").format(error=str(e)),
+                self.tr("Could not open animation preview: {error}").format(
+                    error=str(e)
+                ),
             )
 
     def handle_preview_settings_saved(self, preview_settings):
@@ -882,7 +965,14 @@ class TextureAtlasExtractorApp(QMainWindow):
             ),
         )
 
-    def preview_animation_with_paths(self, spritesheet_path, metadata_path, animation_name, spritemap_info=None, spritesheet_label=None):
+    def preview_animation_with_paths(
+        self,
+        spritesheet_path,
+        metadata_path,
+        animation_name,
+        spritemap_info=None,
+        spritesheet_label=None,
+    ):
         """Preview an animation given the paths and animation name. Used by ExtractTabWidget."""
         try:
             # Generate temp animation for preview
@@ -894,7 +984,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             spritesheet_name = spritesheet_label or os.path.basename(spritesheet_path)
 
             # Get complete preview settings that include global, spritesheet, and animation overrides
-            preview_settings = self.get_complete_preview_settings(spritesheet_name, animation_name)
+            preview_settings = self.get_complete_preview_settings(
+                spritesheet_name, animation_name
+            )
 
             temp_path = extractor.generate_temp_animation_for_preview(
                 atlas_path=spritesheet_path,
@@ -912,7 +1004,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                 from PySide6.QtWidgets import QMessageBox
 
                 QMessageBox.warning(
-                    self, self.tr("Preview Error"), self.tr("Could not generate animation preview.")
+                    self,
+                    self.tr("Preview Error"),
+                    self.tr("Could not generate animation preview."),
                 )
 
         except Exception as e:

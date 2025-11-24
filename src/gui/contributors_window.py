@@ -141,7 +141,9 @@ class ContributorsWindow(QDialog):
             links_layout = QHBoxLayout()
             for link_text, link_url in contributor_data["links"]:
                 link_btn = QPushButton(link_text)
-                link_btn.clicked.connect(lambda checked, url=link_url: self.open_link(url))
+                link_btn.clicked.connect(
+                    lambda checked, url=link_url: self.open_link(url)
+                )
                 link_btn.setMaximumWidth(150)
                 links_layout.addWidget(link_btn)
             links_layout.addStretch()
