@@ -366,6 +366,7 @@ class ProcessingWindow(QDialog):
             cursor = self.log_text.textCursor()
             cursor.movePosition(cursor.MoveOperation.End)
             self.log_text.setTextCursor(cursor)
+
     def update_current_files(self, current_files_text):
         """Update the current files being processed."""
         if current_files_text:
