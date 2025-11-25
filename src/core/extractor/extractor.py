@@ -2,7 +2,7 @@ import os
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from queue import Empty, Queue, SimpleQueue
+from queue import SimpleQueue, Empty
 from threading import Event
 
 from PySide6.QtCore import QCoreApplication, QThread, Signal
@@ -55,9 +55,18 @@ class Extractor:
         self.fnf_idle_loop = False
         self.preview_generator = PreviewGenerator(settings_manager, current_version)
         self.unknown_handler = UnknownSpritesheetHandler()
+        # Opt-in flag so stats logging does not spam unless explicitly requested.
         self._trace_stats = False
+        self._stats_queue = SimpleQueue()
         self._progress_callback = None
         self.work_in_progress = {}
+        self._worker_labels = {}
+        self._last_started_file = None
+        self._progress_dirty = False
+        self._last_progress_emit = 0.0
+        self._progress_emit_interval = 0.12  # seconds between UI payloads
+        self._qt_event_interval = 0.04
+        self._last_qt_event_pump = 0.0
 
     def process_directory(
         self,
@@ -92,7 +101,6 @@ class Extractor:
                 self.file_queue.put(None)
         else:
             self._workers_done_event.set()
-        self._log_processing_configuration(cpu_threads, len(filenames), max_threads)
         self._start_worker_pool(
             max_threads,
             input_dir,
@@ -103,9 +111,6 @@ class Extractor:
         self._finalize_directory_processing()
 
         if self.statistics_callback:
-            print(
-                f"[process_directory] Final statistics callback: F:{self.total_frames_generated}, A:{self.total_anims_generated}, S:{self.total_sprites_failed}"
-            )
             self.statistics_callback(
                 self.total_frames_generated,
                 self.total_anims_generated,
@@ -118,13 +123,22 @@ class Extractor:
         self.total_sprites_failed = 0
         self.processed_count = 0
         self.active_workers = []
-        self.stats_queue = Queue()
+        self._stats_queue = SimpleQueue()
         self.file_queue = SimpleQueue()
         self.work_in_progress = {}
+        self._worker_labels = {}
+        self._last_started_file = None
         if hasattr(self, "_workers_done_event"):
             self._workers_done_event.clear()
         else:
             self._workers_done_event = Event()
+        if hasattr(self, "_stats_available_event"):
+            self._stats_available_event.clear()
+        else:
+            self._stats_available_event = Event()
+        self._progress_dirty = False
+        self._last_progress_emit = 0.0
+        self._last_qt_event_pump = 0.0
 
     def _choose_progress_callback(self, override_callback):
         return self.progress_callback or override_callback
@@ -132,44 +146,24 @@ class Extractor:
     def _resolve_cpu_threads(self):
         cpu_threads = max(1, os.cpu_count() // 2)
         if not self.app_config:
-            print(
-                f"[Extractor] No app config available, using default {cpu_threads} CPU threads"
-            )
             return cpu_threads
 
         try:
             resource_limits = self.app_config.settings.get("resource_limits", {})
             cpu_cores_val = resource_limits.get("cpu_cores", "auto")
-            print(f"[Extractor] CPU cores setting from config: {cpu_cores_val}")
 
             if cpu_cores_val != "auto":
                 configured_threads = int(cpu_cores_val)
                 cpu_threads = max(1, min(configured_threads, os.cpu_count()))
-                print(
-                    f"[Extractor] Using {cpu_threads} CPU threads (from config: {cpu_cores_val})"
-                )
             else:
                 cpu_threads = max(1, os.cpu_count() // 2)
-                print(
-                    f"[Extractor] Using {cpu_threads} CPU threads (auto mode: {os.cpu_count()} cores / 2)"
-                )
-        except (ValueError, TypeError, KeyError) as exc:
+        except (ValueError, TypeError, KeyError):
             cpu_threads = max(1, os.cpu_count() // 2)
-            print(
-                f"[Extractor] Error reading CPU config ({exc}), using fallback: {cpu_threads} threads"
-            )
         return cpu_threads
 
     @staticmethod
     def _determine_worker_budget(cpu_threads, file_count):
         return min(cpu_threads, file_count)
-
-    @staticmethod
-    def _log_processing_configuration(cpu_threads, file_count, max_threads):
-        print("[Extractor] Processing configuration:")
-        print(f"  - CPU threads configured: {cpu_threads}")
-        print(f"  - Files to process: {file_count}")
-        print(f"  - Workers to start: {max_threads}")
 
     def _start_worker_pool(
         self,
@@ -179,11 +173,9 @@ class Extractor:
         parent_window,
     ):
         if not max_threads:
-            print("[_start_worker_pool] No workers created (max_threads=0)")
             return
 
         for i in range(max_threads):
-            print(f"[_start_worker_pool] Starting worker {i + 1}/{max_threads}")
             worker = FileProcessorWorker(
                 input_dir,
                 output_dir,
@@ -191,6 +183,10 @@ class Extractor:
                 self,
                 self.file_queue,
             )
+
+            label = f"Worker {i + 1}"
+            worker.setObjectName(label)
+            self._worker_labels[worker] = label
 
             worker.file_completed.connect(self._on_file_completed)
             worker.file_failed.connect(self._on_file_failed)
@@ -205,21 +201,27 @@ class Extractor:
             self.active_workers.append(worker)
             worker.start()
 
-        print(f"[_start_worker_pool] Started {len(self.active_workers)} workers")
-
     def _monitor_workers(self):
-        """Drain statistics queue while periodically yielding to Qt events."""
-        poll_timeout = 0.05
-
+        """Drain statistics queue using blocking waits to reduce idle spin."""
         while True:
-            should_block = not self._workers_done_event.is_set()
-            self._drain_stats_queue(block=should_block, timeout=poll_timeout)
-            self._process_qt_events()
+            processed = self._drain_stats_queue()
+            if not processed:
+                timeout = self._compute_wait_timeout()
+                woke_for_stats = self._stats_available_event.wait(timeout)
+                if not woke_for_stats:
+                    self._maybe_process_qt_events(force=True)
+                else:
+                    self._maybe_process_qt_events()
+            else:
+                self._maybe_process_qt_events()
 
-            if self._workers_done_event.is_set() and self.stats_queue.empty():
+            self._update_progress_text()
+
+            if self._workers_done_event.is_set() and self._stats_queue_empty():
                 break
 
         self._drain_stats_queue()
+        self._update_progress_text(force=True)
 
     @staticmethod
     def _process_qt_events():
@@ -227,19 +229,30 @@ class Extractor:
         if app is not None:
             QCoreApplication.processEvents()
 
+    def _maybe_process_qt_events(self, *, force=False):
+        now = time.monotonic()
+        if force or (now - self._last_qt_event_pump) >= self._qt_event_interval:
+            self._process_qt_events()
+            self._last_qt_event_pump = now
+
+    def _compute_wait_timeout(self):
+        active_tasks = len(self.work_in_progress)
+        if active_tasks:
+            return 0.015
+        if self.active_workers:
+            return 0.05
+        return 0.08
+
     def _finalize_directory_processing(self):
-        print(
-            f"[process_directory] All workers finished. Final totals before completion: F:{self.total_frames_generated}, A:{self.total_anims_generated}, S:{self.total_sprites_failed}"
-        )
         end_time = time.time()
         duration = end_time - self.start_time
-        minutes, seconds = divmod(duration, 60)
-
-        print("Finished processing all files.")
-        print(f"Frames Generated: {self.total_frames_generated}")
-        print(f"Animations Generated: {self.total_anims_generated}")
-        print(f"Sprites Failed: {self.total_sprites_failed}")
-        print(f"Processing Duration: {int(minutes)} minutes and {int(seconds)} seconds")
+        self._last_processing_finished = end_time
+        self._last_processing_duration = duration
+        self._last_processing_totals = (
+            self.total_frames_generated,
+            self.total_anims_generated,
+            self.total_sprites_failed,
+        )
 
     def _queue_stats_update(
         self,
@@ -250,36 +263,45 @@ class Extractor:
         processed_delta=1,
         debug_message=None,
     ):
-        self.stats_queue.put(
-            {
-                "frames_delta": frames_delta,
-                "anims_delta": anims_delta,
-                "failed_delta": failed_delta,
-                "processed_delta": processed_delta,
-                "debug_message": debug_message,
-            }
-        )
+        update = {
+            "frames_delta": frames_delta,
+            "anims_delta": anims_delta,
+            "failed_delta": failed_delta,
+            "processed_delta": processed_delta,
+            "debug_message": debug_message,
+        }
+        self._stats_queue.put(update)
+        if hasattr(self, "_stats_available_event"):
+            self._stats_available_event.set()
 
-    def _drain_stats_queue(self, *, block=False, timeout=0.5):
+    def _drain_stats_queue(self):
         processed = False
         while True:
             try:
-                if block and not processed:
-                    update = self.stats_queue.get(timeout=timeout)
-                else:
-                    update = self.stats_queue.get_nowait()
+                update = self._stats_queue.get(block=False)
             except Empty:
                 break
             self._apply_stats_update(update)
             processed = True
 
+        if processed:
+            self._update_progress_text()
+
+        if not self._stats_queue_empty() and hasattr(self, "_stats_available_event"):
+            # Leave event set so waiters wake immediately for remaining items.
+            pass
+        elif hasattr(self, "_stats_available_event"):
+            self._stats_available_event.clear()
+
         return processed
+
+    def _stats_queue_empty(self):
+        return self._stats_queue.empty()
 
     def _apply_stats_update(self, update):
         frames_delta = update.get("frames_delta", 0)
         anims_delta = update.get("anims_delta", 0)
         failed_delta = update.get("failed_delta", 0)
-        debug_message = update.get("debug_message")
 
         processed_delta = update.get("processed_delta", 0)
 
@@ -299,44 +321,104 @@ class Extractor:
                 f"[_apply_stats_update] Totals: {stats_snapshot[0]} frames, {stats_snapshot[1]} anims, {stats_snapshot[2]} failed"
             )
 
-        if debug_message and hasattr(self, "debug_callback") and self.debug_callback:
-            self.debug_callback(debug_message)
-
         if self.statistics_callback:
             self.statistics_callback(*stats_snapshot)
 
-        self._update_progress_text()
+        self._progress_dirty = True
 
     def _on_worker_task_started(self, worker, filename):
         if worker:
             self.work_in_progress[worker] = filename
-        self._update_progress_text()
+        if filename:
+            self._last_started_file = str(filename)
+        self._progress_dirty = True
+        self._update_progress_text(force=True)
 
     def _on_worker_task_finished(self, worker, filename):
         if worker in self.work_in_progress:
             self.work_in_progress.pop(worker, None)
-        self._update_progress_text()
+        self._progress_dirty = True
+        self._update_progress_text(force=True)
 
-    def _update_progress_text(self):
+    def _update_progress_text(self, *, force=False):
         if not self._progress_callback:
             return
 
-        processing_files = [
-            name for name in self.work_in_progress.values() if name is not None
-        ]
-        if processing_files:
-            current_files_text = ", ".join(processing_files)
+        if not force and not self._progress_dirty:
+            return
+
+        now = time.monotonic()
+        if not force and (now - self._last_progress_emit) < self._progress_emit_interval:
+            return
+
+        snapshot = self._build_worker_status_snapshot()
+        summary_text = snapshot.get("summary") if snapshot else ""
+        if summary_text:
+            current_files_text = summary_text
         elif self.active_workers:
             current_files_text = "Initializing..."
         else:
             current_files_text = "Completing..."
 
         total = getattr(self, "total_files", 0)
-        self._progress_callback(self.processed_count, total, current_files_text)
+        if snapshot is not None:
+            snapshot["fallback"] = current_files_text
+        self._progress_callback(
+            self.processed_count, total, snapshot or current_files_text
+        )
+        self._progress_dirty = False
+        self._last_progress_emit = now
+
+    def _build_worker_status_snapshot(self, limit=4):
+        worker_rows = []
+        processing_count = 0
+
+        for idx, worker in enumerate(self.active_workers):
+            label = self._worker_labels.get(worker, f"Worker {idx + 1}")
+            current = self.work_in_progress.get(worker)
+            display_name = Path(current).name if current else "idle"
+            if current:
+                processing_count += 1
+            worker_rows.append(
+                {
+                    "label": label,
+                    "display": display_name,
+                    "path": str(current) if current else "",
+                    "state": "processing" if current else "idle",
+                }
+            )
+
+        worker_count = len(self.active_workers)
+        if worker_count:
+            summary = self._format_worker_summary(processing_count, worker_count)
+        else:
+            summary = "No workers active"
+
+        recent_full_path = self._last_started_file
+        recent_display = (
+            Path(recent_full_path).name if recent_full_path else None
+        )
+
+        return {
+            "summary": summary,
+            "workers": worker_rows,
+            "hidden_count": 0,
+            "worker_count": worker_count,
+            "recent_full_path": recent_full_path,
+            "recent_display": recent_display,
+        }
+
+    @staticmethod
+    def _format_worker_summary(processing_count, worker_count):
+        running_plural = "s" if processing_count != 1 else ""
+        total_plural = "s" if worker_count != 1 else ""
+        return (
+            f"{processing_count} worker{running_plural} running "
+            f"(of {worker_count} total worker{total_plural})"
+        )
 
     def _on_file_completed(self, filename, result):
         """Handle successful file completion."""
-        print(f"[_on_file_completed] {filename} completed with result: {result}")
         debug_message = None
         frames_added = 0
         anims_added = 0
@@ -346,19 +428,8 @@ class Extractor:
             frames_added = result.get("frames_generated", 0)
             anims_added = result.get("anims_generated", 0)
             failed_added = result.get("sprites_failed", 0)
-
-            print(
-                f"[_on_file_completed] Pending totals delta: {frames_added} frames, {anims_added} anims, {failed_added} failed"
-            )
-
-            if hasattr(self, "debug_callback") and self.debug_callback:
-                debug_message = f"✓ {filename}: {frames_added} frames, {anims_added} animations generated"
         else:
             failed_added = 1
-            print(f"[_on_file_completed] {filename} failed - no result returned")
-
-            if hasattr(self, "debug_callback") and self.debug_callback:
-                debug_message = f"✗ {filename}: Processing failed - no result returned"
 
         self._queue_stats_update(
             frames_delta=frames_added,
@@ -372,27 +443,22 @@ class Extractor:
         """Handle file processing failure."""
         print(f"Error processing {filename}: {error}")
 
-        if hasattr(self, "debug_callback") and self.debug_callback:
-            self.debug_callback(f"✗ {filename}: Error - {error}")
-
         self._queue_stats_update(failed_delta=1, processed_delta=1)
 
     def _worker_finished(self, worker):
         """Handle worker shutdown once it has consumed its sentinel."""
-        print(
-            f"[_worker_finished] Worker {getattr(worker, 'objectName', id(worker))} finished"
-        )
-
         if worker in self.active_workers:
             worker.wait()
             worker.deleteLater()
             self.active_workers.remove(worker)
+            self._worker_labels.pop(worker, None)
 
         self.work_in_progress.pop(worker, None)
         if not self.active_workers:
             self._workers_done_event.set()
 
-        self._update_progress_text()
+        self._progress_dirty = True
+        self._update_progress_text(force=True)
 
     def extract_sprites(
         self,
@@ -432,7 +498,6 @@ class Extractor:
                 "anims_generated": anims_generated,
                 "sprites_failed": sprites_failed,
             }
-            print(f"[extract_sprites] Returning result for {atlas_path}: {result}")
             return result
 
         except ET.ParseError:
@@ -590,10 +655,6 @@ class FileProcessorWorker(QThread):
 
     def _process_single_file(self, filename, thread_id):
         try:
-            print(
-                f"[FileProcessorWorker] Starting processing of {filename} on thread {thread_id} at {time.time():.3f}"
-            )
-
             relative_path = Path(filename)
             atlas_path = Path(self.input_dir) / relative_path
             atlas_dir = atlas_path.parent
@@ -624,20 +685,12 @@ class FileProcessorWorker(QThread):
                 and not has_metadata
                 and not (os.path.isfile(image_path) and image_is_supported)
             ):
-                print(
-                    f"[FileProcessorWorker] No valid processing path found for {filename}"
-                )
                 self.file_failed.emit(filename, "No valid processing path found")
                 return
 
             settings = self.extractor.settings_manager.get_settings(filename)
 
-            print(
-                f"[FileProcessorWorker] {filename} about to start extract_sprites on thread {thread_id}"
-            )
-
             if has_animation_project:
-                print(f"[FileProcessorWorker] Processing {filename} as Adobe spritemap")
                 result = self.extractor.extract_spritemap_project(
                     image_path,
                     str(animation_json_path),
@@ -646,13 +699,9 @@ class FileProcessorWorker(QThread):
                     settings,
                     spritesheet_label=filename,
                 )
-                print(
-                    f"[FileProcessorWorker] {filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}"
-                )
                 self.file_completed.emit(filename, result)
 
             elif has_metadata:
-                print(f"[FileProcessorWorker] Processing {filename} with metadata")
                 result = self.extractor.extract_sprites(
                     image_path,
                     metadata_file,
@@ -661,15 +710,9 @@ class FileProcessorWorker(QThread):
                     None,
                     spritesheet_label=filename,
                 )
-                print(
-                    f"[FileProcessorWorker] {filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}"
-                )
                 self.file_completed.emit(filename, result)
 
             else:
-                print(
-                    f"[FileProcessorWorker] Processing {filename} as unknown spritesheet"
-                )
                 result = self.extractor.extract_sprites(
                     image_path,
                     None,
@@ -677,9 +720,6 @@ class FileProcessorWorker(QThread):
                     settings,
                     None,
                     spritesheet_label=filename,
-                )
-                print(
-                    f"[FileProcessorWorker] {filename} completed with result: {result} on thread {thread_id} at {time.time():.3f}"
                 )
                 self.file_completed.emit(filename, result)
 

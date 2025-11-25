@@ -3,6 +3,7 @@ from PIL.PngImagePlugin import PngInfo
 import pillow_avif  # DO NOT REMOVE
 
 # Import our own modules
+from core.extractor.image_utils import ensure_pil_image
 from utils.utilities import Utilities
 
 
@@ -90,7 +91,7 @@ class FrameExporter:
                 frame_filename = os.path.join(
                     frames_folder, f"{formatted_frame_name}{file_extension}"
                 )
-                frame_image = frame[1]
+                frame_image = ensure_pil_image(frame[1])
                 final_frame_image = self._prepare_frame_image(
                     frame_image,
                     crop_option,
@@ -139,7 +140,7 @@ class FrameExporter:
         min_x, min_y, max_x, max_y = float("inf"), float("inf"), 0, 0
         for index, frame in enumerate(image_tuples):
             if index in kept_frame_indices:
-                bbox = frame[1].getbbox()
+                bbox = ensure_pil_image(frame[1]).getbbox()
                 if bbox:
                     min_x = min(min_x, bbox[0])
                     min_y = min(min_y, bbox[1])

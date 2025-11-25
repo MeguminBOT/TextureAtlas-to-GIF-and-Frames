@@ -1,6 +1,6 @@
 import re
 
-from PIL import Image
+import numpy as np
 
 from utils.utilities import Utilities
 
@@ -12,6 +12,8 @@ class SpriteProcessor:
         self.atlas = atlas
         # Cache an RGBA atlas so downstream crops avoid repeated conversions.
         self._atlas_rgba = atlas if atlas.mode == "RGBA" else atlas.convert("RGBA")
+        # Keep a NumPy view of the atlas so each sprite extraction is a cheap slice.
+        self._atlas_array = np.ascontiguousarray(np.asarray(self._atlas_rgba))
         self.sprites = sprites
 
     def process_sprites(self):
@@ -76,25 +78,65 @@ class SpriteProcessor:
         frame_height = sprite.get("frameHeight", height)
         rotated = sprite.get("rotated", False)
 
-        sprite_image = self._atlas_rgba.crop((x, y, x + width, y + height))
+        sprite_array = self._atlas_array[y : y + height, x : x + width]
         requires_canvas = rotated or frame_x or frame_y
 
         if rotated:
-            sprite_image = sprite_image.rotate(90, expand=True)
+            sprite_array = np.rot90(sprite_array)
+            sprite_height, sprite_width = sprite_array.shape[:2]
             frame_width = max(height - frame_x, frame_width, 1)
             frame_height = max(width - frame_y, frame_height, 1)
         else:
+            sprite_height, sprite_width = sprite_array.shape[:2]
             frame_width = max(width - frame_x, frame_width, 1)
             frame_height = max(height - frame_y, frame_height, 1)
 
-        if frame_width != sprite_image.width or frame_height != sprite_image.height:
+        if frame_width != sprite_width or frame_height != sprite_height:
             requires_canvas = True
 
         if requires_canvas:
-            frame_image = Image.new("RGBA", (frame_width, frame_height))
-            frame_image.paste(sprite_image, (-frame_x, -frame_y))
+            frame_array = self._compose_frame_array(
+                sprite_array,
+                frame_width,
+                frame_height,
+                frame_x,
+                frame_y,
+            )
         else:
-            frame_image = sprite_image
+            frame_array = sprite_array
 
         metadata = (x, y, width, height, frame_x, frame_y)
-        return name, frame_image, metadata
+        return name, frame_array, metadata
+
+    @staticmethod
+    def _compose_frame_array(
+        sprite_array: np.ndarray,
+        frame_width: int,
+        frame_height: int,
+        frame_x: int,
+        frame_y: int,
+    ) -> np.ndarray:
+        """Place the trimmed sprite onto its logical canvas using NumPy slices."""
+
+        canvas = np.zeros((frame_height, frame_width, sprite_array.shape[2]), dtype=np.uint8)
+
+        # Negative frame offsets mean the sprite content belongs farther right/down on the canvas.
+        dest_x = max(0, -frame_x)
+        dest_y = max(0, -frame_y)
+        src_x = max(0, frame_x)
+        src_y = max(0, frame_y)
+
+        copy_width = min(frame_width - dest_x, sprite_array.shape[1] - src_x)
+        copy_height = min(frame_height - dest_y, sprite_array.shape[0] - src_y)
+
+        if copy_width > 0 and copy_height > 0:
+            canvas[
+                dest_y : dest_y + copy_height,
+                dest_x : dest_x + copy_width,
+            ] = sprite_array[
+                src_y : src_y + copy_height,
+                src_x : src_x + copy_width,
+            ]
+
+        return canvas
+

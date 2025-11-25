@@ -6,7 +6,11 @@ from PIL import Image
 from core.extractor.animation_exporter import AnimationExporter
 from core.extractor.frame_exporter import FrameExporter
 from core.extractor.frame_pipeline import FramePipeline
-from core.extractor.image_utils import scale_image_nearest
+from core.extractor.image_utils import (
+    ensure_pil_image,
+    frame_dimensions,
+    scale_image_nearest,
+)
 from core.editor.editor_composite import (
     clone_animation_map,
     build_editor_composite_frames,
@@ -67,7 +71,6 @@ class AnimationProcessor:
         spritesheet_name = self.spritesheet_label
 
         for animation_name, image_tuples in self.animations.items():
-            print(f"Processing animation: {animation_name}")
 
             settings = self.settings_manager.get_settings(
                 spritesheet_name, f"{spritesheet_name}/{animation_name}"
@@ -184,13 +187,14 @@ class AnimationProcessor:
             canvas_width = max(1, int(canvas[0]))
             canvas_height = max(1, int(canvas[1]))
         else:
-            widths = [img[1].width for img in image_tuples]
-            heights = [img[1].height for img in image_tuples]
+            widths = [frame_dimensions(img[1])[0] for img in image_tuples]
+            heights = [frame_dimensions(img[1])[1] for img in image_tuples]
             canvas_width = max(widths) if widths else 1
             canvas_height = max(heights) if heights else 1
 
         adjusted = []
         for name, frame_image, metadata in image_tuples:
+            frame_image = ensure_pil_image(frame_image)
             offset_data = frames_map.get(name, {})
             offset_x = int(offset_data.get("x", default_x))
             offset_y = int(offset_data.get("y", default_y))
