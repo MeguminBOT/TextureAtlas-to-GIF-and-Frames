@@ -1,6 +1,6 @@
 import os
 from PIL.PngImagePlugin import PngInfo
-import pillow_avif  # DO NOT REMOVE
+
 
 # Import our own modules
 from core.extractor.image_utils import ensure_pil_image
