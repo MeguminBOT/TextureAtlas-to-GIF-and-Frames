@@ -348,7 +348,10 @@ class Extractor:
             return
 
         now = time.monotonic()
-        if not force and (now - self._last_progress_emit) < self._progress_emit_interval:
+        if (
+            not force
+            and (now - self._last_progress_emit) < self._progress_emit_interval
+        ):
             return
 
         snapshot = self._build_worker_status_snapshot()
@@ -395,9 +398,7 @@ class Extractor:
             summary = "No workers active"
 
         recent_full_path = self._last_started_file
-        recent_display = (
-            Path(recent_full_path).name if recent_full_path else None
-        )
+        recent_display = Path(recent_full_path).name if recent_full_path else None
 
         return {
             "summary": summary,

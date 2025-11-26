@@ -118,7 +118,9 @@ class SpriteProcessor:
     ) -> np.ndarray:
         """Place the trimmed sprite onto its logical canvas using NumPy slices."""
 
-        canvas = np.zeros((frame_height, frame_width, sprite_array.shape[2]), dtype=np.uint8)
+        canvas = np.zeros(
+            (frame_height, frame_width, sprite_array.shape[2]), dtype=np.uint8
+        )
 
         # Negative frame offsets mean the sprite content belongs farther right/down on the canvas.
         dest_x = max(0, -frame_x)
@@ -139,4 +141,3 @@ class SpriteProcessor:
             ]
 
         return canvas
-

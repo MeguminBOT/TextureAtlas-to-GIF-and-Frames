@@ -7,6 +7,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 from PIL import Image
 
+
 FrameSource = Union[Image.Image, np.ndarray]
 BBox = Tuple[int, int, int, int]
 
