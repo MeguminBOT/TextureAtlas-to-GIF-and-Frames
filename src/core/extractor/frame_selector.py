@@ -1,3 +1,8 @@
+import numpy as np
+
+from core.extractor.image_utils import ensure_rgba_array
+
+
 class FrameSelector:
     """
     Provides static methods to determine and select frames from a sequence of image tuples,
@@ -25,35 +30,33 @@ class FrameSelector:
             return True
 
         _, first_image, first_meta = image_tuples[0]
+        first_array = ensure_rgba_array(first_image)
 
         try:
-            first_bytes = first_image.tobytes()
+            first_bytes = first_array.tobytes()
         except Exception:
             first_bytes = None
+
+        first_shape = first_array.shape
 
         for _, image, metadata in image_tuples[1:]:
             if metadata != first_meta:
                 return False
 
+            candidate = ensure_rgba_array(image)
+            if candidate.shape != first_shape:
+                return False
+
             if first_bytes is not None:
                 try:
-                    if image.tobytes() != first_bytes:
+                    if candidate.tobytes() != first_bytes:
                         return False
                     continue
                 except Exception:
                     first_bytes = None
 
-            if image.size != first_image.size:
+            if not np.array_equal(candidate, first_array):
                 return False
-
-            try:
-                from PIL import ImageChops
-
-                if ImageChops.difference(image, first_image).getbbox():
-                    return False
-            except Exception:
-                if image is not first_image:
-                    return False
 
         return True
 
@@ -75,11 +78,13 @@ class FrameSelector:
         elif kept_frames == "First, Last":
             return ["0", "-1"]
         elif kept_frames == "No duplicates":
-            unique_frames = []
             unique_indices = []
+            seen_signatures = set()
             for i, frame in enumerate(image_tuples):
-                if frame[1] not in unique_frames:
-                    unique_frames.append(frame[1])
+                signature = FrameSelector._frame_signature(frame[1])
+                if signature is None or signature not in seen_signatures:
+                    if signature is not None:
+                        seen_signatures.add(signature)
                     unique_indices.append(str(i))
             return unique_indices
         else:
@@ -148,3 +153,27 @@ class FrameSelector:
                 except ValueError:
                     continue
         return sorted(kept_frame_indices)
+
+    @staticmethod
+    def _frame_signature(frame_source):
+        try:
+            array = ensure_rgba_array(frame_source)
+        except Exception:
+            return None
+
+        if array.ndim < 2:
+            return None
+
+        step_y = max(1, array.shape[0] // 32)
+        step_x = max(1, array.shape[1] // 32)
+        sample = array[::step_y, ::step_x]
+        if sample.ndim == 3 and sample.shape[2] > 4:
+            sample = sample[..., :4]
+
+        try:
+            sample = np.ascontiguousarray(sample)
+            prefix = sample.tobytes()
+        except Exception:
+            return None
+
+        return hash((array.shape, array.dtype.str, prefix))

@@ -1,14 +1,20 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QProgressBar,
     QPushButton,
     QTextEdit,
+    QToolButton,
     QFrame,
 )
-from PySide6.QtCore import Qt, QTimer, QCoreApplication, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 
 
@@ -41,6 +47,17 @@ class ProcessingWindow(QDialog):
         self.start_time = None
 
         self.setup_ui()
+        self._progress_dirty = False
+        self._stats_dirty = False
+        self._pending_current_files_text = None
+        self._log_buffer = []
+        self._pending_worker_entries = None
+        self._latest_worker_entries = []
+        self._last_logged_recent_path = None
+
+        self._ui_update_timer = QTimer(self)
+        self._ui_update_timer.setInterval(100)
+        self._ui_update_timer.timeout.connect(self._flush_pending_updates)
 
     def tr(self, text):
         """Translation helper method."""
@@ -75,6 +92,39 @@ class ProcessingWindow(QDialog):
         current_filename_font.setBold(True)
         self.current_filename_label.setFont(current_filename_font)
         current_file_layout.addWidget(self.current_filename_label)
+
+        worker_header_layout = QHBoxLayout()
+        worker_header_layout.setContentsMargins(0, 0, 0, 0)
+
+        worker_status_label = QLabel(self.tr("Worker Status"))
+        worker_status_label.setFont(current_filename_font)
+        worker_header_layout.addWidget(worker_status_label)
+        worker_header_layout.addStretch()
+
+        self.worker_toggle_button = QToolButton()
+        self.worker_toggle_button.setCheckable(True)
+        self.worker_toggle_button.setArrowType(Qt.RightArrow)
+        self.worker_toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.worker_toggle_button.setText(self.tr("Show worker details"))
+        self.worker_toggle_button.clicked.connect(self._toggle_worker_details)
+        worker_header_layout.addWidget(self.worker_toggle_button)
+
+        current_file_layout.addLayout(worker_header_layout)
+
+        self.worker_details_frame = QFrame()
+        self.worker_details_frame.setFrameStyle(QFrame.NoFrame)
+        self.worker_details_frame.setVisible(False)
+        worker_details_layout = QVBoxLayout(self.worker_details_frame)
+        worker_details_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.worker_list = QListWidget()
+        self.worker_list.setAlternatingRowColors(True)
+        self.worker_list.setSelectionMode(QAbstractItemView.NoSelection)
+        self.worker_list.setUniformItemSizes(True)
+        self.worker_list.setFocusPolicy(Qt.NoFocus)
+        worker_details_layout.addWidget(self.worker_list)
+
+        current_file_layout.addWidget(self.worker_details_frame)
 
         layout.addWidget(current_file_frame)
 
@@ -157,6 +207,14 @@ class ProcessingWindow(QDialog):
         import time
 
         self.start_time = time.time()
+        self._pending_worker_entries = None
+        self._latest_worker_entries = []
+        self._last_logged_recent_path = None
+        if hasattr(self, "worker_list"):
+            self._update_worker_list([], force=True)
+
+        if not self._ui_update_timer.isActive():
+            self._ui_update_timer.start()
 
         self.update_display()
         self.log_text.append(
@@ -168,45 +226,51 @@ class ProcessingWindow(QDialog):
         self.duration_timer.timeout.connect(self.update_duration)
         self.duration_timer.start(1000)  # Update every second
 
-    def update_progress(self, current_file, total_files, filename=""):
+    def update_progress(self, current_file, total_files, progress_payload=""):
         """Update the progress display."""
-        print(
-            f"[ProcessingWindow] update_progress: {current_file}/{total_files} - {filename}"
-        )
+        # print(
+        #    f"[ProcessingWindow] update_progress: {current_file}/{total_files} - {progress_payload}"
+        # )
         self.current_file_index = current_file
         self.total_files = total_files
-        self.current_filename = filename
+        worker_entries = None
+        recent_path = None
+        recent_display = None
 
-        # Update the display immediately
-        self.update_display()
+        if isinstance(progress_payload, dict):
+            summary_text = (
+                progress_payload.get("summary")
+                or progress_payload.get("fallback")
+                or ""
+            )
+            worker_entries = progress_payload.get("workers")
+            recent_path = progress_payload.get("recent_full_path")
+            recent_display = progress_payload.get("recent_display")
+        else:
+            summary_text = progress_payload or ""
 
-        # Update current files being processed
-        self.update_current_files(filename)
+        self.current_filename = summary_text
+        self._pending_current_files_text = summary_text
 
-        if (
-            filename
-            and not filename.startswith("Processing:")
-            and not filename.endswith("...")
-        ):
-            # Only add to log if it's not a status message
-            if ", " in filename:
-                # Multiple files being processed
-                self.log_text.append(
-                    self.tr("Processing: {filename}").format(filename=filename)
-                )
-            else:
-                self.log_text.append(
-                    self.tr("Processing: {filename}").format(filename=filename)
-                )
-            # Auto-scroll to bottom
-            cursor = self.log_text.textCursor()
-            cursor.movePosition(cursor.MoveOperation.End)
-            self.log_text.setTextCursor(cursor)
+        if worker_entries is not None:
+            self._pending_worker_entries = worker_entries
 
-        # Force immediate UI refresh
-        self.repaint()
-        self.update()
-        QCoreApplication.processEvents()
+        if recent_path and recent_path != self._last_logged_recent_path:
+            display_name = recent_display or Path(recent_path).name
+            log_entry = self.tr("Processing: {filename}").format(filename=display_name)
+            self._log_buffer.append(log_entry)
+            self._last_logged_recent_path = recent_path
+        elif isinstance(progress_payload, str):
+            filename = progress_payload
+            if (
+                filename
+                and not filename.startswith("Processing:")
+                and not filename.endswith("...")
+            ):
+                log_entry = self.tr("Processing: {filename}").format(filename=filename)
+                self._log_buffer.append(log_entry)
+
+        self._progress_dirty = True
 
     def update_display(self):
         """Update the display labels and progress bar."""
@@ -248,9 +312,9 @@ class ProcessingWindow(QDialog):
         self, frames_generated=None, animations_generated=None, sprites_failed=None
     ):
         """Update the statistics display."""
-        print(
-            f"[ProcessingWindow] update_statistics called with: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
-        )
+        # print(
+        #    f"[ProcessingWindow] update_statistics called with: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
+        # )
 
         if frames_generated is not None:
             self.frames_generated = frames_generated
@@ -259,25 +323,10 @@ class ProcessingWindow(QDialog):
         if sprites_failed is not None:
             self.sprites_failed = sprites_failed
 
-        print(
-            f"[ProcessingWindow] Updated internal stats to: F:{self.frames_generated}, A:{self.animations_generated}, S:{self.sprites_failed}"
-        )
-
-        self.frames_label.setText(
-            self.tr("Frames Generated: {count}").format(count=self.frames_generated)
-        )
-        self.animations_label.setText(
-            self.tr("Animations Generated: {count}").format(
-                count=self.animations_generated
-            )
-        )
-        self.failed_label.setText(
-            self.tr("Sprites Failed: {count}").format(count=self.sprites_failed)
-        )
-
-        # Force UI update
-        self.repaint()
-        self.update()
+        # print(
+        #    f"[ProcessingWindow] Updated internal stats to: F:{self.frames_generated}, A:{self.animations_generated}, S:{self.sprites_failed}"
+        # )
+        self._stats_dirty = True
 
     def processing_completed(self, success=True, message=""):
         """Called when processing is completed."""
@@ -307,6 +356,12 @@ class ProcessingWindow(QDialog):
         self.progress_bar.setValue(
             self.total_files
         )  # Set to total files instead of maximum
+        self._flush_pending_updates()
+        if self._ui_update_timer.isActive():
+            self._ui_update_timer.stop()
+        self._pending_worker_entries = None
+        self._latest_worker_entries = []
+        self._update_worker_list([], force=True)
         self.cancel_button.setEnabled(False)
         self.close_button.setEnabled(True)
 
@@ -350,11 +405,91 @@ class ProcessingWindow(QDialog):
 
     def add_debug_message(self, message):
         """Add a debug message to the processing log."""
-        self.log_text.append(message)
-        # Auto-scroll to bottom
-        cursor = self.log_text.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self.log_text.setTextCursor(cursor)
+        self._log_buffer.append(message)
+
+    def _flush_pending_updates(self):
+        if self._progress_dirty:
+            self.update_display()
+            if self._pending_current_files_text is not None:
+                self.update_current_files(self._pending_current_files_text)
+                self._pending_current_files_text = None
+            if self._pending_worker_entries is not None:
+                self._update_worker_list(self._pending_worker_entries)
+                self._pending_worker_entries = None
+            self._progress_dirty = False
+
+        if self._stats_dirty:
+            self.frames_label.setText(
+                self.tr("Frames Generated: {count}").format(count=self.frames_generated)
+            )
+            self.animations_label.setText(
+                self.tr("Animations Generated: {count}").format(
+                    count=self.animations_generated
+                )
+            )
+            self.failed_label.setText(
+                self.tr("Sprites Failed: {count}").format(count=self.sprites_failed)
+            )
+            self.repaint()
+            self.update()
+            self._stats_dirty = False
+
+        if self._log_buffer:
+            for entry in self._log_buffer:
+                self.log_text.append(entry)
+            self._log_buffer.clear()
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(cursor.MoveOperation.End)
+            self.log_text.setTextCursor(cursor)
+
+    def _toggle_worker_details(self):
+        is_visible = self.worker_toggle_button.isChecked()
+        self.worker_details_frame.setVisible(is_visible)
+        self.worker_toggle_button.setArrowType(
+            Qt.DownArrow if is_visible else Qt.RightArrow
+        )
+        self.worker_toggle_button.setText(
+            self.tr("Hide worker details")
+            if is_visible
+            else self.tr("Show worker details")
+        )
+        if is_visible:
+            self._refresh_worker_list()
+
+    def _refresh_worker_list(self):
+        self._update_worker_list(self._latest_worker_entries, force=True)
+
+    def _update_worker_list(self, worker_entries, force=False):
+        self._latest_worker_entries = worker_entries or []
+        if not self.worker_details_frame.isVisible() and not force:
+            return
+
+        self.worker_list.setUpdatesEnabled(False)
+        self.worker_list.clear()
+
+        if not self._latest_worker_entries:
+            placeholder = QListWidgetItem(self.tr("No active workers"))
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.worker_list.addItem(placeholder)
+            self.worker_list.setUpdatesEnabled(True)
+            return
+
+        for entry in self._latest_worker_entries:
+            label = entry.get("label", self.tr("Worker"))
+            display_name = entry.get("display") or self.tr("Idle")
+            state = entry.get("state", "processing")
+            list_item = QListWidgetItem(f"{label}: {display_name}")
+            tooltip_parts = []
+            path_value = entry.get("path")
+            if path_value:
+                tooltip_parts.append(path_value)
+            if state == "idle":
+                tooltip_parts.append(self.tr("Idle"))
+            if tooltip_parts:
+                list_item.setToolTip("\n".join(tooltip_parts))
+            self.worker_list.addItem(list_item)
+
+        self.worker_list.setUpdatesEnabled(True)
 
     def update_current_files(self, current_files_text):
         """Update the current files being processed."""

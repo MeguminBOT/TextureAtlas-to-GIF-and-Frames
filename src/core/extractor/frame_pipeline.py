@@ -5,11 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterator, List, Optional, Sequence, Tuple
 
+import numpy as np
 from PIL import Image
 
 from core.extractor.frame_selector import FrameSelector
+from core.extractor.image_utils import (
+    array_to_rgba_image,
+    FrameSource,
+    crop_to_bbox,
+    ensure_rgba_array,
+    frame_bbox,
+)
 
-FrameTuple = Tuple[str, Image.Image, dict]
+FrameTuple = Tuple[str, FrameSource, dict]
 
 
 @dataclass(frozen=True)
@@ -90,7 +98,11 @@ class FramePipeline:
         if indices:
             frames = [frames[i] for i in indices]
 
-        return frames
+        normalized: List[FrameTuple] = []
+        for name, image, metadata in frames:
+            normalized.append((name, ensure_rgba_array(image), metadata))
+
+        return normalized
 
     @staticmethod
     def _should_preserve_sequence(frames: Sequence[FrameTuple]) -> bool:
@@ -117,9 +129,9 @@ class FramePipeline:
 
 
 def compute_shared_bbox(
-    images: Sequence[Image.Image],
+    images: Sequence[FrameSource],
 ) -> Optional[Tuple[int, int, int, int]]:
-    """Return the shared bounding box for a collection of images."""
+    """Return the shared bounding box for a collection of frames or arrays."""
     min_x, min_y, max_x, max_y = (
         float("inf"),
         float("inf"),
@@ -128,7 +140,7 @@ def compute_shared_bbox(
     )
 
     for frame in images:
-        bbox = frame.getbbox()
+        bbox = frame_bbox(frame)
         if bbox is None:
             continue
         min_x = min(min_x, bbox[0])
@@ -142,7 +154,7 @@ def compute_shared_bbox(
 
 
 def prepare_scaled_sequence(
-    images: Sequence[Image.Image],
+    images: Sequence[FrameSource],
     scale_image: Callable[[Image.Image, float], Image.Image],
     scale: float,
     crop_option: Optional[str],
@@ -152,15 +164,23 @@ def prepare_scaled_sequence(
     crop_mode = (crop_option or "None").lower()
 
     crop_box = None
+    frame_arrays: Optional[List[np.ndarray]] = None
     if crop_mode != "none":
-        crop_box = compute_shared_bbox(images)
+        frame_arrays = [ensure_rgba_array(frame) for frame in images]
+        crop_box = compute_shared_bbox(frame_arrays)
         if crop_box is None:
             return []
 
     processed: List[Image.Image] = []
-    for frame in images:
-        working = frame if crop_box is None else frame.crop(crop_box)
-        processed.append(scale_image(working, scale_value))
+    for index, frame in enumerate(images):
+        frame_array = (
+            frame_arrays[index]
+            if frame_arrays is not None
+            else ensure_rgba_array(frame)
+        )
+        working_array = crop_to_bbox(frame_array, crop_box) if crop_box else frame_array
+        working_image = array_to_rgba_image(working_array)
+        processed.append(scale_image(working_image, scale_value))
     return processed
 
 

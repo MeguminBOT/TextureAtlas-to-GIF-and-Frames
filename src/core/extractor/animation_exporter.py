@@ -1,15 +1,24 @@
 import os
+from typing import Optional, Sequence, Set
+
 import numpy
-from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 from wand.color import Color
 from wand.image import Image as WandImg
 
 from core.extractor.frame_pipeline import (
     build_frame_durations,
+    compute_shared_bbox,
     prepare_scaled_sequence,
 )
-from core.extractor.image_utils import pad_frames_to_canvas
+from core.extractor.image_utils import (
+    apply_alpha_threshold,
+    FrameSource,
+    crop_to_bbox,
+    ensure_rgba_array,
+    frame_dimensions,
+    pad_frames_to_canvas,
+)
 from utils.utilities import Utilities
 
 
@@ -85,7 +94,16 @@ class AnimationExporter:
         anims_generated += 1
         return anims_generated
 
-    def save_webp(self, images, filename, fps, delay, period, scale, settings):
+    def save_webp(
+        self,
+        images: Sequence[FrameSource],
+        filename,
+        fps,
+        delay,
+        period,
+        scale,
+        settings,
+    ):
         final_images = prepare_scaled_sequence(
             images,
             self.scale_image,
@@ -120,9 +138,13 @@ class AnimationExporter:
 
     def remove_dups(self, animation):
         animation.iterator_reset()
+        if len(animation.sequence) < 2:
+            return
 
         while animation.iterator_next():
             index = animation.iterator_get()
+            if index == 0:
+                continue
 
             if (
                 animation.get_image_distortion(
@@ -136,7 +158,15 @@ class AnimationExporter:
                 animation.delay += delay
 
     def save_gif(
-        self, images, filename, fps, delay, period, scale, threshold, settings
+        self,
+        images: Sequence[FrameSource],
+        filename,
+        fps,
+        delay,
+        period,
+        scale,
+        threshold,
+        settings,
     ):
         durations = build_frame_durations(
             len(images),
@@ -149,54 +179,71 @@ class AnimationExporter:
         if not durations:
             return
 
-        width, height = images[0].size
-        left, upper, right, lower = width, height, 0, 0
+        width, height = frame_dimensions(images[0])
+        frame_arrays = [ensure_rgba_array(frame) for frame in images]
+        crop_option = settings.get("crop_option")
+        crop_mode = (crop_option or "None").lower()
+        should_crop = crop_mode != "none"
+        crop_bounds = None
+        if should_crop:
+            crop_bounds = compute_shared_bbox(frame_arrays)
+            if crop_bounds is None:
+                should_crop = False
+            else:
+                frame_arrays = [
+                    crop_to_bbox(array, crop_bounds) for array in frame_arrays
+                ]
+
+        apply_threshold = should_crop and threshold is not None
+        if apply_threshold:
+            try:
+                threshold_value = float(threshold)
+            except (TypeError, ValueError):
+                apply_threshold = False
+            else:
+                frame_arrays = [
+                    apply_alpha_threshold(array, threshold_value)
+                    for array in frame_arrays
+                ]
+
+        dedupe_required = False
+        signature_cache: Optional[Set[int]] = set() if len(images) > 1 else None
+
         with WandImg(width=width, height=height) as animation:
             animation.image_remove()
-            for index, pil_frame in enumerate(images):
-                arr = numpy.array(pil_frame)
-                with WandImg.from_array(arr) as wand_frame:
-                    if threshold == 1:
-                        wand_frame.negate(channel="alpha")
-                        wand_frame.threshold(0, channel="alpha")
-                        wand_frame.negate(channel="alpha")
+            for index, frame in enumerate(images):
+                arr = frame_arrays[index]
+                if signature_cache is not None and not dedupe_required:
+                    signature = self._frame_signature(arr)
+                    if signature is None:
+                        print(
+                            "[AnimationExporter] Unable to hash frame data; falling back to duplicate pruning."
+                        )
+                        dedupe_required = True
+                        signature_cache = None
+                    elif signature in signature_cache:
+                        dedupe_required = True
+                        signature_cache = None
                     else:
-                        wand_frame.threshold(threshold, channel="alpha")
-
+                        signature_cache.add(signature)
+                with self._wand_from_array(arr) as wand_frame:
                     wand_frame.background_color = Color("None")
                     wand_frame.alpha_channel = "background"
-                    wand_frame.trim(color="None")
+
                     wand_frame.delay = int(durations[index] / 10)
                     wand_frame.dispose = "background"
-
-                    if wand_frame.size > (1, 1) or wand_frame[0][0].alpha > 0:
-                        left = min(wand_frame.page_x, left)
-                        upper = min(wand_frame.page_y, upper)
-                        right = max(wand_frame.page_x + wand_frame.width, right)
-                        lower = max(wand_frame.page_y + wand_frame.height, lower)
-                    else:
-                        wand_frame.sample(width=width, height=height)
                     animation.sequence.append(wand_frame)
-            if left > right:
-                print(f"Warning: No frames to save for GIF: {filename}.gif")
-                return
-            self.remove_dups(animation)
-            animation.iterator_reset()
+            signature_cache = None
+            if dedupe_required:
+                self.remove_dups(animation)
+            animation.quantize(
+                number_colors=256, colorspace_type="undefined", dither=False
+            )
+            # Removing duplicates after quantization ensures palette changes are accounted for once.
+            if dedupe_required:
+                self.remove_dups(animation)
             for i in range(len(animation.sequence)):
                 animation.iterator_set(i)
-                animation.quantize(
-                    number_colors=256, colorspace_type="undefined", dither=False
-                )
-            # We remove duplicate frames twice because different frames may become the same after quantization.
-            self.remove_dups(animation)
-            for i in range(len(animation.sequence)):
-                animation.iterator_set(i)
-                animation.extent(width, height, -animation.page_x, -animation.page_y)
-                animation.reset_coords()
-
-                if settings.get("crop_option") != "None":
-                    animation.crop(left, upper, right, lower)
-
                 animation.sample(
                     width=int(animation.width * abs(scale)),
                     height=int(animation.height * abs(scale)),
@@ -208,11 +255,47 @@ class AnimationExporter:
             gif_filename = os.path.join(self.output_dir, f"{filename}.gif")
             animation.loop = 0
             animation.options["comment"] = (
-                f"GIF generated by: TextureAtlas to GIF and Frames v{self.current_version}"
+                f"GIF generated by: TextureAtlas Toolbox v{self.current_version}"
             )
             animation.save(filename=gif_filename)
 
-            print(f"Saved GIF animation: {gif_filename}")
+    @staticmethod
+    def _frame_signature(frame_array: numpy.ndarray) -> Optional[int]:
+        """Return a tiny fingerprint for a frame using coarse sampling."""
+
+        if frame_array.ndim < 2:
+            return None
+
+        try:
+            step_y = max(1, frame_array.shape[0] // 64)
+            step_x = max(1, frame_array.shape[1] // 64)
+            sample = frame_array[::step_y, ::step_x]
+        except Exception:
+            sample = frame_array
+
+        if sample.ndim == 3 and sample.shape[2] > 4:
+            sample = sample[..., :4]
+
+        try:
+            sample = numpy.ascontiguousarray(sample)
+            sample_bytes = sample.tobytes()
+        except Exception:
+            return None
+
+        prefix = sample_bytes[:512]
+        return hash((frame_array.shape, frame_array.dtype.str, prefix))
+
+    @staticmethod
+    def _wand_from_array(array: numpy.ndarray) -> WandImg:
+        """Create a Wand image from a contiguous RGBA NumPy array without copies."""
+
+        if array.ndim < 3 or array.shape[2] < 4:
+            raise ValueError("Expected RGBA array with shape (H, W, 4)")
+
+        if array.dtype != numpy.uint8 or not array.flags["C_CONTIGUOUS"]:
+            array = numpy.ascontiguousarray(array, dtype=numpy.uint8)
+
+        return WandImg.from_array(array)
 
     def save_apng(self, images, filename, fps, delay, period, scale, settings):
         final_images = prepare_scaled_sequence(
@@ -239,7 +322,7 @@ class AnimationExporter:
         metadata = PngInfo()
         metadata.add_text(
             "Comment",
-            f"APNG generated by TextureAtlas to GIF and Frames v{self.current_version}",
+            f"APNG generated by TextureAtlas Toolbox v{self.current_version}",
         )
 
         final_images[0].save(
