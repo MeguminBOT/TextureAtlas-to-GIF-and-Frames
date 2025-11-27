@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Texture atlas generation with configurable packing algorithms.
+
+Provides the SparrowAtlasGenerator class for packing sprite frames into a
+single atlas image and emitting a Sparrow-format XML manifest. Supports
+multiple packing strategies (grid, growing, ordered) selectable via
+AtlasSettings.optimization_level.
+"""
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -16,7 +23,7 @@ from packers import GrowingPacker, OrderedPacker
 
 
 class PackingAlgorithm(Enum):
-    """Available packing algorithms."""
+    """Enumerate the heuristics the atlas builder can use for layout."""
 
     NONE = 0  # No optimization - simple grid
     GROWING_PACKER = 1  # Growing packer (dynamically expands)
@@ -25,7 +32,7 @@ class PackingAlgorithm(Enum):
 
 @dataclass
 class Frame:
-    """Represents a single frame in the atlas."""
+    """Snapshot of a trimmed sprite plus metadata needed for packing."""
 
     name: str
     image_path: str
@@ -55,7 +62,7 @@ class Frame:
 
 @dataclass
 class AtlasSettings:
-    """Configuration for atlas generation."""
+    """User-facing knobs controlling atlas size, padding, and heuristics."""
 
     max_size: int = 2048
     min_size: int = 128
@@ -66,7 +73,7 @@ class AtlasSettings:
 
     @property
     def algorithm(self) -> PackingAlgorithm:
-        """Get packing algorithm based on optimization level."""
+        """Pick a packing strategy derived from ``optimization_level``."""
         if self.optimization_level == 0:
             return PackingAlgorithm.NONE
         elif self.optimization_level <= 5:
@@ -76,7 +83,7 @@ class AtlasSettings:
 
 
 class Rectangle:
-    """Simple rectangle class for packing."""
+    """Lightweight rectangle helper used by the packing simulators."""
 
     def __init__(self, x: int, y: int, width: int, height: int):
         self.x = x
@@ -97,6 +104,7 @@ class Rectangle:
         return self.width * self.height
 
     def intersects(self, other: "Rectangle") -> bool:
+        """Return True when two rectangles overlap in 2D space."""
         return not (
             self.right <= other.x
             or other.right <= self.x
@@ -106,12 +114,10 @@ class Rectangle:
 
 
 class SparrowAtlasGenerator:
-    """
-    Fast and efficient texture atlas generator specifically for Sparrow format.
-    Optimized for speed and tight packing with configurable optimization levels.
-    """
+    """Build Sparrow-format atlases while reporting progress back to the UI."""
 
     def __init__(self, progress_callback: Optional[Callable] = None):
+        """Store the optional progress hook and reset internal frame cache."""
         self.progress_callback = progress_callback
         self.frames: List[Frame] = []
 
@@ -122,17 +128,17 @@ class SparrowAtlasGenerator:
         settings: AtlasSettings,
         current_version: str,
     ) -> Dict:
-        """
-        Generate a Sparrow format texture atlas.
+        """Pack frames, render the atlas bitmap, and emit a Sparrow XML manifest.
 
         Args:
-            animation_groups: Dictionary mapping animation names to frame file paths
-            output_path: Path for output files (without extension)
-            settings: Atlas generation settings
-            current_version: Application version for XML comments
+            animation_groups (dict[str, list[str]]): Mapping of animation names to
+                ordered frame paths.
+            output_path (str): Destination prefix for the PNG/XML pair.
+            settings (AtlasSettings): Packing heuristics and canvas constraints.
+            current_version (str): App version recorded in the XML metadata.
 
         Returns:
-            Dictionary containing generation results
+            dict: Result payload describing success, file paths, and stats.
         """
         start_time = time.time()
 
@@ -192,7 +198,12 @@ class SparrowAtlasGenerator:
             return {"success": False, "error": str(e)}
 
     def _load_frames(self, animation_groups: Dict[str, List[str]]):
-        """Load frame images and extract metadata with whitespace trimming."""
+        """Read every frame image and capture trimmed bounds plus metadata.
+
+        Args:
+            animation_groups (dict[str, list[str]]): Mapping of animation names
+                to frame file paths in draw order.
+        """
         self.frames = []
 
         for animation_name, frame_paths in animation_groups.items():
@@ -244,7 +255,12 @@ class SparrowAtlasGenerator:
                     continue
 
     def _sort_frames(self, settings: AtlasSettings):
-        """Sort frames for optimal packing based on optimization level."""
+        """Reorder frames so the selected packer gets a friendly workload.
+
+        Args:
+            settings (AtlasSettings): Provides ``optimization_level`` that
+                dictates which heuristic to apply.
+        """
         if settings.optimization_level == 0:
             # No sorting - keep original order
             return
@@ -267,7 +283,15 @@ class SparrowAtlasGenerator:
             )
 
     def _calculate_atlas_size(self, settings: AtlasSettings) -> Tuple[int, int]:
-        """Calculate optimal atlas dimensions."""
+        """Determine which sizing helper to use based on the active algorithm.
+
+        Args:
+            settings (AtlasSettings): Includes ``algorithm`` and size limits.
+
+        Returns:
+            Tuple[int, int]: Width and height that a downstream packer should
+                consume.
+        """
         if settings.algorithm == PackingAlgorithm.NONE:
             # Grid packing needs pre-calculated dimensions
             return self._calculate_grid_size(settings)
@@ -282,7 +306,16 @@ class SparrowAtlasGenerator:
             return self._get_growing_packer_size(settings)
 
     def _calculate_grid_size(self, settings: AtlasSettings) -> Tuple[int, int]:
-        """Calculate size for simple grid packing (level 0) - allows rectangular grids."""
+        """Simulate a naïve grid and return the most compact rectangular canvas.
+
+        Args:
+            settings (AtlasSettings): Provides padding, power-of-two policy, and
+                canvas limits.
+
+        Returns:
+            Tuple[int, int]: Width and height that can accommodate every frame
+                when placed in the computed rows/columns.
+        """
         if not self.frames:
             return settings.min_size, settings.min_size
 
@@ -326,7 +359,16 @@ class SparrowAtlasGenerator:
         return best_width, best_height
 
     def _get_growing_packer_size(self, settings: AtlasSettings) -> Tuple[int, int]:
-        """Get size from growing packer by doing a test pack."""
+        """Dry-run the growing packer to learn the required canvas bounds.
+
+        Args:
+            settings (AtlasSettings): In-progress atlas configuration that stores
+                intermediate packing results.
+
+        Returns:
+            Tuple[int, int]: Width and height that safely contain every frame
+                when packed with the growing heuristic.
+        """
         if not self.frames:
             return settings.min_size, settings.min_size
 
@@ -363,7 +405,15 @@ class SparrowAtlasGenerator:
         return width, height
 
     def _get_ordered_packer_size(self, settings: AtlasSettings) -> Tuple[int, int]:
-        """Get size from ordered packer by doing a test pack."""
+        """Dry-run the ordered packer to estimate canvas bounds.
+
+        Args:
+            settings (AtlasSettings): Atlas constraints and padding rules.
+
+        Returns:
+            Tuple[int, int]: Width and height that honor the frame order while
+                fitting within the selected limits.
+        """
         if not self.frames:
             return settings.min_size, settings.min_size
 
@@ -399,7 +449,20 @@ class SparrowAtlasGenerator:
     def _pack_growing(
         self, atlas_width: int, atlas_height: int, settings: AtlasSettings
     ) -> bool:
-        """Pack frames using the growing packer algorithm."""
+        """Pack frames with the growing heuristic that can expand on demand.
+
+        Args:
+            atlas_width (int): Width of the destination canvas; unused but kept
+                for signature parity.
+            atlas_height (int): Height of the destination canvas; unused but
+                kept for signature parity.
+            settings (AtlasSettings): Padding and rotation configuration that
+                mirrors the eventual render pass.
+
+        Returns:
+            bool: ``True`` when every frame receives coordinates; ``False`` if
+                the simulated packer fails to place a block.
+        """
         if not self.frames:
             return True
 
@@ -436,7 +499,17 @@ class SparrowAtlasGenerator:
     def _pack_ordered(
         self, atlas_width: int, atlas_height: int, settings: AtlasSettings
     ) -> bool:
-        """Pack frames using the ordered packer algorithm."""
+        """Pack frames in list order while staying within the target bounds.
+
+        Args:
+            atlas_width (int): Width that the ordered packer should respect.
+            atlas_height (int): Height that the ordered packer should respect.
+            settings (AtlasSettings): Padding rules and rotation flag mirrored
+                from the UI settings.
+
+        Returns:
+            bool: ``True`` if every frame receives a slot; ``False`` otherwise.
+        """
         if not self.frames:
             return True
 
@@ -472,7 +545,19 @@ class SparrowAtlasGenerator:
     def _pack_frames(
         self, atlas_width: int, atlas_height: int, settings: AtlasSettings
     ) -> bool:
-        """Pack frames into the atlas using the selected algorithm."""
+        """Dispatch to the packer that corresponds to ``settings.algorithm``.
+
+        Args:
+            atlas_width (int): Target canvas width supplied by the sizing
+                helpers.
+            atlas_height (int): Target canvas height supplied by the sizing
+                helpers.
+            settings (AtlasSettings): User-selected options that imply the
+                algorithm and padding.
+
+        Returns:
+            bool: ``True`` when the chosen packer succeeds.
+        """
         if settings.algorithm == PackingAlgorithm.NONE:
             return self._pack_grid(atlas_width, atlas_height, settings)
         elif settings.algorithm == PackingAlgorithm.GROWING_PACKER:
@@ -486,7 +571,17 @@ class SparrowAtlasGenerator:
     def _pack_grid(
         self, atlas_width: int, atlas_height: int, settings: AtlasSettings
     ) -> bool:
-        """Simple grid packing - uses calculated rectangular dimensions."""
+        """Lay out sprites in a naïve grid when no optimization is desired.
+
+        Args:
+            atlas_width (int): Width of the candidate grid canvas.
+            atlas_height (int): Height of the candidate grid canvas.
+            settings (AtlasSettings): Padding controls used to size each cell.
+
+        Returns:
+            bool: ``True`` when the grid fits every frame; ``False`` if the
+                canvas is undersized.
+        """
         if not self.frames:
             return True
 
@@ -522,7 +617,16 @@ class SparrowAtlasGenerator:
         return True
 
     def _create_atlas_image(self, atlas_width: int, atlas_height: int) -> Image.Image:
-        """Create the final atlas image using trimmed sprites."""
+        """Composite the packed sprites onto a transparent RGBA canvas.
+
+        Args:
+            atlas_width (int): Width of the atlas bitmap.
+            atlas_height (int): Height of the atlas bitmap.
+
+        Returns:
+            Image.Image: Pillow image containing every sprite at its packed
+                location.
+        """
         atlas = Image.new("RGBA", (atlas_width, atlas_height), (0, 0, 0, 0))
 
         for frame in self.frames:
@@ -553,7 +657,19 @@ class SparrowAtlasGenerator:
         current_version: str,
         settings: AtlasSettings = None,
     ) -> str:
-        """Generate Sparrow XML format metadata."""
+        """Emit a Sparrow-compatible XML manifest for the arranged frames.
+
+        Args:
+            output_path (str): Base path (without extension) for the atlas.
+            atlas_width (int): Canvas width written into the metadata.
+            atlas_height (int): Canvas height written into the metadata.
+            current_version (str): Application version stamped into comments.
+            settings (AtlasSettings, optional): Used to echo optimization level
+                in the output comments.
+
+        Returns:
+            str: Complete XML document ready to write to disk.
+        """
         root = ET.Element("TextureAtlas")
         root.set("imagePath", f"{Path(output_path).name}.png")
 
@@ -627,7 +743,14 @@ class SparrowAtlasGenerator:
         return "\n".join(result_lines)
 
     def _natural_sort_key(self, text: str):
-        """Generate a key for natural sorting (handles numbers properly)."""
+        """Return a list-based key that enables human-friendly ordering.
+
+        Args:
+            text (str): Frame identifier such as ``idle_0010``.
+
+        Returns:
+            list: Mixed string/int chunks suited for ``sorted``.
+        """
         # Split text into parts: letters and numbers
         parts = re.split(r"(\d+)", text)
         # Convert numeric parts to integers for proper sorting
@@ -640,7 +763,15 @@ class SparrowAtlasGenerator:
         return result
 
     def _calculate_efficiency(self, atlas_width: int, atlas_height: int) -> float:
-        """Calculate packing efficiency."""
+        """Estimate how much of the atlas area ended up covered by sprites.
+
+        Args:
+            atlas_width (int): Final atlas width.
+            atlas_height (int): Final atlas height.
+
+        Returns:
+            float: Percentage of the atlas area consumed by frames.
+        """
         if not self.frames:
             return 0.0
 
@@ -649,18 +780,37 @@ class SparrowAtlasGenerator:
         return (used_area / total_area) * 100 if total_area > 0 else 0.0
 
     def _next_power_of_2(self, value: int) -> int:
-        """Find the next power of 2 greater than or equal to value."""
+        """Find the next power-of-two value that is >= ``value``.
+
+        Args:
+            value (int): Input dimension that requires rounding.
+
+        Returns:
+            int: Adjusted dimension suitable for GPU hardware limits.
+        """
         return 2 ** int(np.ceil(np.log2(value)))
 
     def _update_progress(self, current: int, total: int, message: str = ""):
-        """Update progress callback."""
+        """Relay a progress tuple to the optional UI callback.
+
+        Args:
+            current (int): Step index that just completed.
+            total (int): Total number of steps in the workflow.
+            message (str): Human-friendly status description.
+        """
         if self.progress_callback:
             self.progress_callback(current, total, message)
 
     def _get_trim_bounds(self, img: Image.Image) -> Optional[Tuple[int, int, int, int]]:
-        """
-        Get the bounding box of non-transparent pixels in an image.
-        Returns (left, top, right, bottom) or None if image is fully transparent.
+        """Locate the alpha bounding box for a sprite frame.
+
+        Args:
+            img (Image.Image): Source image that may include transparent
+                padding.
+
+        Returns:
+            Optional[Tuple[int, int, int, int]]: Trim rectangle if opaque pixels
+                exist, otherwise ``None`` when the image is empty.
         """
 
         if img.mode != "RGBA":
@@ -676,9 +826,14 @@ class SparrowAtlasGenerator:
 
     @staticmethod
     def fast_image_cmp(img1: Image.Image, img2: Image.Image) -> bool:
-        """
-        Fast image comparison - check if two images are identical.
-        Returns True if images are the same, False otherwise.
+        """Perform a bytewise image comparison to flag duplicate frames.
+
+        Args:
+            img1 (Image.Image): First sprite to compare.
+            img2 (Image.Image): Second sprite to compare.
+
+        Returns:
+            bool: ``True`` if images match exactly, ``False`` otherwise.
         """
         if img1.size != img2.size:
             return False
