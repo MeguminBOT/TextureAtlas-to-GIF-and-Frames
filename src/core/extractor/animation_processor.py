@@ -1,3 +1,10 @@
+"""Orchestrate frame and animation export from parsed texture atlases.
+
+Provides ``AnimationProcessor`` which iterates over animations, applies
+alignment overrides, injects editor-defined composites, and delegates to
+``FrameExporter`` and ``AnimationExporter`` for file output.
+"""
+
 import os
 from typing import Set
 
@@ -19,22 +26,21 @@ from utils.FNF.alignment import resolve_fnf_offset
 
 
 class AnimationProcessor:
-    """
-    A class to process animations from a texture atlas.
+    """Export frames and animations from a parsed texture atlas.
+
+    Clones incoming animation data, injects any editor-defined composite
+    animations, then iterates each animation to export individual frames
+    and/or animated files based on user settings.
 
     Attributes:
-        animations (dict): A dictionary containing animation names and their corresponding image tuples.
-        atlas_path (str): The path to the texture atlas.
-        output_dir (str): The directory where the output frames and animations will be saved.
-        settings_manager (SettingsManager): Manages global, animation-specific, and spritesheet-specific settings.
-        current_version (str): The current version of the application.
-
-    Methods:
-        process_animations(is_unknown_spritesheet=False):
-            Processes the animations and saves the frames and animations.
-            is_unknown_spritesheet parameter determines whether to apply extra cropping for unknown spritesheets.
-        scale_image(img, size):
-            Scales the image by the given size factor, optionally flipping it horizontally.
+        animations: Working copy of animation name to frame-tuple list.
+        atlas_path: Filesystem path to the source atlas image.
+        output_dir: Directory where exported files are written.
+        settings_manager: Provides global and per-animation settings.
+        current_version: Version string for metadata comments.
+        spritesheet_label: Display name for the spritesheet.
+        frame_exporter: ``FrameExporter`` instance for static frames.
+        animation_exporter: ``AnimationExporter`` instance for animations.
     """
 
     def __init__(
@@ -46,6 +52,16 @@ class AnimationProcessor:
         current_version,
         spritesheet_label=None,
     ):
+        """Initialise the processor and inject editor composites.
+
+        Args:
+            animations: Dict mapping animation names to frame-tuple sequences.
+            atlas_path: Path to the source texture atlas.
+            output_dir: Directory for exported files.
+            settings_manager: Settings provider for export options.
+            current_version: Version string embedded in output metadata.
+            spritesheet_label: Optional display name; defaults to atlas filename.
+        """
         base_animations = clone_animation_map(animations)
         self._source_frames = clone_animation_map(base_animations)
         self.animations = clone_animation_map(base_animations)
@@ -65,6 +81,20 @@ class AnimationProcessor:
         self._inject_editor_composites()
 
     def process_animations(self, is_unknown_spritesheet=False):
+        """Export all animations as frames and/or animated files.
+
+        Iterates each animation, retrieves settings, applies alignment
+        overrides for editor composites, and delegates to the appropriate
+        exporter.
+
+        Args:
+            is_unknown_spritesheet: When ``True``, applies extra cropping
+                heuristics for spritesheets without known metadata.
+
+        Returns:
+            A tuple ``(frames_generated, anims_generated)`` with counts of
+            exported files.
+        """
         frames_generated = 0
         anims_generated = 0
 
@@ -97,7 +127,6 @@ class AnimationProcessor:
             if settings.get("fnf_idle_loop") and "idle" in animation_name.lower():
                 settings["delay"] = 0
 
-            # Check if frame export is enabled and format is available
             frame_export = settings.get("frame_export", False)
             if frame_export and settings.get("frame_format") != "None":
                 frames_generated += self.frame_exporter.save_frames(
@@ -110,7 +139,6 @@ class AnimationProcessor:
                     is_unknown_spritesheet,
                 )
 
-            # Check if animation export is enabled and format is available
             animation_export = settings.get("animation_export", False)
             animation_format = settings.get("animation_format")
             if (
@@ -125,7 +153,12 @@ class AnimationProcessor:
         return frames_generated, anims_generated
 
     def _inject_editor_composites(self):
-        """Build synthetic animations defined in the editor so they export like normal."""
+        """Build and register editor-defined composite animations.
+
+        Composites are assembled from existing source frames according to
+        definitions stored in settings. Successfully built composites are
+        added to ``self.animations`` so they export alongside parsed ones.
+        """
         definitions = self._get_editor_composites()
         if not definitions:
             return
@@ -149,6 +182,11 @@ class AnimationProcessor:
             )
 
     def _get_editor_composites(self):
+        """Retrieve editor composite definitions from spritesheet settings.
+
+        Returns:
+            Dict mapping composite names to definition dicts, or empty dict.
+        """
         if not self.settings_manager or not self.spritesheet_label:
             return {}
         spritesheet_settings = self.settings_manager.get_settings(
@@ -158,10 +196,23 @@ class AnimationProcessor:
         return composites if isinstance(composites, dict) else {}
 
     def _is_editor_composite(self, animation_name: str) -> bool:
+        """Return ``True`` if ``animation_name`` was injected as a composite."""
         return animation_name in self._editor_composite_names
 
     def _apply_alignment_overrides(self, image_tuples, overrides):
-        """Rebuild frames using the manual offsets configured in the editor."""
+        """Reposition frames onto a common canvas using editor offsets.
+
+        Supports per-frame offsets, a default offset, FNF-specific overrides,
+        and optional top-left origin mode.
+
+        Args:
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples.
+            overrides: Dict with ``canvas``, ``default``, ``frames``, etc.
+
+        Returns:
+            List of ``(name, canvas_image, metadata)`` tuples with adjusted
+            positioning.
+        """
         canvas = overrides.get("canvas") or []
         default_offset = overrides.get("default", {})
         default_x = int(default_offset.get("x", 0))
@@ -217,4 +268,13 @@ class AnimationProcessor:
         return adjusted
 
     def scale_image(self, img, size):
+        """Scale an image using nearest-neighbour interpolation.
+
+        Args:
+            img: Source PIL Image or NumPy array.
+            size: Scale factor; negative values flip horizontally.
+
+        Returns:
+            Scaled PIL Image.
+        """
         return scale_image_nearest(img, size)

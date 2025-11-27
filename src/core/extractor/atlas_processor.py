@@ -1,39 +1,57 @@
-import os
+"""Load texture atlases and parse their accompanying metadata.
 
-# Import our own modules
+Provides ``AtlasProcessor`` which opens atlas images and delegates to the
+appropriate parser (XML, TXT, or unknown) based on the metadata file extension.
+"""
+
 from parsers.txt_parser import TxtParser
 from parsers.xml_parser import XmlParser
 from parsers.unknown_parser import UnknownParser
 
 
 class AtlasProcessor:
-    """A class to process texture atlases and their metadata.
+    """Open a texture atlas and parse sprite metadata.
+
+    Automatically selects the correct parser based on the metadata file
+    extension. For unknown spritesheets (no metadata or image-only paths),
+    falls back to heuristic sprite detection.
 
     Attributes:
-        atlas_path (str): The file path to the texture atlas image.
-        metadata_path (str): The file path to the metadata file.
-        atlas (PIL.Image.Image): The opened texture atlas image.
-        sprites (list): The parsed sprite data from the metadata file.
-
-    Methods:
-        open_atlas_and_parse_metadata():
-            Opens the texture atlas image and parses the metadata file.
-            Returns a tuple containing the opened atlas image and the parsed sprite data.
-        parse_xml_for_preview(animation_name):
-            Parse XML metadata but only extract sprites for a specific animation.
-            Reduces memory usage and processing time for preview generation.
-        parse_txt_for_preview(animation_name):
-            Parse TXT metadata but only extract sprites for a specific animation.
-            Reduces memory usage and processing time for preview generation.
+        atlas_path: Filesystem path to the atlas image.
+        metadata_path: Filesystem path to the metadata file, or ``None``.
+        parent_window: Optional parent widget for progress dialogs.
+        atlas: The opened PIL ``Image``, or ``None`` on failure.
+        sprites: List of parsed sprite dicts.
     """
 
     def __init__(self, atlas_path, metadata_path, parent_window=None):
+        """Load the atlas and parse metadata on construction.
+
+        Args:
+            atlas_path: Path to the texture atlas image.
+            metadata_path: Path to the XML/TXT metadata, or ``None`` for
+                unknown spritesheets.
+            parent_window: Optional parent widget for dialogs.
+        """
         self.atlas_path = atlas_path
         self.metadata_path = metadata_path
         self.parent_window = parent_window
         self.atlas, self.sprites = self.open_atlas_and_parse_metadata()
 
     def open_atlas_and_parse_metadata(self):
+        """Open the atlas image and parse sprite metadata.
+
+        Selects the appropriate parser based on ``metadata_path`` extension.
+        Falls back to ``UnknownParser`` when metadata is missing or points to
+        an image file.
+
+        Returns:
+            A tuple ``(atlas, sprites)`` where ``atlas`` is a PIL ``Image``
+            (or ``None`` on error) and ``sprites`` is a list of sprite dicts.
+
+        Raises:
+            ValueError: If the metadata file has an unsupported extension.
+        """
         from PIL import Image
 
         atlas = None
@@ -65,15 +83,16 @@ class AtlasProcessor:
         return atlas, sprites
 
     def parse_xml_for_preview(self, animation_name):
-        """
-        Parse XML metadata but only extract sprites for a specific animation.
-        This reduces memory usage and processing time for preview generation.
+        """Parse XML metadata for a single animation's sprites.
+
+        Only extracts sprites whose names match ``animation_name``, reducing
+        memory and processing time for preview generation.
 
         Args:
-            animation_name (str): The name of the animation to extract sprites for
+            animation_name: Animation prefix to filter by.
 
         Returns:
-            list: List of sprite dictionaries matching the animation
+            List of sprite dicts matching the animation.
         """
         if not self.metadata_path or not self.metadata_path.endswith(".xml"):
             return []
@@ -85,20 +104,19 @@ class AtlasProcessor:
             tree = ET.parse(self.metadata_path)
             xml_root = tree.getroot()
 
-            # Create animation name patterns for matching
             anim_patterns = [
-                animation_name,  # Exact match
+                animation_name,
                 re.sub(r"\d+$", "", animation_name),  # Remove trailing numbers
                 re.sub(r"_?\d+$", "", animation_name),  # Remove _digits
                 re.sub(r"[-_]?\d+$", "", animation_name),  # Remove -/digits
             ]
+
             # Remove duplicates while preserving order
             anim_patterns = list(dict.fromkeys(anim_patterns))
 
             animation_sprites = []
             for sprite in xml_root.findall("SubTexture"):
                 sprite_name = sprite.get("name", "")
-                # Only process sprites that belong to this animation
                 is_match = False
                 for pattern in anim_patterns:
                     if sprite_name == pattern or sprite_name.startswith(pattern):
@@ -131,15 +149,16 @@ class AtlasProcessor:
             return []
 
     def parse_txt_for_preview(self, animation_name):
-        """
-        Parse TXT metadata but only extract sprites for a specific animation.
-        This reduces memory usage and processing time for preview generation.
+        """Parse TXT metadata for a single animation's sprites.
+
+        Only extracts sprites whose names match ``animation_name``, reducing
+        memory and processing time for preview generation.
 
         Args:
-            animation_name (str): The name of the animation to extract sprites for
+            animation_name: Animation prefix to filter by.
 
         Returns:
-            list: List of sprite dictionaries matching the animation
+            List of sprite dicts matching the animation.
         """
         if not self.metadata_path or not self.metadata_path.endswith(".txt"):
             return []
@@ -147,19 +166,16 @@ class AtlasProcessor:
         try:
             import re
 
-            # Get all sprites first (TXT parser is already efficient)
             all_sprites = TxtParser.parse_txt_packer(self.metadata_path)
 
-            # Create animation name patterns for matching
             anim_patterns = [
-                animation_name,  # Exact match
+                animation_name,
                 re.sub(r"\d+$", "", animation_name),  # Remove trailing numbers
                 re.sub(r"_?\d+$", "", animation_name),  # Remove _digits
                 re.sub(r"[-_]?\d+$", "", animation_name),  # Remove -/digits
             ]
             anim_patterns = list(dict.fromkeys(anim_patterns))
 
-            # Filter to only sprites matching the animation
             animation_sprites = []
             for sprite in all_sprites:
                 sprite_name = sprite.get("name", "")

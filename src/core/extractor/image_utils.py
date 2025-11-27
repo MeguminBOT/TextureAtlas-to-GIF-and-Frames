@@ -1,4 +1,13 @@
-"""Image helper utilities shared across extractor components."""
+"""Image helper utilities shared across extractor components.
+
+Provides conversion functions between PIL Images and NumPy arrays, bounding
+box calculations, scaling, padding, and alpha channel manipulation.
+
+Type Aliases:
+    FrameSource: ``Union[Image.Image, np.ndarray]`` — frame data may be
+        either a PIL Image or a NumPy array throughout the pipeline.
+    BBox: ``Tuple[int, int, int, int]`` — bounding box as ``(left, top, right, bottom)``.
+"""
 
 from __future__ import annotations
 
@@ -13,10 +22,17 @@ BBox = Tuple[int, int, int, int]
 
 
 def scale_image_nearest(image: Image.Image, size: float) -> Image.Image:
-    """Scale an image using nearest-neighbor sampling, supporting horiz flip.
+    """Scale an image using nearest-neighbor sampling.
 
     Negative scale flips the source horizontally before resizing. Size is
     interpreted as a multiplier (1.0 keeps the original dimensions).
+
+    Args:
+        image: Source PIL image.
+        size: Scale multiplier; negative values flip horizontally.
+
+    Returns:
+        Resized PIL image, or the original if dimensions are unchanged.
     """
 
     working = image
@@ -31,7 +47,14 @@ def scale_image_nearest(image: Image.Image, size: float) -> Image.Image:
 
 
 def pad_frames_to_canvas(images: Sequence[FrameSource]) -> List[np.ndarray]:
-    """Pad frames so they share a common canvas size using NumPy arrays."""
+    """Pad frames so they share a common canvas size.
+
+    Args:
+        images: Sequence of PIL Images or NumPy arrays.
+
+    Returns:
+        List of RGBA NumPy arrays with identical dimensions.
+    """
     if not images:
         return []
 
@@ -59,7 +82,14 @@ def pad_frames_to_canvas(images: Sequence[FrameSource]) -> List[np.ndarray]:
 
 
 def image_to_rgba_array(image: Image.Image) -> np.ndarray:
-    """Return a contiguous RGBA NumPy view of the PIL image."""
+    """Convert a PIL image to a contiguous RGBA NumPy array.
+
+    Args:
+        image: Source PIL image (any mode).
+
+    Returns:
+        Contiguous uint8 RGBA array.
+    """
 
     rgba_image = image if image.mode == "RGBA" else image.convert("RGBA")
     array = np.asarray(rgba_image)
@@ -69,7 +99,14 @@ def image_to_rgba_array(image: Image.Image) -> np.ndarray:
 
 
 def array_to_rgba_image(array: np.ndarray) -> Image.Image:
-    """Convert an RGBA NumPy array back into a PIL image."""
+    """Convert an RGBA NumPy array to a PIL image.
+
+    Args:
+        array: Source RGBA array (H x W x 4, uint8).
+
+    Returns:
+        PIL Image in RGBA mode.
+    """
 
     if not array.flags["C_CONTIGUOUS"]:
         array = np.ascontiguousarray(array)
@@ -77,7 +114,14 @@ def array_to_rgba_image(array: np.ndarray) -> Image.Image:
 
 
 def ensure_rgba_array(source: FrameSource) -> np.ndarray:
-    """Return a contiguous uint8 RGBA array regardless of the backing type."""
+    """Return a contiguous uint8 RGBA array from any frame source.
+
+    Args:
+        source: PIL Image or NumPy array.
+
+    Returns:
+        Contiguous RGBA NumPy array.
+    """
 
     if isinstance(source, np.ndarray):
         array = source
@@ -93,7 +137,14 @@ def ensure_rgba_array(source: FrameSource) -> np.ndarray:
 
 
 def ensure_pil_image(source: FrameSource) -> Image.Image:
-    """Return a PIL RGBA image for downstream consumers that require PIL APIs."""
+    """Return a PIL RGBA image from any frame source.
+
+    Args:
+        source: PIL Image or NumPy array.
+
+    Returns:
+        PIL Image in RGBA mode.
+    """
 
     if isinstance(source, Image.Image):
         return source if source.mode == "RGBA" else source.convert("RGBA")
@@ -101,7 +152,14 @@ def ensure_pil_image(source: FrameSource) -> Image.Image:
 
 
 def frame_dimensions(source: FrameSource) -> Tuple[int, int]:
-    """Return width/height for either a NumPy array or PIL image."""
+    """Return the width and height of a frame.
+
+    Args:
+        source: PIL Image or NumPy array.
+
+    Returns:
+        Tuple ``(width, height)``.
+    """
 
     if isinstance(source, np.ndarray):
         if source.ndim == 2:
@@ -111,7 +169,17 @@ def frame_dimensions(source: FrameSource) -> Tuple[int, int]:
 
 
 def alpha_mask(array: np.ndarray, *, threshold: int = 0) -> Optional[np.ndarray]:
-    """Return a boolean mask for the alpha channel (or luminance fallback)."""
+    """Return a boolean mask of pixels exceeding the alpha threshold.
+
+    Falls back to luminance if the array lacks an alpha channel.
+
+    Args:
+        array: Source RGBA (or grayscale) NumPy array.
+        threshold: Minimum alpha value to be considered visible.
+
+    Returns:
+        2-D boolean array, or ``None`` if the input is empty or invalid.
+    """
 
     if array.size == 0:
         return None
@@ -131,7 +199,14 @@ def alpha_mask(array: np.ndarray, *, threshold: int = 0) -> Optional[np.ndarray]
 
 
 def bbox_from_mask(mask: Optional[np.ndarray]) -> Optional[BBox]:
-    """Compute a tight bounding box from a boolean alpha mask."""
+    """Compute a tight bounding box from a boolean mask.
+
+    Args:
+        mask: 2-D boolean array indicating visible pixels.
+
+    Returns:
+        Tuple ``(left, top, right, bottom)``, or ``None`` if empty.
+    """
 
     if mask is None or mask.ndim != 2:
         return None
@@ -151,7 +226,15 @@ def bbox_from_mask(mask: Optional[np.ndarray]) -> Optional[BBox]:
 
 
 def bbox_from_array(array: np.ndarray, *, threshold: int = 0) -> Optional[BBox]:
-    """Return the bounding box of the visible pixels inside an array."""
+    """Return the bounding box of visible pixels in an array.
+
+    Args:
+        array: Source RGBA NumPy array.
+        threshold: Minimum alpha to be considered visible.
+
+    Returns:
+        Tuple ``(left, top, right, bottom)``, or ``None`` if empty.
+    """
 
     mask = alpha_mask(array, threshold=threshold)
     if mask is None:
@@ -160,7 +243,15 @@ def bbox_from_array(array: np.ndarray, *, threshold: int = 0) -> Optional[BBox]:
 
 
 def frame_bbox(frame: FrameSource, *, threshold: int = 0) -> Optional[BBox]:
-    """Safe wrapper to compute the bounding box for mixed frame sources."""
+    """Compute the bounding box for a PIL Image or NumPy array.
+
+    Args:
+        frame: PIL Image or NumPy array.
+        threshold: Minimum alpha to be considered visible.
+
+    Returns:
+        Tuple ``(left, top, right, bottom)``, or ``None`` on error or empty.
+    """
 
     try:
         array = ensure_rgba_array(frame)
@@ -170,7 +261,15 @@ def frame_bbox(frame: FrameSource, *, threshold: int = 0) -> Optional[BBox]:
 
 
 def crop_to_bbox(array: np.ndarray, bbox: BBox) -> np.ndarray:
-    """Return a view cropped to the provided bounding box (no copy if possible)."""
+    """Return a view of the array cropped to the bounding box.
+
+    Args:
+        array: Source NumPy array (at least 2-D).
+        bbox: Tuple ``(left, top, right, bottom)``.
+
+    Returns:
+        Cropped array view; may share memory with the original.
+    """
 
     if array.ndim < 2:
         return array
@@ -190,7 +289,17 @@ def crop_to_bbox(array: np.ndarray, bbox: BBox) -> np.ndarray:
 
 
 def apply_alpha_threshold(array: np.ndarray, threshold: float) -> np.ndarray:
-    """Clamp the alpha plane to {0, 255} using the provided normalized threshold."""
+    """Clamp the alpha channel to fully transparent or fully opaque.
+
+    Pixels with alpha above the normalized threshold become 255; others become 0.
+
+    Args:
+        array: RGBA NumPy array.
+        threshold: Normalized cutoff in ``[0.0, 1.0]``.
+
+    Returns:
+        Array with binary alpha; may be a copy if the input was read-only.
+    """
 
     if array.ndim < 3 or array.shape[2] < 4:
         return array

@@ -1,3 +1,10 @@
+"""Background color detection for spritesheets without metadata.
+
+Provides ``UnknownSpritesheetHandler`` which identifies images lacking XML/TXT
+metadata, detects their background colors, and prompts the user to choose
+how to handle them before extraction.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,11 +17,23 @@ from parsers.unknown_parser import UnknownParser
 
 
 class UnknownSpritesheetHandler:
-    """Encapsulates background detection flows for unknown spritesheets."""
+    """Detect and handle background colors for spritesheets without metadata.
+
+    Identifies images missing XML, TXT, or spritemap JSON files, analyses them
+    for transparency and background colors, and shows a dialog for user input.
+
+    Attributes:
+        SUPPORTED_IMAGE_SUFFIXES: Tuple of file extensions considered valid.
+    """
 
     SUPPORTED_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
 
     def __init__(self, logger: Callable[[str], None] | None = None):
+        """Initialise the handler with an optional logger.
+
+        Args:
+            logger: Callable for status messages; defaults to ``print``.
+        """
         self._log = logger or print
 
     def handle_background_detection(
@@ -23,7 +42,19 @@ class UnknownSpritesheetHandler:
         spritesheet_list: Sequence[str],
         parent_window,
     ) -> bool:
-        """Run detection workflow. Returns True if user cancels extraction."""
+        """Run the background detection workflow for unknown spritesheets.
+
+        Scans for images lacking metadata, detects background colors, and
+        displays a dialog if user input is required.
+
+        Args:
+            input_dir: Root directory containing the images.
+            spritesheet_list: Relative filenames to check.
+            parent_window: Parent widget for the dialog.
+
+        Returns:
+            ``True`` if the user cancelled extraction, ``False`` otherwise.
+        """
         try:
             self._log(
                 f"[UnknownSpritesheetHandler] Checking {len(spritesheet_list)} spritesheets for unknown files..."
@@ -98,6 +129,15 @@ class UnknownSpritesheetHandler:
     def _collect_unknown_spritesheets(
         self, base_directory: Path, spritesheet_list: Sequence[str]
     ) -> List[str]:
+        """Identify spritesheets that lack accompanying metadata files.
+
+        Args:
+            base_directory: Root path for resolving relative filenames.
+            spritesheet_list: Relative filenames to check.
+
+        Returns:
+            List of filenames with no XML, TXT, or spritemap JSON metadata.
+        """
         unknown_sheets: List[str] = []
         for filename in spritesheet_list:
             relative_path = Path(filename)
@@ -129,6 +169,15 @@ class UnknownSpritesheetHandler:
     def _detect_background_colors(
         self, base_directory: Path, unknown_sheets: Sequence[str]
     ):
+        """Analyse unknown spritesheets for transparency and background colors.
+
+        Args:
+            base_directory: Root path for resolving relative filenames.
+            unknown_sheets: Filenames previously identified as lacking metadata.
+
+        Returns:
+            List of dicts with ``filename``, ``colors``, and ``has_transparency``.
+        """
         detection_results = []
         for filename in unknown_sheets:
             image_path = str(base_directory / Path(filename))
