@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Dialog for configuring background color removal on unknown spritesheets.
+
+Provides a user interface for selecting which detected background colors
+should be keyed out during extraction. Supports batch selection and
+per-spritesheet control.
+"""
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -17,14 +23,27 @@ from PySide6.QtGui import QFont, QColor, QPainter
 
 
 class BackgroundHandlerWindow(QDialog):
-    """
-    A class that handles background color detection and keying options for unknown spritesheets.
+    """Dialog for background color detection and removal options.
 
-    This window displays detected background colors for unknown spritesheets with individual checkboxes
-    to control whether background removal should be applied to each spritesheet.
+    Displays detected background colors for unknown spritesheets and
+    provides checkboxes to control whether background removal should
+    be applied to each spritesheet.
+
+    Attributes:
+        detection_results: Original list of detection result dictionaries.
+        result: Dictionary mapping filenames to processing choices.
+        checkbox_vars: Dictionary mapping filenames to their QCheckBox widgets.
+        filtered_results: Detection results excluding images with transparency.
     """
 
     def __init__(self, parent, detection_results):
+        """Create the background handler dialog.
+
+        Args:
+            parent: Parent widget for the dialog.
+            detection_results: List of dicts with 'filename', 'colors', and
+                'has_transparency' keys from background detection.
+        """
         super().__init__(parent)
         self.detection_results = detection_results
         self.result = {}
@@ -35,14 +54,12 @@ class BackgroundHandlerWindow(QDialog):
         self.resize(750, 550)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
-        # Filter out images that already have transparency
         self.filtered_results = [
             result
             for result in detection_results
             if not result.get("has_transparency", False)
         ]
 
-        # For images with transparency, automatically set them to exclude background processing
         for detection_result in detection_results:
             if detection_result.get("has_transparency", False):
                 self.result[detection_result["filename"]] = "exclude_background"
@@ -52,25 +69,31 @@ class BackgroundHandlerWindow(QDialog):
             self.accept()
             return
 
-        print(
-            f"[BackgroundHandlerWindow] Filtered to {len(self.filtered_results)} images needing background processing"
-        )
+            print(
+                f"[BackgroundHandlerWindow] Filtered to {len(self.filtered_results)} images needing background processing"
+            )
 
         self.setup_ui()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate a string using Qt's translation system.
+
+        Args:
+            text: String to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
-        """Set up the dialog UI."""
+        """Build the dialog layout with spritesheet entries and controls."""
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Title section with icon
         title_layout = QHBoxLayout()
 
         icon_label = QLabel("🎨")
@@ -95,7 +118,6 @@ class BackgroundHandlerWindow(QDialog):
         desc_label.setWordWrap(True)
         main_layout.addWidget(desc_label)
 
-        # Global controls
         global_layout = QHBoxLayout()
 
         select_all_btn = QPushButton(self.tr("Select All"))
@@ -111,7 +133,6 @@ class BackgroundHandlerWindow(QDialog):
         global_layout.addStretch()
         main_layout.addLayout(global_layout)
 
-        # Scrollable area for spritesheet entries
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -122,7 +143,6 @@ class BackgroundHandlerWindow(QDialog):
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         content_layout.setSpacing(3)
 
-        # Add spritesheet entries
         for i, result in enumerate(self.filtered_results):
             entry_widget = self.create_spritesheet_entry(result, i)
             content_layout.addWidget(entry_widget)
@@ -130,7 +150,6 @@ class BackgroundHandlerWindow(QDialog):
         scroll_area.setWidget(content_widget)
         main_layout.addWidget(scroll_area)
 
-        # Options explanation
         options_frame = QFrame()
         options_layout = QVBoxLayout(options_frame)
 
@@ -148,7 +167,6 @@ class BackgroundHandlerWindow(QDialog):
         options_desc.setStyleSheet("QLabel { margin-left: 10px; }")
         options_layout.addWidget(options_desc)
 
-        # Add transparent background tip
         transparency_tip = QLabel(
             self.tr(
                 "💡 Tip: Checked files will have transparent backgrounds in PNG, WebP, and APNG outputs"
@@ -160,7 +178,6 @@ class BackgroundHandlerWindow(QDialog):
 
         main_layout.addWidget(options_frame)
 
-        # Button section
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
@@ -177,13 +194,19 @@ class BackgroundHandlerWindow(QDialog):
 
         main_layout.addLayout(button_layout)
 
-        # Set up keyboard shortcuts
         apply_btn.setShortcut("Return")
         cancel_btn.setShortcut("Escape")
 
     def create_spritesheet_entry(self, result, index):
-        """Create a widget for a single spritesheet entry."""
-        # Alternating background colors
+        """Build a widget displaying one spritesheet's detected colors.
+
+        Args:
+            result: Detection result dict with 'filename' and 'colors' keys.
+            index: Zero-based index for alternating row colors.
+
+        Returns:
+            QFrame containing the checkbox, filename, and color samples.
+        """
         bg_color = "#f0f0f0" if index % 2 == 0 else "#ffffff"
 
         entry_frame = QFrame()
@@ -197,11 +220,10 @@ class BackgroundHandlerWindow(QDialog):
         layout.setSpacing(3)
         layout.setContentsMargins(8, 4, 8, 4)
 
-        # Header with checkbox and filename
         header_layout = QHBoxLayout()
 
         checkbox = QCheckBox()
-        checkbox.setChecked(True)  # Default to checked
+        checkbox.setChecked(True)
         self.checkbox_vars[result["filename"]] = checkbox
         header_layout.addWidget(checkbox)
 
@@ -214,18 +236,15 @@ class BackgroundHandlerWindow(QDialog):
 
         layout.addLayout(header_layout)
 
-        # Colors section
         colors_label = QLabel(self.tr("Detected background colors:"))
         colors_label.setFont(QFont("Arial", 9))
         colors_label.setStyleSheet("QLabel { margin-left: 15px; }")
         layout.addWidget(colors_label)
 
-        # Show up to 3 colors
         for color_index, color in enumerate(result["colors"][:3]):
             color_layout = self.create_color_sample(color, color_index)
             layout.addLayout(color_layout)
 
-        # Show if there are more colors
         if len(result["colors"]) > 3:
             more_label = QLabel(
                 self.tr("... and {count} more colors").format(
@@ -239,16 +258,22 @@ class BackgroundHandlerWindow(QDialog):
         return entry_frame
 
     def create_color_sample(self, color, color_index):
-        """Create a layout showing a color sample and its RGB values."""
+        """Build a row with a color swatch and RGB label.
+
+        Args:
+            color: RGB tuple (r, g, b) for the detected color.
+            color_index: Position in the color list (0 = primary).
+
+        Returns:
+            QHBoxLayout containing the color sample and text label.
+        """
         layout = QHBoxLayout()
         layout.setContentsMargins(25, 1, 0, 1)
 
-        # Color sample widget
         color_sample = ColorSampleWidget(color)
         color_sample.setFixedSize(16, 16)
         layout.addWidget(color_sample)
 
-        # RGB text
         rgb_text = self.tr("RGB({r}, {g}, {b})").format(
             r=color[0], g=color[1], b=color[2]
         )
@@ -268,17 +293,17 @@ class BackgroundHandlerWindow(QDialog):
         return layout
 
     def select_all(self):
-        """Select all checkboxes."""
+        """Check all spritesheet checkboxes for background removal."""
         for checkbox in self.checkbox_vars.values():
             checkbox.setChecked(True)
 
     def select_none(self):
-        """Unselect all checkboxes."""
+        """Uncheck all spritesheet checkboxes."""
         for checkbox in self.checkbox_vars.values():
             checkbox.setChecked(False)
 
     def on_apply(self):
-        """Handle apply button click."""
+        """Store checkbox states in result dict and close the dialog."""
         for filename, checkbox in self.checkbox_vars.items():
             if checkbox.isChecked():
                 self.result[filename] = "key_background"
@@ -287,33 +312,34 @@ class BackgroundHandlerWindow(QDialog):
         self.accept()
 
     def on_cancel(self):
-        """Handle cancel button click."""
+        """Clear results, set cancelled flag, and close the dialog."""
         self.result.clear()
         self.result["_cancelled"] = True
         self.reject()
 
     def get_result(self):
-        """Get the processing results."""
+        """Return the mapping of filenames to processing choices.
+
+        Returns:
+            Dictionary with filenames as keys and 'key_background',
+            'exclude_background', or '_cancelled' as values.
+        """
         return self.result
 
     @staticmethod
     def show_background_options(parent_window, detection_results):
-        """
-        Show the background handling options dialog with individual controls.
+        """Display the background options dialog and return user choices.
 
         Args:
-            parent_window: The parent Qt widget
-            detection_results: List of dictionaries with keys:
-                - 'filename': Name of the spritesheet file
-                - 'colors': List of RGB tuples for detected background colors
-                - 'has_transparency': Boolean indicating if image already has transparency
+            parent_window: Parent Qt widget for the modal dialog.
+            detection_results: List of dicts containing:
+                - 'filename': Spritesheet filename.
+                - 'colors': List of (r, g, b) tuples.
+                - 'has_transparency': True if image already has alpha.
 
         Returns:
-            dict: Dictionary mapping filenames to their background handling choice:
-                - 'key_background': Apply color keying (remove background)
-                - 'exclude_background': Exclude background during sprite detection
-                - 'skip': Skip processing this file
-                - {'_cancelled': True}: User cancelled the dialog (stops extraction)
+            Dictionary mapping filenames to processing choices:
+            'key_background', 'exclude_background', or '_cancelled'.
         """
         print(
             f"[BackgroundHandlerWindow] Called with {len(detection_results)} detection results"
@@ -325,32 +351,50 @@ class BackgroundHandlerWindow(QDialog):
 
     @staticmethod
     def reset_batch_state():
-        """
-        Reset any batch processing state.
-        Provided for compatibility with existing code.
-        """
+        """Reset batch processing state for a new extraction session."""
         print("[BackgroundHandlerWindow] Batch state reset for new processing")
 
 
 class ColorSampleWidget(QWidget):
-    """A widget that displays a color sample."""
+    """Widget displaying a small colored rectangle.
+
+    Renders a bordered square filled with the specified RGB color.
+
+    Attributes:
+        color: QColor instance for the fill color.
+    """
 
     def __init__(self, rgb_color):
+        """Create a color sample widget.
+
+        Args:
+            rgb_color: Tuple of (r, g, b) values in 0-255 range.
+        """
         super().__init__()
         self.color = QColor(rgb_color[0], rgb_color[1], rgb_color[2])
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate a string using Qt's translation system.
+
+        Args:
+            text: String to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def paintEvent(self, event):
-        """Paint the color sample."""
+        """Draw the color swatch with a black border.
+
+        Args:
+            event: QPaintEvent triggering the repaint.
+        """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Draw border
         painter.setPen(QColor(0, 0, 0))
         painter.setBrush(self.color)
         painter.drawRect(1, 1, self.width() - 2, self.height() - 2)

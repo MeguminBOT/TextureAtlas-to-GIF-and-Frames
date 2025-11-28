@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Widgets and helpers that power the Extract tab in the GUI."""
 
 import json
 import os
@@ -40,6 +41,15 @@ class ExtractTabWidget(QWidget):
     """Widget for the Extract tab functionality."""
 
     def __init__(self, parent=None, use_existing_ui=False):
+        """Initialize the Extract tab UI and hook into parent callbacks.
+
+        Args:
+            parent (QWidget | None): Main window containing shared state such as
+                ``app_config`` and ``settings_manager``.
+            use_existing_ui (bool): When ``True`` attaches to designer-built
+                widgets that already exist on ``parent`` instead of building the
+                layout programmatically.
+        """
         super().__init__(parent)
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
@@ -734,6 +744,7 @@ class ExtractTabWidget(QWidget):
     def _format_display_name(
         self, base_directory: Optional[Path], spritesheet_path: Path
     ) -> str:
+        """Return a label relative to ``base_directory`` when feasible."""
         if base_directory:
             try:
                 relative = spritesheet_path.relative_to(base_directory)
@@ -784,6 +795,16 @@ class ExtractTabWidget(QWidget):
             }
 
     def _build_spritemap_symbol_map(self, animation_json_path):
+        """Return a mapping of display labels to spritemap metadata entries.
+
+        Args:
+            animation_json_path: Path to ``Animation.json`` describing the Adobe
+                Animate timeline.
+
+        Returns:
+            dict: Keys are human-friendly labels, values describe the original
+                symbol, label, and estimated frame count.
+        """
         symbol_map = {}
 
         def register_entry(display_name, entry_type, entry_value, frame_count):
@@ -868,6 +889,7 @@ class ExtractTabWidget(QWidget):
             self.populate_animation_list(spritesheet_name)
 
     def _append_editor_composites_to_list(self, spritesheet_name: str):
+        """Populate the animation list with composites saved from the editor."""
         composites = self.editor_composites.get(spritesheet_name, {})
         for animation_name, entry in sorted(composites.items()):
             editor_id = entry.get("editor_id") if isinstance(entry, dict) else entry
@@ -900,22 +922,7 @@ class ExtractTabWidget(QWidget):
 
         if spritesheet_name not in self.parent_app.data_dict:
             # If no data files found, try to use the unknown parser
-            try:
-                from parsers.unknown_parser import UnknownParser
-
-                # Get the spritesheet file path from the listbox
-                current_item = self.listbox_png.currentItem()
-                if current_item:
-                    spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
-                    if spritesheet_path:
-                        unknown_parser = UnknownParser(
-                            directory=str(Path(spritesheet_path).parent),
-                            png_filename=Path(spritesheet_path).name,
-                            listbox_data=self.listbox_data,
-                        )
-                        unknown_parser.get_data()
-            except Exception as e:
-                print(f"Error using unknown parser: {e}")
+            self._populate_using_unknown_parser()
             self._append_editor_composites_to_list(spritesheet_name)
             return
 
@@ -929,9 +936,8 @@ class ExtractTabWidget(QWidget):
                     xml_parser = XmlParser(
                         directory=str(Path(data_files["xml"]).parent),
                         xml_filename=Path(data_files["xml"]).name,
-                        listbox_data=self.listbox_data,
                     )
-                    xml_parser.get_data()
+                    self._populate_animation_names(xml_parser.get_data())
                 except Exception as e:
                     print(f"Error parsing XML: {e}")
 
@@ -942,9 +948,8 @@ class ExtractTabWidget(QWidget):
                     txt_parser = TxtParser(
                         directory=str(Path(data_files["txt"]).parent),
                         txt_filename=Path(data_files["txt"]).name,
-                        listbox_data=self.listbox_data,
                     )
-                    txt_parser.get_data()
+                    self._populate_animation_names(txt_parser.get_data())
                 except Exception as e:
                     print(f"Error parsing TXT: {e}")
 
@@ -964,10 +969,9 @@ class ExtractTabWidget(QWidget):
                             parser = SpritemapParser(
                                 directory=str(Path(animation_path).parent),
                                 animation_filename=Path(animation_path).name,
-                                listbox_data=self.listbox_data,
                                 filter_single_frame=self.filter_single_frame_spritemaps,
                             )
-                            parser.get_data()
+                            self._populate_animation_names(parser.get_data())
                     except Exception as e:
                         print(f"Error parsing spritemap animations: {e}")
             else:
@@ -978,21 +982,42 @@ class ExtractTabWidget(QWidget):
         self._append_editor_composites_to_list(spritesheet_name)
 
     def _populate_unknown_parser_fallback(self):
+        """Use the generic parser when nothing else recognized the source."""
+        self._populate_using_unknown_parser()
+
+    def _populate_using_unknown_parser(self):
         try:
             from parsers.unknown_parser import UnknownParser
 
             current_item = self.listbox_png.currentItem()
-            if current_item:
-                spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
-                if spritesheet_path:
-                    unknown_parser = UnknownParser(
-                        directory=str(Path(spritesheet_path).parent),
-                        png_filename=Path(spritesheet_path).name,
-                        listbox_data=self.listbox_data,
-                    )
-                    unknown_parser.get_data()
+            if not current_item:
+                return
+
+            spritesheet_path = current_item.data(Qt.ItemDataRole.UserRole)
+            if not spritesheet_path:
+                return
+
+            unknown_parser = UnknownParser(
+                directory=str(Path(spritesheet_path).parent),
+                image_filename=Path(spritesheet_path).name,
+            )
+            self._populate_animation_names(unknown_parser.get_data())
         except Exception as exc:
             print(f"Error using unknown parser: {exc}")
+
+    def _populate_animation_names(self, names):
+        if not self.listbox_data or not names:
+            return
+
+        add_item = getattr(self.listbox_data, "add_item", None)
+        if callable(add_item):
+            for name in sorted(names):
+                add_item(name)
+            return
+
+        if hasattr(self.listbox_data, "addItem"):
+            for name in sorted(names):
+                self.listbox_data.addItem(name)
 
     def clear_filelist(self):
         """Clears the file list and resets settings."""
@@ -1077,7 +1102,6 @@ class ExtractTabWidget(QWidget):
             return
 
         menu = QMenu(self)
-        spritesheet_name = item.text()
 
         editor_action = QAction(self.tr("Add to Editor Tab"), self)
         editor_action.triggered.connect(
@@ -1349,6 +1373,12 @@ class ExtractTabWidget(QWidget):
         self._open_animation_in_editor(spritesheet_item, animation_item)
 
     def _open_animation_in_editor(self, spritesheet_item, animation_item):
+        """Send the selected spritesheet + animation metadata to the editor tab.
+
+        Args:
+            spritesheet_item: QListWidgetItem describing the spritesheet row.
+            animation_item: QListWidgetItem describing the animation row.
+        """
         if not self.parent_app or not hasattr(
             self.parent_app, "open_animation_in_editor"
         ):

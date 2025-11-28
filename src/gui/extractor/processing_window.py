@@ -1,4 +1,11 @@
+"""Progress dialog displaying extraction status and worker activity.
+
+Shows real-time progress, statistics, and log messages while extractor
+workers process spritesheets in parallel.
+"""
+
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -13,63 +20,78 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QToolButton,
     QFrame,
+    QWidget,
 )
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QCloseEvent, QFont
 
 
 class ProcessingWindow(QDialog):
-    """
-    A window that shows the progress of extraction processing.
-    Displays current file being processed, overall progress, and a log of completed files.
+    """Modal dialog displaying extraction progress, statistics, and logs.
+
+    Provides real-time feedback during spritesheet extraction including
+    file progress, worker status, generated frame/animation counts, and
+    a scrolling log of processed files.
+
+    Attributes:
+        cancellation_requested: Signal emitted when user clicks Cancel.
+        current_file_index: Number of files processed so far.
+        total_files: Total number of files to process.
+        current_filename: Display name of the file currently being processed.
+        is_cancelled: True if user requested cancellation.
+        frames_generated: Running count of extracted frames.
+        animations_generated: Running count of created animations.
+        sprites_failed: Running count of failed sprite extractions.
+        start_time: Epoch timestamp when processing began.
     """
 
-    # Signal emitted when user requests cancellation
     cancellation_requested = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Initialize the processing dialog with progress indicators and timers.
+
+        Args:
+            parent: Parent widget for modal behavior.
+        """
         super().__init__(parent)
         self.setWindowTitle(self.tr("Processing..."))
         self.setWindowModality(Qt.ApplicationModal)
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
 
-        # Track processing state
-        self.current_file_index = 0
-        self.total_files = 0
-        self.current_filename = ""
+        self.current_file_index: int = 0
+        self.total_files: int = 0
+        self.current_filename: str = ""
         self.is_cancelled = False
 
-        # Track statistics
-        self.frames_generated = 0
-        self.animations_generated = 0
-        self.sprites_failed = 0
-        self.start_time = None
+        self.frames_generated: int = 0
+        self.animations_generated: int = 0
+        self.sprites_failed: int = 0
+        self.start_time: Optional[float] = None
 
         self.setup_ui()
         self._progress_dirty = False
         self._stats_dirty = False
-        self._pending_current_files_text = None
-        self._log_buffer = []
-        self._pending_worker_entries = None
-        self._latest_worker_entries = []
-        self._last_logged_recent_path = None
+        self._pending_current_files_text: Optional[str] = None
+        self._log_buffer: List[str] = []
+        self._pending_worker_entries: Optional[List[Dict[str, Any]]] = None
+        self._latest_worker_entries: List[Dict[str, Any]] = []
+        self._last_logged_recent_path: Optional[str] = None
 
         self._ui_update_timer = QTimer(self)
         self._ui_update_timer.setInterval(100)
         self._ui_update_timer.timeout.connect(self._flush_pending_updates)
 
-    def tr(self, text):
-        """Translation helper method."""
+    def tr(self, text: str) -> str:
+        """Translate text using the application's current locale."""
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
-    def setup_ui(self):
-        """Set up the user interface."""
+    def setup_ui(self) -> None:
+        """Build and configure all UI components for the dialog."""
         layout = QVBoxLayout(self)
 
-        # Title
         title_label = QLabel(self.tr("Extracting TextureAtlas Files"))
         title_font = QFont()
         title_font.setPointSize(14)
@@ -78,7 +100,6 @@ class ProcessingWindow(QDialog):
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
-        # Current file section
         current_file_frame = QFrame()
         current_file_frame.setFrameStyle(QFrame.StyledPanel)
         current_file_layout = QVBoxLayout(current_file_frame)
@@ -128,7 +149,6 @@ class ProcessingWindow(QDialog):
 
         layout.addWidget(current_file_frame)
 
-        # Progress section
         progress_frame = QFrame()
         progress_frame.setFrameStyle(QFrame.StyledPanel)
         progress_layout = QVBoxLayout(progress_frame)
@@ -144,7 +164,6 @@ class ProcessingWindow(QDialog):
 
         layout.addWidget(progress_frame)
 
-        # Statistics section
         stats_frame = QFrame()
         stats_frame.setFrameStyle(QFrame.StyledPanel)
         stats_layout = QVBoxLayout(stats_frame)
@@ -167,7 +186,6 @@ class ProcessingWindow(QDialog):
 
         layout.addWidget(stats_frame)
 
-        # Processing log
         log_label = QLabel(self.tr("Processing Log:"))
         layout.addWidget(log_label)
 
@@ -176,7 +194,6 @@ class ProcessingWindow(QDialog):
         self.log_text.setReadOnly(True)
         layout.addWidget(self.log_text)
 
-        # Buttons
         button_layout = QHBoxLayout()
 
         self.cancel_button = QPushButton(self.tr("Cancel"))
@@ -187,20 +204,22 @@ class ProcessingWindow(QDialog):
 
         self.close_button = QPushButton(self.tr("Close"))
         self.close_button.clicked.connect(self.accept)
-        self.close_button.setEnabled(False)  # Disabled until processing completes
+        self.close_button.setEnabled(False)
         button_layout.addWidget(self.close_button)
 
         layout.addLayout(button_layout)
 
-    def start_processing(self, total_files):
-        """Initialize the processing with the total number of files."""
-        print(f"[ProcessingWindow] Starting processing of {total_files} files")
+    def start_processing(self, total_files: int) -> None:
+        """Reset statistics and begin tracking a new extraction batch.
+
+        Args:
+            total_files: Number of spritesheets to process.
+        """
         self.total_files = total_files
         self.current_file_index = 0
         self.progress_bar.setMaximum(max(total_files, 1))
-        self.progress_bar.setValue(0)  # Start at 0
+        self.progress_bar.setValue(0)
 
-        # Reset statistics
         self.frames_generated = 0
         self.animations_generated = 0
         self.sprites_failed = 0
@@ -221,16 +240,23 @@ class ProcessingWindow(QDialog):
             self.tr("Starting extraction of {count} files...").format(count=total_files)
         )
 
-        # Start duration timer
         self.duration_timer = QTimer(self)
         self.duration_timer.timeout.connect(self.update_duration)
-        self.duration_timer.start(1000)  # Update every second
+        self.duration_timer.start(1000)
 
-    def update_progress(self, current_file, total_files, progress_payload=""):
-        """Update the progress display."""
-        # print(
-        #    f"[ProcessingWindow] update_progress: {current_file}/{total_files} - {progress_payload}"
-        # )
+    def update_progress(
+        self,
+        current_file: int,
+        total_files: int,
+        progress_payload: Any = "",
+    ) -> None:
+        """Buffer progress updates for coalesced UI refresh.
+
+        Args:
+            current_file: Number of files completed so far.
+            total_files: Total files in the batch.
+            progress_payload: Either a status string or dict with worker details.
+        """
         self.current_file_index = current_file
         self.total_files = total_files
         worker_entries = None
@@ -272,9 +298,9 @@ class ProcessingWindow(QDialog):
 
         self._progress_dirty = True
 
-    def update_display(self):
-        """Update the display labels and progress bar."""
-        # Current files are updated separately via update_current_files
+    def update_display(self) -> None:
+        """Refresh the progress label and bar to reflect current state."""
+
         self.progress_label.setText(
             self.tr("Progress: {current} / {total} files").format(
                 current=self.current_file_index, total=self.total_files
@@ -282,20 +308,18 @@ class ProcessingWindow(QDialog):
         )
 
         if self.total_files > 0:
-            # Ensure progress bar maximum is correct
             if self.progress_bar.maximum() != self.total_files:
                 self.progress_bar.setMaximum(self.total_files)
-            # Set progress bar value directly to current file index
             self.progress_bar.setValue(self.current_file_index)
         else:
             self.progress_bar.setValue(0)
 
-        # Force UI update
         self.repaint()
         self.update()
 
-    def update_duration(self):
-        """Update the duration display."""
+    def update_duration(self) -> None:
+        """Refresh the elapsed time display."""
+
         if self.start_time:
             import time
 
@@ -309,13 +333,18 @@ class ProcessingWindow(QDialog):
             )
 
     def update_statistics(
-        self, frames_generated=None, animations_generated=None, sprites_failed=None
-    ):
-        """Update the statistics display."""
-        # print(
-        #    f"[ProcessingWindow] update_statistics called with: F:{frames_generated}, A:{animations_generated}, S:{sprites_failed}"
-        # )
+        self,
+        frames_generated: Optional[int] = None,
+        animations_generated: Optional[int] = None,
+        sprites_failed: Optional[int] = None,
+    ) -> None:
+        """Update extraction counters and mark the stats display as dirty.
 
+        Args:
+            frames_generated: New frame count, or None to keep current.
+            animations_generated: New animation count, or None to keep current.
+            sprites_failed: New failure count, or None to keep current.
+        """
         if frames_generated is not None:
             self.frames_generated = frames_generated
         if animations_generated is not None:
@@ -323,18 +352,19 @@ class ProcessingWindow(QDialog):
         if sprites_failed is not None:
             self.sprites_failed = sprites_failed
 
-        # print(
-        #    f"[ProcessingWindow] Updated internal stats to: F:{self.frames_generated}, A:{self.animations_generated}, S:{self.sprites_failed}"
-        # )
         self._stats_dirty = True
 
-    def processing_completed(self, success=True, message=""):
-        """Called when processing is completed."""
-        # Stop the duration timer
+    def processing_completed(self, success: bool = True, message: str = "") -> None:
+        """Finalize progress UI after all workers have stopped.
+
+        Args:
+            success: True if extraction completed without critical errors.
+            message: Optional status message to append to the log.
+        """
+
         if hasattr(self, "duration_timer"):
             self.duration_timer.stop()
 
-        # Stop the cancel timer if it's running
         if hasattr(self, "cancel_timer") and self.cancel_timer.isActive():
             self.cancel_timer.stop()
 
@@ -353,9 +383,7 @@ class ProcessingWindow(QDialog):
                     self.tr("Error: {message}").format(message=message)
                 )
 
-        self.progress_bar.setValue(
-            self.total_files
-        )  # Set to total files instead of maximum
+        self.progress_bar.setValue(self.total_files)
         self._flush_pending_updates()
         if self._ui_update_timer.isActive():
             self._ui_update_timer.stop()
@@ -365,49 +393,53 @@ class ProcessingWindow(QDialog):
         self.cancel_button.setEnabled(False)
         self.close_button.setEnabled(True)
 
-        # Auto-scroll to bottom
         cursor = self.log_text.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         self.log_text.setTextCursor(cursor)
 
-    def cancel_processing(self):
-        """Handle the cancel button click."""
+    def cancel_processing(self) -> None:
+        """Request cancellation and start a timeout for forced closure."""
+
         self.is_cancelled = True
         self.current_filename_label.setText(self.tr("Cancelling..."))
         self.cancel_button.setEnabled(False)
         self.log_text.append(self.tr("Cancellation requested..."))
 
-        # Emit signal to notify parent that cancellation was requested
         self.cancellation_requested.emit()
 
-        # Set up a timer to force close if cancellation takes too long
         if not hasattr(self, "cancel_timer"):
             self.cancel_timer = QTimer(self)
             self.cancel_timer.timeout.connect(self.force_close)
             self.cancel_timer.setSingleShot(True)
 
-        # Give the worker 5 seconds to cancel gracefully
         self.cancel_timer.start(5000)
 
-    def force_close(self):
-        """Force close the processing window if cancellation takes too long."""
+    def force_close(self) -> None:
+        """Terminate and close the dialog after cancellation timeout."""
+
         self.log_text.append(self.tr("Forcing cancellation due to timeout..."))
         self.processing_completed(
             False, "Processing was forcefully cancelled due to timeout"
         )
 
-    def closeEvent(self, event):
-        """Handle window close event."""
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Trigger cancellation if processing is still active on close."""
+
         if self.cancel_button.isEnabled():
-            # Processing is still active, cancel it
             self.cancel_processing()
         event.accept()
 
-    def add_debug_message(self, message):
-        """Add a debug message to the processing log."""
+    def add_debug_message(self, message: str) -> None:
+        """Append a debug entry to the log buffer.
+
+        Args:
+            message: Text to display in the processing log.
+        """
         self._log_buffer.append(message)
 
-    def _flush_pending_updates(self):
+    def _flush_pending_updates(self) -> None:
+        """Apply buffered progress, stats, and log updates to the UI."""
+
         if self._progress_dirty:
             self.update_display()
             if self._pending_current_files_text is not None:
@@ -442,7 +474,9 @@ class ProcessingWindow(QDialog):
             cursor.movePosition(cursor.MoveOperation.End)
             self.log_text.setTextCursor(cursor)
 
-    def _toggle_worker_details(self):
+    def _toggle_worker_details(self) -> None:
+        """Show or hide the worker status list."""
+
         is_visible = self.worker_toggle_button.isChecked()
         self.worker_details_frame.setVisible(is_visible)
         self.worker_toggle_button.setArrowType(
@@ -456,10 +490,22 @@ class ProcessingWindow(QDialog):
         if is_visible:
             self._refresh_worker_list()
 
-    def _refresh_worker_list(self):
+    def _refresh_worker_list(self) -> None:
+        """Force an immediate refresh of the worker list display."""
+
         self._update_worker_list(self._latest_worker_entries, force=True)
 
-    def _update_worker_list(self, worker_entries, force=False):
+    def _update_worker_list(
+        self,
+        worker_entries: Optional[List[Dict[str, Any]]],
+        force: bool = False,
+    ) -> None:
+        """Rebuild the worker list widget with current worker states.
+
+        Args:
+            worker_entries: List of dicts containing label, display, state, path.
+            force: If True, update even when the details frame is hidden.
+        """
         self._latest_worker_entries = worker_entries or []
         if not self.worker_details_frame.isVisible() and not force:
             return
@@ -491,10 +537,13 @@ class ProcessingWindow(QDialog):
 
         self.worker_list.setUpdatesEnabled(True)
 
-    def update_current_files(self, current_files_text):
-        """Update the current files being processed."""
+    def update_current_files(self, current_files_text: str) -> None:
+        """Update the label showing which file(s) are being processed.
+
+        Args:
+            current_files_text: Comma-separated list of filenames or single name.
+        """
         if current_files_text:
-            # If multiple files, show them in a readable format
             if ", " in current_files_text:
                 self.current_filename_label.setText(
                     self.tr("Processing: {files}").format(files=current_files_text)

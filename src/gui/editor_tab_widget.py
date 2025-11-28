@@ -59,7 +59,17 @@ VALID_ORIGIN_MODES = {ORIGIN_MODE_CENTER, ORIGIN_MODE_TOP_LEFT}
 
 @dataclass
 class AlignmentFrame:
-    """Container representing a single frame that can be aligned."""
+    """Sprite frame plus metadata tracked during manual alignment.
+
+    Attributes:
+        name (str): Unique label shown in the tree widget.
+        original_key (str): Key used to look the frame up in the source data.
+        pixmap (QPixmap): Rasterized frame used for display/dragging.
+        duration_ms (int): Playback duration for preview loops.
+        offset_x (int): User-defined horizontal shift relative to canvas origin.
+        offset_y (int): User-defined vertical shift relative to canvas origin.
+        metadata (dict): Free-form extras stored by importers.
+    """
 
     name: str
     original_key: str
@@ -72,7 +82,12 @@ class AlignmentFrame:
 
 @dataclass
 class AlignmentAnimation:
-    """Holds state for an animation currently loaded in the editor."""
+    """Book-keeping bundle for all frames associated with an animation.
+
+    Attributes capture original source info (spritesheet_name, animation_name),
+    canvas sizing, default offsets, and optional Friday Night Funkin' metadata
+    used during export.
+    """
 
     display_name: str
     frames: List[AlignmentFrame]
@@ -87,7 +102,12 @@ class AlignmentAnimation:
     fnf_raw_offsets: Optional[Dict[str, Any]] = None
 
     def ensure_canvas_bounds(self, respect_existing: bool = False):
-        """Grow the canvas in 256px steps until all frames fit."""
+        """Clamp canvas to multiples of 256 so every frame fits comfortably.
+
+        Args:
+            respect_existing (bool): When ``True`` the method only increases the
+                canvas; otherwise it resets width/height to the new target.
+        """
         step = 256
         max_side_limit = 4096
         required_side = step
@@ -107,12 +127,13 @@ class AlignmentAnimation:
 
 
 class AlignmentCanvas(QWidget):
-    """Simple canvas that renders the active frame and allows drag alignment."""
+    """Interactive scene that renders a frame, ghost overlay, and guides."""
 
     offsetChanged = Signal(int, int)
     zoomChanged = Signal(float)
 
     def __init__(self):
+        """Initialize drawing state, default zoom levels, and input flags."""
         super().__init__()
         self._pixmap: Optional[QPixmap] = None
         self._canvas_width = 512
@@ -142,19 +163,23 @@ class AlignmentCanvas(QWidget):
         self.setMinimumSize(self.sizeHint())
 
     def sizeHint(self) -> QSize:  # noqa: D401 - Qt API
+        """Suggest a QWidget size that leaves padding around the canvas."""
         return QSize(
             max(self._canvas_width + self._display_padding, 240),
             max(self._canvas_height + self._display_padding, 240),
         )
 
     def minimumSizeHint(self) -> QSize:  # noqa: D401 - Qt API
+        """Mirror ``sizeHint`` so layouts never shrink the canvas too far."""
         return self.sizeHint()
 
     def set_pixmap(self, pixmap: Optional[QPixmap]):
+        """Assign the sprite being edited and schedule a repaint."""
         self._pixmap = pixmap
         self.update()
 
     def set_canvas_size(self, width: int, height: int):
+        """Resize the logical canvas while keeping view translation stable."""
         width = max(256, int(width))
         height = max(256, int(height))
         if (width, height) != (self._canvas_width, self._canvas_height):
@@ -179,6 +204,7 @@ class AlignmentCanvas(QWidget):
             self.update()
 
     def set_origin_mode(self, mode: str):
+        """Switch between centered and top-left origin behaviors."""
         if mode not in VALID_ORIGIN_MODES:
             mode = ORIGIN_MODE_CENTER
         if mode == self._origin_mode:
@@ -187,6 +213,13 @@ class AlignmentCanvas(QWidget):
         self.update()
 
     def set_offsets(self, offset_x: int, offset_y: int, notify: bool = False):
+        """Update frame offsets, snapping if enabled, and optionally signal.
+
+        Args:
+            offset_x (int): Horizontal offset relative to origin.
+            offset_y (int): Vertical offset relative to origin.
+            notify (bool): Emit ``offsetChanged`` when ``True``.
+        """
         offset_x = self._apply_snapping(int(offset_x))
         offset_y = self._apply_snapping(int(offset_y))
         changed = (offset_x, offset_y) != (self._offset_x, self._offset_y)
@@ -198,6 +231,7 @@ class AlignmentCanvas(QWidget):
             self.update()
 
     def offsets(self) -> Tuple[int, int]:
+        """Return the current (x, y) offsets."""
         return self._offset_x, self._offset_y
 
     def set_ghost_pixmap(
@@ -207,6 +241,14 @@ class AlignmentCanvas(QWidget):
         offset_x: int = 0,
         offset_y: int = 0,
     ):
+        """Configure the optional translucent ghost overlay.
+
+        Args:
+            pixmap (QPixmap | None): Ghost sprite to show or ``None``.
+            opacity (float): Fade factor clamped between roughly 0 and 1.
+            offset_x (int): Horizontal shift relative to origin.
+            offset_y (int): Vertical shift relative to origin.
+        """
         self._ghost_pixmap = pixmap
         self._ghost_opacity = max(0.05, min(0.95, opacity))
         self._ghost_offset_x = int(offset_x)
@@ -214,16 +256,19 @@ class AlignmentCanvas(QWidget):
         self.update()
 
     def configure_snapping(self, enabled: bool, snap_step: int):
+        """Toggle snapping and reapply it to the current offsets."""
         self._snapping_enabled = enabled
         self._snap_step = max(1, int(snap_step))
         # Re-apply snapping to current offsets to keep UI consistent
         self.set_offsets(self._offset_x, self._offset_y)
 
     def reset_zoom(self):
+        """Recentre the viewport and restore a 1:1 zoom."""
         self.recenter_view()
         self.set_zoom(1.0)
 
     def set_zoom(self, zoom: float, anchor: Optional[QPointF] = None):
+        """Apply a new zoom value, optionally keeping the cursor anchored."""
         zoom = max(self._min_zoom, min(self._max_zoom, zoom))
         if abs(zoom - self._zoom) < 0.001:
             return
@@ -235,9 +280,11 @@ class AlignmentCanvas(QWidget):
         self.update()
 
     def zoom(self) -> float:
+        """Expose the active zoom multiplier for other widgets."""
         return self._zoom
 
     def paintEvent(self, event):  # noqa: D401 - Qt API
+        """Paint checkerboard, guides, ghost overlay, and the active sprite."""
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(28, 28, 28))
 
@@ -268,6 +315,7 @@ class AlignmentCanvas(QWidget):
         painter.restore()
 
     def _canvas_rect(self) -> QRect:
+        """Return the rectangle describing the virtual canvas within widget."""
         left = (self.width() - self._canvas_width) // 2
         top = (self.height() - self._canvas_height) // 2
         return QRect(left, top, self._canvas_width, self._canvas_height)
@@ -275,6 +323,7 @@ class AlignmentCanvas(QWidget):
     def _origin_anchor(
         self, canvas_rect: QRect, pixmap: Optional[QPixmap]
     ) -> Tuple[int, int]:
+        """Compute the pixel position where (0, 0) should start for a pixmap."""
         if self._origin_mode == ORIGIN_MODE_TOP_LEFT:
             return canvas_rect.left(), canvas_rect.top()
         width = pixmap.width() if pixmap else 0
@@ -284,6 +333,7 @@ class AlignmentCanvas(QWidget):
         return base_x, base_y
 
     def _paint_checkerboard(self, painter: QPainter, rect):
+        """Fill the canvas with alternating squares to show transparency."""
         square = 16
         dark = QColor(60, 60, 60)
         light = QColor(80, 80, 80)
@@ -293,6 +343,7 @@ class AlignmentCanvas(QWidget):
                 painter.fillRect(x, y, square, square, color)
 
     def _paint_crosshair(self, painter: QPainter, rect):
+        """Draw either axes through the center or lines along the top-left."""
         painter.setPen(QColor(0, 196, 255, 140))
         if self._origin_mode == ORIGIN_MODE_TOP_LEFT:
             painter.drawLine(rect.left(), rect.top(), rect.right(), rect.top())
@@ -306,6 +357,7 @@ class AlignmentCanvas(QWidget):
             )
 
     def mousePressEvent(self, event):  # noqa: D401 - Qt API
+        """Start dragging sprites or panning depending on click target."""
         if event.button() == Qt.MouseButton.LeftButton:
             if self._is_point_on_sprite(event.position()):
                 self._dragging = True
@@ -322,6 +374,7 @@ class AlignmentCanvas(QWidget):
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):  # noqa: D401 - Qt API
+        """Update offsets or pan translation while the mouse is moving."""
         if self._dragging:
             delta = event.position().toPoint() - self._drag_origin
             self.set_offsets(
@@ -342,6 +395,7 @@ class AlignmentCanvas(QWidget):
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):  # noqa: D401 - Qt API
+        """Stop dragging/panning once the left mouse button is released."""
         if event.button() == Qt.MouseButton.LeftButton:
             if self._dragging:
                 self._dragging = False
@@ -357,6 +411,7 @@ class AlignmentCanvas(QWidget):
             super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):  # noqa: D401 - Qt API
+        """Move the sprite using arrow keys with optional shift multiplier."""
         step = 5 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1
         handled = True
         if event.key() == Qt.Key.Key_Left:
@@ -373,6 +428,7 @@ class AlignmentCanvas(QWidget):
             super().keyPressEvent(event)
 
     def wheelEvent(self, event):  # noqa: D401 - Qt API
+        """Zoom when Ctrl+wheel is used; otherwise defer to scroll area."""
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             delta = event.angleDelta().y()
             if delta == 0:
@@ -384,16 +440,19 @@ class AlignmentCanvas(QWidget):
             event.ignore()
 
     def _apply_snapping(self, value: int) -> int:
+        """Round ``value`` to the configured snap grid when enabled."""
         if not self._snapping_enabled or self._snap_step <= 1:
             return value
         snapped = int(round(value / self._snap_step) * self._snap_step)
         return snapped
 
     def recenter_view(self):
+        """Reset manual panning offsets to keep canvas perfectly centered."""
         self._view_translation = QPointF(0.0, 0.0)
         self.update()
 
     def fit_canvas_to_viewport(self, viewport_size: QSize):
+        """Compute a zoom that fits the entire canvas inside the viewport."""
         if viewport_size.width() <= 0 or viewport_size.height() <= 0:
             return
         padded_width = self._canvas_width + self._display_padding
@@ -406,6 +465,7 @@ class AlignmentCanvas(QWidget):
         self.set_zoom(target_zoom)
 
     def _apply_zoom_anchor(self, anchor: QPointF, old_zoom: float, new_zoom: float):
+        """Adjust view translation so the anchor point remains under cursor."""
         if old_zoom <= 0:
             return
         ratio = new_zoom / old_zoom
@@ -417,6 +477,7 @@ class AlignmentCanvas(QWidget):
         )
 
     def _map_to_canvas(self, point: QPointF) -> QPointF:
+        """Convert a widget-space point into canvas space while considering zoom."""
         mapped = QPointF(point)
         mapped -= self._view_translation
         center = QPointF(self.width() / 2, self.height() / 2)
@@ -427,6 +488,7 @@ class AlignmentCanvas(QWidget):
         return mapped
 
     def _is_point_on_sprite(self, point: QPointF) -> bool:
+        """Return ``True`` if the widget-space point intersects the sprite."""
         if not self._pixmap or self._pixmap.isNull():
             return False
         canvas_point = self._map_to_canvas(point)
@@ -439,19 +501,27 @@ class AlignmentCanvas(QWidget):
 
 
 class CanvasDetachWindow(QDialog):
-    """Simple dialog used to host the canvas when detached from the main tab."""
+    """Auxiliary dialog that hosts the canvas while it is undocked."""
 
     closed = Signal()
 
     def closeEvent(self, event):  # noqa: D401 - Qt API
+        """Emit ``closed`` so the parent knows the canvas should reattach."""
         self.closed.emit()
         super().closeEvent(event)
 
 
 class EditorTabWidget(QWidget):
-    """Widget backing the Editor tab."""
+    """High-level controller for the alignment editor tab UI and logic."""
 
     def __init__(self, parent_app, use_existing_ui: bool = False):
+        """Instantiate the tab, build or reuse UI, and prime state caches.
+
+        Args:
+            parent_app: Main window object that provides config and signals.
+            use_existing_ui (bool): When ``True`` attach to widgets created by
+                Qt Designer instead of building them programmatically.
+        """
         super().__init__(parent_app)
         self.parent_app = parent_app
         self._using_existing_ui = bool(
@@ -481,6 +551,7 @@ class EditorTabWidget(QWidget):
     # UI setup
     # ------------------------------------------------------------------
     def _setup_with_existing_ui(self):
+        """Bind to widgets exported by the main window's QtDesigner layout."""
         ui = getattr(self.parent_app, "ui", None)
         if ui is None:
             raise RuntimeError("Editor UI is not available on the parent application")
@@ -533,6 +604,7 @@ class EditorTabWidget(QWidget):
         self._configure_origin_selector()
 
     def _build_ui(self):
+        """Create the editor UI programmatically when no prebuilt UI exists."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)
@@ -737,6 +809,7 @@ class EditorTabWidget(QWidget):
         splitter.setSizes([360, 960])
 
     def _connect_signals(self):
+        """Wire widget signals to handler methods for the editor workflow."""
         self.animation_tree.currentItemChanged.connect(self._on_tree_current_changed)
         self.animation_tree.itemSelectionChanged.connect(
             self._update_combine_button_state
@@ -779,6 +852,7 @@ class EditorTabWidget(QWidget):
     # Display helpers
     # ------------------------------------------------------------------
     def _configure_origin_selector(self):
+        """Populate the origin combo box with supported modes and tooltips."""
         combo = getattr(self, "origin_mode_combo", None)
         if combo is None:
             return
@@ -794,10 +868,12 @@ class EditorTabWidget(QWidget):
         combo.blockSignals(previous_block_state)
 
     def _initialize_origin_mode(self):
+        """Read persisted origin mode and apply it without re-saving."""
         initial_mode = self._load_origin_mode_from_config()
         self._apply_origin_mode(initial_mode, persist=False, reason="ui-init")
 
     def _load_origin_mode_from_config(self) -> str:
+        """Fetch saved origin preference from ``AppConfig`` if available."""
         config = getattr(self.parent_app, "app_config", None)
         if config is None:
             return ORIGIN_MODE_CENTER
@@ -818,6 +894,7 @@ class EditorTabWidget(QWidget):
         return ORIGIN_MODE_CENTER
 
     def _save_origin_mode_to_config(self, mode: str):
+        """Persist the origin setting back into the app config object."""
         config = getattr(self.parent_app, "app_config", None)
         if config is None:
             return
@@ -834,6 +911,7 @@ class EditorTabWidget(QWidget):
             config.set("editor_settings", existing)
 
     def _apply_origin_mode(self, mode: Optional[str], *, persist: bool, reason: str):
+        """Update UI/canvas state for a new origin mode and optionally save."""
         target_mode = (
             mode
             if isinstance(mode, str) and mode in VALID_ORIGIN_MODES
@@ -869,6 +947,7 @@ class EditorTabWidget(QWidget):
             )
 
     def _on_origin_mode_changed(self):
+        """React to user combo-box changes and propagate to state/config."""
         if self._updating_controls:
             return
         combo = getattr(self, "origin_mode_combo", None)
@@ -878,9 +957,11 @@ class EditorTabWidget(QWidget):
         self._apply_origin_mode(mode, persist=True, reason="manual")
 
     def enable_flxsprite_origin_mode(self):
+        """Force the FlxSprite-compatible mode when FNF imports require it."""
         self._apply_origin_mode(ORIGIN_MODE_TOP_LEFT, persist=True, reason="fnf-import")
 
     def _update_combine_button_state(self):
+        """Enable the combine button only when 2+ top-level animations selected."""
         selected_top_levels = [
             item
             for item in self.animation_tree.selectedItems()
@@ -889,6 +970,7 @@ class EditorTabWidget(QWidget):
         self.combine_button.setEnabled(len(selected_top_levels) >= 2)
 
     def _show_tree_context_menu(self, pos):
+        """Show contextual actions for removing animations or frames."""
         if not self.animation_tree:
             return
         if not self.animation_tree.selectedItems():
@@ -912,10 +994,12 @@ class EditorTabWidget(QWidget):
         menu.exec(self.animation_tree.viewport().mapToGlobal(pos))
 
     def _update_zoom_label(self, zoom: float):
+        """Reflect the canvas zoom level in the toolbar label."""
         percent = int(round(zoom * 100))
         self.zoom_label.setText(self.tr("Zoom: {value}%").format(value=percent))
 
     def _is_composite_animation(self, animation: Optional[AlignmentAnimation]) -> bool:
+        """Return ``True`` if the animation was generated by combining entries."""
         if animation is None:
             return False
         metadata = animation.metadata or {}
@@ -924,6 +1008,7 @@ class EditorTabWidget(QWidget):
     def _get_composite_translation(
         self, animation: Optional[AlignmentAnimation]
     ) -> Tuple[int, int]:
+        """Look up the translation applied to a composite animation, if any."""
         if not self._is_composite_animation(animation):
             return 0, 0
         metadata = animation.metadata or {}
@@ -942,6 +1027,7 @@ class EditorTabWidget(QWidget):
     def _set_composite_translation(
         self, animation: AlignmentAnimation, translate_x: int, translate_y: int
     ):
+        """Store translation offsets inside the animation metadata dict."""
         if animation.metadata is None:
             animation.metadata = {}
         animation.metadata["composite_translate_x"] = str(int(translate_x))
@@ -950,12 +1036,14 @@ class EditorTabWidget(QWidget):
     def _calculate_display_offset(
         self, animation: AlignmentAnimation, offset_x: int, offset_y: int
     ) -> Tuple[int, int]:
+        """Apply composite translation before passing offsets to the canvas."""
         translate_x, translate_y = self._get_composite_translation(animation)
         return offset_x + translate_x, offset_y + translate_y
 
     def _current_reference_frame(
         self, animation: AlignmentAnimation
     ) -> Optional[AlignmentFrame]:
+        """Return the frame referenced by the tree selection, fallback to first."""
         if 0 <= self._current_frame_index < len(animation.frames):
             return animation.frames[self._current_frame_index]
         if animation.frames:
@@ -967,6 +1055,7 @@ class EditorTabWidget(QWidget):
         animation: AlignmentAnimation,
         reference_frame: Optional[AlignmentFrame] = None,
     ) -> Tuple[int, int]:
+        """Determine the base offsets used for calculating composite translation."""
         if reference_frame is not None:
             return reference_frame.offset_x, reference_frame.offset_y
         if animation.frames:
@@ -981,6 +1070,7 @@ class EditorTabWidget(QWidget):
         target_offset_y: int,
         reference_frame: Optional[AlignmentFrame] = None,
     ) -> bool:
+        """Update metadata translation so the reference frame lands on target offsets."""
         if not self._is_composite_animation(animation):
             return False
         base_x, base_y = self._reference_offset_for_composite(
@@ -994,6 +1084,7 @@ class EditorTabWidget(QWidget):
         return True
 
     def _refresh_ghost_options(self):
+        """Rebuild the ghost-frame combo after animations change."""
         current_data = self.ghost_frame_combo.currentData()
         self.ghost_frame_combo.blockSignals(True)
         self.ghost_frame_combo.clear()
@@ -1023,6 +1114,7 @@ class EditorTabWidget(QWidget):
             self.canvas.set_ghost_pixmap(None)
 
     def _apply_ghost_overlay(self):
+        """Apply or clear the ghost overlay based on the combo selection."""
         if not self.ghost_checkbox.isChecked():
             self.canvas.set_ghost_pixmap(None)
             return
@@ -1050,6 +1142,7 @@ class EditorTabWidget(QWidget):
         )
 
     def _refresh_ghost_if_frame_changed(self, frame_index: int):
+        """Reapply ghost overlay if the selected frame is also being edited."""
         if not self.ghost_checkbox.isChecked():
             return
         data = self.ghost_frame_combo.currentData()
@@ -1063,31 +1156,38 @@ class EditorTabWidget(QWidget):
             self._apply_ghost_overlay()
 
     def _on_ghost_toggled(self, checked: bool):
+        """Enable/disable the ghost controls and update the overlay state."""
         self.ghost_frame_combo.setEnabled(
             checked and self.ghost_frame_combo.count() > 0
         )
         self._apply_ghost_overlay()
 
     def _on_ghost_frame_changed(self):
+        """Reapply the overlay when the user picks a new ghost frame."""
         if self.ghost_checkbox.isChecked():
             self._apply_ghost_overlay()
 
     def _on_snap_toggled(self, checked: bool):
+        """Toggle snap-step spin box and forward the state to the canvas."""
         self.snap_step_spin.setEnabled(checked)
         self.canvas.configure_snapping(checked, self.snap_step_spin.value())
 
     def _on_snap_step_changed(self, value: int):
+        """Update snap resolution without changing the enable checkbox."""
         self.canvas.configure_snapping(self.snap_checkbox.isChecked(), value)
 
     def _center_canvas_view(self):
+        """Reset panning so the canvas origin is centered in the viewport."""
         self.canvas.recenter_view()
         self.canvas.update()
 
     def _fit_canvas_to_viewport(self):
+        """Scale the canvas so it fits inside the scroll area viewport."""
         viewport_size = self.canvas_scroll.viewport().size()
         self.canvas.fit_canvas_to_viewport(viewport_size)
 
     def _toggle_canvas_detach(self):
+        """Detach the canvas into its own dialog or reattach if already detached."""
         if self._detached_window:
             self._detached_window.close()
             return
@@ -1108,6 +1208,7 @@ class EditorTabWidget(QWidget):
         self.detach_canvas_button.setText(self.tr("Reattach Canvas"))
 
     def _reattach_canvas(self):
+        """Return the canvas scroll area back into the main layout."""
         if not self._detached_window:
             return
         dialog = self._detached_window
@@ -1127,6 +1228,7 @@ class EditorTabWidget(QWidget):
     # Animation loading helpers
     # ------------------------------------------------------------------
     def _load_manual_files(self):
+        """Open a file dialog and register animations from user-chosen files."""
         if not PIL_AVAILABLE:
             QMessageBox.warning(
                 self,
@@ -1149,6 +1251,7 @@ class EditorTabWidget(QWidget):
     def _build_animation_from_file(
         self, file_path: str
     ) -> Optional[AlignmentAnimation]:
+        """Convert a GIF/WebP/PNG/APNG file into an ``AlignmentAnimation``."""
         if not file_path:
             return None
 
@@ -1245,6 +1348,7 @@ class EditorTabWidget(QWidget):
         spritemap_info: Optional[dict],
         spritemap_target: Optional[dict],
     ) -> Optional[AlignmentAnimation]:
+        """Assemble an animation from atlas metadata or spritemap exports."""
         try:
             frames: List[AlignmentFrame] = []
             fps = 24
@@ -1351,6 +1455,7 @@ class EditorTabWidget(QWidget):
     # Animation registration / selection
     # ------------------------------------------------------------------
     def _register_animation(self, animation: AlignmentAnimation) -> str:
+        """Assign an ID, add the animation to the tree, and select it."""
         animation_id = uuid.uuid4().hex
         self._animations[animation_id] = animation
         item = QTreeWidgetItem([animation.display_name])
@@ -1372,6 +1477,7 @@ class EditorTabWidget(QWidget):
         animation_id: str,
         animation: AlignmentAnimation,
     ):
+        """Fill the tree item with child entries representing each frame."""
         while animation_item.childCount():
             animation_item.removeChild(animation_item.child(0))
         for idx, frame in enumerate(animation.frames):
@@ -1382,6 +1488,7 @@ class EditorTabWidget(QWidget):
             animation_item.addChild(child)
 
     def _focus_latest_animation(self):
+        """Scroll to and select the most recently added animation item."""
         count = self.animation_tree.topLevelItemCount()
         if count <= 0:
             return
@@ -1391,6 +1498,7 @@ class EditorTabWidget(QWidget):
         self.animation_tree.scrollToItem(item)
 
     def _remove_selected_animation(self):
+        """Delete highlighted animations and reset state if necessary."""
         selected_items = [
             item
             for item in self.animation_tree.selectedItems()
@@ -1424,6 +1532,7 @@ class EditorTabWidget(QWidget):
         self._refresh_ghost_options()
 
     def _combine_selected_animations(self):
+        """Build a composite animation entry from the selected ones."""
         selected_items = [
             item
             for item in self.animation_tree.selectedItems()
@@ -1515,6 +1624,7 @@ class EditorTabWidget(QWidget):
         )
 
     def _remove_selected_frames(self):
+        """Delete highlighted frames from their parent animations."""
         frame_items = [
             item
             for item in self.animation_tree.selectedItems()
@@ -1565,6 +1675,7 @@ class EditorTabWidget(QWidget):
         tree_item: Optional[QTreeWidgetItem],
         preferred_index: int,
     ):
+        """Pick a sensible frame to focus after removing entries."""
         if animation.frames:
             candidate_index = preferred_index if preferred_index >= 0 else 0
             candidate_index = max(0, min(candidate_index, len(animation.frames) - 1))
@@ -1580,6 +1691,7 @@ class EditorTabWidget(QWidget):
             self.canvas.set_pixmap(None)
 
     def _refresh_after_frame_list_change(self):
+        """Update dependent UI once the frame list mutates."""
         self._refresh_ghost_options()
         self._update_combine_button_state()
         self.status_label.setText(self._default_status_text)
@@ -1590,6 +1702,7 @@ class EditorTabWidget(QWidget):
     def _on_tree_current_changed(
         self, current: Optional[QTreeWidgetItem], previous: Optional[QTreeWidgetItem]
     ):
+        """Respond to selection changes in the tree widget."""
         if not current:
             self._current_animation_id = None
             self._current_frame_index = -1
@@ -1642,6 +1755,7 @@ class EditorTabWidget(QWidget):
         self.status_label.setText(self._default_status_text)
 
     def focus_animation_by_id(self, animation_id: str) -> bool:
+        """Select the tree item belonging to ``animation_id`` if present."""
         item = self._animation_items.get(animation_id)
         if item is None:
             return False
@@ -1653,6 +1767,7 @@ class EditorTabWidget(QWidget):
     def _determine_root_display_offsets(
         self, animation: AlignmentAnimation
     ) -> Tuple[int, int]:
+        """Figure out which offsets to show when the animation root is active."""
         translate_x, translate_y = self._get_composite_translation(animation)
         if not animation.frames:
             base_x, base_y = animation.default_offset
@@ -1669,6 +1784,7 @@ class EditorTabWidget(QWidget):
     def _enter_root_alignment_mode(
         self, animation: AlignmentAnimation, animation_changed: bool
     ):
+        """Switch into animation-level editing where offsets apply globally."""
         self._root_alignment_mode = True
         preview_index = 0
         if 0 <= self._current_frame_index < len(animation.frames):
@@ -1728,6 +1844,7 @@ class EditorTabWidget(QWidget):
         offset_y: int,
         update_default: bool = False,
     ):
+        """Apply offsets to every frame (or composite metadata) as needed."""
         if self._is_composite_animation(animation):
             reference_frame = self._current_reference_frame(animation)
             self._apply_composite_translation(
@@ -1744,6 +1861,7 @@ class EditorTabWidget(QWidget):
             self._apply_ghost_overlay()
 
     def _on_manual_offset_changed(self):
+        """Handle spin-box edits initiated by the user."""
         if self._updating_controls or self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1772,6 +1890,7 @@ class EditorTabWidget(QWidget):
         self._refresh_ghost_if_frame_changed(self._current_frame_index)
 
     def _on_canvas_dragged(self, offset_x: int, offset_y: int):
+        """Sync UI fields and animation data when the canvas reports drag moves."""
         if self._updating_controls or self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1801,6 +1920,7 @@ class EditorTabWidget(QWidget):
         self._refresh_ghost_if_frame_changed(self._current_frame_index)
 
     def _propagate_frame_offset(self, frame: AlignmentFrame):
+        """Copy offsets back to a source animation when editing composite frames."""
         if frame.metadata.get("composite_frame") == "1":
             return
         source_animation_id = frame.metadata.get("source_animation_id")
@@ -1823,6 +1943,7 @@ class EditorTabWidget(QWidget):
         target_frame.offset_y = frame.offset_y
 
     def _apply_offsets_to_all_frames(self):
+        """Copy the current frame's offsets to every frame in the animation."""
         if self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1851,6 +1972,7 @@ class EditorTabWidget(QWidget):
             self._updating_controls = False
 
     def _reset_frame_offset(self):
+        """Restore default offsets or composite translations for current scope."""
         if self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1899,6 +2021,7 @@ class EditorTabWidget(QWidget):
         self._refresh_ghost_if_frame_changed(self._current_frame_index)
 
     def _on_canvas_size_changed(self):
+        """Handle spin-box updates and resize the logical canvas."""
         if self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1912,6 +2035,7 @@ class EditorTabWidget(QWidget):
     # Persistence helpers
     # ------------------------------------------------------------------
     def _save_alignment_to_settings(self):
+        """Persist current alignment overrides into the settings manager."""
         if self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -1933,6 +2057,7 @@ class EditorTabWidget(QWidget):
         )
 
     def _export_composite_to_sprites(self):
+        """Convert a composite entry back into extractor-aligned animations."""
         if self._current_animation_id is None:
             return
         animation = self._animations.get(self._current_animation_id)
@@ -2089,6 +2214,7 @@ class EditorTabWidget(QWidget):
                 )
 
     def _build_alignment_overrides(self, animation: AlignmentAnimation) -> dict:
+        """Build the JSON-serializable overrides payload for an animation."""
         frame_overrides = {}
         for frame in animation.frames:
             frame_overrides[frame.original_key] = {
@@ -2115,6 +2241,7 @@ class EditorTabWidget(QWidget):
     def _build_composite_definition(
         self, animation: AlignmentAnimation, target_name: str
     ) -> Optional[dict]:
+        """Describe how a composite was built so the extract tab can replay it."""
         source_ids_value = animation.metadata.get("source_animation_ids")
         if not source_ids_value:
             return None
@@ -2173,6 +2300,7 @@ class EditorTabWidget(QWidget):
 
     @staticmethod
     def _extract_frame_metadata(raw_metadata: Any) -> Dict[str, int]:
+        """Normalize source frame offsets from atlas metadata blocks."""
         if isinstance(raw_metadata, dict):
             return {
                 "source_frame_x": int(
@@ -2193,6 +2321,7 @@ class EditorTabWidget(QWidget):
     def _sample_frame_metadata(
         animation: AlignmentAnimation,
     ) -> Optional[Dict[str, int]]:
+        """Fetch metadata from the first frame to infer defaults."""
         if not animation.frames:
             return None
         return animation.frames[0].metadata
@@ -2200,6 +2329,7 @@ class EditorTabWidget(QWidget):
     def _apply_alignment_overrides(
         self, animation: AlignmentAnimation, overrides: dict
     ):
+        """Replay saved overrides when loading from extractor settings."""
         canvas = overrides.get("canvas")
         if canvas and len(canvas) == 2:
             animation.canvas_width = self._sanitize_canvas_dimension(
@@ -2250,6 +2380,7 @@ class EditorTabWidget(QWidget):
         animation.ensure_canvas_bounds(respect_existing=True)
 
     def closeEvent(self, event):  # noqa: D401 - Qt API
+        """Ensure detached windows close when the editor tab is closed."""
         if self._detached_window:
             self._detached_window.close()
         super().closeEvent(event)
@@ -2259,6 +2390,7 @@ class EditorTabWidget(QWidget):
     # ------------------------------------------------------------------
     @staticmethod
     def _pil_to_pixmap(image) -> QPixmap:
+        """Convert a Pillow image into a ``QPixmap`` for canvas rendering."""
         image = image.convert("RGBA")
         data = image.tobytes("raw", "RGBA")
         bytes_per_line = image.width * 4
@@ -2273,6 +2405,7 @@ class EditorTabWidget(QWidget):
 
     @staticmethod
     def _pixmap_to_pil(pixmap: QPixmap) -> Any:
+        """Convert a pixmap back into a Pillow image for export routines."""
         if not PIL_AVAILABLE:
             raise RuntimeError("Pillow is required to export editor composites")
         if pixmap.isNull():
@@ -2287,6 +2420,7 @@ class EditorTabWidget(QWidget):
         return pil_image.copy()
 
     def build_canvas_frames(self, animation_id: str) -> List[Tuple[str, Any, dict]]:
+        """Render frames as RGBA canvases honoring origin modes and offsets."""
         if not PIL_AVAILABLE:
             return []
         animation = self._animations.get(animation_id)

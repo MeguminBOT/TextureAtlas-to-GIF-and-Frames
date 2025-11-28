@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Dialog for overriding animation or spritesheet export settings.
+
+Provides a modal dialog that allows users to customize export parameters
+for individual animations or spritesheets, overriding global defaults.
+"""
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -20,21 +25,41 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-# Import our own modules
 from utils.utilities import Utilities
 
 
 class OverrideSettingsWindow(QDialog):
-    """
-    A window for overriding animation or spritesheet settings.
+    """Modal dialog for overriding animation or spritesheet export settings.
 
-    This class creates a Qt dialog that allows the user to override settings such as animation format, FPS, delay,
-    period, scale, threshold, indices, and frame-keeping options for a specific animation or spritesheet.
+    Allows users to customize export parameters such as animation format, FPS,
+    delay, scale, threshold, and frame indices for a specific animation or
+    spritesheet, overriding the global defaults.
+
+    Attributes:
+        name: The name of the animation or spritesheet being configured.
+        settings_type: Either "animation" or "spritesheet".
+        settings_manager: Manager providing access to global and local settings.
+        on_store_callback: Callback invoked with the new settings on accept.
+        app: Optional reference to the main application for preview support.
+        local_settings: Settings specific to this animation/spritesheet.
+        settings: Merged settings (local overrides applied to globals).
+        spritesheet_name: The parent spritesheet name.
+        animation_name: The animation name, or None for spritesheets.
     """
 
     def __init__(
         self, parent, name, settings_type, settings_manager, on_store_callback, app=None
     ):
+        """Initialize the override settings dialog.
+
+        Args:
+            parent: Parent widget for the dialog.
+            name: Name of the animation or spritesheet to configure.
+            settings_type: Either "animation" or "spritesheet".
+            settings_manager: Manager for accessing and storing settings.
+            on_store_callback: Callback receiving the settings dict on accept.
+            app: Optional main application reference for preview functionality.
+        """
         super().__init__(parent)
         self.name = name
         self.settings_type = settings_type
@@ -42,7 +67,6 @@ class OverrideSettingsWindow(QDialog):
         self.on_store_callback = on_store_callback
         self.app = app
 
-        # Set window title based on settings type
         title_prefix = "Animation" if settings_type == "animation" else "Spritesheet"
         self.setWindowTitle(
             self.tr("{prefix} Settings Override - {name}").format(
@@ -52,7 +76,6 @@ class OverrideSettingsWindow(QDialog):
         self.setModal(True)
         self.resize(500, 650)
 
-        # Initialize UI controls
         self.animation_format_combo = None
         self.fps_spinbox = None
         self.delay_spinbox = None
@@ -65,20 +88,23 @@ class OverrideSettingsWindow(QDialog):
         self.frame_scale_spinbox = None
         self.filename_edit = None
 
-        # Get current settings
         self.get_current_settings()
 
         self.setup_ui()
         self.load_current_values()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the application's current locale."""
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_current_settings(self):
-        """Get current settings for this animation/spritesheet."""
+        """Load current settings for the animation or spritesheet.
+
+        Populates ``local_settings`` with any existing overrides and
+        ``settings`` with the merged result of global and local values.
+        """
         self.local_settings = {}
 
         if self.settings_type == "animation":
@@ -106,11 +132,10 @@ class OverrideSettingsWindow(QDialog):
         )
 
     def setup_ui(self):
-        """Set up the user interface."""
+        """Build and configure all UI components for the dialog."""
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
 
-        # Create scroll area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -121,7 +146,6 @@ class OverrideSettingsWindow(QDialog):
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         content_layout.setSpacing(15)
 
-        # Title
         mode_text = (
             "Animation Settings Override"
             if self.settings_type == "animation"
@@ -132,15 +156,12 @@ class OverrideSettingsWindow(QDialog):
         title_label.setStyleSheet("QLabel { color: #333333; }")
         content_layout.addWidget(title_label)
 
-        # General settings section
         general_group = self.create_general_section()
         content_layout.addWidget(general_group)
 
-        # Animation export settings section
         anim_group = self.create_animation_section()
         content_layout.addWidget(anim_group)
 
-        # Frame export settings section (if applicable)
         if self.settings_type == "spritesheet":
             frame_group = self.create_frame_section()
             content_layout.addWidget(frame_group)
@@ -148,7 +169,6 @@ class OverrideSettingsWindow(QDialog):
         scroll_area.setWidget(content_widget)
         main_layout.addWidget(scroll_area)
 
-        # Button layout
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
@@ -172,13 +192,16 @@ class OverrideSettingsWindow(QDialog):
         main_layout.addLayout(button_layout)
 
     def create_general_section(self):
-        """Create the general settings section."""
+        """Create the general settings section.
+
+        Returns:
+            QGroupBox containing name display and optional filename input.
+        """
         group = QGroupBox("General export settings")
         layout = QGridLayout(group)
 
         row = 0
 
-        # Name
         layout.addWidget(QLabel(self.tr("Name:")), row, 0)
         name_label = QLabel(self.name)
         name_label.setWordWrap(True)
@@ -186,7 +209,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(name_label, row, 1)
         row += 1
 
-        # Spritesheet (for animations)
         if self.settings_type == "animation" and "/" in self.name:
             layout.addWidget(QLabel(self.tr("Spritesheet:")), row, 0)
             spritesheet_label = QLabel(self.spritesheet_name)
@@ -195,7 +217,6 @@ class OverrideSettingsWindow(QDialog):
             layout.addWidget(spritesheet_label, row, 1)
             row += 1
 
-        # Filename (for animations)
         if self.settings_type == "animation":
             layout.addWidget(QLabel(self.tr("Filename:")), row, 0)
             self.filename_edit = QLineEdit()
@@ -208,13 +229,16 @@ class OverrideSettingsWindow(QDialog):
         return group
 
     def create_animation_section(self):
-        """Create the animation settings section."""
+        """Create the animation export settings section.
+
+        Returns:
+            QGroupBox containing format, FPS, delay, scale, and related controls.
+        """
         group = QGroupBox("Animation export settings")
         layout = QGridLayout(group)
 
         row = 0
 
-        # Animation format
         layout.addWidget(QLabel(self.tr("Animation format:")), row, 0)
         self.animation_format_combo = QComboBox()
         self.animation_format_combo.addItems(["None", "GIF", "WebP", "APNG"])
@@ -224,7 +248,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.animation_format_combo, row, 1)
         row += 1
 
-        # FPS
         layout.addWidget(QLabel(self.tr("FPS:")), row, 0)
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(1, 144)
@@ -232,7 +255,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.fps_spinbox, row, 1)
         row += 1
 
-        # Delay
         layout.addWidget(QLabel(self.tr("End delay (ms):")), row, 0)
         self.delay_spinbox = QSpinBox()
         self.delay_spinbox.setRange(0, 10000)
@@ -240,7 +262,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.delay_spinbox, row, 1)
         row += 1
 
-        # Period
         layout.addWidget(QLabel(self.tr("Period (ms):")), row, 0)
         self.period_spinbox = QSpinBox()
         self.period_spinbox.setRange(0, 10000)
@@ -248,7 +269,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.period_spinbox, row, 1)
         row += 1
 
-        # Scale
         layout.addWidget(QLabel(self.tr("Scale:")), row, 0)
         self.scale_spinbox = QDoubleSpinBox()
         self.scale_spinbox.setRange(-10.0, 10.0)
@@ -257,7 +277,6 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.scale_spinbox, row, 1)
         row += 1
 
-        # Threshold
         layout.addWidget(QLabel(self.tr("Alpha threshold:")), row, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
@@ -266,14 +285,12 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.threshold_spinbox, row, 1)
         row += 1
 
-        # Indices
         layout.addWidget(QLabel(self.tr("Indices (comma-separated):")), row, 0)
         self.indices_edit = QLineEdit()
         self.indices_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
         layout.addWidget(self.indices_edit, row, 1)
         row += 1
 
-        # Variable delay
         self.var_delay_check = QCheckBox("Variable delay")
         layout.addWidget(self.var_delay_check, row, 0, 1, 2)
         row += 1
@@ -281,27 +298,28 @@ class OverrideSettingsWindow(QDialog):
         return group
 
     def create_frame_section(self):
-        """Create the frame export settings section."""
+        """Create the frame export settings section.
+
+        Returns:
+            QGroupBox containing frame format, scale, and selection controls.
+        """
         group = QGroupBox("Frame export settings")
         layout = QGridLayout(group)
 
         row = 0
 
-        # Frames to keep
         layout.addWidget(QLabel(self.tr("Frames to keep:")), row, 0)
         self.frames_edit = QLineEdit()
         self.frames_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
         layout.addWidget(self.frames_edit, row, 1)
         row += 1
 
-        # Frame format
         layout.addWidget(QLabel(self.tr("Frame format:")), row, 0)
         self.frame_format_combo = QComboBox()
         self.frame_format_combo.addItems(["PNG", "JPG", "JPEG", "BMP", "TIFF"])
         layout.addWidget(self.frame_format_combo, row, 1)
         row += 1
 
-        # Frame scale
         layout.addWidget(QLabel(self.tr("Frame scale:")), row, 0)
         self.frame_scale_spinbox = QDoubleSpinBox()
         self.frame_scale_spinbox.setRange(-10.0, 10.0)
@@ -313,12 +331,11 @@ class OverrideSettingsWindow(QDialog):
         return group
 
     def load_current_values(self):
-        """Load current values into the UI controls."""
-        # General settings
+        """Populate UI controls with current settings values."""
+
         if self.filename_edit:
             self.filename_edit.setText(self.local_settings.get("filename", ""))
 
-        # Animation settings
         anim_format = self.local_settings.get("animation_format", "")
         if anim_format and anim_format in ["None", "GIF", "WebP", "APNG"]:
             self.animation_format_combo.setCurrentText(anim_format)
@@ -343,17 +360,14 @@ class OverrideSettingsWindow(QDialog):
             self.local_settings.get("threshold", self.settings.get("threshold", 0.1))
         )
 
-        # Indices
         indices = self.local_settings.get("indices", self.settings.get("indices", []))
         if indices:
             self.indices_edit.setText(",".join(map(str, indices)))
 
-        # Variable delay
         self.var_delay_check.setChecked(
             self.local_settings.get("var_delay", self.settings.get("var_delay", False))
         )
 
-        # Frame settings (if applicable)
         if self.settings_type == "spritesheet":
             frames = self.local_settings.get("frames", self.settings.get("frames", []))
             if frames:
@@ -370,21 +384,22 @@ class OverrideSettingsWindow(QDialog):
                 )
             )
 
-        # Update animation format dependent fields
         self.on_animation_format_change()
 
     def on_animation_format_change(self):
-        """Handle animation format change."""
+        """Update control states based on selected animation format.
+
+        Disables animation-specific controls when format is "None" and
+        updates the filename placeholder to reflect current settings.
+        """
         format_value = self.animation_format_combo.currentText()
         is_animation = format_value not in ["None", ""]
 
-        # Enable/disable animation-specific controls
         self.fps_spinbox.setEnabled(is_animation)
         self.delay_spinbox.setEnabled(is_animation)
         self.period_spinbox.setEnabled(is_animation)
         self.var_delay_check.setEnabled(is_animation)
 
-        # Update default filename if needed
         if self.filename_edit and self.filename_edit.text() == "":
             if self.settings_type == "animation" and "/" in self.name:
                 filename = Utilities.format_filename(
@@ -398,10 +413,13 @@ class OverrideSettingsWindow(QDialog):
                 self.filename_edit.setPlaceholderText(filename)
 
     def handle_preview_click(self):
-        """Handle preview button click."""
+        """Open the animation preview window for the current animation.
+
+        Selects the appropriate spritesheet and animation in the main UI,
+        then triggers the preview. Only available for animation settings.
+        """
         if self.app and hasattr(self.app, "show_animation_preview_window"):
             try:
-                # Only allow animation preview for animations, not spritesheets
                 if self.settings_type != "animation":
                     from PySide6.QtWidgets import QMessageBox
 
@@ -414,7 +432,6 @@ class OverrideSettingsWindow(QDialog):
                     )
                     return
 
-                # Parse the animation name (format: "spritesheet.png/animation_name")
                 if "/" not in self.name:
                     from PySide6.QtWidgets import QMessageBox
 
@@ -427,8 +444,6 @@ class OverrideSettingsWindow(QDialog):
 
                 spritesheet_name, animation_name = self.name.rsplit("/", 1)
 
-                # Find and select the spritesheet and animation in the main window
-                # First, find the spritesheet
                 spritesheet_found = False
                 listbox_png = self.app.extract_tab_widget.listbox_png
                 for i in range(listbox_png.count()):
@@ -450,10 +465,8 @@ class OverrideSettingsWindow(QDialog):
                     )
                     return
 
-                # Populate the animation list for this spritesheet
                 self.app.extract_tab_widget.populate_animation_list(spritesheet_name)
 
-                # Find and select the animation
                 animation_found = False
                 listbox_data = self.app.extract_tab_widget.listbox_data
                 for i in range(listbox_data.count()):
@@ -475,7 +488,6 @@ class OverrideSettingsWindow(QDialog):
                     )
                     return
 
-                # Call the preview function with the correctly selected animation
                 self.app.extract_tab_widget.preview_selected_animation()
 
             except Exception as e:
@@ -488,7 +500,12 @@ class OverrideSettingsWindow(QDialog):
                 )
 
     def store_input(self):
-        """Store the input values and call the callback."""
+        """Validate inputs, build settings dict, and invoke the callback.
+
+        Collects all user-entered values, validates indices and frames as
+        comma-separated integers, calls the on_store_callback with the
+        resulting settings, and closes the dialog on success.
+        """
         settings = {}
 
         # General settings
@@ -497,7 +514,6 @@ class OverrideSettingsWindow(QDialog):
             if filename:
                 settings["filename"] = filename
 
-        # Animation settings
         anim_format = self.animation_format_combo.currentText()
         if anim_format != "None":
             settings["animation_format"] = anim_format
@@ -509,7 +525,6 @@ class OverrideSettingsWindow(QDialog):
         settings["threshold"] = self.threshold_spinbox.value()
         settings["var_delay"] = self.var_delay_check.isChecked()
 
-        # Indices
         indices_text = self.indices_edit.text().strip()
         if indices_text:
             try:
@@ -523,7 +538,6 @@ class OverrideSettingsWindow(QDialog):
                 )
                 return
 
-        # Frame settings (if applicable)
         if self.settings_type == "spritesheet":
             frames_text = self.frames_edit.text().strip()
             if frames_text:
@@ -545,6 +559,5 @@ class OverrideSettingsWindow(QDialog):
             settings["frame_format"] = self.frame_format_combo.currentText()
             settings["frame_scale"] = self.frame_scale_spinbox.value()
 
-        # Call the callback with the settings
         self.on_store_callback(settings)
         self.accept()

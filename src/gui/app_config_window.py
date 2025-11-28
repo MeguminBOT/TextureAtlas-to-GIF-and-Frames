@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Modal dialog for editing global application settings.
+
+Provides tabbed access to system resource limits, extraction defaults,
+image compression options, UI preferences, and update behavior.
+"""
 
 import platform
 import multiprocessing
@@ -28,43 +33,54 @@ from PySide6.QtGui import QFont
 
 
 class AppConfigWindow(QDialog):
-    """
-    A scrollable window for configuring application settings.
+    """Modal dialog for editing global application settings.
 
-    This window provides a comprehensive interface for configuring various application
-    settings including resource limits, extraction defaults, compression defaults,
-    update preferences, and UI options.
+    Organizes settings into tabs for system resources, extraction defaults,
+    compression options, UI preferences, and update behavior.
+
+    Attributes:
+        app_config: Persistent settings object exposing DEFAULTS and settings.
+        max_cores: Number of physical CPU cores detected.
+        max_threads: Number of logical CPU threads detected.
+        max_memory_mb: Total system RAM in megabytes.
+        cpu_model: Human-readable CPU model string.
+        extraction_fields: Dict mapping setting keys to extraction controls.
+        compression_fields: Dict mapping setting keys to compression controls.
     """
 
     def __init__(self, parent, app_config):
+        """Initialize the configuration dialog.
+
+        Args:
+            parent: Parent widget for modal behavior.
+            app_config: Persistent settings object with DEFAULTS and settings.
+        """
         super().__init__(parent)
         self.app_config = app_config
         self.setWindowTitle(self.tr("App Options"))
         self.setModal(True)
         self.resize(520, 750)
 
-        # Get system information
         self.get_system_info()
 
-        # Initialize UI variables
         self.init_variables()
 
         self.setup_ui()
         self.load_current_settings()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the application's current locale."""
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_system_info(self):
-        """Get system information for display."""
+        """Detect CPU model, thread count, and available RAM."""
+
         self.max_cores = multiprocessing.cpu_count()
         self.max_threads = None
         self.max_memory_mb = int(psutil.virtual_memory().total / (1024 * 1024))
 
-        # Get CPU information
         self.cpu_model = "Unknown CPU"
         try:
             if platform.system() == "Windows":
@@ -88,7 +104,6 @@ class AppConfigWindow(QDialog):
                         if "model name" in line:
                             self.cpu_model = line.split(":")[1].strip()
                             break
-                # Count logical processors
                 self.max_threads = multiprocessing.cpu_count()
             elif platform.system() == "Darwin":
                 self.cpu_model = (
@@ -110,8 +125,8 @@ class AppConfigWindow(QDialog):
             self.max_threads = self.max_cores
 
     def init_variables(self):
-        """Initialize UI variables for settings."""
-        # These will hold the UI controls
+        """Initialize placeholder attributes for UI controls."""
+
         self.cpu_threads_edit = None
         self.memory_limit_edit = None
         self.check_updates_cb = None
@@ -122,36 +137,29 @@ class AppConfigWindow(QDialog):
         self.compression_fields = {}
 
     def setup_ui(self):
-        """Set up the user interface."""
+        """Build and configure all UI components for the dialog."""
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
 
-        # Create tab widget for organization
         tab_widget = QTabWidget()
 
-        # System & Resources tab
         system_tab = self.create_system_tab()
         tab_widget.addTab(system_tab, "System & Resources")
 
-        # Extraction Settings tab
         extraction_tab = self.create_extraction_tab()
         tab_widget.addTab(extraction_tab, "Extraction Defaults")
 
-        # Compression Settings tab
         compression_tab = self.create_compression_tab()
         tab_widget.addTab(compression_tab, "Compression Defaults")
 
-        # UI Settings tab
         ui_tab = self.create_ui_tab()
         tab_widget.addTab(ui_tab, "UI Preferences")
 
-        # Update Settings tab
         update_tab = self.create_update_tab()
         tab_widget.addTab(update_tab, "Updates")
 
         main_layout.addWidget(tab_widget)
 
-        # Button layout
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
@@ -174,7 +182,11 @@ class AppConfigWindow(QDialog):
         main_layout.addLayout(button_layout)
 
     def create_system_tab(self):
-        """Create the system and resources tab."""
+        """Build the system resources tab with CPU and memory controls.
+
+        Returns:
+            QScrollArea containing resource limit widgets.
+        """
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -182,7 +194,6 @@ class AppConfigWindow(QDialog):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # System information
         sys_group = QGroupBox("Your Computer")
         sys_layout = QVBoxLayout(sys_group)
 
@@ -202,11 +213,9 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(sys_group)
 
-        # Resource limits
         resource_group = QGroupBox("App Resource Limits")
         resource_layout = QGridLayout(resource_group)
 
-        # CPU threads
         cpu_label = QLabel(
             self.tr("CPU threads to use (max: {max_threads}):").format(
                 max_threads=self.max_threads
@@ -218,7 +227,6 @@ class AppConfigWindow(QDialog):
         self.cpu_threads_edit.setRange(1, self.max_threads)
         resource_layout.addWidget(self.cpu_threads_edit, 0, 1)
 
-        # Memory limit
         mem_label = QLabel(
             self.tr("Memory limit (MB, max: {max_memory}):").format(
                 max_memory=self.max_memory_mb
@@ -245,7 +253,11 @@ class AppConfigWindow(QDialog):
         return scroll_area
 
     def create_extraction_tab(self):
-        """Create the extraction defaults tab."""
+        """Build the extraction defaults tab with format and scale controls.
+
+        Returns:
+            QScrollArea containing extraction setting widgets.
+        """
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -253,11 +265,9 @@ class AppConfigWindow(QDialog):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Extraction defaults group
         group = QGroupBox("Extraction Default Settings")
         group_layout = QGridLayout(group)
 
-        # Define extraction fields
         extraction_fields = {
             "animation_export": ("Enable animation export:", "bool", True),
             "animation_format": ("Animation format:", "combo", "GIF"),
@@ -313,7 +323,11 @@ class AppConfigWindow(QDialog):
         return scroll_area
 
     def create_compression_tab(self):
-        """Create the compression defaults tab."""
+        """Build the compression settings tab with per-format controls.
+
+        Returns:
+            QScrollArea containing PNG, WebP, AVIF, and TIFF widgets.
+        """
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -321,12 +335,10 @@ class AppConfigWindow(QDialog):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # PNG Settings Group
         png_group = QGroupBox("PNG Settings")
         png_layout = QGridLayout(png_group)
 
         row = 0
-        # PNG Compress Level
         png_layout.addWidget(QLabel(self.tr("Compress Level (0-9):")), row, 0)
         png_compress_spinbox = QSpinBox()
         png_compress_spinbox.setRange(0, 9)
@@ -343,7 +355,6 @@ class AppConfigWindow(QDialog):
         png_layout.addWidget(png_compress_spinbox, row, 1)
         row += 1
 
-        # PNG Optimize
         png_optimize_checkbox = QCheckBox("Optimize PNG")
         png_optimize_checkbox.setChecked(True)
         png_optimize_checkbox.setToolTip(
@@ -358,12 +369,10 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(png_group)
 
-        # WebP Settings Group
         webp_group = QGroupBox("WebP Settings")
         webp_layout = QGridLayout(webp_group)
 
         row = 0
-        # WebP Lossless
         webp_lossless_checkbox = QCheckBox("Lossless WebP")
         webp_lossless_checkbox.setChecked(True)
         webp_lossless_checkbox.setToolTip(
@@ -376,7 +385,6 @@ class AppConfigWindow(QDialog):
         webp_layout.addWidget(webp_lossless_checkbox, row, 0, 1, 2)
         row += 1
 
-        # WebP Quality
         webp_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         webp_quality_spinbox = QSpinBox()
         webp_quality_spinbox.setRange(0, 100)
@@ -392,7 +400,6 @@ class AppConfigWindow(QDialog):
         webp_layout.addWidget(webp_quality_spinbox, row, 1)
         row += 1
 
-        # WebP Method
         webp_layout.addWidget(QLabel(self.tr("Method (0-6):")), row, 0)
         webp_method_spinbox = QSpinBox()
         webp_method_spinbox.setRange(0, 6)
@@ -408,7 +415,6 @@ class AppConfigWindow(QDialog):
         webp_layout.addWidget(webp_method_spinbox, row, 1)
         row += 1
 
-        # WebP Alpha Quality
         webp_layout.addWidget(QLabel(self.tr("Alpha Quality (0-100):")), row, 0)
         webp_alpha_quality_spinbox = QSpinBox()
         webp_alpha_quality_spinbox.setRange(0, 100)
@@ -424,7 +430,6 @@ class AppConfigWindow(QDialog):
         webp_layout.addWidget(webp_alpha_quality_spinbox, row, 1)
         row += 1
 
-        # WebP Exact
         webp_exact_checkbox = QCheckBox("Exact WebP")
         webp_exact_checkbox.setChecked(True)
         webp_exact_checkbox.setToolTip(
@@ -438,19 +443,16 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(webp_group)
 
-        # AVIF Settings Group
         avif_group = QGroupBox("AVIF Settings")
         avif_layout = QGridLayout(avif_group)
 
         row = 0
-        # AVIF Lossless
         avif_lossless_checkbox = QCheckBox("Lossless AVIF")
         avif_lossless_checkbox.setChecked(True)
         self.compression_fields["avif_lossless"] = avif_lossless_checkbox
         avif_layout.addWidget(avif_lossless_checkbox, row, 0, 1, 2)
         row += 1
 
-        # AVIF Quality
         avif_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         avif_quality_spinbox = QSpinBox()
         avif_quality_spinbox.setRange(0, 100)
@@ -466,7 +468,6 @@ class AppConfigWindow(QDialog):
         avif_layout.addWidget(avif_quality_spinbox, row, 1)
         row += 1
 
-        # AVIF Speed
         avif_layout.addWidget(QLabel(self.tr("Speed (0-10):")), row, 0)
         avif_speed_spinbox = QSpinBox()
         avif_speed_spinbox.setRange(0, 10)
@@ -483,12 +484,10 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(avif_group)
 
-        # TIFF Settings Group
         tiff_group = QGroupBox("TIFF Settings")
         tiff_layout = QGridLayout(tiff_group)
 
         row = 0
-        # TIFF Compression Type
         tiff_layout.addWidget(QLabel(self.tr("Compression Type:")), row, 0)
         tiff_compression_combobox = QComboBox()
         tiff_compression_combobox.addItems(["none", "lzw", "zip", "jpeg"])
@@ -504,7 +503,6 @@ class AppConfigWindow(QDialog):
         tiff_layout.addWidget(tiff_compression_combobox, row, 1)
         row += 1
 
-        # TIFF Quality
         tiff_layout.addWidget(QLabel(self.tr("Quality (0-100):")), row, 0)
         tiff_quality_spinbox = QSpinBox()
         tiff_quality_spinbox.setRange(0, 100)
@@ -520,7 +518,6 @@ class AppConfigWindow(QDialog):
         tiff_layout.addWidget(tiff_quality_spinbox, row, 1)
         row += 1
 
-        # TIFF Optimize
         tiff_optimize_checkbox = QCheckBox("Optimize TIFF")
         tiff_optimize_checkbox.setChecked(True)
         tiff_optimize_checkbox.setToolTip(
@@ -540,7 +537,11 @@ class AppConfigWindow(QDialog):
         return scroll_area
 
     def create_update_tab(self):
-        """Create the update settings tab."""
+        """Build the update preferences tab with auto-update toggles.
+
+        Returns:
+            QScrollArea containing update preference widgets.
+        """
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -548,7 +549,6 @@ class AppConfigWindow(QDialog):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Update settings group
         group = QGroupBox("Update Preferences")
         group_layout = QVBoxLayout(group)
 
@@ -576,15 +576,18 @@ class AppConfigWindow(QDialog):
         return scroll_area
 
     def on_check_updates_change(self, state):
-        """Handle changes to the check updates checkbox."""
-        # Enable/disable auto-update based on check updates setting
+        """Toggle auto-update checkbox based on the check-updates setting.
+
+        Args:
+            state: Qt check state from the checkbox.
+        """
         self.auto_update_cb.setEnabled(state == Qt.CheckState.Checked.value)
         if state != Qt.CheckState.Checked.value:
             self.auto_update_cb.setChecked(False)
 
     def load_current_settings(self):
-        """Load current settings from app config."""
-        # Resource limits
+        """Populate all controls from the persisted configuration."""
+
         resource_limits = self.app_config.get("resource_limits", {})
         default_threads = (self.max_threads + 1) // 4
 
@@ -599,7 +602,6 @@ class AppConfigWindow(QDialog):
             mem_default = default_mem
         self.memory_limit_edit.setValue(int(mem_default))
 
-        # Extraction defaults
         extraction_defaults = self.app_config.get("extraction_defaults", {})
         for key, control in self.extraction_fields.items():
             value = extraction_defaults.get(key)
@@ -613,10 +615,8 @@ class AppConfigWindow(QDialog):
                 elif isinstance(control, QCheckBox):
                     control.setChecked(bool(value))
 
-        # Compression defaults
         compression_defaults = self.app_config.get("compression_defaults", {})
         for key, control in self.compression_fields.items():
-            # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
             if "_" in key:
                 format_name = key.split("_", 1)[0]
                 setting_name = "_".join(key.split("_")[1:])
@@ -633,7 +633,6 @@ class AppConfigWindow(QDialog):
                 elif isinstance(control, QComboBox):
                     control.setCurrentText(str(value))
 
-        # Update settings
         update_settings = self.app_config.get("update_settings", {})
         self.check_updates_cb.setChecked(
             update_settings.get("check_updates_on_startup", True)
@@ -642,7 +641,6 @@ class AppConfigWindow(QDialog):
             update_settings.get("auto_download_updates", False)
         )
 
-        # UI settings
         ui_state = self.app_config.get("ui_state", {})
         if self.remember_input_dir_cb:
             self.remember_input_dir_cb.setChecked(
@@ -653,11 +651,11 @@ class AppConfigWindow(QDialog):
                 ui_state.get("remember_output_directory", True)
             )
 
-        # Update auto-update enabled state
         self.on_check_updates_change(self.check_updates_cb.checkState())
 
     def reset_to_defaults(self):
-        """Reset all settings to defaults."""
+        """Prompt for confirmation and restore all controls to defaults."""
+
         reply = QMessageBox.question(
             self,
             "Reset to Defaults",
@@ -666,14 +664,12 @@ class AppConfigWindow(QDialog):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            # Reset resource limits
             default_threads = (self.max_threads + 1) // 4
             self.cpu_threads_edit.setValue(default_threads)
 
             default_mem = ((self.max_memory_mb // 4 + 9) // 10) * 10
             self.memory_limit_edit.setValue(default_mem)
 
-            # Reset extraction defaults
             defaults = self.app_config.DEFAULTS["extraction_defaults"]
 
             for key, control in self.extraction_fields.items():
@@ -690,11 +686,9 @@ class AppConfigWindow(QDialog):
                     elif isinstance(control, QLineEdit):
                         control.setText(str(default_value))
 
-            # Reset compression defaults
             comp_defaults = self.app_config.DEFAULTS["compression_defaults"]
 
             for key, control in self.compression_fields.items():
-                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
                 if "_" in key:
                     format_name = key.split("_", 1)[0]
                     setting_name = "_".join(key.split("_")[1:])
@@ -712,7 +706,6 @@ class AppConfigWindow(QDialog):
                         elif isinstance(control, QComboBox):
                             control.setCurrentText(str(default_value))
 
-            # Reset update settings
             update_defaults = self.app_config.DEFAULTS["update_settings"]
             self.check_updates_cb.setChecked(
                 update_defaults.get("check_updates_on_startup", True)
@@ -722,9 +715,9 @@ class AppConfigWindow(QDialog):
             )
 
     def save_config(self):
-        """Save the configuration settings."""
+        """Validate inputs, update the config object, and persist to disk."""
+
         try:
-            # Validate and save resource limits
             resource_limits = {}
 
             cpu_threads = self.cpu_threads_edit.value()
@@ -745,7 +738,6 @@ class AppConfigWindow(QDialog):
                 )
             resource_limits["memory_limit_mb"] = memory_limit
 
-            # Save extraction defaults
             extraction_defaults = {}
             for key, control in self.extraction_fields.items():
                 if isinstance(control, QComboBox):
@@ -767,11 +759,9 @@ class AppConfigWindow(QDialog):
                             )
                         )
 
-            # Save compression defaults
             compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
 
             for key, control in self.compression_fields.items():
-                # Extract format and setting from key (e.g., "png_compress_level" -> format="png", setting="compress_level")
                 if "_" in key:
                     format_name = key.split("_", 1)[0]
                     setting_name = "_".join(key.split("_")[1:])
@@ -790,13 +780,11 @@ class AppConfigWindow(QDialog):
                                 setting_name
                             ] = control.currentText()
 
-            # Save update settings
             update_settings = {
                 "check_updates_on_startup": self.check_updates_cb.isChecked(),
                 "auto_download_updates": self.auto_update_cb.isChecked(),
             }
 
-            # Save UI settings
             ui_state = self.app_config.settings.setdefault("ui_state", {})
             if self.remember_input_dir_cb:
                 ui_state["remember_input_directory"] = (
@@ -807,13 +795,11 @@ class AppConfigWindow(QDialog):
                     self.remember_output_dir_cb.isChecked()
                 )
 
-            # Update app config
             self.app_config.settings["resource_limits"] = resource_limits
             self.app_config.settings["extraction_defaults"] = extraction_defaults
             self.app_config.settings["compression_defaults"] = compression_defaults
             self.app_config.settings["update_settings"] = update_settings
 
-            # Save to file
             self.app_config.save()
 
             QMessageBox.information(
@@ -836,19 +822,18 @@ class AppConfigWindow(QDialog):
 
     @staticmethod
     def parse_value(key, val, expected_type):
-        """
-        Static method to parse and validate a value based on its expected type.
+        """Convert a raw config value to the specified type.
 
         Args:
-            key: The configuration key name
-            val: The value to parse
-            expected_type: The expected type ('int', 'float', 'bool', 'str')
+            key: Setting key for error context.
+            val: Raw value to convert.
+            expected_type: One of 'int', 'float', 'bool', or 'str'.
 
         Returns:
-            The parsed value
+            Converted value matching expected_type.
 
         Raises:
-            ValueError: If the value cannot be parsed or is invalid
+            ValueError: If conversion fails.
         """
         if expected_type == "int":
             return int(val)
@@ -862,15 +847,17 @@ class AppConfigWindow(QDialog):
             return str(val)
 
     def create_ui_tab(self):
-        """Create the UI preferences tab."""
+        """Build the UI preferences tab with directory memory settings.
+
+        Returns:
+            QWidget containing UI preference controls.
+        """
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        # Directory Memory Settings group
         dir_group = QGroupBox("Directory Memory")
         dir_layout = QVBoxLayout(dir_group)
 
-        # Remember input directory checkbox
         self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
         self.remember_input_dir_cb.setToolTip(
             self.tr(
@@ -879,7 +866,6 @@ class AppConfigWindow(QDialog):
         )
         dir_layout.addWidget(self.remember_input_dir_cb)
 
-        # Remember output directory checkbox
         self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
         self.remember_output_dir_cb.setToolTip(
             self.tr(
