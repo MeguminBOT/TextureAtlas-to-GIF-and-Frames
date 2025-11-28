@@ -1,5 +1,20 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""Application translation and localization management.
+
+Provides dynamic discovery of available translations, language switching,
+and quality metadata for each supported language. Translation files use
+Qt's `.qm` (compiled) and `.ts` (source) formats located in
+``src/translations/`` with the naming scheme ``app_{language_code}``.
+
+Quality levels:
+    native: Human-reviewed by native speakers.
+    community: Human-translated community contributions.
+    machine: Auto-generated machine translation.
+    partial: Incomplete translation with some English strings.
+
+To add a new language, add its metadata to the ``language_info`` dict in
+:meth:`TranslationManager.get_available_languages` and create the
+corresponding translation files.
+"""
 
 from pathlib import Path
 from PySide6.QtCore import QTranslator, QLocale, QCoreApplication
@@ -7,112 +22,49 @@ from PySide6.QtWidgets import QApplication
 
 
 class TranslationManager:
-    """
-    Manages application translations and language switching.
+    """Manages application translations and language switching.
 
-    This class handles:
-    - Dynamic discovery of available translation files
-    - Loading and switching between language translations
-    - Managing Qt translators and locale settings
-    - Providing translation quality information (native vs machine-translated)
+    Handles discovery of available translation files, loading translations,
+    and providing metadata about translation quality.
 
-    LANGUAGE SYSTEM OVERVIEW:
-    ------------------------
-    The translation system works with two main components:
-
-    1. Language Information Dictionary:
-       Each language is defined with metadata including:
-       - name: Display name in the language's native script
-       - machine_translated: Boolean indicating if auto-translated
-       - quality: "native" for high quality, "community" for good human translations,
-                 "machine" for auto-generated translations, "partial" for incomplete translations
-
-    2. Translation Files:
-       Located in src/translations/ directory:
-       - app_{language_code}.ts: Source translation files (XML format)
-       - app_{language_code}.qm: Compiled translation files (binary format)
-
-    SUPPORTED FILE FORMATS:
-    ----------------------
-    - .ts files: Qt Linguist source files (human-readable XML)
-    - .qm files: Compiled Qt translation files (binary, faster loading)
-
-    The system automatically prioritizes .qm files over .ts files for performance,
-    using the standardized app_{language_code} naming scheme.
-
-    ADDING NEW LANGUAGES:
-    --------------------
-    1. Add language info to the language_info dict in get_available_languages()
-    2. Create translation files: app_{language_code}.ts and/or app_{language_code}.qm
-    3. The language will automatically appear in the UI if files are found
-
-    Example:
-        # Add Italian support
-        "it": {"name": "Italiano", "machine_translated": False, "quality": "native"}
-
-        # Create files: src/translations/app_it.ts or app_it.qm
+    Attributes:
+        app_instance: The QApplication instance for translator installation.
+        current_translator: Currently installed QTranslator, if any.
+        current_locale: Language code of the active translation.
+        translations_dir: Path to the translations directory.
     """
 
-    def __init__(self, app_instance=None):
+    def __init__(self, app_instance: QApplication | None = None) -> None:
+        """Initialize the translation manager.
+
+        Args:
+            app_instance: QApplication to install translators on. Defaults to
+                the current application instance.
+        """
+
         self.app_instance = app_instance or QApplication.instance()
-        self.current_translator = None
-        self.current_locale = None
-
-        # Get the translations directory path
+        self.current_translator: QTranslator | None = None
+        self.current_locale: str | None = None
         self.translations_dir = Path(__file__).parent.parent / "translations"
 
-    def get_available_languages(self):
-        """
-        Returns a dictionary of available languages.
-        Only returns languages that have translation files available.
+    def get_available_languages(self) -> dict[str, dict]:
+        """Return languages that have translation files available.
 
         Returns:
-            dict: Dictionary mapping language codes to language information dictionaries.
-                  Each language info dict contains:
-                  - name (str): Display name of the language in its native script
-                  - english_name (str): English name of the language
-                  - quality (str): Translation quality ("native", "community", "machine", "partial")
+            Dictionary mapping language codes to info dicts containing:
+            ``name`` (native display name), ``english_name``, and ``quality``.
         """
+
         available = {
             "en": {"name": "English", "english_name": "English", "quality": "native"},
-            "pt_br": {"name": "Português (Brasil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+            "pt_br": {
+                "name": "Português (Brasil)",
+                "english_name": "Portuguese (Brazil)",
+                "quality": "native",
+            },
             "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
         }
 
-        # Language codes to check for with their quality information
-        #
-        # LANGUAGE DICTIONARY STRUCTURE:
-        # Each entry follows this format:
-        # "language_code": {
-        #     "name": "Language Name in Native Script",
-        #     "english_name": "English Name",
-        #     "quality": str  # Quality level
-        # }
-        #
-        # QUALITY LEVELS:
-        # - "native": Near perfect quality (human-reviewed, native speakers)
-        # - "community": Good quality community contributions (human-translated)
-        # - "machine": Machine translated (auto-generated)
-        # - "partial": Incomplete translation (some strings still in English)
-        #
-        # EXAMPLES:
-        # "de": {"name": "Deutsch", "english_name": "German", "quality": "community"}
-        # "fr": {"name": "Français", "english_name": "French", "quality": "machine"}
-        # "es": {"name": "Español", "english_name": "Spanish", "quality": "partial"}
-        #
-        # ADDING NEW LANGUAGES:
-        # 1. Add the language code and info to this dictionary
-        # 2. Create translation files in src/translations/ directory:
-        #    - app_{language_code}.ts (source translation file)
-        #    - app_{language_code}.qm (compiled translation file)
-        # 3. The language will automatically appear in the UI if translation files exist
-        #
-        # LANGUAGE CODE STANDARDS:
-        # - Use ISO 639-1 two-letter codes for most languages (e.g., "en", "fr", "de")
-        # - For Chinese, use region-specific codes: "zh_CN" (Simplified), "zh_TW" (Traditional)
-        # - Keep codes lowercase for consistency
-
-        # If a language is commented out, it's not currently supported and needs to be translated first.
         language_info = {
             # "ar": {"name": "العربية", "english_name": "Arabic", "quality": "machine"},
             # "bg": {"name": "Български", "english_name": "Bulgarian", "quality": "machine"},
@@ -127,7 +79,7 @@ class TranslationManager:
             # "fi": {"name": "Suomi", "english_name": "Finnish", "quality": "machine"},
             # "fr": {"name": "Français", "english_name": "French", "quality": "machine"},
             # "fr_CA": {"name": "Français canadien", "english_name": "French (Canadian)",
-            #"de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
+            # "de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
             # "el": {"name": "Ελληνικά", "english_name": "Greek", "quality": "machine"},
             # "he": {"name": "עברית", "english_name": "Hebrew", "quality": "machine"},
             # "hi": {"name": "हिन्दी", "english_name": "Hindi", "quality": "machine"},
@@ -142,7 +94,11 @@ class TranslationManager:
             # "nn": {"name": "Norsk nynorsk", "english_name": "Norwegian (Nynorsk)", "quality": "machine"},
             # "pl": {"name": "Polski", "english_name": "Polish", "quality": "machine"},
             # "pt": {"name": "Português", "english_name": "Portuguese", "quality": "machine"},
-            "pt_br": {"name": "Português (Brasil)", "english_name": "Portuguese (Brazil)", "quality": "native"},
+            "pt_br": {
+                "name": "Português (Brasil)",
+                "english_name": "Portuguese (Brazil)",
+                "quality": "native",
+            },
             # "ro": {"name": "Română", "english_name": "Romanian", "quality": "machine"},
             # "ru": {"name": "Русский", "english_name": "Russian", "quality": "machine"},
             # "sk": {"name": "Slovenčina", "english_name": "Slovak", "quality": "machine"},
@@ -156,33 +112,28 @@ class TranslationManager:
         }
 
         for lang_code, lang_info in language_info.items():
-            # Check for translation files using the standardized app_XX format
-            # The system looks for both source (.ts) and compiled (.qm) files
-            patterns = [
-                f"app_{lang_code}.ts",  # Source translation file
-                f"app_{lang_code}.qm",  # Compiled translation file
-            ]
-
-            # If any translation file pattern exists, the language is considered available
-            # This allows for partial translations or mixed file formats
+            patterns = [f"app_{lang_code}.ts", f"app_{lang_code}.qm"]
             if any((self.translations_dir / pattern).exists() for pattern in patterns):
                 available[lang_code] = lang_info
 
         return available
 
-    def get_system_locale(self):
+    def get_system_locale(self) -> str:
+        """Get the system's default locale as a language code.
+
+        Converts Qt locale format (e.g., ``en_US``) to the application's
+        format (e.g., ``en``). Chinese locales preserve region codes to
+        distinguish Simplified (``zh_CN``) from Traditional (``zh_TW``).
+
+        Returns:
+            Language code suitable for :meth:`load_translation`.
         """
-        Get the system's default locale language code.
-        """
+
         system_locale = QLocale.system()
         language_code = system_locale.name()
 
-        # Convert from Qt locale format (e.g., "en_US") to our format (e.g., "en")
         if "_" in language_code:
             base_lang = language_code.split("_")[0]
-            # Handle special cases like Chinese where region matters for script selection
-            # zh_CN/zh_Hans = Simplified Chinese (Mainland China)
-            # zh_TW/zh_Hant = Traditional Chinese (Taiwan, Hong Kong)
             if base_lang == "zh":
                 if "CN" in language_code or "Hans" in language_code:
                     return "zh_CN"
@@ -192,30 +143,30 @@ class TranslationManager:
 
         return language_code
 
-    def load_translation(self, language_code):
-        """
-        Load translation for the specified language code.
+    def load_translation(self, language_code: str) -> bool:
+        """Load translation for the specified language code.
+
+        Removes any existing translator, then installs the new one. The
+        ``auto`` code triggers system locale detection with English fallback.
+        Prefers compiled ``.qm`` files over source ``.ts`` files.
 
         Args:
-            language_code (str): Language code (e.g., 'en', 'es', 'fr', 'auto')
+            language_code: Language code (e.g., ``en``, ``es``, ``auto``).
 
         Returns:
-            bool: True if translation was loaded successfully, False otherwise
+            True if translation loaded successfully, False otherwise.
         """
+
         if self.current_translator:
             self.app_instance.removeTranslator(self.current_translator)
             self.current_translator = None
 
-        # Handle auto-detection
         if language_code == "auto":
             detected_language = self.get_system_locale()
             available_languages = self.get_available_languages()
-
-            # If detected language is available, use it
             if detected_language in available_languages:
                 language_code = detected_language
             else:
-                # Fall back to English if system language is not available
                 language_code = "en"
 
         if language_code == "en":
@@ -224,7 +175,6 @@ class TranslationManager:
 
         translator = QTranslator()
 
-        # Try to load the .qm file first (compiled translation)
         qm_file = self.translations_dir / f"app_{language_code}.qm"
         if qm_file.exists():
             if translator.load(str(qm_file)):
@@ -233,7 +183,6 @@ class TranslationManager:
                 self.current_locale = language_code
                 return True
 
-        # Fallback to .ts file (source translation)
         ts_file = self.translations_dir / f"app_{language_code}.ts"
         if ts_file.exists():
             if translator.load(str(ts_file)):
@@ -245,36 +194,37 @@ class TranslationManager:
         print(f"Warning: Could not load translation for language '{language_code}'")
         return False
 
-    def get_current_language(self):
-        """
-        Get the currently active language code.
-        """
+    def get_current_language(self) -> str:
+        """Return the currently active language code, defaulting to ``en``."""
+
         return self.current_locale or "en"
 
-    def refresh_ui(self, main_window):
-        """
-        Refresh the UI to apply new translations.
-        This should be called after changing languages.
+    def refresh_ui(self, main_window) -> None:
+        """Refresh the UI to apply the current translation.
+
+        Call after changing languages. Invokes ``retranslateUi`` on the
+        window's UI and emits the ``language_changed`` signal if present.
 
         Args:
-            main_window: The main application window instance
+            main_window: The main application window instance.
         """
+
         if hasattr(main_window, "ui"):
             main_window.ui.retranslateUi(main_window)
 
         if hasattr(main_window, "language_changed"):
             main_window.language_changed.emit(self.current_locale or "en")
 
-    def is_machine_translated(self, language_code):
-        """
-        Check if a language is machine translated.
+    def is_machine_translated(self, language_code: str) -> bool:
+        """Check if a language uses machine translation.
 
         Args:
-            language_code (str): The language code to check
+            language_code: The language code to check.
 
         Returns:
-            bool: True if the language is machine translated, False otherwise
+            True if the language quality is ``machine``, False otherwise.
         """
+
         available_languages = self.get_available_languages()
         if language_code in available_languages:
             lang_info = available_languages[language_code]
@@ -282,16 +232,17 @@ class TranslationManager:
                 return lang_info.get("quality") == "machine"
         return False
 
-    def get_quality_level(self, language_code):
-        """
-        Get the quality level of a translation.
+    def get_quality_level(self, language_code: str) -> str:
+        """Get the quality level of a translation.
 
         Args:
-            language_code (str): The language code to check
+            language_code: The language code to check.
 
         Returns:
-            str: Quality level ("native", "community", "machine", "partial") or "unknown"
+            Quality level (``native``, ``community``, ``machine``, ``partial``)
+            or ``unknown`` if not found.
         """
+
         available_languages = self.get_available_languages()
         if language_code in available_languages:
             lang_info = available_languages[language_code]
@@ -299,16 +250,16 @@ class TranslationManager:
                 return lang_info.get("quality", "unknown")
         return "unknown"
 
-    def get_english_name(self, language_code):
-        """
-        Get the English name of a language.
+    def get_english_name(self, language_code: str) -> str:
+        """Get the English name of a language.
 
         Args:
-            language_code (str): The language code to check
+            language_code: The language code to look up.
 
         Returns:
-            str: English name of the language or "Unknown"
+            English name of the language, or ``Unknown`` if not found.
         """
+
         available_languages = self.get_available_languages()
         if language_code in available_languages:
             lang_info = available_languages[language_code]
@@ -316,17 +267,18 @@ class TranslationManager:
                 return lang_info.get("english_name", "Unknown")
         return "Unknown"
 
-    def get_display_name(self, language_code, show_english=False):
-        """
-        Get the display name for a language, optionally including English name.
+    def get_display_name(self, language_code: str, show_english: bool = False) -> str:
+        """Get the display name for a language.
 
         Args:
-            language_code (str): The language code to check
-            show_english (bool): Whether to include English name in parentheses
+            language_code: The language code to look up.
+            show_english: If True, append the English name (e.g.,
+                ``Deutsch / German``).
 
         Returns:
-            str: Display name (e.g., "Deutsch" or "Deutsch (German)")
+            Display name in the native script, optionally with English.
         """
+
         available_languages = self.get_available_languages()
         if language_code in available_languages:
             lang_info = available_languages[language_code]
@@ -338,33 +290,34 @@ class TranslationManager:
                 return native_name
         return "Unknown"
 
-    def _format_language_display_name(self, native_name, english_name):
-        """
-        Format a language display name, handling existing parentheses smartly.
+    def _format_language_display_name(self, native_name: str, english_name: str) -> str:
+        """Format a bilingual language display name.
+
+        Combines native and English names with a slash separator, unless
+        the English name is empty, identical, or already present in the
+        native name.
 
         Args:
-            native_name (str): Native language name (may contain parentheses)
-            english_name (str): English language name
+            native_name: Language name in its native script.
+            english_name: Language name in English.
 
         Returns:
-            str: Properly formatted display name
+            Formatted display name (e.g., ``Français / French``).
         """
+
         if not english_name or english_name == native_name:
             return native_name
 
-        # Check if native name already contains the English name
         if english_name.lower() in native_name.lower():
             return native_name
 
-        # Always use forward slash for consistency
         return f"{native_name} / {english_name}"
 
-    def get_machine_translation_disclaimer(self):
-        """
-        Get the machine translation disclaimer text in the current language.
+    def get_machine_translation_disclaimer(self) -> tuple[str, str]:
+        """Get the machine translation disclaimer in the current language.
 
         Returns:
-            tuple: (title, message) for the disclaimer dialog
+            A tuple (title, message) for displaying a disclaimer dialog.
         """
 
         title = QCoreApplication.translate(
@@ -378,32 +331,29 @@ class TranslationManager:
         return title, message
 
 
-# Convenience function to get translation manager instance
-_translation_manager = None
+_translation_manager: TranslationManager | None = None
 
 
-def get_translation_manager():
-    """
-    Get the global translation manager instance.
-    """
+def get_translation_manager() -> TranslationManager:
+    """Return the global translation manager instance, creating it if needed."""
+
     global _translation_manager
     if _translation_manager is None:
         _translation_manager = TranslationManager()
     return _translation_manager
 
 
-def tr(text, context=None):
-    """
-    Convenience function for translating text.
+def tr(text: str, context: str | None = None) -> str:
+    """Translate text using the application's current locale.
 
     Args:
-        text (str): Text to translate
-        context (str, optional): Translation context for disambiguation
+        text: Text to translate.
+        context: Optional translation context for disambiguation.
 
     Returns:
-        str: Translated text
+        Translated text, or the original if no translation exists.
     """
+
     if context:
         return QCoreApplication.translate(context, text)
-    else:
-        return QCoreApplication.translate("", text)
+    return QCoreApplication.translate("", text)

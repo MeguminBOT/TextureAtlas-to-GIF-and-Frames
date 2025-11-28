@@ -1,44 +1,21 @@
+"""Persistent application configuration backed by a JSON file."""
+
 import os
 import json
 
 
 class AppConfig:
-    """
-    A class for managing persistent application configuration settings.
+    """Manage persistent application settings stored in a JSON file.
 
     Attributes:
-        DEFAULTS (dict): Default settings for the application.
-        TYPE_MAP (dict): Mapping of setting keys to their expected types.
-        config_path (str): Path to the JSON config file.
-        settings (dict): Dictionary of current settings.
-
-    Methods:
-        load():
-            Load settings from the config file, or use defaults if not found.
-        save():
-            Save current settings to the config file.
-        get(key, default=None):
-            Retrieve a setting value by key, with optional default.
-        set(key, value):
-            Set a setting value and immediately save to disk.
-        migrate():
-            Migrate existing configuration to include new features and remove obsolete settings.
-        merge_defaults(current, defaults):
-            Recursively merge current settings with defaults.
-        get_extraction_defaults():
-            Return a copy of the extraction defaults.
-        set_extraction_defaults(**kwargs):
-            Update extraction defaults and save.
-        get_compression_defaults(format_name=None):
-            Get compression defaults for a specific format or all formats.
-        set_compression_defaults(format_name, **kwargs):
-            Update compression defaults for a specific format.
-        get_format_compression_settings(format_name):
-            Get compression settings for a specific format in the format expected by the frame exporter.
+        DEFAULTS: Default values for all configuration keys.
+        TYPE_MAP: Expected Python types for each setting key.
+        config_path: Filesystem path to the configuration file.
+        settings: Current settings dictionary.
     """
 
     DEFAULTS = {
-        "language": "auto",  # Language setting: "auto" for system default, or language code like "en", "es", etc.
+        "language": "auto",
         "resource_limits": {
             "cpu_cores": "auto",
             "memory_limit_mb": 0,
@@ -87,6 +64,9 @@ class AppConfig:
             "check_updates_on_startup": True,
             "auto_download_updates": False,
         },
+        "editor_settings": {
+            "origin_mode": "center",
+        },
         "ui_state": {
             "last_input_directory": "",
             "last_output_directory": "",
@@ -131,11 +111,20 @@ class AppConfig:
         "last_output_directory": str,
         "remember_input_directory": bool,
         "remember_output_directory": bool,
+        "origin_mode": str,
     }
 
     def __init__(self, config_path=None):
+        """Initialize the configuration, loading from disk if available.
+
+        Args:
+            config_path: Optional path to the config file. Defaults to
+                ``app_config.cfg`` in the parent directory of this module.
+        """
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), "..", "app_config.cfg")
+            config_path = os.path.join(
+                os.path.dirname(__file__), "..", "app_config.cfg"
+            )
         self.config_path = os.path.abspath(config_path)
         self.settings = dict(self.DEFAULTS)
 
@@ -145,31 +134,65 @@ class AppConfig:
             )
             self.save()
         else:
-            print(f"[Config] Configuration file found at '{self.config_path}'. Loading settings...")
+            print(
+                f"[Config] Configuration file found at '{self.config_path}'. Loading settings..."
+            )
 
         self.load()
         self.migrate()
 
     def get_extraction_defaults(self):
-        return dict(self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"]))
+        """Return a copy of the extraction default settings."""
+
+        return dict(
+            self.get("extraction_defaults", self.DEFAULTS["extraction_defaults"])
+        )
 
     def set_extraction_defaults(self, **kwargs):
+        """Update extraction defaults and persist to disk.
+
+        Args:
+            **kwargs: Key-value pairs to merge into extraction defaults.
+        """
         defaults = self.get_extraction_defaults()
         defaults.update(kwargs)
         self.set("extraction_defaults", defaults)
         self.save()
 
+    def get_editor_settings(self):
+        """Return a copy of the editor settings."""
+
+        return dict(
+            self.get("editor_settings", self.DEFAULTS.get("editor_settings", {}))
+        )
+
+    def set_editor_settings(self, **kwargs):
+        """Update editor settings and persist to disk.
+
+        Args:
+            **kwargs: Key-value pairs to merge into editor settings.
+        """
+        current = self.get_editor_settings()
+        current.update(kwargs)
+        self.set("editor_settings", current)
+
     def load(self):
+        """Load settings from the config file, merging with current values."""
+
         if os.path.isfile(self.config_path):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     self.settings.update(json.load(f))
-                print(f"[Config] Configuration loaded successfully from '{self.config_path}'.")
+                print(
+                    f"[Config] Configuration loaded successfully from '{self.config_path}'."
+                )
             except Exception as e:
                 print(f"[Config] Failed to load configuration: {e}")
                 pass
 
     def save(self):
+        """Write the current settings to the config file."""
+
         try:
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.settings, f, indent=4)
@@ -179,6 +202,8 @@ class AppConfig:
             pass
 
     def migrate(self):
+        """Add missing defaults and remove obsolete keys, then save if changed."""
+
         needs_migration = False
 
         def merge_defaults(current, defaults):
@@ -187,7 +212,9 @@ class AppConfig:
                 if key not in current:
                     current[key] = default_value
                     needs_migration = True
-                    print(f"[Config] Added new setting '{key}' with default value: {default_value}")
+                    print(
+                        f"[Config] Added new setting '{key}' with default value: {default_value}"
+                    )
                 elif isinstance(default_value, dict) and isinstance(current[key], dict):
                     merge_defaults(current[key], default_value)
 
@@ -220,14 +247,40 @@ class AppConfig:
             print("[Config] No migration needed - configuration is up to date.")
 
     def get(self, key, default=None):
-        return self.settings.get(key, default if default is not None else self.DEFAULTS.get(key))
+        """Retrieve a setting value by key.
+
+        Args:
+            key: Setting name to look up.
+            default: Value returned if the key is missing.
+
+        Returns:
+            The stored value, or the default.
+        """
+        return self.settings.get(
+            key, default if default is not None else self.DEFAULTS.get(key)
+        )
 
     def set(self, key, value):
+        """Store a setting value and persist to disk.
+
+        Args:
+            key: Setting name.
+            value: New value to store.
+        """
         print(f"[Config] Setting '{key}' to: {value}")
         self.settings[key] = value
         self.save()
 
     def get_compression_defaults(self, format_name=None):
+        """Return compression defaults for one or all formats.
+
+        Args:
+            format_name: Optional format key (e.g. 'png'). If None, returns
+                all compression settings.
+
+        Returns:
+            A copy of the compression settings dict.
+        """
         compression_defaults = self.get(
             "compression_defaults", self.DEFAULTS["compression_defaults"]
         )
@@ -238,6 +291,12 @@ class AppConfig:
         return dict(compression_defaults)
 
     def set_compression_defaults(self, format_name, **kwargs):
+        """Update compression defaults for a format and persist to disk.
+
+        Args:
+            format_name: Format key (e.g. 'png', 'webp').
+            **kwargs: Key-value pairs to merge into the format's settings.
+        """
         compression_defaults = self.get_compression_defaults()
 
         if format_name not in compression_defaults:
@@ -247,6 +306,14 @@ class AppConfig:
         self.set("compression_defaults", compression_defaults)
 
     def get_format_compression_settings(self, format_name):
+        """Return compression settings keyed for the frame exporter.
+
+        Args:
+            format_name: Image format (e.g. 'PNG', 'WEBP').
+
+        Returns:
+            Dictionary with prefixed keys like 'png_compress_level'.
+        """
         format_lower = format_name.lower()
         defaults = self.get_compression_defaults(format_lower)
 
@@ -279,14 +346,19 @@ class AppConfig:
         return {}
 
     def get_last_input_directory(self):
-        """Get the last used input directory if remembering is enabled."""
+        """Return the last input directory if remembering is enabled."""
+
         ui_state = self.settings.get("ui_state", {})
         if ui_state.get("remember_input_directory", True):
             return ui_state.get("last_input_directory", "")
         return ""
 
     def set_last_input_directory(self, directory):
-        """Set the last used input directory and save if remembering is enabled."""
+        """Store the last input directory if remembering is enabled.
+
+        Args:
+            directory: Filesystem path to save.
+        """
         ui_state = self.settings.get("ui_state", {})
         if ui_state.get("remember_input_directory", True):
             if "ui_state" not in self.settings:
@@ -295,14 +367,19 @@ class AppConfig:
             self.save()
 
     def get_last_output_directory(self):
-        """Get the last used output directory if remembering is enabled."""
+        """Return the last output directory if remembering is enabled."""
+
         ui_state = self.settings.get("ui_state", {})
         if ui_state.get("remember_output_directory", True):
             return ui_state.get("last_output_directory", "")
         return ""
 
     def set_last_output_directory(self, directory):
-        """Set the last used output directory and save if remembering is enabled."""
+        """Store the last output directory if remembering is enabled.
+
+        Args:
+            directory: Filesystem path to save.
+        """
         ui_state = self.settings.get("ui_state", {})
         if ui_state.get("remember_output_directory", True):
             if "ui_state" not in self.settings:
@@ -311,50 +388,62 @@ class AppConfig:
             self.save()
 
     def get_remember_input_directory(self):
-        """Get whether to remember the last input directory."""
+        """Return True if the last input directory should be remembered."""
+
         return self.settings.get("ui_state", {}).get("remember_input_directory", True)
 
     def set_remember_input_directory(self, remember):
-        """Set whether to remember the last input directory."""
+        """Set whether to remember the last input directory.
+
+        Args:
+            remember: If False, clears the stored directory.
+        """
         if "ui_state" not in self.settings:
             self.settings["ui_state"] = {}
         self.settings["ui_state"]["remember_input_directory"] = remember
-        # If disabled, clear the saved directory
         if not remember:
             self.settings["ui_state"]["last_input_directory"] = ""
         self.save()
 
     def get_remember_output_directory(self):
-        """Get whether to remember the last output directory."""
+        """Return True if the last output directory should be remembered."""
+
         return self.settings.get("ui_state", {}).get("remember_output_directory", True)
 
     def set_remember_output_directory(self, remember):
-        """Set whether to remember the last output directory."""
+        """Set whether to remember the last output directory.
+
+        Args:
+            remember: If False, clears the stored directory.
+        """
         if "ui_state" not in self.settings:
             self.settings["ui_state"] = {}
         self.settings["ui_state"]["remember_output_directory"] = remember
-        # If disabled, clear the saved directory
         if not remember:
             self.settings["ui_state"]["last_output_directory"] = ""
         self.save()
 
     def get_language(self):
-        """Get the application language setting."""
+        """Return the stored language code, or 'auto' for system default."""
+
         return self.settings.get("language", "auto")
 
     def set_language(self, language_code):
-        """Set the application language."""
+        """Set the application language and persist to disk.
+
+        Args:
+            language_code: Language code (e.g. 'en', 'es') or 'auto'.
+        """
         self.settings["language"] = language_code
         self.save()
 
     def get_effective_language(self):
-        """
-        Get the effective language code.
-        If set to 'auto', returns the system locale, otherwise returns the set language.
+        """Return the resolved language code.
+
+        If set to 'auto', detects and returns the system locale.
         """
         language = self.get_language()
         if language == "auto":
-            # Import here to avoid circular imports
             from .translation_manager import get_translation_manager
 
             manager = get_translation_manager()

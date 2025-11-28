@@ -1,3 +1,9 @@
+"""Application update checking and installation.
+
+Provides dialogs and logic for checking GitHub releases, comparing
+versions, and triggering update downloads.
+"""
+
 import platform
 import requests
 
@@ -14,24 +20,30 @@ from PySide6.QtCore import Qt
 
 
 class UpdateDialog(QDialog):
-    """
-    A custom dialog window for displaying update information with changelog.
+    """Dialog displaying update information and changelog.
 
     Attributes:
-        result (bool): The user's choice (True for update, False for cancel)
-
-    Methods:
-        __init__(parent, current_version, latest_version, changelog, update_type):
-            Initialize the update dialog with version info and changelog
-        show_dialog():
-            Display the dialog and return the user's choice
-        _on_update():
-            Handle the update button click
-        _on_cancel():
-            Handle the cancel button click
+        result: User's choice; True to proceed with update, False to cancel.
     """
 
-    def __init__(self, parent, current_version, latest_version, changelog, update_type):
+    def __init__(
+        self,
+        parent,
+        current_version: str,
+        latest_version: str,
+        changelog: str,
+        update_type: str,
+    ) -> None:
+        """Initialize the update dialog.
+
+        Args:
+            parent: Parent widget for dialog positioning.
+            current_version: Currently installed version string.
+            latest_version: Available version string.
+            changelog: Release notes text.
+            update_type: One of ``major``, ``minor``, or ``patch``.
+        """
+
         super().__init__(parent)
         self.result = False
 
@@ -39,7 +51,6 @@ class UpdateDialog(QDialog):
         self.setFixedSize(600, 500)
         self.setModal(True)
 
-        # Center the dialog
         if parent:
             parent_rect = parent.geometry()
             self.move(
@@ -49,31 +60,33 @@ class UpdateDialog(QDialog):
 
         self._create_widgets(current_version, latest_version, changelog, update_type)
 
-    def tr(self, text):
-        """Translation helper method."""
+    def tr(self, text: str) -> str:
+        """Translate text using the application's current locale."""
+
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
-    def _create_widgets(self, current_version, latest_version, changelog, update_type):
+    def _create_widgets(
+        self,
+        current_version: str,
+        latest_version: str,
+        changelog: str,
+        update_type: str,
+    ) -> None:
+        """Build the dialog UI with version info, changelog, and buttons."""
+
         layout = QVBoxLayout(self)
 
-        # Header
         if update_type == "major":
             title_text = "🎉 Major Update Available! 🎉"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
         elif update_type == "minor":
             title_text = "✨ New Update Available! ✨"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
-        else:  # patch
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
+        else:
             title_text = "🔧 Bug Fix Update Available"
-            version_text = (
-                f"Version {latest_version} is now available!\n(You have version {current_version})"
-            )
+            version_text = f"Version {latest_version} is now available!\n(You have version {current_version})"
 
         title_label = QLabel(title_text)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -85,7 +98,6 @@ class UpdateDialog(QDialog):
         version_label.setStyleSheet("font-size: 12px; margin-bottom: 15px;")
         layout.addWidget(version_label)
 
-        # Changelog
         changelog_label = QLabel("What's New:")
         changelog_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(changelog_label)
@@ -95,11 +107,11 @@ class UpdateDialog(QDialog):
         self.changelog_text.setReadOnly(True)
         layout.addWidget(self.changelog_text)
 
-        # Buttons
         button_layout = QHBoxLayout()
 
         self.update_btn = QPushButton(self.tr("Update Now"))
-        self.update_btn.setStyleSheet("""
+        self.update_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
@@ -112,11 +124,13 @@ class UpdateDialog(QDialog):
             QPushButton:hover {
                 background-color: #45a049;
             }
-        """)
+        """
+        )
         self.update_btn.clicked.connect(self._on_update)
 
         self.cancel_btn = QPushButton(self.tr("Cancel"))
-        self.cancel_btn.setStyleSheet("""
+        self.cancel_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -128,61 +142,66 @@ class UpdateDialog(QDialog):
             QPushButton:hover {
                 background-color: #da190b;
             }
-        """)
+        """
+        )
         self.cancel_btn.clicked.connect(self._on_cancel)
 
         button_layout.addWidget(self.update_btn)
         button_layout.addWidget(self.cancel_btn)
         layout.addLayout(button_layout)
 
-    def show_dialog(self):
-        """Display the dialog and return the user's choice."""
+    def show_dialog(self) -> bool:
+        """Display the dialog modally and return the user's choice."""
+
         self.exec()
         return self.result
 
-    def _on_update(self):
-        """Handle the update button click."""
+    def _on_update(self) -> None:
+        """Accept the dialog and set result to True."""
+
         self.result = True
         self.accept()
 
-    def _on_cancel(self):
-        """Handle the cancel button click."""
+    def _on_cancel(self) -> None:
+        """Reject the dialog and set result to False."""
+
         self.result = False
         self.reject()
 
 
 class UpdateChecker:
-    """
-    A class for checking and managing updates.
+    """Checks GitHub releases for application updates.
 
-    Methods:
-        check_for_updates():
-            Check if a new version is available.
-        get_current_version():
-            Get the current version from the app.
-        download_and_install_update(download_url, latest_version):
-            Download and install the latest version.
-        run_update_installer(installer_path, latest_version):
-            Run the update installer.
-        determine_update_type(current_version, latest_version):
-            Determine if the update is major, minor, or patch.
+    Attributes:
+        current_version: The currently installed version string.
     """
 
-    def __init__(self, current_version):
-        self.current_version = current_version
-
-    def check_for_updates(self, parent_window=None):
-        """
-        Check if a new version is available and show update dialog if needed.
+    def __init__(self, current_version: str) -> None:
+        """Initialize the update checker.
 
         Args:
-            parent_window: Parent Qt window for the dialog
+            current_version: The currently installed version string.
+        """
+
+        self.current_version = current_version
+
+    def check_for_updates(
+        self, parent_window=None
+    ) -> tuple[bool, str | None, str | None]:
+        """Check GitHub for a newer release and prompt the user.
+
+        Fetches the latest release from the GitHub API, compares versions,
+        and displays an update dialog if a newer version is available.
+
+        Args:
+            parent_window: Parent Qt widget for dialogs.
 
         Returns:
-            tuple: (bool, str, str) - (update_available, latest_version, download_url)
+            A tuple (proceed, latest_version, download_url) where proceed is
+            True if the user accepted the update and a download URL exists.
         """
+
         try:
-            # URL to check for latest version
             api_url = "https://api.github.com/repos/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases/latest"
 
             response = requests.get(api_url, timeout=10)
@@ -192,7 +211,6 @@ class UpdateChecker:
             latest_version = release_data["tag_name"].lstrip("v")
             changelog = release_data.get("body", "No changelog available.")
 
-            # Find download URL for the appropriate platform
             download_url = None
             assets = release_data.get("assets", [])
 
@@ -210,11 +228,16 @@ class UpdateChecker:
                     break
 
             if self._is_newer_version(latest_version, self.current_version):
-                update_type = self.determine_update_type(self.current_version, latest_version)
+                update_type = self.determine_update_type(
+                    self.current_version, latest_version
+                )
 
-                # Show update dialog
                 dialog = UpdateDialog(
-                    parent_window, self.current_version, latest_version, changelog, update_type
+                    parent_window,
+                    self.current_version,
+                    latest_version,
+                    changelog,
+                    update_type,
                 )
                 if dialog.show_dialog():
                     if download_url:
@@ -234,7 +257,9 @@ class UpdateChecker:
 
         except requests.RequestException as e:
             QMessageBox.critical(
-                parent_window, "Update Check Failed", f"Failed to check for updates:\n{str(e)}"
+                parent_window,
+                "Update Check Failed",
+                f"Failed to check for updates:\n{str(e)}",
             )
             return False, None, None
         except Exception as e:
@@ -245,12 +270,11 @@ class UpdateChecker:
             )
             return False, None, None
 
-    def _is_newer_version(self, latest, current):
-        """Compare version strings to determine if latest is newer than current."""
-        try:
+    def _is_newer_version(self, latest: str, current: str) -> bool:
+        """Check if latest version is newer than current using semantic versioning."""
 
-            def version_tuple(version_str):
-                # Remove 'v' prefix if present and split by '.'
+        try:
+            def version_tuple(version_str: str) -> tuple[int, ...]:
                 clean_version = version_str.lstrip("v")
                 return tuple(map(int, clean_version.split(".")))
 
@@ -258,28 +282,29 @@ class UpdateChecker:
         except (ValueError, AttributeError):
             return False
 
-    def determine_update_type(self, current_version, latest_version):
-        """
-        Determine the type of update (major, minor, patch) based on semantic versioning.
+    def determine_update_type(self, current_version: str, latest_version: str) -> str:
+        """Classify an update as major, minor, or patch.
+
+        Uses semantic versioning: major.minor.patch. Compares corresponding
+        segments to determine which changed.
 
         Args:
-            current_version (str): Current version string
-            latest_version (str): Latest version string
+            current_version: Currently installed version string.
+            latest_version: Available version string.
 
         Returns:
-            str: Update type ('major', 'minor', or 'patch')
+            Update type: ``major``, ``minor``, or ``patch``.
         """
-        try:
 
-            def parse_version(version_str):
+        try:
+            def parse_version(version_str: str) -> list[int]:
                 clean_version = version_str.lstrip("v")
                 parts = clean_version.split(".")
-                return [int(part) for part in parts[:3]]  # Take only major.minor.patch
+                return [int(part) for part in parts[:3]]
 
             current_parts = parse_version(current_version)
             latest_parts = parse_version(latest_version)
 
-            # Pad with zeros if necessary
             while len(current_parts) < 3:
                 current_parts.append(0)
             while len(latest_parts) < 3:
@@ -293,17 +318,22 @@ class UpdateChecker:
                 return "patch"
 
         except (ValueError, IndexError):
-            return "patch"  # Default to patch if version parsing fails
+            return "patch"
 
-    def download_and_install_update(self, download_url, latest_version, parent_window=None):
-        """
-        Download and install the update.
+    def download_and_install_update(
+        self, download_url: str, latest_version: str, parent_window=None
+    ) -> None:
+        """Download and install an update.
+
+        Delegates to :class:`UpdateInstaller` for the actual download and
+        installation process.
 
         Args:
-            download_url (str): URL to download the update
-            latest_version (str): Version being downloaded
-            parent_window: Parent Qt window for dialogs
+            download_url: URL to download the update archive.
+            latest_version: Version string being downloaded.
+            parent_window: Parent Qt widget for progress dialogs.
         """
+
         try:
             from utils.update_installer import UpdateInstaller
 
@@ -318,5 +348,7 @@ class UpdateChecker:
             )
         except Exception as e:
             QMessageBox.critical(
-                parent_window, "Update Error", f"Failed to download and install update:\n{str(e)}"
+                parent_window,
+                "Update Error",
+                f"Failed to download and install update:\n{str(e)}",
             )

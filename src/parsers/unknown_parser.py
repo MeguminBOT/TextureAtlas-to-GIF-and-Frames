@@ -105,7 +105,9 @@ class UnknownParser(BaseParser):
             if background_color and UnknownParser._should_apply_color_keying(
                 background_color, parent_window
             ):
-                processed_image = UnknownParser._apply_color_keying(image, background_color)
+                processed_image = UnknownParser._apply_color_keying(
+                    image, background_color
+                )
             else:
                 processed_image = image
 
@@ -292,7 +294,9 @@ class UnknownParser(BaseParser):
             return []
 
     @staticmethod
-    def _get_bounding_box(region_coords: List[Tuple[int, int]]) -> Tuple[int, int, int, int]:
+    def _get_bounding_box(
+        region_coords: List[Tuple[int, int]],
+    ) -> Tuple[int, int, int, int]:
         """Calculate the bounding box of a region."""
         if not region_coords:
             return (0, 0, 0, 0)
@@ -335,10 +339,14 @@ class UnknownParser(BaseParser):
             for x in range(0, width, max(1, width // 50)):  # Sample every ~2% of width
                 edge_pixels.append(rgb_image.getpixel((x, 0)))  # Top edge
                 if height > 1:
-                    edge_pixels.append(rgb_image.getpixel((x, height - 1)))  # Bottom edge
+                    edge_pixels.append(
+                        rgb_image.getpixel((x, height - 1))
+                    )  # Bottom edge
 
             # Left and right edges
-            for y in range(0, height, max(1, height // 50)):  # Sample every ~2% of height
+            for y in range(
+                0, height, max(1, height // 50)
+            ):  # Sample every ~2% of height
                 edge_pixels.append(rgb_image.getpixel((0, y)))  # Left edge
                 if width > 1:
                     edge_pixels.append(rgb_image.getpixel((width - 1, y)))  # Right edge
@@ -355,10 +363,14 @@ class UnknownParser(BaseParser):
             color_counts = Counter(edge_pixels)
 
             # Filter colors that appear frequently enough to be considered background
-            min_occurrences = max(1, len(edge_pixels) * 0.05)  # At least 5% of edge pixels
+            min_occurrences = max(
+                1, len(edge_pixels) * 0.05
+            )  # At least 5% of edge pixels
             background_colors = []
 
-            for color, count in color_counts.most_common(max_colors * 2):  # Get more candidates
+            for color, count in color_counts.most_common(
+                max_colors * 2
+            ):  # Get more candidates
                 if count >= min_occurrences and len(background_colors) < max_colors:
                     background_colors.append(color)
 

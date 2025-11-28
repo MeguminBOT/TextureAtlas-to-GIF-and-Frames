@@ -1,6 +1,12 @@
+"""Helpers for raising user-friendly error dialogs during extraction."""
+
+
 class ExceptionHandler:
+    """Utility namespace for mapping low-level errors to readable messages."""
+
     @staticmethod
     def handle_exception(e, metadata_path, sprites_failed):
+        """Raise a descriptive exception tailored to the parsing error encountered."""
         if "Coordinate '" in str(e) and "' is less than '" in str(e):
             sprites_failed += 1
             raise Exception(
@@ -13,13 +19,11 @@ class ExceptionHandler:
             )
         else:
             sprites_failed += 1
-            raise Exception(
-                f"An error occurred: {str(e)}.\n\nFile:{metadata_path}"
-            )
+            raise Exception(f"An error occurred: {str(e)}.\n\nFile:{metadata_path}")
 
     @staticmethod
     def handle_validation_error(key, expected_type):
-        # If it's a lambda, show 'number' instead of '<lambda>'
+        """Return a readable validation error message for settings entries."""
         if hasattr(expected_type, "__name__"):
             readable_type = expected_type.__name__
             if readable_type == "<lambda>":

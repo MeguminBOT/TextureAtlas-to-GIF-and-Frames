@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Modal dialog acknowledging project contributors with links to their profiles."""
 
 import webbrowser
 from PySide6.QtWidgets import (
@@ -17,54 +18,59 @@ from PySide6.QtGui import QFont
 
 
 class ContributorsWindow(QDialog):
-    """
-    This class provides a dedicated window to thank contributors to the project
-    and allows users to visit their social media profiles or GitHub pages.
-    """
+    """Modal dialog displaying project contributors with clickable profile links."""
 
     def __init__(self, parent=None):
+        """Initialize the dialog and build the contributor list UI.
+
+        Args:
+            parent: Parent widget for the dialog.
+        """
         super().__init__(parent)
         self.setWindowTitle(self.tr("Contributors"))
         self.setGeometry(200, 200, 600, 500)
         self.setup_ui()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the Qt translation system.
+
+        Args:
+            text: Source string to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
-        """Sets up the UI components."""
+        """Build the scrollable contributor list with title and close button."""
+
         layout = QVBoxLayout(self)
         layout.setSpacing(20)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Title
         title_label = QLabel(self.tr("TextureAtlas Toolbox\nContributors"))
         title_font = QFont("Arial", 16, QFont.Weight.Bold)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
 
-        # Scrollable area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        # Content widget
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setSpacing(15)
 
-        # Add contributors
         self.add_contributors(content_layout)
 
         scroll_area.setWidget(content_widget)
         layout.addWidget(scroll_area)
 
-        # Close button
         close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.close)
         close_btn.setMaximumWidth(100)
@@ -76,7 +82,11 @@ class ContributorsWindow(QDialog):
         layout.addLayout(btn_layout)
 
     def add_contributors(self, layout):
-        """Add contributor information to the layout."""
+        """Add contributor cards to the layout.
+
+        Args:
+            layout: Parent layout receiving each contributor card.
+        """
         contributors_data = [
             {
                 "name": "AutisticLulu",
@@ -109,8 +119,14 @@ class ContributorsWindow(QDialog):
             self.add_contributor_card(layout, contributor)
 
     def add_contributor_card(self, layout, contributor_data):
-        """Add a contributor card to the layout."""
-        # Create frame for contributor
+        """Create and add a styled contributor card to the layout.
+
+        Args:
+            layout: Parent layout receiving the card widget.
+            contributor_data: Dictionary with 'name', optional 'role',
+                optional 'description', and optional 'links' list of
+                (label, url) tuples.
+        """
         card_frame = QFrame()
         card_frame.setFrameStyle(QFrame.Shape.Box)
         card_frame.setLineWidth(1)
@@ -118,30 +134,28 @@ class ContributorsWindow(QDialog):
         card_layout.setSpacing(10)
         card_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Name
         name_label = QLabel(contributor_data["name"])
         name_font = QFont("Arial", 12, QFont.Weight.Bold)
         name_label.setFont(name_font)
         card_layout.addWidget(name_label)
 
-        # Role
         if "role" in contributor_data:
             role_label = QLabel(contributor_data["role"])
             role_label.setStyleSheet("color: #666666;")
             card_layout.addWidget(role_label)
 
-        # Description (if any)
         if "description" in contributor_data:
             desc_label = QLabel(contributor_data["description"])
             desc_label.setWordWrap(True)
             card_layout.addWidget(desc_label)
 
-        # Links
         if "links" in contributor_data:
             links_layout = QHBoxLayout()
             for link_text, link_url in contributor_data["links"]:
                 link_btn = QPushButton(link_text)
-                link_btn.clicked.connect(lambda checked, url=link_url: self.open_link(url))
+                link_btn.clicked.connect(
+                    lambda checked, url=link_url: self.open_link(url)
+                )
                 link_btn.setMaximumWidth(150)
                 links_layout.addWidget(link_btn)
             links_layout.addStretch()
@@ -150,11 +164,19 @@ class ContributorsWindow(QDialog):
         layout.addWidget(card_frame)
 
     def open_link(self, url):
-        """Opens a URL in the default web browser."""
+        """Open a URL in the user's default web browser.
+
+        Args:
+            url: Web address to open.
+        """
         webbrowser.open(url)
 
     @staticmethod
     def show_contributors(parent=None):
-        """Static method to show the contributors window."""
+        """Display the contributors dialog modally.
+
+        Args:
+            parent: Parent widget for the dialog.
+        """
         window = ContributorsWindow(parent)
         window.exec()
