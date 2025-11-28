@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-"""
-Qt-compatible Dependencies Checker
-Replaces the tkinter-dependent dependencies_checker.py with a Qt implementation.
-"""
+"""Verification and configuration of required external tools like ImageMagick."""
 
 import shutil
 import os
@@ -23,14 +19,20 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-# Import utilities
 from utils.utilities import Utilities
 
 
 class ErrorDialogWithLinks(QDialog):
-    """Qt dialog for displaying error messages with clickable links."""
+    """Dialog displaying an error message with clickable hyperlinks."""
 
     def __init__(self, message: str, links: List[Tuple[str, str]], parent=None):
+        """Initialize the error dialog.
+
+        Args:
+            message: Error text to display.
+            links: List of (label, url) tuples rendered as hyperlinks.
+            parent: Parent widget for the dialog.
+        """
         super().__init__(parent)
         self.setWindowTitle(self.tr("Error"))
         self.setFixedSize(400, 300)
@@ -38,41 +40,48 @@ class ErrorDialogWithLinks(QDialog):
             self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
         )
 
-        # Center the dialog
         if parent:
             self.move(parent.geometry().center() - self.rect().center())
 
         self.setup_ui(message, links)
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the Qt translation system.
+
+        Args:
+            text: Source string to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self, message: str, links: List[Tuple[str, str]]):
-        """Setup the UI components."""
+        """Build the message label, link labels, and OK button.
+
+        Args:
+            message: Error text to display.
+            links: List of (label, url) tuples rendered as hyperlinks.
+        """
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Message label
         msg_label = QLabel(message)
         msg_label.setWordWrap(True)
         msg_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(msg_label)
 
-        # Links
         for link_text, link_url in links:
             link_label = QLabel(f'<a href="{link_url}">{link_text}</a>')
             link_label.setOpenExternalLinks(True)
             link_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             layout.addWidget(link_label)
 
-        # Spacer
         layout.addStretch()
 
-        # Button layout
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
@@ -85,21 +94,19 @@ class ErrorDialogWithLinks(QDialog):
 
 
 class DependenciesChecker:
-    """Qt-compatible dependencies checker for the application."""
+    """Utility for verifying and configuring external dependencies."""
 
     @staticmethod
     def show_error_popup_with_links(
         message: str, links: List[Tuple[str, str]], parent=None
     ):
-        """
-        Shows an error popup with clickable links using Qt.
+        """Display an error dialog with clickable hyperlinks.
 
         Args:
-            message: Error message to display
-            links: List of (link_text, link_url) tuples
-            parent: Parent widget for the dialog
+            message: Error text to display.
+            links: List of (label, url) tuples rendered as hyperlinks.
+            parent: Parent widget for the dialog.
         """
-        # Ensure we have a QApplication instance
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
@@ -109,14 +116,12 @@ class DependenciesChecker:
 
     @staticmethod
     def show_error_popup(message: str, parent=None):
-        """
-        Shows a simple error popup using Qt.
+        """Display a simple error message box.
 
         Args:
-            message: Error message to display
-            parent: Parent widget for the dialog
+            message: Error text to display.
+            parent: Parent widget for the dialog.
         """
-        # Ensure we have a QApplication instance
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
@@ -125,12 +130,20 @@ class DependenciesChecker:
 
     @staticmethod
     def check_imagemagick():
-        """Check if ImageMagick is available in the system."""
+        """Check whether ImageMagick is available on the system PATH.
+
+        Returns:
+            True if the 'magick' command is found.
+        """
         return shutil.which("magick") is not None
 
     @staticmethod
     def configure_imagemagick():
-        """Configure bundled ImageMagick by setting environment variables."""
+        """Configure the bundled ImageMagick by setting environment variables.
+
+        Raises:
+            FileNotFoundError: If the bundled ImageMagick folder is missing.
+        """
         imagemagick_path = Utilities.find_root("ImageMagick")
         if imagemagick_path is None:
             raise FileNotFoundError(
@@ -151,11 +164,10 @@ class DependenciesChecker:
 
     @staticmethod
     def check_and_configure_imagemagick():
-        """
-        Check for ImageMagick and configure bundled version if needed.
+        """Ensure ImageMagick is available, configuring bundled version if needed.
 
         Returns:
-            bool: True if ImageMagick is available, False otherwise
+            True if ImageMagick is ready for use, False otherwise.
         """
         if DependenciesChecker.check_imagemagick():
             print("Using the user's existing ImageMagick.")
@@ -172,7 +184,6 @@ class DependenciesChecker:
             except Exception as e:
                 print(f"Failed to configure bundled ImageMagick: {e}")
 
-        # Show error message with platform-specific links
         msg = (
             "ImageMagick not found or failed to initialize.\n\n"
             "Make sure you followed install steps correctly.\n"

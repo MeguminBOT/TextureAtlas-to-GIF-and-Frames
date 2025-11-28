@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Helpers for parsing animation metadata from FNF character files."""
+"""Utilities for parsing animation metadata from FNF character files."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -7,7 +7,16 @@ from xml.etree.ElementTree import Element
 
 
 def parse_indices_attribute(raw_indices: Optional[str]) -> Optional[List[int]]:
-    """Convert an indices attribute ("0,1" or "0..3") into explicit integers."""
+    """Parse an indices attribute into a list of integers.
+
+    Handles comma-separated values ("0,1,2") and range notation ("0..3").
+
+    Args:
+        raw_indices: String containing frame indices.
+
+    Returns:
+        List of parsed integers, or None if the input is empty or invalid.
+    """
     if not raw_indices:
         return None
 
@@ -30,7 +39,14 @@ def parse_indices_attribute(raw_indices: Optional[str]) -> Optional[List[int]]:
 
 
 def parse_xml_offsets(anim_element: Element) -> Optional[List[int]]:
-    """Extract offsets from a Codename Engine <anim> element."""
+    """Extract offset values from a Codename Engine <anim> element.
+
+    Args:
+        anim_element: XML element with an 'offset' or 'offsets' attribute.
+
+    Returns:
+        Two-element list of [x, y] offsets, or None if not present or invalid.
+    """
     raw_value = anim_element.attrib.get("offset") or anim_element.attrib.get("offsets")
     if not raw_value:
         return None
