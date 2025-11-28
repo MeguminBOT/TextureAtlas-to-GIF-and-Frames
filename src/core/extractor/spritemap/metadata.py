@@ -1,4 +1,8 @@
-"""Lightweight helpers for inspecting Adobe Spritemap timelines without rendering."""
+"""Lightweight helpers for inspecting Adobe Spritemap timelines without rendering.
+
+These utilities extract timing and label information directly from the
+Animation.json structure, avoiding the overhead of full frame rendering.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,15 @@ from typing import Dict, List, Optional
 
 
 def _frame_duration(frame: dict) -> int:
-    """Return clamped duration for a single frame entry."""
+    """Return clamped duration for a single frame entry.
+
+    Args:
+        frame: A frame dict from the timeline, expected to have a ``"DU"`` key.
+
+    Returns:
+        The duration as an int, minimum 1.
+    """
+
     duration = frame.get("DU", 1)
     try:
         duration = int(duration)
@@ -16,7 +28,15 @@ def _frame_duration(frame: dict) -> int:
 
 
 def compute_layers_length(layers: Optional[List[dict]]) -> int:
-    """Compute the total frame count for a set of layers."""
+    """Compute the total frame count spanned by a set of timeline layers.
+
+    Args:
+        layers: List of layer dicts, each containing a ``"FR"`` (frames) list.
+
+    Returns:
+        The highest end-frame index across all layers, or 0 if empty.
+    """
+
     if not layers:
         return 0
 
@@ -32,7 +52,15 @@ def compute_layers_length(layers: Optional[List[dict]]) -> int:
 
 
 def compute_symbol_lengths(animation_json: dict) -> Dict[str, int]:
-    """Return a mapping of symbol name to total frame count."""
+    """Build a mapping of symbol name to total frame count.
+
+    Args:
+        animation_json: Parsed Animation.json structure.
+
+    Returns:
+        Dict keyed by symbol name with integer frame counts.
+    """
+
     lengths: Dict[str, int] = {}
     for symbol in animation_json.get("SD", {}).get("S", []):
         name = symbol.get("SN")
@@ -46,7 +74,17 @@ def compute_symbol_lengths(animation_json: dict) -> Dict[str, int]:
 def _extract_label_ranges_from_layers(
     layers: Optional[List[dict]],
 ) -> List[Dict[str, int]]:
-    """Internal helper shared by root and nested timelines."""
+    """Extract labelled frame ranges from timeline layers.
+
+    Only the first layer containing labels is used; duplicates are dropped.
+
+    Args:
+        layers: List of layer dicts from a timeline.
+
+    Returns:
+        Sorted list of dicts with ``name``, ``start``, and ``end`` keys.
+    """
+
     labels: List[Dict[str, int]] = []
     if not layers:
         return labels
@@ -77,7 +115,16 @@ def _extract_label_ranges_from_layers(
 def extract_label_ranges(
     animation_json: dict, symbol_name: Optional[str] = None
 ) -> List[Dict[str, int]]:
-    """Get label ranges for the root timeline or a nested symbol."""
+    """Get labelled frame ranges for the root timeline or a nested symbol.
+
+    Args:
+        animation_json: Parsed Animation.json structure.
+        symbol_name: If provided, look up this symbol; otherwise use root.
+
+    Returns:
+        List of dicts with ``name``, ``start``, and ``end`` keys.
+    """
+
     if symbol_name is None:
         layers = animation_json.get("AN", {}).get("TL", {}).get("L", [])
     else:
@@ -93,5 +140,12 @@ def extract_label_ranges(
 def extract_label_ranges_from_layers(
     layers: Optional[List[dict]],
 ) -> List[Dict[str, int]]:
-    """Public helper mirroring the internal implementation."""
+    """Wrapper for extracting label ranges from raw layer data.
+
+    Args:
+        layers: List of layer dicts from a timeline.
+
+    Returns:
+        Sorted list of dicts with ``name``, ``start``, and ``end`` keys.
+    """
     return _extract_label_ranges_from_layers(layers)

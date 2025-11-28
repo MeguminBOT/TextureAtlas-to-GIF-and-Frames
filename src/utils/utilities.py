@@ -1,3 +1,9 @@
+"""General-purpose utility functions for the application.
+
+Provides static methods for path resolution, filename sanitization,
+and format string processing.
+"""
+
 import re
 import os
 import sys
@@ -6,30 +12,29 @@ from PySide6.QtCore import QCoreApplication
 
 
 class Utilities:
-    """
-    A utility class providing static methods for common tasks.
+    """Static utility methods for common application tasks.
 
-    Methods:
-        find_root(target_name):
-            Walks up the directory tree from the current file location until it finds a directory containing the target_name (file or folder).
-            Returns the path to the directory containing the target_name, or None if not found.
-        is_compiled():
-            Determine if the application is running as a Nuitka-compiled executable.
-        count_spritesheets(spritesheet_list):
-            Count the number of spritesheet data files in a list.
-        replace_invalid_chars(name):
-            Replace invalid filename characters (\\, /, :, *, ?, ", <, >, |) with an underscore and strip trailing whitespace.
-        strip_trailing_digits(name):
-            Remove trailing digits (1 to 4 digits) and optional ".png" extension, then strip any trailing whitespace.
-        format_filename(prefix, sprite_name, animation_name, filename_format, replace_rules, suffix=None):
-            Formats the filename based on the given parameters and applies find/replace rules, with optional suffix.
+    Attributes:
+        APP_NAME: Translated application display name.
     """
 
-    # Application constants
     APP_NAME = QCoreApplication.translate("Utilities", "TextureAtlas Toolbox")
 
     @staticmethod
-    def find_root(target_name):
+    def find_root(target_name: str) -> str | None:
+        """Find the directory containing a target file or folder.
+
+        Walks up the directory tree from the executable (if compiled) or
+        this module's location until finding a directory containing the
+        target.
+
+        Args:
+            target_name: Name of the file or folder to locate.
+
+        Returns:
+            Path to the directory containing the target, or None if not found.
+        """
+
         if Utilities.is_compiled():
             root_path = os.path.dirname(sys.executable)
         else:
@@ -54,30 +59,67 @@ class Utilities:
         return None
 
     @staticmethod
-    def is_compiled():
+    def is_compiled() -> bool:
+        """Check if the application is running as a Nuitka-compiled executable."""
+
         if "__compiled__" in globals():
             return True
         else:
             return False
 
     @staticmethod
-    def count_spritesheets(spritesheet_list):
+    def count_spritesheets(spritesheet_list: list) -> int:
+        """Return the number of spritesheets in a list."""
+
         return len(spritesheet_list)
 
     @staticmethod
-    def replace_invalid_chars(name):
+    def replace_invalid_chars(name: str) -> str:
+        """Replace filesystem-invalid characters with underscores.
+
+        Replaces ``\\ / : * ? " < > |`` and strips trailing whitespace.
+        """
+
         return re.sub(r'[\\/:*?"<>|]', "_", name).rstrip()
 
     @staticmethod
-    def strip_trailing_digits(name):
-        # Strip trailing digits and optional .png extension, then strip any trailing underscores
+    def strip_trailing_digits(name: str) -> str:
+        """Remove trailing frame numbers and optional ``.png`` extension.
+
+        Strips 1-4 trailing digits, preceding underscores/spaces, and any
+        trailing underscores or whitespace.
+        """
+
         return re.sub(r"[_\s]*\d{1,4}(?:\.png)?$", "", name).rstrip("_").rstrip()
 
     @staticmethod
     def format_filename(
-        prefix, sprite_name, animation_name, filename_format, replace_rules, suffix=None
-    ):
-        # Provide safe defaults for preview function or missing values
+        prefix: str | None,
+        sprite_name: str,
+        animation_name: str,
+        filename_format: str | None,
+        replace_rules: list[dict],
+        suffix: str | None = None,
+    ) -> str:
+        """Build a sanitized filename from components and format rules.
+
+        Supports preset formats (``Standardized``, ``No spaces``,
+        ``No special characters``) and custom templates using ``$sprite``
+        and ``$anim`` placeholders. Applies find/replace rules afterward.
+
+        Args:
+            prefix: Optional prefix prepended to the name.
+            sprite_name: Spritesheet name (extension stripped).
+            animation_name: Animation name.
+            filename_format: Format preset or template string.
+            replace_rules: List of dicts with ``find``, ``replace``, and
+                ``regex`` keys.
+            suffix: Optional suffix appended to the name.
+
+        Returns:
+            Sanitized filename with invalid characters replaced.
+        """
+
         if filename_format is None:
             filename_format = "Standardized"
         if not replace_rules:
@@ -85,7 +127,6 @@ class Utilities:
 
         sprite_name = os.path.splitext(sprite_name)[0]
         if filename_format in ("Standardized", "No spaces", "No special characters"):
-            # Build base name with prefix and suffix embedded
             if prefix and suffix:
                 base_name = f"{prefix} - {sprite_name} - {animation_name} - {suffix}"
             elif prefix:
@@ -103,7 +144,6 @@ class Utilities:
             base_name = Template(filename_format).safe_substitute(
                 sprite=sprite_name, anim=animation_name
             )
-            # For template formats, add prefix and suffix separately since template doesn't include them
             if prefix:
                 base_name = f"{prefix} - {base_name}"
             if suffix:

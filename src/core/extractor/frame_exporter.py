@@ -1,36 +1,37 @@
+"""Frame export utilities for saving animation frames to disk.
+
+Provides ``FrameExporter`` which writes individual frames as image files
+in various formats (PNG, WebP, AVIF, etc.) with configurable cropping,
+scaling, and compression options.
+"""
+
 import os
 from PIL.PngImagePlugin import PngInfo
 
-
-# Import our own modules
 from core.extractor.image_utils import ensure_pil_image
 from utils.utilities import Utilities
 
 
 class FrameExporter:
-    """
-    Exports individual frames from a spritesheet as images.
+    """Export individual animation frames as image files.
+
+    Supports multiple output formats and applies cropping, scaling, and
+    compression based on user settings.
 
     Attributes:
-        output_dir (str):
-            Directory where exported frames will be saved.
-        current_version (str):
-            Version string to include in metadata.
-        scale_image_func (callable):
-            Function to scale images before saving.
-
-    Methods:
-        save_frames(image_tuples, kept_frame_indices, spritesheet_name, animation_name, scale, settings, is_unknown_spritesheet=False) -> int
-            Saves selected frames, applying cropping and scaling as specified in settings.
-            The is_unknown_spritesheet parameter determines whether to apply extra cropping.
-            Returns the number of frames successfully exported.
-        _save_frame_to_image(image, filename, frame_format)
-            Saves the frames in the specified format.
-        _apply_extra_crop_pass(image)
-            Applies extra cropping to remove excessive whitespace around the sprite.
+        output_dir: Directory where exported frames are saved.
+        current_version: Version string embedded in image metadata.
+        scale_image: Callable that scales a PIL image by a given factor.
     """
 
     def __init__(self, output_dir, current_version, scale_image_func):
+        """Initialise the frame exporter.
+
+        Args:
+            output_dir: Base directory for exported frame folders.
+            current_version: Version string for file metadata comments.
+            scale_image_func: Callable ``(image, scale) -> image`` for resizing.
+        """
         self.output_dir = output_dir
         self.current_version = current_version
         self.scale_image = scale_image_func
@@ -45,6 +46,24 @@ class FrameExporter:
         settings,
         is_unknown_spritesheet=False,
     ):
+        """Save selected frames to disk as individual image files.
+
+        Creates a subfolder named after the animation and writes each kept
+        frame using the format and compression settings provided.
+
+        Args:
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples where
+                image is a PIL Image or NumPy array.
+            kept_frame_indices: Set of indices indicating which frames to export.
+            spritesheet_name: Name used when formatting output filenames.
+            animation_name: Subfolder name for the exported frames.
+            scale: Default scale factor if not overridden in settings.
+            settings: Dict with keys like ``frame_format``, ``crop_option``, etc.
+            is_unknown_spritesheet: When ``True``, applies extra cropping.
+
+        Returns:
+            Number of frames successfully exported.
+        """
         frames_generated = 0
         if len(image_tuples) == 0:
             return frames_generated
@@ -119,6 +138,18 @@ class FrameExporter:
         frame_scale,
         is_unknown_spritesheet,
     ):
+        """Crop and scale a frame image before saving.
+
+        Args:
+            frame_image: PIL image to process.
+            crop_option: ``"Frame based"``, ``"Animation based"``, or ``None``.
+            animation_bbox: Precomputed bounding box for animation-based crop.
+            frame_scale: Scale factor to apply after cropping.
+            is_unknown_spritesheet: When ``True``, runs an extra crop pass.
+
+        Returns:
+            Processed PIL image, or ``None`` if the frame is fully transparent.
+        """
         bbox = frame_image.getbbox()
         if bbox is None:
             return None
@@ -136,6 +167,16 @@ class FrameExporter:
 
     @staticmethod
     def _compute_animation_bbox(image_tuples, kept_frame_indices):
+        """Compute the union bounding box across all kept frames.
+
+        Args:
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples where
+                image is a PIL Image or NumPy array.
+            kept_frame_indices: Indices of frames to include in the calculation.
+
+        Returns:
+            Tuple ``(left, top, right, bottom)``, or ``None`` if no valid bbox.
+        """
         min_x, min_y, max_x, max_y = float("inf"), float("inf"), 0, 0
         for index, frame in enumerate(image_tuples):
             if index in kept_frame_indices:
@@ -153,6 +194,16 @@ class FrameExporter:
     def _save_frame_to_image(
         self, image, filename, frame_format, compression_settings=None
     ):
+        """Write an image to disk in the specified format.
+
+        Falls back to PNG if saving in the requested format fails.
+
+        Args:
+            image: PIL image to save.
+            filename: Destination path including extension.
+            frame_format: Format name (e.g., ``"PNG"``, ``"WebP"``).
+            compression_settings: Optional dict of format-specific options.
+        """
         save_kwargs = {}
 
         if compression_settings is None:
@@ -244,6 +295,17 @@ class FrameExporter:
                 print(f"Critical error: Could not save image even as PNG: {fallback_e}")
 
     def _apply_extra_crop_pass(self, image):
+        """Remove excess transparent padding if it reduces area significantly.
+
+        Only crops when the new area is less than 75% of the original to avoid
+        trimming minor padding.
+
+        Args:
+            image: PIL image to crop.
+
+        Returns:
+            Cropped image, or the original if cropping was skipped or failed.
+        """
         try:
             bbox = image.getbbox()
             if bbox:

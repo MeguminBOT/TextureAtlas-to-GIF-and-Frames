@@ -1,3 +1,9 @@
+"""Sprite extraction and animation grouping from atlas images.
+
+Provides ``SpriteProcessor`` which crops individual sprites from an atlas
+and organizes them into animation groups based on naming conventions.
+"""
+
 import re
 
 import numpy as np
@@ -6,9 +12,23 @@ from utils.utilities import Utilities
 
 
 class SpriteProcessor:
-    """Process sprite metadata extracted from an atlas image."""
+    """Extract sprites from an atlas and group them into animations.
+
+    Caches an RGBA NumPy view of the atlas so each sprite extraction is a
+    cheap array slice rather than repeated PIL conversions.
+
+    Attributes:
+        atlas: Source PIL image.
+        sprites: List of sprite metadata dicts from a parser.
+    """
 
     def __init__(self, atlas, sprites):
+        """Initialise the processor with an atlas image and sprite metadata.
+
+        Args:
+            atlas: PIL image of the full atlas.
+            sprites: List of sprite dicts with keys like ``name``, ``x``, ``y``, etc.
+        """
         self.atlas = atlas
         # Cache an RGBA atlas so downstream crops avoid repeated conversions.
         self._atlas_rgba = atlas if atlas.mode == "RGBA" else atlas.convert("RGBA")
@@ -17,7 +37,12 @@ class SpriteProcessor:
         self.sprites = sprites
 
     def process_sprites(self):
-        """Process all sprites in the atlas and group them into animations."""
+        """Process all sprites and group them into animations by name prefix.
+
+        Returns:
+            Dict mapping animation names to lists of ``(name, image, metadata)``
+            tuples where image is a NumPy array.
+        """
         animations = {}
         for sprite in self.sprites:
             frame_tuple = self._build_frame_tuple(sprite)
@@ -29,7 +54,17 @@ class SpriteProcessor:
         return animations
 
     def process_specific_animation(self, animation_name):
-        """Process only sprites belonging to a specific animation."""
+        """Process only sprites belonging to a specific animation.
+
+        Uses flexible pattern matching to handle trailing digits and
+        separator variations.
+
+        Args:
+            animation_name: Animation identifier to match against sprite names.
+
+        Returns:
+            Dict mapping matched animation names to frame tuple lists.
+        """
         patterns = [
             animation_name,
             re.sub(r"\d+$", "", animation_name),
@@ -61,6 +96,15 @@ class SpriteProcessor:
         return animations
 
     def _build_frame_tuple(self, sprite):
+        """Build a frame tuple from a sprite metadata dict.
+        Handles rotation, frame offsets, and canvas composition.
+
+        Args:
+            sprite: Dict with at least ``name``, ``x``, ``y``, ``width``, ``height``.
+
+        Returns:
+            Tuple ``(name, array, metadata)``, or ``None`` if required keys are missing.
+        """
         try:
             name = sprite["name"]
             x, y, width, height = (
@@ -116,7 +160,18 @@ class SpriteProcessor:
         frame_x: int,
         frame_y: int,
     ) -> np.ndarray:
-        """Place the trimmed sprite onto its logical canvas using NumPy slices."""
+        """Place the trimmed sprite onto its logical canvas.
+
+        Args:
+            sprite_array: Cropped sprite as a NumPy array.
+            frame_width: Target canvas width.
+            frame_height: Target canvas height.
+            frame_x: Horizontal offset (negative moves sprite right).
+            frame_y: Vertical offset (negative moves sprite down).
+
+        Returns:
+            RGBA NumPy array of the composed frame.
+        """
 
         canvas = np.zeros(
             (frame_height, frame_width, sprite_array.shape[2]), dtype=np.uint8

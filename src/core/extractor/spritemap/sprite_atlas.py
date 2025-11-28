@@ -1,4 +1,9 @@
-"""Sprite atlas utilities for Adobe Spritemap extraction."""
+"""Sprite atlas slicing and transformation for Adobe Spritemap exports.
+
+Provides ``SpriteAtlas``, which parses spritemap JSON, caches cropped sprites,
+and applies affine transforms and colour effects before returning render-ready
+images.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +17,30 @@ from .color_effect import ColorEffect
 
 
 class SpriteAtlas:
-    """Extract and transform sprites defined in spritemap JSON metadata."""
+    """Cache and transform sprites defined in spritemap JSON metadata.
+
+    Sprites are lazily cropped from the atlas on first access and cached for
+    subsequent renders. Transforms and colour effects are applied per-request.
+
+    Attributes:
+        img: The atlas image converted to ``RGBa`` mode for compositing.
+        canvas_width: Target canvas width in pixels.
+        canvas_height: Target canvas height in pixels.
+        resample: Pillow resampling filter used for affine transforms.
+        sprite_info: Dict mapping sprite names to bounding boxes and rotation.
+        sprites: Cache of cropped sprite images keyed by name.
+    """
 
     def __init__(self, spritemap_json, atlas_image, canvas_size, resample):
+        """Load sprite metadata and prepare the atlas for fast cropping.
+
+        Args:
+            spritemap_json: Parsed JSON dict describing sprite regions.
+            atlas_image: PIL ``Image`` of the packed atlas.
+            canvas_size: ``(width, height)`` of the target render canvas.
+            resample: Pillow resampling constant (e.g., ``Image.BICUBIC``).
+        """
+
         if atlas_image.mode == "P":
             atlas_image = atlas_image.convert("RGBA")
         self.img = atlas_image.convert("RGBa")
@@ -35,6 +61,22 @@ class SpriteAtlas:
             }
 
     def get_sprite(self, name, matrix: TransformMatrix, color: ColorEffect):
+        """Return a transformed sprite image and its canvas offset.
+
+        The sprite is cropped from the atlas on first access and cached. The
+        provided transform and colour effect are then applied.
+
+        Args:
+            name: Sprite identifier from the spritemap JSON.
+            matrix: Affine transform to apply.
+            color: Colour effect chain to apply before transforming.
+
+        Returns:
+            A tuple ``(image, (x, y))`` where ``image`` is an RGBA PIL Image
+            and ``(x, y)`` is the top-left canvas coordinate. Returns
+            ``(None, None)`` if the sprite is out of bounds or unknown.
+        """
+
         if name not in self.sprites:
             sprite_info = self.sprite_info.get(name)
             if sprite_info is None:

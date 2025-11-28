@@ -1,4 +1,8 @@
-"""Color effect utilities for Adobe Spritemap support."""
+"""Color effect utilities for Adobe Spritemap support.
+
+Provides the ``ColorEffect`` class which can parse, apply, and compose
+RGBA colour transformations defined in Adobe Animate spritemap exports.
+"""
 
 from __future__ import annotations
 
@@ -8,13 +12,34 @@ from PIL import Image, ImageColor
 
 
 class ColorEffect:
-    """Color effects for RGBA images exported by Adobe Animate."""
+    """Encapsulates an RGBA multiplier/offset colour transformation.
+
+    Instances can be applied to PIL images via ``__call__`` and composed
+    together using the ``@`` operator.
+    """
 
     def __init__(self, effect=None):
+        """Store the multiplier/offset pair representing this effect.
+
+        Args:
+            effect: A tuple of (multiplier, offset) NumPy arrays, or ``None``
+                for the identity transform.
+        """
         self.effect = effect
 
     @classmethod
     def parse(cls, effect):
+        """Convert a Spritemap color effect dictionary into a ColorEffect.
+        Supports modes: ``AD`` (advanced), ``CA`` (alpha), ``CBRT`` (brightness),
+        and ``T`` (tint). Unsupported modes emit a warning and return identity.
+
+        Args:
+            effect: Dict with at least a ``"M"`` (mode) key.
+
+        Returns:
+            A configured ``ColorEffect`` instance.
+        """
+
         mode = effect.get("M")
         if mode == "AD":
             multiplier = np.array(
@@ -50,6 +75,16 @@ class ColorEffect:
         return cls((multiplier, offset))
 
     def __call__(self, image):
+        """Apply the configured color effect to a PIL image.
+
+        Args:
+            image: A PIL ``Image`` in any mode.
+
+        Returns:
+            A new ``Image`` with the effect applied, converted back to the
+            original mode.
+        """
+
         if self.effect is None:
             return image
 
@@ -63,6 +98,15 @@ class ColorEffect:
         return image.convert(mode)
 
     def __eq__(self, other):
+        """Check equality by comparing multiplier and offset arrays.
+
+        Args:
+            other: Another object to compare.
+
+        Returns:
+            ``True`` if both effects are identical or both are identity.
+        """
+
         if not isinstance(other, ColorEffect):
             return False
         if self.effect is None or other.effect is None:
@@ -75,12 +119,27 @@ class ColorEffect:
         )
 
     def __hash__(self):
+        """Return a hash based on the raw bytes of multiplier and offset."""
+
         if self.effect is None:
             return hash(None)
         multiplier, offset = self.effect
         return hash((multiplier.tobytes(), offset.tobytes()))
 
     def __matmul__(self, other):
+        """Compose two effects via the ``@`` operator.
+        The resulting effect applies ``other`` first, then ``self``.
+
+        Args:
+            other: Another ``ColorEffect``.
+
+        Returns:
+            A new ``ColorEffect`` representing the composition.
+
+        Raises:
+            TypeError: If ``other`` is not a ``ColorEffect``.
+        """
+
         if not isinstance(other, ColorEffect):
             raise TypeError(f"expected ColorEffect, got {type(other)!r}")
         if self.effect is None:
@@ -97,4 +156,5 @@ class ColorEffect:
         )
 
     def __repr__(self):
+        """Return a string suitable for debugging."""
         return f"ColorEffect({self.effect!r})"

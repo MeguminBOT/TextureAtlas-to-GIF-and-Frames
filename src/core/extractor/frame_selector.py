@@ -1,31 +1,36 @@
+"""Frame selection strategies for filtering animation frames.
+
+Provides ``FrameSelector`` with static methods for detecting single-frame
+animations, applying selection rules (All, First, Last, No duplicates, etc.),
+and resolving index ranges.
+"""
+
 import numpy as np
 
 from core.extractor.image_utils import ensure_rgba_array
 
 
 class FrameSelector:
-    """
-    Provides static methods to determine and select frames from a sequence of image tuples,
-    supporting various selection strategies and user settings.
+    """Static utilities for selecting which frames to export.
 
-    Methods:
-        is_single_frame(image_tuples):
-            Checks if all frames in the provided image_tuples share the same frame and subframe indices,
-            indicating a single unique frame.
-
-        get_kept_frames(settings, single_frame, image_tuples):
-            Returns a list of frame indices (as strings) to keep, based on the provided settings and whether
-            the sequence is a single frame. Supports options like 'All', 'First', 'Last', 'First, Last',
-            'No duplicates', or a comma-separated list of indices.
-
-        get_kept_frame_indices(kept_frames, image_tuples):
-            Converts a list of kept frame specifiers (indices, ranges, or keywords) into a sorted list of
-            unique integer indices, handling negative indices and range notations.
+    Supports strategies like keeping all frames, first/last only, removing
+    duplicates, or explicit index/range notation.
     """
 
     @staticmethod
     def is_single_frame(image_tuples):
-        """Return True only when all rendered frames are identical."""
+        """Return ``True`` when all frames are visually identical.
+
+        Compares metadata and pixel data across frames. Returns ``True`` for
+        empty or single-element sequences.
+
+        Args:
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples where
+                image is a PIL Image or NumPy array.
+
+        Returns:
+            ``True`` if every frame matches the first, ``False`` otherwise.
+        """
         if not image_tuples or len(image_tuples) == 1:
             return True
 
@@ -62,6 +67,16 @@ class FrameSelector:
 
     @staticmethod
     def get_kept_frames(settings, single_frame, image_tuples):
+        """Determine which frame indices to keep based on selection settings.
+
+        Args:
+            settings: Dict with optional ``frame_selection`` key.
+            single_frame: When ``True``, forces selection to ``["0"]``.
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples.
+
+        Returns:
+            List of string indices or ranges (e.g., ``["0", "2-5", "-1"]``).
+        """
         if single_frame:
             return ["0"]
 
@@ -92,6 +107,18 @@ class FrameSelector:
 
     @staticmethod
     def get_kept_frame_indices(kept_frames, image_tuples):
+        """Convert string specifiers into a sorted list of unique indices.
+
+        Handles single indices, negative indices, and range notation
+        (e.g., ``"0-3"``, ``"-1--4"``).
+
+        Args:
+            kept_frames: List or comma-separated string of specifiers.
+            image_tuples: Frame sequence used for length and bounds checking.
+
+        Returns:
+            Sorted list of valid integer indices.
+        """
         kept_frame_indices = set()
 
         if isinstance(kept_frames, str):
@@ -156,6 +183,17 @@ class FrameSelector:
 
     @staticmethod
     def _frame_signature(frame_source):
+        """Compute a hash signature for duplicate detection.
+
+        Samples a sparse grid of pixels to produce a fast, approximate
+        fingerprint of the image data.
+
+        Args:
+            frame_source: PIL Image or NumPy array.
+
+        Returns:
+            Integer hash, or ``None`` if the frame cannot be processed.
+        """
         try:
             array = ensure_rgba_array(frame_source)
         except Exception:

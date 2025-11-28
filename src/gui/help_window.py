@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Scrollable help dialogs for application documentation and FNF guidance."""
 
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit
 from PySide6.QtGui import QFont
 
 
 class HelpWindow(QDialog):
-    """
-    A Qt dialog for displaying quick help and documentation for the application.
-
-    This class provides scrollable help windows with detailed instructions
-    and guidance for using the application, including special advice for FNF (Friday Night Funkin') sprites.
-    """
+    """Modal dialog displaying scrollable help text with monospace formatting."""
 
     def __init__(self, parent=None, help_text="", title="Help"):
+        """Initialize the help dialog with the given content.
+
+        Args:
+            parent: Parent widget for the dialog.
+            help_text: Documentation text to display.
+            title: Window title.
+        """
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setGeometry(200, 200, 800, 600)
@@ -21,25 +24,31 @@ class HelpWindow(QDialog):
         self.setup_ui()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the Qt translation system.
+
+        Args:
+            text: Source string to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
-        """Sets up the UI components."""
+        """Build the text area and close button layout."""
+
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Help text area
         text_edit = QTextEdit()
         text_edit.setPlainText(self.help_text)
         text_edit.setReadOnly(True)
-        text_edit.setFont(QFont("Consolas", 10))  # Monospace font for better formatting
+        text_edit.setFont(QFont("Consolas", 10))
         layout.addWidget(text_edit)
 
-        # Close button
         close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.close)
         close_btn.setMaximumWidth(100)
@@ -52,7 +61,11 @@ class HelpWindow(QDialog):
 
     @staticmethod
     def create_main_help_window(parent=None):
-        """Opens the main help window with instructions and feature descriptions."""
+        """Display the main help dialog with application instructions.
+
+        Args:
+            parent: Parent widget for the dialog.
+        """
         help_text = (
             "_________________________________________ Main Window _________________________________________\n\n"
             "DRAG AND DROP\n"
@@ -116,7 +129,11 @@ class HelpWindow(QDialog):
 
     @staticmethod
     def create_fnf_help_window(parent=None):
-        """Opens a help window with guidance specific to FNF sprites and settings."""
+        """Display the Friday Night Funkin' sprite handling guide.
+
+        Args:
+            parent: Parent widget for the dialog.
+        """
         help_text = (
             "________________________________ Friday Night Funkin' Guide ________________________________\n\n"
             "SPECIAL FNF FEATURES\n"
@@ -169,6 +186,12 @@ class HelpWindow(QDialog):
 
     @staticmethod
     def create_scrollable_help_window(help_text, title="Help", parent=None):
-        """Creates a scrollable help window with the provided help text and title."""
+        """Display a custom help dialog with the given text.
+
+        Args:
+            help_text: Documentation text to display.
+            title: Window title.
+            parent: Parent widget for the dialog.
+        """
         window = HelpWindow(parent, help_text, title)
         window.exec()

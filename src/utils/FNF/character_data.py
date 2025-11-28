@@ -1,3 +1,5 @@
+"""Loader for Friday Night Funkin' character data files."""
+
 import os
 
 from PySide6.QtWidgets import QFileDialog
@@ -9,23 +11,15 @@ from utils.utilities import Utilities
 
 
 class CharacterData:
-    """
-    A utility class for importing Friday Night Funkin' (FNF) character data.
-
-    Supports characters from:
-        Kade Engine, Psych Engine, Codename Engine
+    """Import FNF character definitions from Kade, Psych, or Codename Engine.
 
     Attributes:
-        fnf_char_json_directory (str): Directory path where FNF character data files are stored.
-
-    Methods:
-        fnf_load_char_data_settings(settings_manager, data_dict, listbox_png, listbox_data):
-            Loads character JSON from the specified directory and updates the settings manager with the correct fps for every animation.
-        fnf_select_char_data_directory(settings_manager, data_dict, listbox_png, listbox_data):
-            Prompts the user to select a directory containing FNF character JSON files, and loads the data from the selected directory.
+        fnf_char_json_directory: Path to the directory containing character files.
     """
 
     def __init__(self):
+        """Initialize with an empty character directory path."""
+
         self.fnf_char_json_directory = ""
 
     def fnf_load_char_data_settings(
@@ -35,14 +29,13 @@ class CharacterData:
         listbox_png_callback=None,
         listbox_data_callback=None,
     ):
-        """
-        Load FNF character data settings using callbacks for UI updates.
+        """Load all character files from the configured directory.
 
         Args:
-            settings_manager: Settings manager instance
-            data_dict: Data dictionary to update
-            listbox_png_callback: Callback to add PNG items to UI (optional)
-            listbox_data_callback: Callback to add data items to UI (optional)
+            settings_manager: Manager to receive animation settings.
+            data_dict: Dictionary mapping PNG filenames to data file paths.
+            listbox_png_callback: Optional callback to register PNG entries.
+            listbox_data_callback: Optional callback to register data entries.
         """
         if not self.fnf_char_json_directory:
             return
@@ -65,15 +58,14 @@ class CharacterData:
         listbox_data_callback=None,
         parent_window=None,
     ):
-        """
-        Select FNF character data directory using Qt file dialog.
+        """Prompt the user to choose a character data directory and load it.
 
         Args:
-            settings_manager: Settings manager instance
-            data_dict: Data dictionary
-            listbox_png_callback: Callback to add PNG items to UI (optional)
-            listbox_data_callback: Callback to add data items to UI (optional)
-            parent_window: Parent Qt window for the dialog
+            settings_manager: Manager to receive animation settings.
+            data_dict: Dictionary mapping PNG filenames to data file paths.
+            listbox_png_callback: Optional callback to register PNG entries.
+            listbox_data_callback: Optional callback to register data entries.
+            parent_window: Parent widget for the file dialog.
         """
         directory = QFileDialog.getExistingDirectory(
             parent_window, "Select FNF Character Data Directory"
@@ -86,7 +78,15 @@ class CharacterData:
             print("Animation settings updated in SettingsManager.")
 
     def import_character_settings(self, file_path, settings_manager):
-        """Import a single FNF character definition and store settings (including offsets)."""
+        """Import a single character file and store its animation settings.
+
+        Args:
+            file_path: Path to the character data file.
+            settings_manager: Manager to receive animation settings.
+
+        Raises:
+            ValueError: If the file format is unsupported or invalid.
+        """
         processed = self._process_character_file(file_path, settings_manager)
         if not processed:
             raise ValueError("Unsupported or invalid FNF character data file.")
@@ -99,6 +99,18 @@ class CharacterData:
         listbox_png_callback=None,
         listbox_data_callback=None,
     ):
+        """Parse a character file and register its animation settings.
+
+        Args:
+            file_path: Path to the character data file.
+            settings_manager: Manager to receive animation settings.
+            data_dict: Optional dictionary for PNG-to-data mapping.
+            listbox_png_callback: Optional callback to register PNG entries.
+            listbox_data_callback: Optional callback to register data entries.
+
+        Returns:
+            True if the file was processed successfully, False otherwise.
+        """
         if not file_path or not os.path.exists(file_path):
             return False
 
@@ -204,6 +216,18 @@ class CharacterData:
         listbox_png_callback=None,
         listbox_data_callback=None,
     ):
+        """Register a spritesheet PNG and its data file in the provided dict.
+
+        Args:
+            image_hint: Suggested image name from character data.
+            file_path: Path to the character data file.
+            data_dict: Optional dictionary for PNG-to-data mapping.
+            listbox_png_callback: Optional callback to register PNG entries.
+            listbox_data_callback: Optional callback to register data entries.
+
+        Returns:
+            The PNG filename used as the registry key.
+        """
         base_name = image_hint or os.path.splitext(os.path.basename(file_path))[0]
         png_base = os.path.splitext(os.path.basename(base_name))[0]
         png_filename = f"{png_base}.png"
@@ -228,6 +252,19 @@ class CharacterData:
         offsets=None,
         flip_x=False,
     ):
+        """Store animation settings in the settings manager.
+
+        Args:
+            settings_manager: Manager to receive animation settings.
+            png_filename: Spritesheet filename prefix.
+            anim_name: Animation name within the spritesheet.
+            fps: Frame rate for the animation.
+            indices: Optional list of frame indices.
+            loop: Whether the animation loops continuously.
+            scale: Sprite scale factor.
+            offsets: Optional (x, y) offset values.
+            flip_x: Whether the sprite is horizontally flipped.
+        """
         if not settings_manager or not png_filename or not anim_name:
             return
 

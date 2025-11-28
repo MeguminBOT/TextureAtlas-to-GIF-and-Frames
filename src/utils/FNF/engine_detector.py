@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Helpers for detecting the engine used by a Friday Night Funkin' character file."""
+"""Detection of FNF engine type from character data file structure."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,16 @@ EngineDetectionResult = Tuple[str, Any]
 
 
 def detect_engine(file_path: str) -> EngineDetectionResult:
-    """Return the engine type and parsed payload for the provided file."""
+    """Identify the FNF engine variant from a character data file.
+
+    Args:
+        file_path: Path to a JSON or XML character file.
+
+    Returns:
+        Tuple of (engine_name, parsed_data). Engine name is one of
+        'Psych Engine', 'Kade Engine', 'Codename Engine', or 'Unknown'.
+        Parsed data is the loaded JSON dict, XML root element, or None.
+    """
     if file_path.endswith(".json"):
         return _detect_from_json(file_path)
     if file_path.endswith(".xml"):
@@ -19,6 +28,14 @@ def detect_engine(file_path: str) -> EngineDetectionResult:
 
 
 def _detect_from_json(file_path: str) -> EngineDetectionResult:
+    """Attempt to detect engine type from a JSON character file.
+
+    Args:
+        file_path: Path to the JSON file.
+
+    Returns:
+        Tuple of (engine_name, parsed_dict) or ('Unknown', None).
+    """
     try:
         with open(file_path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -33,6 +50,14 @@ def _detect_from_json(file_path: str) -> EngineDetectionResult:
 
 
 def _detect_from_xml(file_path: str) -> EngineDetectionResult:
+    """Attempt to detect engine type from an XML character file.
+
+    Args:
+        file_path: Path to the XML file.
+
+    Returns:
+        Tuple of (engine_name, xml_root) or ('Unknown', None).
+    """
     try:
         tree = ET.parse(file_path)
     except (OSError, ET.ParseError):
@@ -45,6 +70,14 @@ def _detect_from_xml(file_path: str) -> EngineDetectionResult:
 
 
 def _is_psych_engine(data: Any) -> bool:
+    """Check if the parsed JSON matches Psych Engine structure.
+
+    Args:
+        data: Parsed JSON data.
+
+    Returns:
+        True if the structure matches Psych Engine format.
+    """
     animations = data.get("animations") if isinstance(data, Mapping) else None
     if not isinstance(animations, list):
         return False
@@ -63,6 +96,14 @@ def _is_psych_engine(data: Any) -> bool:
 
 
 def _is_kade_engine(data: Any) -> bool:
+    """Check if the parsed JSON matches Kade Engine structure.
+
+    Args:
+        data: Parsed JSON data.
+
+    Returns:
+        True if the structure matches Kade Engine format.
+    """
     if not isinstance(data, Mapping):
         return False
     required_keys = {"name", "asset", "startingAnim", "animations"}
@@ -91,6 +132,14 @@ def _is_kade_engine(data: Any) -> bool:
 
 
 def _is_codename_engine(root: ET.Element) -> bool:
+    """Check if the XML root matches Codename Engine structure.
+
+    Args:
+        root: Root element of the parsed XML.
+
+    Returns:
+        True if the structure matches Codename Engine format.
+    """
     if root.tag != "character":
         return False
 

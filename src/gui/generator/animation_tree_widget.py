@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Tree widget for organizing frames into named animation groups."""
 
 from pathlib import Path
 from PySide6.QtWidgets import (
@@ -15,121 +16,163 @@ from PySide6.QtGui import QFont, QAction
 
 
 class AnimationTreeWidget(QTreeWidget):
-    """Custom tree widget for managing animation groups and frame ordering."""
+    """Tree widget for managing animation groups and their frame order.
 
-    # Signals
-    animation_added = Signal(str)  # animation_name
-    animation_removed = Signal(str)  # animation_name
-    frame_order_changed = Signal()  # general signal for any frame order change
+    Supports drag-and-drop reordering, renaming, and context menu actions.
+
+    Attributes:
+        animation_added: Signal emitted with the name when a group is created.
+        animation_removed: Signal emitted with the name when a group is deleted.
+        frame_order_changed: Signal emitted when frames are reordered.
+    """
+
+    animation_added = Signal(str)
+    animation_removed = Signal(str)
+    frame_order_changed = Signal()
 
     def __init__(self, parent=None):
+        """Initialize the animation tree widget.
+
+        Args:
+            parent: Parent widget.
+        """
         super().__init__(parent)
         self.setup_tree()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate text using the Qt translation system.
+
+        Args:
+            text: Source string to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_tree(self):
-        """Set up the tree widget properties."""
+        """Configure tree properties, drag-drop, and context menu."""
+
         self.setHeaderLabel(self.tr("Animations & Frames"))
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
 
-        # Enable context menu
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
-        # Connect item changes
         self.itemChanged.connect(self.on_item_changed)
 
     def add_animation_group(self, animation_name=None):
-        """Add a new animation group."""
+        """Create a new animation group in the tree.
+
+        Args:
+            animation_name: Display name for the group. Defaults to
+                'New animation' with a numeric suffix if needed.
+
+        Returns:
+            The newly created QTreeWidgetItem for the group.
+        """
         if animation_name is None:
             animation_name = self.tr("New animation")
 
-        # Check if animation name already exists
         if self.find_animation_group(animation_name):
             counter = 1
             while self.find_animation_group(f"{animation_name} {counter}"):
                 counter += 1
             animation_name = f"{animation_name} {counter}"
 
-        # Create the group item
         group_item = QTreeWidgetItem(self)
         group_item.setText(0, animation_name)
         group_item.setFlags(group_item.flags() | Qt.ItemFlag.ItemIsEditable)
 
-        # Make it bold to distinguish from frame items
         font = QFont()
         font.setBold(True)
         group_item.setFont(0, font)
 
-        # Store metadata
         group_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "animation_group"})
 
-        # Expand the group
         group_item.setExpanded(True)
 
-        # Select the new group
         self.setCurrentItem(group_item)
 
-        # Emit signal
         self.animation_added.emit(animation_name)
 
         return group_item
 
     def add_frame_to_animation(self, animation_name, frame_path):
-        """Add a frame to an animation group."""
+        """Add a frame to an animation group, creating it if necessary.
+
+        Args:
+            animation_name: Name of the target animation group.
+            frame_path: Filesystem path to the frame image.
+
+        Returns:
+            The newly created QTreeWidgetItem for the frame.
+        """
         group_item = self.find_animation_group(animation_name)
         if not group_item:
             group_item = self.add_animation_group(animation_name)
 
-        # Create frame item
         frame_item = QTreeWidgetItem(group_item)
         frame_item.setText(0, Path(frame_path).name)
         frame_item.setData(
             0, Qt.ItemDataRole.UserRole, {"type": "frame", "path": frame_path}
         )
 
-        # Make it selectable but not editable
         frame_item.setFlags(frame_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
-        # Update frame numbering
         self.update_frame_numbering(group_item)
 
         return frame_item
 
     def remove_animation_group(self, animation_name):
-        """Remove an animation group and all its frames."""
+        """Remove an animation group and all its frames.
+
+        Args:
+            animation_name: Name of the group to remove.
+
+        Returns:
+            True if the group was found and removed, False otherwise.
+        """
         group_item = self.find_animation_group(animation_name)
         if group_item:
-            # Remove from tree
             root = self.invisibleRootItem()
             root.removeChild(group_item)
 
-            # Emit signal
             self.animation_removed.emit(animation_name)
 
             return True
         return False
 
     def remove_frame_from_animation(self, frame_item):
-        """Remove a frame from its animation group."""
+        """Remove a frame from its parent animation group.
+
+        Args:
+            frame_item: QTreeWidgetItem representing the frame.
+
+        Returns:
+            True if the frame was removed, False otherwise.
+        """
         if frame_item:
             parent = frame_item.parent()
             if parent:
                 parent.removeChild(frame_item)
-                # Update frame numbering
                 self.update_frame_numbering(parent)
                 self.frame_order_changed.emit()
                 return True
         return False
 
     def find_animation_group(self, animation_name):
-        """Find an animation group by name."""
+        """Locate an animation group by its display name.
+
+        Args:
+            animation_name: Name of the group to find.
+
+        Returns:
+            The matching QTreeWidgetItem, or None if not found.
+        """
         root = self.invisibleRootItem()
         for i in range(root.childCount()):
             item = root.child(i)
@@ -140,7 +183,12 @@ class AnimationTreeWidget(QTreeWidget):
         return None
 
     def get_animation_groups(self):
-        """Get all animation groups and their frames."""
+        """Retrieve all animation groups with their ordered frame data.
+
+        Returns:
+            Dictionary mapping animation names to lists of frame info dicts,
+            each containing 'path', 'name', and 'order' keys.
+        """
         animations = {}
         root = self.invisibleRootItem()
 
@@ -152,7 +200,6 @@ class AnimationTreeWidget(QTreeWidget):
                 animation_name = group_item.text(0)
                 frames = []
 
-                # Get all frames in order
                 for j in range(group_item.childCount()):
                     frame_item = group_item.child(j)
                     frame_data = frame_item.data(0, Qt.ItemDataRole.UserRole)
@@ -171,7 +218,11 @@ class AnimationTreeWidget(QTreeWidget):
         return animations
 
     def update_frame_numbering(self, group_item):
-        """Update the display names of frames to show proper numbering."""
+        """Refresh display names to show frame indices within the group.
+
+        Args:
+            group_item: QTreeWidgetItem representing the animation group.
+        """
         if not group_item:
             return
 
@@ -182,22 +233,29 @@ class AnimationTreeWidget(QTreeWidget):
             frame_data = frame_item.data(0, Qt.ItemDataRole.UserRole)
 
             if frame_data and frame_data.get("type") == "frame":
-                # Get original filename
                 original_path = frame_data["path"]
                 original_name = Path(original_path).name
 
-                # Create new display name with frame number
-                frame_number = f"{i:04d}"  # 0000, 0001, 0002, etc.
-                display_name = f"{original_name} → {animation_name}{frame_number}"
+                frame_number = f"{i:04d}"
+                display_name = f"{original_name} \u2192 {animation_name}{frame_number}"
 
                 frame_item.setText(0, display_name)
 
     def clear_all_animations(self):
-        """Clear all animation groups and frames."""
+        """Remove all animation groups and frames from the tree."""
+
         self.clear()
 
     def get_frame_paths_for_animation(self, animation_name):
-        """Get ordered list of frame paths for a specific animation."""
+        """Get the ordered frame paths for an animation.
+
+        Args:
+            animation_name: Name of the animation group.
+
+        Returns:
+            List of filesystem paths in display order, or empty list if
+            the group does not exist.
+        """
         group_item = self.find_animation_group(animation_name)
         if not group_item:
             return []
@@ -213,10 +271,13 @@ class AnimationTreeWidget(QTreeWidget):
         return frame_paths
 
     def show_context_menu(self, position):
-        """Show context menu for tree items."""
+        """Display a context menu for the item at the given position.
+
+        Args:
+            position: Local coordinates where the menu was requested.
+        """
         item = self.itemAt(position)
         if not item:
-            # Right-click on empty space
             menu = QMenu(self)
 
             add_action = QAction(self.tr("Add animation group"), self)
@@ -226,11 +287,9 @@ class AnimationTreeWidget(QTreeWidget):
             menu.exec(self.mapToGlobal(position))
             return
 
-        # Get item data
         data = item.data(0, Qt.ItemDataRole.UserRole)
 
         if data and data.get("type") == "animation_group":
-            # Context menu for animation group
             menu = QMenu(self)
 
             rename_action = QAction(self.tr("Rename animation"), self)
@@ -246,7 +305,6 @@ class AnimationTreeWidget(QTreeWidget):
             menu.exec(self.mapToGlobal(position))
 
         elif data and data.get("type") == "frame":
-            # Context menu for frame
             menu = QMenu(self)
 
             remove_action = QAction(self.tr("Remove frame"), self)
@@ -258,7 +316,11 @@ class AnimationTreeWidget(QTreeWidget):
             menu.exec(self.mapToGlobal(position))
 
     def rename_animation_group(self, group_item):
-        """Rename an animation group."""
+        """Prompt the user to rename an animation group.
+
+        Args:
+            group_item: QTreeWidgetItem representing the group to rename.
+        """
         old_name = group_item.text(0)
         new_name, ok = QInputDialog.getText(
             self,
@@ -268,7 +330,6 @@ class AnimationTreeWidget(QTreeWidget):
         )
 
         if ok and new_name and new_name != old_name:
-            # Check if name already exists
             if self.find_animation_group(new_name):
                 QMessageBox.warning(
                     self,
@@ -279,18 +340,19 @@ class AnimationTreeWidget(QTreeWidget):
                 )
                 return
 
-            # Update the group name
             group_item.setText(0, new_name)
 
-            # Update frame numbering to reflect new name
             self.update_frame_numbering(group_item)
 
-            # Emit signals
             self.animation_removed.emit(old_name)
             self.animation_added.emit(new_name)
 
     def delete_animation_group(self, group_item):
-        """Delete an animation group after confirmation."""
+        """Delete an animation group after user confirmation.
+
+        Args:
+            group_item: QTreeWidgetItem representing the group to delete.
+        """
         animation_name = group_item.text(0)
 
         reply = QMessageBox.question(
@@ -306,22 +368,25 @@ class AnimationTreeWidget(QTreeWidget):
             self.remove_animation_group(animation_name)
 
     def on_item_changed(self, item, column):
-        """Handle item name changes."""
-        if column == 0:  # Name column
+        """Handle in-place edits to item names.
+
+        Args:
+            item: The modified QTreeWidgetItem.
+            column: Column index that changed.
+        """
+        if column == 0:
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if data and data.get("type") == "animation_group":
-                # Animation group was renamed
-                # Update frame numbering
                 self.update_frame_numbering(item)
 
-                # Note: We don't emit signals here to avoid double emission
-                # The rename_animation_group method handles signal emission
-
     def dropEvent(self, event):
-        """Handle drop events to maintain proper frame ordering."""
+        """Handle drop events to update frame numbering after reordering.
+
+        Args:
+            event: QDropEvent describing the drop action.
+        """
         super().dropEvent(event)
 
-        # After drop, update frame numbering for all affected groups
         root = self.invisibleRootItem()
         for i in range(root.childCount()):
             group_item = root.child(i)
@@ -330,11 +395,14 @@ class AnimationTreeWidget(QTreeWidget):
             if data and data.get("type") == "animation_group":
                 self.update_frame_numbering(group_item)
 
-        # Emit frame order changed signal
         self.frame_order_changed.emit()
 
     def get_total_frame_count(self):
-        """Get the total number of frames across all animations."""
+        """Count all frames across every animation group.
+
+        Returns:
+            Total number of frame items in the tree.
+        """
         total = 0
         root = self.invisibleRootItem()
 
@@ -348,7 +416,11 @@ class AnimationTreeWidget(QTreeWidget):
         return total
 
     def get_animation_count(self):
-        """Get the number of animation groups."""
+        """Count the animation groups in the tree.
+
+        Returns:
+            Number of top-level animation group items.
+        """
         count = 0
         root = self.invisibleRootItem()
 

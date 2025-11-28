@@ -1,3 +1,10 @@
+"""Export frame sequences to animated image formats.
+
+Provides ``AnimationExporter`` which writes GIF, WebP, and APNG files from
+a sequence of frames (PIL Images or NumPy arrays), handling scaling, cropping,
+duration calculation, and duplicate frame removal.
+"""
+
 import os
 from typing import Optional, Sequence, Set
 
@@ -23,36 +30,41 @@ from utils.utilities import Utilities
 
 
 class AnimationExporter:
-    """
-    Exports animations (GIF, WebP, APNG) from a sequence of image frames.
+    """Export frame sequences to GIF, WebP, or APNG animations.
 
     Attributes:
-        output_dir (str):
-            Directory where exported animations will be saved.
-        current_version (str):
-            Version string to include in metadata.
-        scale_image_func (str):
-            Function to scale images before saving.
-
-    Methods:
-        save_animations(image_tuples, spritesheet_name, animation_name, settings) -> int
-            Processes and saves the animation in the specified format (GIF, WebP, or APNG).
-        remove_dups(animation)
-            Removes duplicate frames from a Wand animation, merging delays as needed.
-        save_gif(images, filename, fps, delay, period, scale, threshold, settings)
-            Saves the animation as a GIF file.
-        save_webp(images, filename, fps, delay, period, scale, settings)
-            Saves the animation as a WebP file.
-        save_apng(images, filename, fps, delay, period, scale, settings)
-            Saves the animation as an APNG file.
+        output_dir: Directory where exported animations are saved.
+        current_version: Version string embedded in file metadata.
+        scale_image: Callable used to resize frames before export.
     """
 
     def __init__(self, output_dir, current_version, scale_image_func):
+        """Initialise the exporter with output path and helpers.
+
+        Args:
+            output_dir: Filesystem path for saved animations.
+            current_version: Version string for metadata comments.
+            scale_image_func: Callable ``(image, scale) -> image`` for resizing.
+        """
         self.output_dir = output_dir
         self.current_version = current_version
         self.scale_image = scale_image_func
 
     def save_animations(self, image_tuples, spritesheet_name, animation_name, settings):
+        """Export an animation from the given frame tuples.
+
+        Dispatches to the appropriate format-specific method based on
+        ``settings["animation_format"]``.
+
+        Args:
+            image_tuples: Sequence of ``(name, image, metadata)`` tuples.
+            spritesheet_name: Name of the source spritesheet.
+            animation_name: Label for the animation.
+            settings: Dict containing fps, delay, scale, format, etc.
+
+        Returns:
+            Number of animations successfully exported (0 or 1).
+        """
         anims_generated = 0
 
         if not image_tuples:
@@ -104,6 +116,17 @@ class AnimationExporter:
         scale,
         settings,
     ):
+        """Save frames as a lossless animated WebP.
+
+        Args:
+            images: Sequence of frame images.
+            filename: Base filename without extension.
+            fps: Frames per second for timing.
+            delay: Per-frame delay override list or ``None``.
+            period: Total loop period in ms, or ``None``.
+            scale: Scale factor (negative flips horizontally).
+            settings: Additional options such as ``crop_option``.
+        """
         final_images = prepare_scaled_sequence(
             images,
             self.scale_image,
@@ -137,6 +160,14 @@ class AnimationExporter:
         print(f"Saved WEBP animation: {webp_filename}")
 
     def remove_dups(self, animation):
+        """Remove duplicate frames from a Wand animation in place.
+
+        Consecutive frames with zero distortion are merged by accumulating
+        their delays onto the preceding frame.
+
+        Args:
+            animation: A ``wand.image.Image`` sequence to deduplicate.
+        """
         animation.iterator_reset()
         if len(animation.sequence) < 2:
             return
@@ -168,6 +199,21 @@ class AnimationExporter:
         threshold,
         settings,
     ):
+        """Save frames as an animated GIF using ImageMagick via Wand.
+
+        Applies optional cropping, alpha thresholding, duplicate removal,
+        quantization, and scaling before writing the file.
+
+        Args:
+            images: Sequence of frame images.
+            filename: Base filename without extension.
+            fps: Frames per second for timing.
+            delay: Per-frame delay override list or ``None``.
+            period: Total loop period in ms, or ``None``.
+            scale: Scale factor (negative flips horizontally).
+            threshold: Alpha threshold for edge cleanup, or ``None``.
+            settings: Additional options such as ``crop_option``.
+        """
         durations = build_frame_durations(
             len(images),
             fps,
@@ -261,8 +307,15 @@ class AnimationExporter:
 
     @staticmethod
     def _frame_signature(frame_array: numpy.ndarray) -> Optional[int]:
-        """Return a tiny fingerprint for a frame using coarse sampling."""
+        """Compute a fast fingerprint of a frame for duplicate detection.
+        Uses coarse spatial sampling to avoid hashing entire pixel buffers.
 
+        Args:
+            frame_array: RGBA NumPy array.
+
+        Returns:
+            An integer hash, or ``None`` if the array cannot be processed.
+        """
         if frame_array.ndim < 2:
             return None
 
@@ -287,8 +340,18 @@ class AnimationExporter:
 
     @staticmethod
     def _wand_from_array(array: numpy.ndarray) -> WandImg:
-        """Create a Wand image from a contiguous RGBA NumPy array without copies."""
+        """Create a Wand image from an RGBA NumPy array.
+        Ensures the array is contiguous uint8 before passing to Wand.
 
+        Args:
+            array: RGBA array with shape ``(H, W, 4)``.
+
+        Returns:
+            A new ``wand.image.Image``.
+
+        Raises:
+            ValueError: If ``array`` does not have at least 4 channels.
+        """
         if array.ndim < 3 or array.shape[2] < 4:
             raise ValueError("Expected RGBA array with shape (H, W, 4)")
 
@@ -298,6 +361,17 @@ class AnimationExporter:
         return WandImg.from_array(array)
 
     def save_apng(self, images, filename, fps, delay, period, scale, settings):
+        """Save frames as an animated PNG.
+
+        Args:
+            images: Sequence of frame images.
+            filename: Base filename without extension.
+            fps: Frames per second for timing.
+            delay: Per-frame delay override list or ``None``.
+            period: Total loop period in ms, or ``None``.
+            scale: Scale factor (negative flips horizontally).
+            settings: Additional options such as ``crop_option``.
+        """
         final_images = prepare_scaled_sequence(
             images,
             self.scale_image,

@@ -1,4 +1,13 @@
-"""Utilities for normalizing, selecting, and preparing frames for exporters."""
+"""Utilities for normalizing, selecting, and preparing frames for exporters.
+
+Provides ``AnimationContext`` (a frozen dataclass holding export-ready frame
+data), ``FramePipeline`` (helpers for sorting and filtering), and standalone
+functions for computing bounding boxes and frame durations.
+
+Type Aliases:
+    FrameTuple: ``Tuple[str, FrameSource, dict]`` representing a single frame
+        with its name, image data (PIL Image or NumPy array), and metadata.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +31,16 @@ FrameTuple = Tuple[str, FrameSource, dict]
 
 @dataclass(frozen=True)
 class AnimationContext:
-    """Container describing a prepared set of frames for export."""
+    """Immutable container describing a prepared set of frames for export.
+
+    Attributes:
+        spritesheet_name: Identifier for the source spritesheet.
+        animation_name: Name of this animation sequence.
+        settings: Export settings dict controlling format, cropping, etc.
+        frames: List of ``(name, image, metadata)`` tuples after normalization.
+        kept_indices: Indices into ``frames`` of the frames to export.
+        single_frame: ``True`` when all frames are visually identical.
+    """
 
     spritesheet_name: str
     animation_name: str
@@ -32,7 +50,14 @@ class AnimationContext:
     single_frame: bool
 
     def with_frames(self, frames: Sequence[FrameTuple]) -> "AnimationContext":
-        """Return a copy of this context with a new frame list."""
+        """Return a shallow copy of this context with a replaced frame list.
+
+        Args:
+            frames: New sequence of frame tuples.
+
+        Returns:
+            New ``AnimationContext`` sharing other attributes.
+        """
         return AnimationContext(
             spritesheet_name=self.spritesheet_name,
             animation_name=self.animation_name,
@@ -50,11 +75,16 @@ class AnimationContext:
 
     @property
     def selected_frames(self) -> List[FrameTuple]:
+        """List of frames at positions specified by ``kept_indices``."""
         return list(self.iter_selected_frames())
 
 
 class FramePipeline:
-    """Shared helpers for frame sorting, selection, and preparation."""
+    """Shared helpers for frame sorting, selection, and context building.
+
+    Normalizes input frame tuples (sorting, index filtering, RGBA conversion)
+    and delegates duplicate/selection logic to ``FrameSelector``.
+    """
 
     def build_context(
         self,
@@ -63,6 +93,17 @@ class FramePipeline:
         image_tuples: Sequence[FrameTuple],
         settings: dict,
     ) -> AnimationContext:
+        """Normalize frames and build an export-ready context.
+
+        Args:
+            spritesheet_name: Identifier for the source spritesheet.
+            animation_name: Name of the animation sequence.
+            image_tuples: Raw frame tuples (name, image, metadata).
+            settings: Export settings controlling selection and format.
+
+        Returns:
+            Populated ``AnimationContext`` with sorted frames and kept indices.
+        """
         frames = self._normalize_frames(image_tuples, settings)
         single_frame = FrameSelector.is_single_frame(frames)
         kept_frames = FrameSelector.get_kept_frames(settings, single_frame, frames)
@@ -79,6 +120,15 @@ class FramePipeline:
     def _normalize_frames(
         self, image_tuples: Sequence[FrameTuple], settings: dict
     ) -> List[FrameTuple]:
+        """Sort frames, apply index filtering, and convert images to RGBA arrays.
+
+        Args:
+            image_tuples: Raw frame tuples to normalize.
+            settings: Dict optionally containing an ``indices`` key.
+
+        Returns:
+            List of normalized frame tuples with NumPy array images.
+        """
         frames = list(image_tuples or [])
         if not frames:
             return frames
@@ -106,6 +156,7 @@ class FramePipeline:
 
     @staticmethod
     def _should_preserve_sequence(frames: Sequence[FrameTuple]) -> bool:
+        """Return ``True`` if any frame has an ``editor_sequence_index`` key."""
         for _, _, metadata in frames:
             if isinstance(metadata, dict) and "editor_sequence_index" in metadata:
                 return True
@@ -113,6 +164,15 @@ class FramePipeline:
 
     @staticmethod
     def _sanitize_indices(indices: Optional[Sequence[int]], length: int) -> List[int]:
+        """Validate and clamp indices, converting negatives to positive offsets.
+
+        Args:
+            indices: Raw index sequence from settings, or ``None``.
+            length: Total number of frames available.
+
+        Returns:
+            List of valid indices within ``[0, length)``.
+        """
         if not isinstance(indices, Sequence):
             return []
         sanitized: List[int] = []
@@ -131,7 +191,14 @@ class FramePipeline:
 def compute_shared_bbox(
     images: Sequence[FrameSource],
 ) -> Optional[Tuple[int, int, int, int]]:
-    """Return the shared bounding box for a collection of frames or arrays."""
+    """Compute the union bounding box spanning all non-empty frames.
+
+    Args:
+        images: Sequence of PIL Images or NumPy arrays.
+
+    Returns:
+        Tuple ``(left, top, right, bottom)``, or ``None`` if all frames are empty.
+    """
     min_x, min_y, max_x, max_y = (
         float("inf"),
         float("inf"),
@@ -159,7 +226,17 @@ def prepare_scaled_sequence(
     scale: float,
     crop_option: Optional[str],
 ) -> List[Image.Image]:
-    """Crop (if requested) and scale all frames in a sequence."""
+    """Crop and scale all frames in a sequence.
+
+    Args:
+        images: Sequence of PIL Images or NumPy arrays.
+        scale_image: Callable ``(image, factor) -> image`` for resizing.
+        scale: Multiplier applied after cropping.
+        crop_option: ``"Animation based"`` to use shared bbox, or ``None``.
+
+    Returns:
+        List of processed PIL Images, empty if all frames lack content.
+    """
     scale_value = scale if isinstance(scale, (int, float)) else 1.0
     crop_mode = (crop_option or "None").lower()
 
@@ -193,7 +270,19 @@ def build_frame_durations(
     *,
     round_to_ten: bool = False,
 ) -> List[int]:
-    """Compute frame durations (milliseconds) honoring delay/period rules."""
+    """Compute per-frame durations in milliseconds.
+
+    Args:
+        frame_count: Number of frames in the animation.
+        fps: Frames per second (defaults to 24 if ``None`` or non-positive).
+        delay: Extra milliseconds added to the last frame.
+        period: Minimum total loop duration; pads the last frame if needed.
+        var_delay: When ``True``, use cumulative timing rather than fixed.
+        round_to_ten: Round each duration to the nearest 10 ms.
+
+    Returns:
+        List of integer durations, one per frame.
+    """
     if frame_count <= 0:
         return []
 

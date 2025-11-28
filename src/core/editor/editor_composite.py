@@ -1,17 +1,37 @@
-"""Helpers for building editor-defined composite animations."""
+"""Build composite animations from user-defined frame sequences.
+
+This module lets the editor assemble new animations by referencing frames
+from existing source animations and optionally overriding per-frame metadata
+such as duration.
+
+Type Aliases:
+    FrameTuple: A 3-tuple of (frame_name, image, metadata_dict).
+    AnimationMap: Mapping of animation names to lists of FrameTuples.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 FrameTuple = Tuple[str, Any, dict]
+"""A single frame: (name, image object, metadata dict)."""
+
 AnimationMap = Dict[str, List[FrameTuple]]
+"""Mapping from animation name to its ordered list of frames."""
 
 
 def clone_animation_map(
     animations: Optional[Dict[str, Sequence[FrameTuple]]],
 ) -> AnimationMap:
-    """Create a deep-ish copy of an animation map without duplicating images."""
+    """Clone an animation map, copying lists but sharing image objects.
+
+    Args:
+        animations: Source map to copy. May be ``None`` or empty.
+
+    Returns:
+        A new dict where each animation name maps to a fresh list of the
+        same FrameTuple references.
+    """
     cloned: AnimationMap = {}
     if not animations:
         return cloned
@@ -26,7 +46,24 @@ def build_editor_composite_frames(
     *,
     log_warning: Optional[Callable[[str], None]] = None,
 ) -> List[FrameTuple]:
-    """Construct a list of frames for an editor composite definition."""
+    """Assemble frames for an editor-defined composite animation.
+
+    Each entry in ``definition["sequence"]`` references a source animation
+    and frame index. Frames are copied so modifications do not mutate the
+    originals.
+
+    Args:
+        definition: A dict with at least a ``"sequence"`` list. Each element
+            should specify ``source_animation``, ``source_frame_index``, and
+            optionally ``duration_ms`` or ``original_key``.
+        source_frames: Available animations keyed by name.
+        log_warning: Optional callback invoked with a message when a frame
+            reference cannot be resolved.
+
+    Returns:
+        Ordered list of FrameTuples for the composite, or an empty list if
+        ``definition`` is invalid or any frame reference fails.
+    """
 
     def warn(message: str):
         if log_warning:
@@ -77,6 +114,16 @@ def build_editor_composite_frames(
 
 
 def _coerce_metadata(metadata: Any) -> dict:
+    """Normalize arbitrary metadata into a mutable dict.
+
+    Args:
+        metadata: Original metadata; may be dict, tuple/list, None, or other.
+
+    Returns:
+        A new dict. List/tuple inputs become ``{"original_sprite_bounds": ...}``;
+        unrecognised types become ``{"metadata": ...}``.
+    """
+
     if isinstance(metadata, dict):
         return dict(metadata)
     if metadata is None:
@@ -86,7 +133,21 @@ def _coerce_metadata(metadata: Any) -> dict:
     return {"metadata": metadata}
 
 
-def _fetch_source_frame(frame_spec: Optional[dict], source_frames: AnimationMap):
+def _fetch_source_frame(
+    frame_spec: Optional[dict], source_frames: AnimationMap
+) -> Optional[FrameTuple]:
+    """Resolve a single frame reference from a composite sequence entry.
+
+    Args:
+        frame_spec: Dict containing ``source_animation``, ``source_frame_index``,
+            and optionally ``original_key``.
+        source_frames: Pool of available animations.
+
+    Returns:
+        The matching FrameTuple, or ``None`` if the reference is invalid or
+        the frame does not exist.
+    """
+
     if not isinstance(frame_spec, dict):
         return None
     source_animation = frame_spec.get("source_animation")

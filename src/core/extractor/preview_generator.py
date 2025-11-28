@@ -1,3 +1,9 @@
+"""Temporary animation preview generation for the UI.
+
+Provides ``PreviewGenerator`` which renders a single animation to a temp
+file for display in the application's preview pane.
+"""
+
 import os
 import tempfile
 from typing import Dict, List, Optional
@@ -15,9 +21,23 @@ from core.extractor.spritemap import AdobeSpritemapRenderer
 
 
 class PreviewGenerator:
-    """Generates temporary previews for individual animations and editor composites."""
+    """Generate temporary animation previews for the UI.
+
+    Handles standard spritesheets, Adobe Spritemap projects, and editor
+    composite animations.
+
+    Attributes:
+        settings_manager: Provides per-spritesheet and animation settings.
+        current_version: Version string embedded in exported metadata.
+    """
 
     def __init__(self, settings_manager, current_version: str):
+        """Initialise the preview generator.
+
+        Args:
+            settings_manager: Settings provider for export options.
+            current_version: Version string for file metadata.
+        """
         self.settings_manager = settings_manager
         self.current_version = current_version
         self._frame_pipeline = FramePipeline()
@@ -32,7 +52,20 @@ class PreviewGenerator:
         spritemap_info: Optional[dict] = None,
         spritesheet_label: Optional[str] = None,
     ) -> Optional[str]:
-        """Return a path to a temporary preview file for the requested animation."""
+        """Generate a temporary preview file for the requested animation.
+
+        Args:
+            atlas_path: Path to the source atlas image.
+            metadata_path: Path to metadata, or ``None`` for unknown sheets.
+            settings: Export settings dict.
+            animation_name: Name of the animation to preview.
+            temp_dir: Directory for the temporary file; created if ``None``.
+            spritemap_info: Optional Adobe spritemap project info dict.
+            spritesheet_label: Friendly display name for the spritesheet.
+
+        Returns:
+            Path to the generated preview file, or ``None`` on failure.
+        """
         try:
             label = spritesheet_label or os.path.basename(atlas_path)
 
@@ -97,6 +130,14 @@ class PreviewGenerator:
         animation_name,
         settings,
     ) -> Optional[Dict[str, List]]:
+        """Collect frames for the requested animation from the appropriate source.
+
+        Checks for editor composite definitions first, then spritemap projects,
+        and finally standard spritesheet metadata.
+
+        Returns:
+            Dict mapping animation name to frame list, or ``None`` if unavailable.
+        """
         definition = self._get_editor_composite_definition(
             spritesheet_label, animation_name
         )
@@ -133,6 +174,11 @@ class PreviewGenerator:
         spritesheet_label,
         settings,
     ):
+        """Render frames for an Adobe Spritemap animation.
+
+        Returns:
+            List of frame tuples, or ``None`` if rendering fails.
+        """
         animation_json_path = spritemap_info.get("animation_json")
         spritemap_json_path = spritemap_info.get("spritemap_json")
         if not animation_json_path or not spritemap_json_path:
@@ -155,6 +201,11 @@ class PreviewGenerator:
         return frames
 
     def _render_spritesheet_preview(self, atlas_path, metadata_path, animation_name):
+        """Render frames for a standard spritesheet animation.
+
+        Returns:
+            List of frame tuples, or ``None`` if parsing fails.
+        """
         if not metadata_path:
             return None
 
@@ -187,6 +238,11 @@ class PreviewGenerator:
         spritemap_info,
         spritesheet_label,
     ):
+        """Build frames for an editor-defined composite animation.
+
+        Returns:
+            List of composite frame tuples, or empty list on failure.
+        """
         source_frames = self._load_source_frames_for_preview(
             atlas_path,
             metadata_path,
@@ -211,6 +267,11 @@ class PreviewGenerator:
         spritemap_info,
         spritesheet_label,
     ):
+        """Load all source animations for composite frame building.
+
+        Returns:
+            Dict mapping animation names to frame lists.
+        """
         try:
             if spritemap_info:
                 return self._load_spritemap_source_frames(
@@ -230,6 +291,11 @@ class PreviewGenerator:
     def _load_spritemap_source_frames(
         self, spritemap_info, atlas_path, spritesheet_label
     ):
+        """Load all animations from an Adobe Spritemap project.
+
+        Returns:
+            Cloned animation map dict.
+        """
         animation_json_path = spritemap_info.get("animation_json")
         spritemap_json_path = spritemap_info.get("spritemap_json")
         if not animation_json_path or not spritemap_json_path:
@@ -247,6 +313,11 @@ class PreviewGenerator:
 
     @staticmethod
     def _load_metadata_source_frames(atlas_path, metadata_path):
+        """Load all animations from standard spritesheet metadata.
+
+        Returns:
+            Cloned animation map dict.
+        """
         atlas_processor = AtlasProcessor(atlas_path, metadata_path)
         sprite_processor = SpriteProcessor(
             atlas_processor.atlas, atlas_processor.sprites
@@ -256,6 +327,7 @@ class PreviewGenerator:
 
     @staticmethod
     def _resolve_preview_format(settings):
+        """Return the animation format for preview, defaulting to GIF."""
         animation_format = settings.get("animation_format", "GIF")
         if animation_format == "None":
             animation_format = "GIF"
@@ -263,11 +335,13 @@ class PreviewGenerator:
 
     @staticmethod
     def _preview_extension_for_format(animation_format: str) -> str:
+        """Map an animation format name to its file extension."""
         file_extensions = {"GIF": ".gif", "WebP": ".webp", "APNG": ".png"}
         return file_extensions.get(animation_format, ".gif")
 
     @staticmethod
     def _find_generated_preview_file(directory: str, extension: str) -> Optional[str]:
+        """Locate the first file matching the extension in a directory."""
         for file in os.listdir(directory):
             if file.endswith(extension):
                 return os.path.join(directory, file)
@@ -280,6 +354,7 @@ class PreviewGenerator:
         spritesheet_label,
         animation_name,
     ):
+        """Apply frame selection settings and return the kept frames."""
         context = self._frame_pipeline.build_context(
             spritesheet_label or "preview",
             animation_name,
@@ -289,6 +364,11 @@ class PreviewGenerator:
         return context.selected_frames
 
     def _get_editor_composite_definition(self, spritesheet_label, animation_name):
+        """Retrieve an editor composite definition if one exists.
+
+        Returns:
+            Definition dict, or ``None`` if not defined.
+        """
         if not self.settings_manager:
             return None
         sheet_settings = self.settings_manager.spritesheet_settings.get(

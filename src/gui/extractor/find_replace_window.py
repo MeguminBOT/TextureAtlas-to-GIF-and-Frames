@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Dialog for creating find-and-replace rules applied to exported filenames.
+
+Supports plain text and regular expression patterns for flexible renaming.
+"""
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -17,14 +21,25 @@ from PySide6.QtCore import Qt
 
 
 class FindReplaceWindow(QDialog):
-    """
-    A Qt dialog for managing find-and-replace rules for filenames.
+    """Dialog for managing filename find-and-replace rules.
 
-    This class creates a Qt window that allows the user to add, edit, and delete find-and-replace rules,
-    including support for regular expressions, to be applied to exported filenames.
+    Allows adding, editing, and deleting replacement rules with optional
+    regex support. Invokes a callback with the collected rules on accept.
+
+    Attributes:
+        on_store_callback: Function called with the list of rules on OK.
+        replace_rules: List of rule dictionaries.
+        rule_widgets: List of QGroupBox widgets representing each rule.
     """
 
     def __init__(self, on_store_callback, replace_rules=None, parent=None):
+        """Create the find-and-replace dialog.
+
+        Args:
+            on_store_callback: Function receiving the rules list on accept.
+            replace_rules: Initial list of rule dictionaries.
+            parent: Parent widget for the dialog.
+        """
         super().__init__(parent)
         self.setWindowTitle(self.tr("Find and Replace"))
         self.setGeometry(200, 200, 500, 400)
@@ -35,23 +50,28 @@ class FindReplaceWindow(QDialog):
         self.load_existing_rules()
 
     def tr(self, text):
-        """Translation helper method."""
+        """Translate a string using Qt's translation system.
+
+        Args:
+            text: String to translate.
+
+        Returns:
+            Translated string for the current locale.
+        """
         from PySide6.QtCore import QCoreApplication
 
         return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
-        """Sets up the UI components."""
+        """Build the dialog layout with rules list and controls."""
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Title
         title_label = QLabel(self.tr("Find and Replace Rules"))
         title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(title_label)
 
-        # Instructions
         instructions = QLabel(
             "Create rules to find and replace text in exported filenames. "
             "Regular expressions are supported for advanced pattern matching."
@@ -60,28 +80,24 @@ class FindReplaceWindow(QDialog):
         instructions.setStyleSheet("color: #666666; margin-bottom: 10px;")
         layout.addWidget(instructions)
 
-        # Scrollable area for rules
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        # Rules container
         self.rules_container = QWidget()
         self.rules_layout = QVBoxLayout(self.rules_container)
         self.rules_layout.setSpacing(5)
-        self.rules_layout.addStretch()  # Add stretch at the end
+        self.rules_layout.addStretch()
 
         scroll_area.setWidget(self.rules_container)
         layout.addWidget(scroll_area)
 
-        # Add Rule button
         add_btn = QPushButton(self.tr("Add Rule"))
         add_btn.clicked.connect(self.add_rule)
         add_btn.setMaximumWidth(100)
         layout.addWidget(add_btn)
 
-        # Buttons
         button_layout = QHBoxLayout()
 
         ok_btn = QPushButton("OK")
@@ -97,19 +113,21 @@ class FindReplaceWindow(QDialog):
         layout.addLayout(button_layout)
 
     def load_existing_rules(self):
-        """Load existing rules into the UI."""
+        """Populate the UI with pre-existing rules."""
         for rule in self.replace_rules:
             self.add_rule(rule)
 
     def add_rule(self, rule_data=None):
-        """Add a new rule entry to the window."""
+        """Create a new rule entry widget.
+
+        Args:
+            rule_data: Optional dict with 'find', 'replace', and 'regex' keys.
+        """
         if rule_data is None:
             rule_data = {"find": "", "replace": "", "regex": False}
         elif not isinstance(rule_data, dict):
-            # Handle case where rule_data is not a dictionary (e.g., boolean, string, etc.)
             rule_data = {"find": "", "replace": "", "regex": False}
 
-        # Create rule frame
         rule_frame = QGroupBox()
         rule_frame.setStyleSheet(
             """
@@ -125,7 +143,6 @@ class FindReplaceWindow(QDialog):
         rule_layout = QVBoxLayout(rule_frame)
         rule_layout.setSpacing(8)
 
-        # Find field
         find_layout = QHBoxLayout()
         find_label = QLabel(self.tr("Find:"))
         find_label.setMinimumWidth(60)
@@ -136,7 +153,6 @@ class FindReplaceWindow(QDialog):
         find_layout.addWidget(find_entry)
         rule_layout.addLayout(find_layout)
 
-        # Replace field
         replace_layout = QHBoxLayout()
         replace_label = QLabel(self.tr("Replace:"))
         replace_label.setMinimumWidth(60)
@@ -147,7 +163,6 @@ class FindReplaceWindow(QDialog):
         replace_layout.addWidget(replace_entry)
         rule_layout.addLayout(replace_layout)
 
-        # Options and delete button
         options_layout = QHBoxLayout()
         regex_checkbox = QCheckBox("Regular Expression")
         regex_checkbox.setChecked(rule_data.get("regex", False))
@@ -162,24 +177,26 @@ class FindReplaceWindow(QDialog):
         options_layout.addWidget(delete_btn)
         rule_layout.addLayout(options_layout)
 
-        # Store widget references for later retrieval
         rule_frame.find_entry = find_entry
         rule_frame.replace_entry = replace_entry
         rule_frame.regex_checkbox = regex_checkbox
 
-        # Add to rules layout (before the stretch)
         self.rules_layout.insertWidget(self.rules_layout.count() - 1, rule_frame)
         self.rule_widgets.append(rule_frame)
 
     def delete_rule(self, rule_frame):
-        """Delete a rule from the window."""
+        """Remove a rule widget from the dialog.
+
+        Args:
+            rule_frame: QGroupBox widget representing the rule to delete.
+        """
         if rule_frame in self.rule_widgets:
             self.rule_widgets.remove(rule_frame)
         self.rules_layout.removeWidget(rule_frame)
         rule_frame.deleteLater()
 
     def accept_changes(self):
-        """Collect all rules and call the callback."""
+        """Gather all rules and invoke the callback before closing."""
         rules = []
         for rule_frame in self.rule_widgets:
             rule = {
@@ -194,6 +211,12 @@ class FindReplaceWindow(QDialog):
 
     @staticmethod
     def show_find_replace_window(on_store_callback, replace_rules=None, parent=None):
-        """Static method to show the find and replace window."""
+        """Display the find-and-replace dialog modally.
+
+        Args:
+            on_store_callback: Function receiving the rules list on accept.
+            replace_rules: Initial list of rule dictionaries.
+            parent: Parent widget for the dialog.
+        """
         window = FindReplaceWindow(on_store_callback, replace_rules, parent)
         window.exec()
