@@ -97,13 +97,17 @@ class HybridAdaptivePacker:
         """Pretend to schedule work on GPU – currently a no-op placeholder."""
 
         if self.telemetry_callback:
-            self.telemetry_callback({"event": "gpu_probe", "payload": insights["summary"]})
+            self.telemetry_callback(
+                {"event": "gpu_probe", "payload": insights["summary"]}
+            )
 
     def _consult_ai_planner(self, insights: Dict[str, Dict[str, float]]) -> None:
         """Stub for AI-driven layout tuning."""
 
         if self.telemetry_callback:
-            self.telemetry_callback({"event": "ai_hint", "payload": insights["summary"]})
+            self.telemetry_callback(
+                {"event": "ai_hint", "payload": insights["summary"]}
+            )
 
     def _emit_telemetry(self, success: bool) -> None:
         if self.telemetry_callback:
