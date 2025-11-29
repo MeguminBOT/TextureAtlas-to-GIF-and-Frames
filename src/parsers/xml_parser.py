@@ -1,121 +1,122 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Qt-compatible XML parser for sprite data.
-Replaces the tkinter-dependent xml_parser.py with a UI-agnostic implementation.
-"""
+"""Dispatcher that selects the proper XML spritesheet parser by content."""
+
+from __future__ import annotations
 
 import os
 import xml.etree.ElementTree as ET
-from typing import Set, Optional, Callable, List, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Set, Type
 
-# Import our own modules
-from utils.utilities import Utilities
-from parsers.base_parser import BaseParser, populate_qt_listbox
+from parsers.base_parser import BaseParser
+from parsers.starling_xml_parser import StarlingXmlParser
+from parsers.texture_packer_xml_parser import TexturePackerXmlParser
+
+
+FormatParser = Type[BaseParser]
 
 
 class XmlParser(BaseParser):
-    """
-    A Qt-compatible class to parse XML files and extract sprite data.
-    Currently only supports XML files in the Starling/Sparrow format.
+    """Entry point for XML spritesheet parsing.
 
-    This class is UI-agnostic and can work with both Qt and tkinter interfaces.
+    Loads the XML once, inspects its structure, and delegates to the first
+    format-specific parser that reports compatibility (currently
+    :class:`StarlingXmlParser`). This keeps external imports stable while
+    allowing new XML dialects to plug in later.
     """
 
-    def __init__(self, directory: str, xml_filename: str, listbox_data=None, name_callback: Optional[Callable[[str], None]] = None):
-        """
-        Initialize the XML parser.
-        
+    FILE_EXTENSIONS = (".xml",)
+    FORMAT_PARSERS: List[FormatParser] = [TexturePackerXmlParser, StarlingXmlParser]
+
+    def __init__(
+        self,
+        directory: str,
+        xml_filename: str,
+        name_callback: Optional[Callable[[str], None]] = None,
+    ):
+        """Initialize the XML parser dispatcher.
+
         Args:
-            directory: The directory where the XML file is located
-            xml_filename: The name of the XML file to parse
-            listbox_data: Optional listbox widget (Qt or tkinter) to populate with extracted names
-            name_callback: Optional callback function to call for each extracted name
+            directory: Directory containing the XML file.
+            xml_filename: Name of the XML file.
+            name_callback: Optional callback invoked for each extracted name.
         """
         super().__init__(directory, xml_filename, name_callback)
-        self.listbox_data = listbox_data
-
-    def get_data(self) -> Set[str]:
-        """Parse the XML file and populate the listbox if provided."""
-        try:
-            tree = ET.parse(os.path.join(self.directory, self.filename))
-            xml_root = tree.getroot()
-            names = self.extract_names_from_root(xml_root)
-            
-            # Populate listbox if provided
-            if self.listbox_data:
-                self.populate_listbox(names)
-            
-            # Call the callback if provided
-            if self.name_callback:
-                for name in names:
-                    self.name_callback(name)
-                    
-            return names
-        except Exception as e:
-            print(f"Error parsing XML file {self.filename}: {e}")
-            return set()
 
     def extract_names(self) -> Set[str]:
-        """Extract sprite names from the XML file."""
-        try:
-            tree = ET.parse(os.path.join(self.directory, self.filename))
-            xml_root = tree.getroot()
-            return self.extract_names_from_root(xml_root)
-        except Exception as e:
-            print(f"Error extracting names from XML file {self.filename}: {e}")
-            return set()
+        """Extract unique animation/sprite base names from the XML file.
 
-    def extract_names_from_root(self, xml_root) -> Set[str]:
-        """Extract names from the XML root element."""
-        names = set()
-        for subtexture in xml_root.findall(".//SubTexture"):
-            name = subtexture.get("name")
-            if name:
-                name = Utilities.strip_trailing_digits(name)
-                names.add(name)
-        return names
+        Returns:
+            Set of sprite names with trailing digits stripped.
+        """
+        file_path, xml_root = self._load_xml()
+        parser_cls = self._detect_parser(xml_root, file_path)
+        extractor = getattr(parser_cls, "extract_names_from_root", None)
+        if callable(extractor):
+            return extractor(xml_root)
 
-    def populate_listbox(self, names: Set[str]):
-        """Populate the Qt listbox with names."""
-        if self.listbox_data is None:
-            return
-            
-        populate_qt_listbox(self.listbox_data, names)
+        parser = parser_cls(self.directory, self.filename, self.name_callback)
+        return parser.extract_names()
+
+    @classmethod
+    def _detect_parser(
+        cls,
+        xml_root,
+        file_path: Optional[str] = None,
+    ) -> FormatParser:
+        """Detect the correct parser class for an XML root element.
+
+        Args:
+            xml_root: The parsed XML root element.
+            file_path: Optional path for error messages.
+
+        Returns:
+            The matching parser class.
+
+        Raises:
+            ValueError: If no parser matches the XML structure.
+        """
+        for parser_cls in cls.FORMAT_PARSERS:
+            matcher = getattr(parser_cls, "matches_root", None)
+            if matcher and matcher(xml_root):
+                return parser_cls
+
+        raise ValueError(
+            f"Unsupported XML spritesheet format in file: {file_path or cls.__name__}"
+        )
+
+    def _load_xml(self):
+        """Load and parse the XML file.
+
+        Returns:
+            A tuple (file_path, xml_root).
+        """
+        file_path = os.path.join(self.directory, self.filename)
+        tree = ET.parse(file_path)
+        return file_path, tree.getroot()
 
     @staticmethod
-    def parse_xml_data(file_path: str) -> List[Dict[str, Any]]:
-        """
-        Static method to parse XML data from a file and return sprite information.
-        
+    def parse_xml_data(
+        file_path: str,
+    ) -> List[Dict[str, Any]]:
+        """Parse an XML file and return sprite metadata.
+
+        Detects the XML dialect and delegates to the appropriate parser.
+
         Args:
-            file_path: Path to the XML file
-            
+            file_path: Path to the XML file.
+
         Returns:
-            List of dictionaries containing sprite data
+            List of sprite dicts with position, dimension, and rotation data.
         """
-        try:
-            tree = ET.parse(file_path)
-            xml_root = tree.getroot()
-            sprites = []
-            
-            for sprite in xml_root.findall("SubTexture"):
-                sprite_data = {
-                    "name": sprite.get("name"),
-                    "x": int(sprite.get("x", 0)),
-                    "y": int(sprite.get("y", 0)),
-                    "width": int(sprite.get("width", 0)),
-                    "height": int(sprite.get("height", 0)),
-                    "frameX": int(sprite.get("frameX", 0)),
-                    "frameY": int(sprite.get("frameY", 0)),
-                    "frameWidth": int(sprite.get("frameWidth", sprite.get("width", 0))),
-                    "frameHeight": int(sprite.get("frameHeight", sprite.get("height", 0))),
-                    "rotated": sprite.get("rotated", "false") == "true",
-                }
-                sprites.append(sprite_data)
-                
-            return sprites
-        except Exception as e:
-            print(f"Error parsing XML data from {file_path}: {e}")
-            return []
+        tree = ET.parse(file_path)
+        xml_root = tree.getroot()
+        parser_cls = XmlParser._detect_parser(xml_root, file_path)
+        parse_from_root = getattr(parser_cls, "parse_from_root", None)
+        if callable(parse_from_root):
+            return parse_from_root(xml_root)
+        return parser_cls.parse_xml_data(file_path)
+
+
+__all__ = ["XmlParser", "StarlingXmlParser", "TexturePackerXmlParser"]

@@ -35,7 +35,9 @@ class OrderedPacker:
 
         curr_x = 0
         curr_y = 0
-        max_heights = [max([b["h"] for b in row]) if row else 0 for row in blocks_matrix]
+        max_heights = [
+            max([b["h"] for b in row]) if row else 0 for row in blocks_matrix
+        ]
 
         for i, row in enumerate(blocks_matrix):
             for bl in row:
