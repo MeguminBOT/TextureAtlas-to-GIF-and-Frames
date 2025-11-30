@@ -466,9 +466,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_layout.addWidget(self.atlas_size_method_combobox, 21, 2, 1, 1)
 
         self.packer_method_combobox = QComboBox(self.atlas_group)
-        self.packer_method_combobox.addItem("")
-        self.packer_method_combobox.addItem("")
-        self.packer_method_combobox.addItem("")
         self.packer_method_combobox.setObjectName("packer_method_combobox")
 
         self.atlas_layout.addWidget(self.packer_method_combobox, 5, 2, 1, 1)
@@ -1623,14 +1620,6 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.packer_method_combobox.setItemText(
-            0,
-            QCoreApplication.translate("TextureAtlasToolboxApp", "OrderedBlocks", None),
-        )
-        self.packer_method_combobox.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "GrowingBin", None)
-        )
-
         self.atlas_type_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Atlas type", None)
         )
