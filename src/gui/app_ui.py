@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'app.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.2
+## Created by: Qt User Interface Compiler version 6.10.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -513,21 +513,17 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.atlas_layout.addWidget(self.atlas_type_combo, 3, 2, 1, 1)
 
-        self.speed_optimization_slider = QSlider(self.atlas_group)
-        self.speed_optimization_slider.setObjectName("speed_optimization_slider")
-        self.speed_optimization_slider.setMinimum(0)
-        self.speed_optimization_slider.setMaximum(10)
-        self.speed_optimization_slider.setValue(5)
-        self.speed_optimization_slider.setOrientation(Qt.Orientation.Horizontal)
-        self.speed_optimization_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.speed_optimization_slider.setTickInterval(1)
+        self.allow_rotation_check = QCheckBox(self.atlas_group)
+        self.allow_rotation_check.setObjectName("allow_rotation_check")
+        self.allow_rotation_check.setChecked(True)
 
-        self.atlas_layout.addWidget(self.speed_optimization_slider, 12, 2, 1, 1)
+        self.atlas_layout.addWidget(self.allow_rotation_check, 12, 0, 1, 1)
 
-        self.speed_optimization_label = QLabel(self.atlas_group)
-        self.speed_optimization_label.setObjectName("speed_optimization_label")
+        self.allow_flip_check = QCheckBox(self.atlas_group)
+        self.allow_flip_check.setObjectName("allow_flip_check")
+        self.allow_flip_check.setChecked(False)
 
-        self.atlas_layout.addWidget(self.speed_optimization_label, 12, 0, 1, 1)
+        self.atlas_layout.addWidget(self.allow_flip_check, 13, 0, 1, 1)
 
         self.atlas_size_spinbox_2 = QSpinBox(self.atlas_group)
         self.atlas_size_spinbox_2.setObjectName("atlas_size_spinbox_2")
@@ -536,13 +532,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_size_spinbox_2.setValue(8192)
 
         self.atlas_layout.addWidget(self.atlas_size_spinbox_2, 24, 2, 1, 1)
-
-        self.speed_optimization_value_label = QLabel(self.atlas_group)
-        self.speed_optimization_value_label.setObjectName(
-            "speed_optimization_value_label"
-        )
-
-        self.atlas_layout.addWidget(self.speed_optimization_value_label, 20, 0, 1, 1)
 
         self.packer_method_label = QLabel(self.atlas_group)
         self.packer_method_label.setObjectName("packer_method_label")
@@ -1693,9 +1682,32 @@ class Ui_TextureAtlasToolboxApp(object):
             0, QCoreApplication.translate("TextureAtlasToolboxApp", "Sparrow", None)
         )
 
-        self.speed_optimization_label.setText(
+        # if QT_CONFIG(tooltip)
+        self.allow_rotation_check.setToolTip(
             QCoreApplication.translate(
-                "TextureAtlasToolboxApp", "Speed vs Optimization:", None
+                "TextureAtlasToolboxApp",
+                "<html><head/><body><p>Allow the packer to rotate sprites 90\u00b0 clockwise for tighter packing.</p><p>Only works with atlas formats that support rotation metadata.</p></body></html>",
+                None,
+            )
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.allow_rotation_check.setText(
+            QCoreApplication.translate(
+                "TextureAtlasToolboxApp", "Allow rotation (90\u00b0)", None
+            )
+        )
+        # if QT_CONFIG(tooltip)
+        self.allow_flip_check.setToolTip(
+            QCoreApplication.translate(
+                "TextureAtlasToolboxApp",
+                '<html><head/><body><p>Allow the packer to flip sprites vertically for tighter packing.</p><p><span style=" font-weight:700;">Warning:</span> This is a non-standard extension only supported by HaxeFlixel. Most Starling/Sparrow implementations will ignore flip attributes.</p></body></html>',
+                None,
+            )
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.allow_flip_check.setText(
+            QCoreApplication.translate(
+                "TextureAtlasToolboxApp", "Allow flip X/Y (non-standard)", None
             )
         )
         # if QT_CONFIG(statustip)
@@ -1703,11 +1715,6 @@ class Ui_TextureAtlasToolboxApp(object):
         # endif // QT_CONFIG(statustip)
         self.atlas_size_spinbox_2.setSuffix(
             QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
-        self.speed_optimization_value_label.setText(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp", "Level: 5 (Balanced)", None
-            )
         )
         self.packer_method_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Packer method", None)

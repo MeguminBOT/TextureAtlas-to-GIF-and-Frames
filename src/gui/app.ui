@@ -1387,32 +1387,29 @@
                </item>
               </widget>
              </item>
-             <item row="12" column="2">
-              <widget class="QSlider" name="speed_optimization_slider">
-               <property name="minimum">
-                <number>0</number>
+             <item row="12" column="0">
+              <widget class="QCheckBox" name="allow_rotation_check">
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allow the packer to rotate sprites 90° clockwise for tighter packing.&lt;/p&gt;&lt;p&gt;Only works with atlas formats that support rotation metadata.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
-               <property name="maximum">
-                <number>10</number>
+               <property name="text">
+                <string>Allow rotation (90°)</string>
                </property>
-               <property name="value">
-                <number>5</number>
-               </property>
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="tickPosition">
-                <enum>QSlider::TickPosition::TicksBelow</enum>
-               </property>
-               <property name="tickInterval">
-                <number>1</number>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
-             <item row="12" column="0">
-              <widget class="QLabel" name="speed_optimization_label">
+             <item row="13" column="0">
+              <widget class="QCheckBox" name="allow_flip_check">
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allow the packer to flip sprites vertically for tighter packing.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Warning:&lt;/span&gt; This is a non-standard extension only supported by HaxeFlixel. Most Starling/Sparrow implementations will ignore flip attributes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
                <property name="text">
-                <string>Speed vs Optimization:</string>
+                <string>Allow flip X/Y (non-standard)</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
                </property>
               </widget>
              </item>
@@ -1432,13 +1429,6 @@
                </property>
                <property name="value">
                 <number>8192</number>
-               </property>
-              </widget>
-             </item>
-             <item row="20" column="0">
-              <widget class="QLabel" name="speed_optimization_value_label">
-               <property name="text">
-                <string>Level: 5 (Balanced)</string>
                </property>
               </widget>
              </item>
