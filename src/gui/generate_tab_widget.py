@@ -3,7 +3,14 @@
 
 import math
 from pathlib import Path
-from PySide6.QtWidgets import QWidget, QSpinBox, QFileDialog, QMessageBox
+from PySide6.QtWidgets import (
+    QWidget,
+    QSpinBox,
+    QFileDialog,
+    QMessageBox,
+    QComboBox,
+    QLabel,
+)
 from PySide6.QtCore import QThread, Signal
 
 try:
@@ -34,6 +41,7 @@ class GeneratorWorker(QThread):
         self.atlas_settings = atlas_settings
         self.animation_groups = None  # Will be set by the caller
         self.current_version = current_version
+        self.output_format = "starling-xml"  # Default format
 
     def run(self):
         try:
@@ -47,6 +55,18 @@ class GeneratorWorker(QThread):
                 power_of_2=self.atlas_settings.get("power_of_2", True),
                 optimization_level=self.atlas_settings.get("optimization_level", 5),
                 allow_rotation=self.atlas_settings.get("allow_rotation", True),
+                allow_vertical_flip=self.atlas_settings.get(
+                    "allow_vertical_flip", False
+                ),
+                algorithm_hint=self.atlas_settings.get("preferred_algorithm"),
+                heuristic_hint=self.atlas_settings.get("heuristic_hint"),
+                optimization_mode_index=self.atlas_settings.get(
+                    "optimization_mode_index", 0
+                ),
+                preferred_width=self.atlas_settings.get("preferred_width"),
+                preferred_height=self.atlas_settings.get("preferred_height"),
+                forced_width=self.atlas_settings.get("forced_width"),
+                forced_height=self.atlas_settings.get("forced_height"),
             )
 
             # Use animation groups if available, otherwise create default
@@ -55,8 +75,13 @@ class GeneratorWorker(QThread):
             else:
                 animation_groups = {"Animation_01": self.input_frames}
 
+            # Generate atlas with selected output format
             results = generator.generate_atlas(
-                animation_groups, self.output_path, settings, self.current_version
+                animation_groups,
+                self.output_path,
+                settings,
+                self.current_version,
+                output_format=self.output_format,
             )
 
             if results["success"]:
@@ -85,6 +110,10 @@ class GenerateTabWidget(QWidget):
         self.output_path = ""
         self.worker = None
         self.animation_groups = {}
+        self.atlas_settings = {}
+        self._initial_mode_index = 0
+        self._algorithm_slider_initialized = False
+        self._mode_by_algorithm = {}
 
         self.APP_NAME = Utilities.APP_NAME
         self.ALL_FILES_FILTER = f"{self.tr('All files')} (*.*)"
@@ -112,6 +141,11 @@ class GenerateTabWidget(QWidget):
         self.bind_ui_elements()
         self.setup_custom_widgets()
         self.setup_connections()
+        self._configure_packer_combo()
+        self._configure_atlas_type_combo()
+
+        # Initialize slider/algorithm state before size wiring
+        self.on_algorithm_changed(self.packer_method_combobox.currentText())
 
         # Initialize atlas sizing state
         self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
@@ -196,6 +230,7 @@ class GenerateTabWidget(QWidget):
         # Output format
         self.image_format_combo = self.ui.image_format_combo
         self.atlas_type_combo = self.ui.atlas_type_combo
+        self.packer_method_combobox = self.ui.packer_method_combobox
 
         # Generate button
         self.generate_button = self.ui.generate_button
@@ -224,6 +259,9 @@ class GenerateTabWidget(QWidget):
         self.jpeg_quality_spin.setValue(95)
         self.jpeg_quality_spin.setEnabled(False)
 
+        # Create heuristic selection combo box and label
+        self._setup_heuristic_combo()
+
     def setup_connections(self):
         """Set up signal-slot connections."""
         # File management
@@ -247,7 +285,12 @@ class GenerateTabWidget(QWidget):
         self.power_of_2_check.toggled.connect(self.update_atlas_size_estimates)
         self.padding_spin.valueChanged.connect(self.update_atlas_size_estimates)
         self.image_format_combo.currentTextChanged.connect(self.on_format_change)
-        self.speed_optimization_slider.valueChanged.connect(self.update_speed_opt_label)
+        self.speed_optimization_slider.valueChanged.connect(
+            self.on_speed_slider_changed
+        )
+        self.packer_method_combobox.currentTextChanged.connect(
+            self.on_algorithm_changed
+        )
 
         # Generation
         self.generate_button.clicked.connect(self.generate_atlas)
@@ -527,67 +570,324 @@ class GenerateTabWidget(QWidget):
                 self.tr("Error importing atlas: {0}").format(str(e)),
             )
 
-    def update_speed_opt_label(self, value):
-        """Update the speed optimization label based on slider value."""
-        labels = {
-            0: self.tr("Level: 0 (Ultra-Fast, Minimal Packing)"),
-            1: self.tr("Level: 1 (Ultra-Fast, Tight Packing)"),
-            2: self.tr("Level: 2 (Ultra-Fast, Reduced Padding)"),
-            3: self.tr("Level: 3 (Fast, No Rotation)"),
-            4: self.tr("Level: 4 (Fast, Basic Packing)"),
-            5: self.tr("Level: 5 (Fast, Standard Packing)"),
-            6: self.tr("Level: 6 (Balanced, Some Rotation)"),
-            7: self.tr("Level: 7 (Balanced, Full Rotation)"),
-            8: self.tr("Level: 8 (Optimized, Advanced)"),
-            9: self.tr("Level: 9 (Optimized, Maximum)"),
-            10: self.tr("Level: 10 (Ultra-Optimized, Slowest)"),
+    def _configure_packer_combo(self):
+        """Populate the packer combo box with supported algorithms."""
+        algorithm_options = [
+            (self.tr("Growing (Auto Expand)"), "growing"),
+            (self.tr("Grid (Legacy Fill)"), "grid"),
+            (self.tr("Ordered Rows"), "ordered"),
+            (self.tr("MaxRects (Tightest)"), "maxrects"),
+            (self.tr("Guillotine"), "guillotine"),
+            (self.tr("Shelf (FFDH)"), "shelf"),
+            (self.tr("Skyline"), "skyline"),
+            (self.tr("Hybrid Adaptive (Experimental)"), "hybrid"),
+        ]
+
+        self.packer_method_combobox.blockSignals(True)
+        self.packer_method_combobox.clear()
+        for label, key in algorithm_options:
+            self.packer_method_combobox.addItem(label, key)
+        self.packer_method_combobox.setCurrentIndex(0)
+        self.packer_method_combobox.blockSignals(False)
+
+    def _setup_heuristic_combo(self):
+        """Create and insert the heuristic combo box after packer method combo."""
+        # Create label and combo box for heuristic selection
+        self.heuristic_label = QLabel(self.tr("Heuristic"))
+        self.heuristic_combobox = QComboBox()
+        self.heuristic_combobox.setMinimumWidth(140)
+
+        # Find the packer_method_combobox's parent layout (should be a grid layout)
+        packer_combo = self.packer_method_combobox
+        parent_widget = packer_combo.parent()
+        inserted = False
+        if parent_widget and parent_widget.layout():
+            layout = parent_widget.layout()
+            # Try to find position of packer combo in grid layout
+            from PySide6.QtWidgets import QGridLayout
+
+            if isinstance(layout, QGridLayout):
+                # Find where the packer combo is
+                for row in range(layout.rowCount()):
+                    for col in range(layout.columnCount()):
+                        item = layout.itemAtPosition(row, col)
+                        if item and item.widget() == packer_combo:
+                            # Insert heuristic widgets in row 7 (after image_format at row 6)
+                            layout.addWidget(self.heuristic_label, 7, 0)
+                            layout.addWidget(self.heuristic_combobox, 7, 2)
+                            inserted = True
+                            break
+                    if inserted:
+                        break
+
+        if not inserted:
+            # Fallback: just hide if we can't find the layout
+            self.heuristic_label.setVisible(False)
+            self.heuristic_combobox.setVisible(False)
+
+    def _get_heuristic_options(self, algorithm_key: str):
+        """Return (label, key) tuples for the given algorithm's heuristics."""
+        if algorithm_key == "maxrects":
+            return [
+                (self.tr("Best Short Side Fit (BSSF)"), "bssf"),
+                (self.tr("Best Long Side Fit (BLSF)"), "blsf"),
+                (self.tr("Best Area Fit (BAF)"), "baf"),
+                (self.tr("Bottom-Left (BL)"), "bl"),
+                (self.tr("Contact Point (CP)"), "cp"),
+            ]
+        elif algorithm_key == "guillotine":
+            return [
+                (self.tr("Best Short Side Fit (BSSF)"), "bssf"),
+                (self.tr("Best Long Side Fit (BLSF)"), "blsf"),
+                (self.tr("Best Area Fit (BAF)"), "baf"),
+                (self.tr("Worst Area Fit (WAF)"), "waf"),
+            ]
+        elif algorithm_key == "shelf":
+            return [
+                (self.tr("Next Fit"), "next_fit"),
+                (self.tr("First Fit"), "first_fit"),
+                (self.tr("Best Width Fit"), "best_width"),
+                (self.tr("Best Height Fit"), "best_height"),
+                (self.tr("Worst Width Fit"), "worst_width"),
+            ]
+        elif algorithm_key == "skyline":
+            return [
+                (self.tr("Bottom-Left"), "bottom_left"),
+                (self.tr("Min Waste"), "min_waste"),
+                (self.tr("Best Fit"), "best_fit"),
+            ]
+        else:
+            # Algorithms without heuristics
+            return []
+
+    def _update_heuristic_combo(self, algorithm_key: str):
+        """Update the heuristic combo box based on selected algorithm."""
+        options = self._get_heuristic_options(algorithm_key)
+
+        self.heuristic_combobox.blockSignals(True)
+        self.heuristic_combobox.clear()
+
+        if options:
+            for label, key in options:
+                self.heuristic_combobox.addItem(label, key)
+            self.heuristic_combobox.setCurrentIndex(0)
+            self.heuristic_combobox.setEnabled(True)
+            self.heuristic_label.setEnabled(True)
+            self.heuristic_combobox.setVisible(True)
+            self.heuristic_label.setVisible(True)
+        else:
+            self.heuristic_combobox.addItem(self.tr("N/A"), "")
+            self.heuristic_combobox.setEnabled(False)
+            self.heuristic_label.setEnabled(False)
+            # Keep visible but disabled for consistency
+            self.heuristic_combobox.setVisible(True)
+            self.heuristic_label.setVisible(True)
+
+        self.heuristic_combobox.blockSignals(False)
+
+    def _configure_atlas_type_combo(self):
+        """Populate the atlas type combo box with available export formats."""
+        # Define format options with display names and internal keys
+        # Format: (Display Name, format_key, file_extension)
+        format_options = [
+            (self.tr("Sparrow/Starling XML"), "starling-xml", ".xml"),
+            (self.tr("JSON Hash"), "json-hash", ".json"),
+            (self.tr("JSON Array"), "json-array", ".json"),
+            (self.tr("TexturePacker XML"), "texture-packer-xml", ".xml"),
+            (self.tr("Spine Atlas"), "spine", ".atlas"),
+            (self.tr("Phaser 3 JSON"), "phaser3", ".json"),
+            (self.tr("CSS Spritesheet"), "css", ".css"),
+            (self.tr("Plain Text"), "txt", ".txt"),
+            (self.tr("Plist (Cocos2d)"), "plist", ".plist"),
+            (self.tr("UIKit Plist"), "uikit-plist", ".plist"),
+            (self.tr("Godot Atlas"), "godot", ".tpsheet"),
+            (self.tr("Egret2D JSON"), "egret2d", ".json"),
+            (self.tr("Paper2D (Unreal)"), "paper2d", ".paper2dsprites"),
+            (self.tr("Unity TexturePacker"), "unity", ".tpsheet"),
+        ]
+
+        self.atlas_type_combo.blockSignals(True)
+        self.atlas_type_combo.clear()
+        for display_name, format_key, extension in format_options:
+            # Store both format_key and extension as tuple in userData
+            self.atlas_type_combo.addItem(display_name, (format_key, extension))
+        self.atlas_type_combo.setCurrentIndex(0)  # Default to Sparrow
+        self.atlas_type_combo.blockSignals(False)
+
+    def _get_selected_export_format(self):
+        """Get the currently selected export format key and extension.
+
+        Returns:
+            tuple: (format_key, extension) for the selected format.
+        """
+        data = self.atlas_type_combo.currentData()
+        if data:
+            return data
+        # Fallback to Sparrow if no data
+        return ("starling-xml", ".xml")
+
+    def _current_algorithm_key(self):
+        data = self.packer_method_combobox.currentData()
+        if data:
+            return data
+        text = self.packer_method_combobox.currentText().lower()
+        if "grow" in text:
+            return "growing"
+        if "order" in text:
+            return "ordered"
+        if "max" in text:
+            return "maxrects"
+        if "hybrid" in text or "advanced" in text:
+            return "hybrid"
+        if "grid" in text:
+            return "grid"
+        if "guillotine" in text:
+            return "guillotine"
+        if "shelf" in text or "ffdh" in text:
+            return "shelf"
+        if "skyline" in text:
+            return "skyline"
+        return "growing"
+
+    def _algorithm_level_specs(self):
+        return {
+            "grid": {
+                "steps": [self.tr("Grid Fill")],
+                "allow_rotation": [False],
+                "allow_flip": [False],
+            },
+            "growing": {
+                "steps": [
+                    self.tr("Fast Fill"),
+                    self.tr("Balanced Height"),
+                    self.tr("Dense Packing"),
+                ],
+                "allow_rotation": [False, False, True],
+                "allow_flip": [False, False, False],
+            },
+            "ordered": {
+                "steps": [
+                    self.tr("Preserve Rows"),
+                    self.tr("Row Optimize"),
+                ],
+                "allow_rotation": [False, False],
+                "allow_flip": [False, False],
+            },
+            "maxrects": {
+                "steps": [
+                    self.tr("Basic Fit"),
+                    self.tr("Allow Rotation"),
+                    self.tr("Tight Fit"),
+                    self.tr("Aggressive"),
+                ],
+                "allow_rotation": [False, True, True, True],
+                "allow_flip": [False, False, False, True],
+            },
+            "guillotine": {
+                "steps": [
+                    self.tr("Best Area Fit"),
+                    self.tr("Allow Rotation"),
+                    self.tr("Tight Packing"),
+                ],
+                "allow_rotation": [False, True, True],
+                "allow_flip": [False, False, False],
+            },
+            "shelf": {
+                "steps": [
+                    self.tr("Height Fit"),
+                    self.tr("Allow Rotation"),
+                ],
+                "allow_rotation": [False, True],
+                "allow_flip": [False, False],
+            },
+            "skyline": {
+                "steps": [
+                    self.tr("Min Waste"),
+                    self.tr("Allow Rotation"),
+                    self.tr("Best Fit"),
+                ],
+                "allow_rotation": [False, True, True],
+                "allow_flip": [False, False, False],
+            },
+            "hybrid": {
+                "steps": [
+                    self.tr("Analyzer"),
+                    self.tr("Adaptive"),
+                    self.tr("Experimental"),
+                ],
+                "allow_rotation": [False, True, True],
+                "allow_flip": [False, True, True],
+            },
         }
+
+    def on_algorithm_changed(self, _text):
+        key = self._current_algorithm_key()
+
+        # Update heuristic combo box
+        self._update_heuristic_combo(key)
+
+        # Update speed optimization slider
+        specs = self._algorithm_level_specs().get(key)
+        if not specs:
+            return
+        max_value = len(specs["steps"]) - 1
+        if key in self._mode_by_algorithm:
+            cached_value = self._mode_by_algorithm[key]
+        else:
+            cached_value = self.speed_optimization_slider.value()
+        cached_value = max(0, min(cached_value, max_value))
+
+        self.speed_optimization_slider.blockSignals(True)
+        self.speed_optimization_slider.setMaximum(max_value)
+        if self.speed_optimization_slider.value() != cached_value:
+            self.speed_optimization_slider.setValue(cached_value)
+        self.speed_optimization_slider.blockSignals(False)
+
+        self._mode_by_algorithm[key] = cached_value
+        self.update_speed_opt_label(cached_value)
+
+        if not self._algorithm_slider_initialized:
+            self._initial_mode_index = cached_value
+            self._algorithm_slider_initialized = True
+
+    def on_speed_slider_changed(self, value):
+        key = self._current_algorithm_key()
+        self._mode_by_algorithm[key] = value
+        self.update_speed_opt_label(value)
+
+    def update_speed_opt_label(self, value):
+        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
+        if not specs:
+            self.speed_optimization_value_label.setText(
+                self.tr("Level: {0}").format(value)
+            )
+            return
+        steps = specs["steps"]
+        value = max(0, min(value, len(steps) - 1))
+        description = steps[value]
         self.speed_optimization_value_label.setText(
-            labels.get(value, self.tr("Level: {0}").format(value))
+            f"{self.tr('Mode')} {value + 1}/{len(steps)} - {description}"
         )
 
     def get_optimization_settings(self, slider_value):
         """Convert slider value to optimization settings."""
-        if slider_value <= 2:
-            # Ultra-fast mode - absolutely minimal optimization
-            return {
-                "use_numpy": False,
-                "use_advanced_numpy": False,
-                "orientation_optimization": False,
-                "packing_strategy": "ultra_simple",
-                "tight_packing": True,
-                "use_multithreading": True,
-            }
-        elif slider_value <= 5:
-            # Fast mode - minimal optimization
-            return {
-                "use_numpy": False,
-                "use_advanced_numpy": False,
-                "orientation_optimization": False,
-                "packing_strategy": "simple",
-                "tight_packing": True,
-                "use_multithreading": True,
-            }
-        elif slider_value <= 7:
-            # Balanced mode - moderate optimization
-            return {
-                "use_numpy": True,
-                "use_advanced_numpy": False,
-                "orientation_optimization": True,
-                "packing_strategy": "balanced",
-                "tight_packing": False,
-                "use_multithreading": True,
-            }
-        else:
-            # Optimized mode - full optimization
-            return {
-                "use_numpy": True,
-                "use_advanced_numpy": True,
-                "orientation_optimization": True,
-                "packing_strategy": "advanced",
-                "tight_packing": False,
-                "use_multithreading": True,
-            }
+        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
+        if not specs:
+            return {}
+        index = max(0, min(slider_value, len(specs["steps"]) - 1))
+        return {
+            "allow_rotation": specs["allow_rotation"][index],
+            "allow_flip": specs["allow_flip"][index],
+        }
+
+    def _determine_algorithm_hint(self):
+        return self._current_algorithm_key()
+
+    def _get_selected_heuristic(self):
+        """Get the currently selected heuristic key from the combo box."""
+        if hasattr(self, "heuristic_combobox") and self.heuristic_combobox.isEnabled():
+            return self.heuristic_combobox.currentData()
+        return None
 
     def add_frames_to_default_animation(self, file_paths):
         """Add frame files to a default animation group."""
@@ -707,6 +1007,10 @@ class GenerateTabWidget(QWidget):
             # User cancelled the save dialog
             return
 
+        selected_path = Path(file_path)
+        if selected_path.suffix:
+            file_path = str(selected_path.with_suffix(""))
+
         self.output_path = file_path
 
         # Get all animations from the tree
@@ -723,6 +1027,13 @@ class GenerateTabWidget(QWidget):
 
         # Prepare settings for the new generator
         method = self.atlas_size_method_combobox.currentText()
+        algorithm_hint = self._determine_algorithm_hint()
+        heuristic_hint = self._get_selected_heuristic()
+        level_settings = self.get_optimization_settings(
+            self.speed_optimization_slider.value()
+        )
+        allow_rotation = level_settings.get("allow_rotation", False)
+        allow_vertical_flip = level_settings.get("allow_flip", False)
 
         if method == "Automatic":
             # For automatic mode, calculate optimal sizes
@@ -737,10 +1048,14 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "automatic",
                 "preferred_width": width_est,
                 "preferred_height": height_est,
+                "preferred_algorithm": algorithm_hint,
+                "heuristic_hint": heuristic_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "MinMax":
             atlas_settings = {
@@ -749,8 +1064,12 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "minmax",
+                "preferred_algorithm": algorithm_hint,
+                "heuristic_hint": heuristic_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "Manual":
             atlas_settings = {
@@ -763,10 +1082,14 @@ class GenerateTabWidget(QWidget):
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "optimization_level": self.speed_optimization_slider.value(),
-                "allow_rotation": self.speed_optimization_slider.value() > 5,
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "manual",
                 "forced_width": self.atlas_size_spinbox_1.value(),
                 "forced_height": self.atlas_size_spinbox_2.value(),
+                "preferred_algorithm": algorithm_hint,
+                "heuristic_hint": heuristic_hint,
+                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
 
             # Show warning for manual mode
@@ -810,6 +1133,9 @@ class GenerateTabWidget(QWidget):
         if hasattr(self.main_app, "current_version"):
             current_version = self.main_app.current_version
 
+        # Get selected output format
+        format_key, format_ext = self._get_selected_export_format()
+
         # Start generation in worker thread
         self.worker = GeneratorWorker(
             all_input_frames, self.output_path, atlas_settings, current_version
@@ -817,6 +1143,7 @@ class GenerateTabWidget(QWidget):
         self.worker.animation_groups = (
             animation_groups  # Pass animation groups to worker
         )
+        self.worker.output_format = format_key  # Set the output format
         self.worker.progress_updated.connect(self.on_progress_updated)
         self.worker.generation_completed.connect(self.on_generation_completed)
         self.worker.generation_failed.connect(self.on_generation_failed)
