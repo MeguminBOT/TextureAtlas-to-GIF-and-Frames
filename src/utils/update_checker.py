@@ -1,3 +1,10 @@
+"""GitHub release update checking and user-facing update dialogs.
+
+Provides background version checking against GitHub tags, modal dialogs
+for presenting changelog information, and helpers to launch the external
+updater process.
+"""
+
 from itertools import zip_longest
 from typing import Any, Dict, List, Optional
 
@@ -12,7 +19,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal, QObject
 
 from version import (
     APP_VERSION,
@@ -20,6 +27,63 @@ from version import (
     GITHUB_TAGS_URL,
     version_to_tuple,
 )
+
+
+class UpdateCheckWorker(QThread):
+    """Background thread that queries GitHub for available updates.
+
+    Emits ``finished`` with version metadata when complete, or ``error``
+    if a network or parsing failure occurs.
+
+    Attributes:
+        finished: Signal(update_available, latest_version, metadata).
+        error: Signal(error_message).
+    """
+
+    finished = Signal(bool, str, object)
+    error = Signal(str)
+
+    def __init__(self, checker: "UpdateChecker", parent: QObject = None):
+        """Create the worker bound to an UpdateChecker instance.
+
+        Args:
+            checker: Parent checker whose fetch methods are called.
+            parent: Optional Qt parent for proper lifecycle management.
+        """
+
+        super().__init__(parent)
+        self.checker = checker
+
+    def run(self):
+        try:
+            tags = self.checker._fetch_tags()
+            selected_tag = self.checker._find_newer_tag(tags)
+            if not selected_tag:
+                self.finished.emit(False, self.checker.current_version, None)
+                return
+
+            tag_name = selected_tag["name"]
+            latest_version = tag_name.lstrip("vV")
+            release_data = self.checker._fetch_release_for_tag(tag_name)
+            changelog = (
+                release_data.get("body", "No changelog available.")
+                if release_data
+                else "No changelog available."
+            )
+
+            metadata = {
+                "tag_name": tag_name,
+                "zipball_url": (release_data or selected_tag).get("zipball_url"),
+                "tarball_url": (release_data or selected_tag).get("tarball_url"),
+                "changelog": changelog,
+            }
+
+            self.finished.emit(True, latest_version, metadata)
+
+        except requests.RequestException as e:
+            self.error.emit(f"Network error: {str(e)}")
+        except Exception as e:
+            self.error.emit(f"Error checking for updates: {str(e)}")
 
 
 class UpdateDialog(QDialog):
@@ -177,30 +241,36 @@ class UpdateChecker:
 
     def __init__(self, current_version: Optional[str] = None):
         self.current_version = current_version or APP_VERSION
+        self._worker: Optional[UpdateCheckWorker] = None
+        self._pending_callback = None
 
     def check_for_updates(
         self, parent_window=None
     ) -> tuple[bool, str | None, str | None]:
         """Check GitHub for a newer release and prompt the user.
 
-        Fetches the latest release from the GitHub API, compares versions,
-        and displays an update dialog if a newer version is available.
+        This method runs synchronously for backward compatibility.
+        For non-blocking checks, use check_for_updates_async().
 
         Args:
             parent_window: Parent Qt widget for dialogs.
 
         Returns:
-            tuple: (bool, str, dict | None)
+            tuple: (update_available, latest_version, metadata | None)
         """
-
         try:
+            print(f"Checking for updates... Current version: {self.current_version}")
+
             tags = self._fetch_tags()
             selected_tag = self._find_newer_tag(tags)
             if not selected_tag:
+                print("You are using the latest version.")
                 return False, self.current_version, None
 
             tag_name = selected_tag["name"]
             latest_version = tag_name.lstrip("vV")
+            print(f"Update available: {latest_version}")
+
             release_data = self._fetch_release_for_tag(tag_name)
             changelog = (
                 release_data.get("body", "No changelog available.")
@@ -231,6 +301,7 @@ class UpdateChecker:
             return False, latest_version, None
 
         except requests.RequestException as e:
+            print(f"Network error during update check: {e}")
             QMessageBox.critical(
                 parent_window,
                 "Update Check Failed",
@@ -238,6 +309,7 @@ class UpdateChecker:
             )
             return False, None, None
         except Exception as e:
+            print(f"Error during update check: {e}")
             QMessageBox.critical(
                 parent_window,
                 "Update Error",
@@ -245,8 +317,52 @@ class UpdateChecker:
             )
             return False, None, None
 
+    def check_for_updates_async(
+        self,
+        parent_window=None,
+        on_update_available=None,
+        on_no_update=None,
+        on_error=None,
+    ):
+        """Check for updates without blocking the UI.
+
+        Args:
+            parent_window: Parent Qt widget for dialogs.
+            on_update_available: Callback(latest_version, metadata) when update found.
+            on_no_update: Callback() when already on latest version.
+            on_error: Callback(error_message) on failure.
+        """
+        print(f"Checking for updates asynchronously... Current: {self.current_version}")
+
+        self._worker = UpdateCheckWorker(self, parent_window)
+
+        def handle_finished(update_available, latest_version, metadata):
+            if update_available and metadata:
+                changelog = metadata.get("changelog", "No changelog available.")
+                update_type = self.determine_update_type(self.current_version, latest_version)
+
+                dialog = UpdateDialog(
+                    parent_window, self.current_version, latest_version, changelog, update_type
+                )
+                if dialog.show_dialog():
+                    if on_update_available:
+                        on_update_available(latest_version, metadata)
+            else:
+                if on_no_update:
+                    on_no_update()
+
+        def handle_error(error_msg):
+            print(f"Update check error: {error_msg}")
+            if on_error:
+                on_error(error_msg)
+
+        self._worker.finished.connect(handle_finished)
+        self._worker.error.connect(handle_error)
+        self._worker.start()
+
     def _is_newer_version(self, latest: str, current: str) -> bool:
-        """Compare version strings to determine if latest is newer than current."""
+        """Return True when ``latest`` represents a higher version than ``current``."""
+
         return self._compare_versions(version_to_tuple(latest), version_to_tuple(current)) > 0
 
     def determine_update_type(self, current_version: str, latest_version: str) -> str:
@@ -281,25 +397,41 @@ class UpdateChecker:
             return "patch"
 
     def download_and_install_update(self, update_payload=None, latest_version=None, parent_window=None):
-        """Launch the standalone updater process and report success."""
+        """Launch the standalone updater process and report success.
+
+        This spawns an external Python process running update_installer.py,
+        then signals the main app should quit so the updater can replace files.
+        """
         try:
             from utils.update_installer import UpdateUtilities, launch_external_updater
 
             exe_mode = UpdateUtilities.is_compiled()
-            launch_external_updater(
+            print(f"Launching external updater (exe_mode={exe_mode})...")
+
+            success = launch_external_updater(
                 release_metadata=update_payload,
                 latest_version=latest_version,
                 exe_mode=exe_mode,
+                wait_seconds=3,
             )
-            return True
 
-        except ImportError:
+            if success:
+                print("External updater launched successfully")
+                return True
+            else:
+                raise RuntimeError("launch_external_updater returned False")
+
+        except ImportError as e:
+            print(f"Import error: {e}")
             QMessageBox.critical(
                 parent_window,
                 "Update Error",
                 "Update installer not available. Please download the update manually.",
             )
         except Exception as e:
+            print(f"Failed to launch updater: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(
                 parent_window, "Update Error", f"Failed to start updater:\n{str(e)}"
             )
@@ -307,11 +439,14 @@ class UpdateChecker:
         return False
 
     def _fetch_tags(self) -> List[Dict[str, Any]]:
+        """Retrieve the list of repository tags from GitHub."""
+
         response = requests.get(GITHUB_TAGS_URL, params={"per_page": 100}, timeout=15)
         response.raise_for_status()
         return response.json()
 
     def _find_newer_tag(self, tags: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Return the newest tag that is newer than current_version, or None."""
         try:
             current_tuple = version_to_tuple(self.current_version)
         except ValueError:
@@ -334,6 +469,8 @@ class UpdateChecker:
         return newest_tag
 
     def _fetch_release_for_tag(self, tag_name: str) -> Optional[Dict[str, Any]]:
+        """Fetch release metadata for a specific tag, or None if not found."""
+
         response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=15)
         if response.status_code == 404:
             return None
@@ -342,6 +479,12 @@ class UpdateChecker:
 
     @staticmethod
     def _compare_versions(latest_parts: tuple[int, ...], current_parts: tuple[int, ...]) -> int:
+        """Compare two version tuples element-wise.
+
+        Returns:
+            1 if latest > current, -1 if latest < current, 0 if equal.
+        """
+
         for latest_val, current_val in zip_longest(latest_parts, current_parts, fillvalue=0):
             if latest_val > current_val:
                 return 1

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Download, apply, and verify application updates.
+
+This module provides both a standalone entry point (``python update_installer.py``)
+and library utilities for performing in-app or external update workflows.
+Supports source-mode updates (zip download) and executable-mode updates
+(7z archive with pre-built binaries).
+"""
 
 import os
 import sys
@@ -46,7 +53,7 @@ try:
         QPushButton,
         QProgressBar,
     )
-    from PySide6.QtCore import Qt, QTimer, QThread
+    from PySide6.QtCore import Qt, Signal
 
     QT_AVAILABLE = True
 except ImportError:
@@ -55,7 +62,11 @@ except ImportError:
 
 if QT_AVAILABLE:
     class QtUpdateDialog(QDialog):
-        """Qt-based dialog for displaying update progress inside the app."""
+        """Qt dialog showing update progress with a log view and progress bar.
+
+        Attributes:
+            LOG_COLORS: Mapping of log level names to CSS colors.
+        """
 
         LOG_COLORS = {
             "info": "#00ff9d",
@@ -64,7 +75,13 @@ if QT_AVAILABLE:
             "success": "#4caf50",
         }
 
+        _log_signal = Signal(str, str)
+        _progress_signal = Signal(int, str)
+        _enable_restart_signal = Signal(object)
+        _allow_close_signal = Signal()
+
         def __init__(self, parent=None):
+            """Initialize the dialog with log view, progress bar, and buttons."""
             super().__init__(parent)
             self.setWindowTitle("TextureAtlas Toolbox Updater")
             self.setModal(True)
@@ -110,13 +127,15 @@ if QT_AVAILABLE:
 
             self.restart_callback = None
 
-        def _run_on_ui(self, func, *args, **kwargs):
-            if QThread.currentThread() == self.thread():
-                func(*args, **kwargs)
-            else:
-                QTimer.singleShot(0, lambda: func(*args, **kwargs))
+            # Connect signals for thread-safe UI updates
+            self._log_signal.connect(self._do_log)
+            self._progress_signal.connect(self._do_progress)
+            self._enable_restart_signal.connect(self._do_enable_restart)
+            self._allow_close_signal.connect(self._do_allow_close)
 
-        def log(self, message, level="info"):
+        def _do_log(self, message, level):
+            """Append a timestamped, colorized message to the log view."""
+
             color = self.LOG_COLORS.get(level, "#ffffff")
             timestamp = datetime.now().strftime("%H:%M:%S")
             safe_message = html.escape(message)
@@ -124,45 +143,124 @@ if QT_AVAILABLE:
                 f"<span style='color:#999999;'>[{timestamp}]</span> "
                 f"<span style='color:{color};'>{safe_message}</span>"
             )
+            self.log_view.append(formatted)
+            self.log_view.ensureCursorVisible()
 
-            def _append():
-                self.log_view.append(formatted)
-                self.log_view.ensureCursorVisible()
+        def _do_progress(self, value, status_text):
+            """Update the progress bar value and optional status label."""
 
-            self._run_on_ui(_append)
+            self.progress_bar.setValue(max(0, min(100, value)))
+            if status_text:
+                self.progress_label.setText(status_text)
+
+        def _do_enable_restart(self, callback):
+            """Store a restart callback and enable the restart button."""
+
+            self.restart_callback = callback
+            self.restart_button.setEnabled(True)
+
+        def _do_allow_close(self):
+            """Enable the close button so the user can dismiss the dialog."""
+
+            self.close_button.setEnabled(True)
+
+        def log(self, message, level="info"):
+            """Queue a log message for thread-safe display."""
+
+            self._log_signal.emit(message, level)
 
         def set_progress(self, value, status_text=""):
-            def _update():
-                self.progress_bar.setValue(max(0, min(100, value)))
-                if status_text:
-                    self.progress_label.setText(status_text)
+            """Queue a progress update for thread-safe display."""
 
-            self._run_on_ui(_update)
+            self._progress_signal.emit(value, status_text)
 
         def enable_restart(self, restart_callback):
-            def _enable():
-                self.restart_callback = restart_callback
-                self.restart_button.setEnabled(True)
+            """Queue enabling the restart button with the given callback."""
 
-            self._run_on_ui(_enable)
+            self._enable_restart_signal.emit(restart_callback)
 
         def allow_close(self):
-            self._run_on_ui(self.close_button.setEnabled, True)
+            """Queue enabling the close button."""
+
+            self._allow_close_signal.emit()
 
         def _handle_restart(self):
+            """Invoke the stored restart callback when the button is clicked."""
+
             if callable(self.restart_callback):
                 self.restart_callback()
-
-        def close(self):
-            self._run_on_ui(super().close)
 
 
 class UpdateUtilities:
     """Helper methods shared by the updater for filesystem and packaging tasks."""
 
     @staticmethod
+    def apply_pending_updates(search_dir=None):
+        """Finalize deferred file replacements left from a prior update.
+
+        Scans ``search_dir`` (defaulting to the src directory) for files
+        ending in ``.new`` and moves them over their original counterparts.
+        Call this at application startup.
+
+        Args:
+            search_dir: Root path to scan. Defaults to this file's parent.
+
+        Returns:
+            List of tuples (new_file, target_file, success) for each file.
+        """
+        if search_dir is None:
+            # Default to the src directory
+            search_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        results = []
+        
+        # Find all .new files recursively
+        for root, _dirs, files in os.walk(search_dir):
+            for filename in files:
+                if filename.endswith('.new'):
+                    new_file = os.path.join(root, filename)
+                    # Target is the same path without .new extension
+                    target_file = new_file[:-4]  # Remove '.new'
+                    
+                    try:
+                        # Try to apply the pending update
+                        if os.path.exists(target_file):
+                            # Create backup
+                            backup_file = target_file + '.bak'
+                            try:
+                                if os.path.exists(backup_file):
+                                    os.remove(backup_file)
+                                os.rename(target_file, backup_file)
+                            except Exception:
+                                # If we can't backup, try direct removal
+                                os.remove(target_file)
+                        
+                        # Rename .new to target
+                        os.rename(new_file, target_file)
+                        
+                        # Clean up backup if successful
+                        backup_file = target_file + '.bak'
+                        if os.path.exists(backup_file):
+                            try:
+                                os.remove(backup_file)
+                            except Exception:
+                                pass  # Non-critical
+                        
+                        results.append((new_file, target_file, True))
+                    except Exception as e:
+                        print(f"Failed to apply pending update {new_file}: {e}")
+                        results.append((new_file, target_file, False))
+        
+        return results
+
+    @staticmethod
     def find_root(target_name):
-        """Walk upward from this file until `target_name` is found and return that directory."""
+        """Walk upward from this file until ``target_name`` exists.
+
+        Returns:
+            Directory containing ``target_name``, or None if not found.
+        """
+
         root_path = os.path.abspath(__file__)
         while True:
             root_path = os.path.dirname(root_path)
@@ -170,13 +268,14 @@ class UpdateUtilities:
             if os.path.exists(target_path):
                 return root_path
             new_root = os.path.dirname(root_path)
-            if new_root == root_path:  # Reached filesystem root
+            if new_root == root_path:
                 break
         return None
 
     @staticmethod
     def is_file_locked(file_path):
-        """Return True when the given file cannot be opened for read/write access."""
+        """Return True if the file cannot be opened for read/write access."""
+
         if not os.path.exists(file_path):
             return False
         try:
@@ -188,7 +287,17 @@ class UpdateUtilities:
 
     @staticmethod
     def wait_for_file_unlock(file_path, max_attempts=10, delay=1.0):
-        """Poll a file until it becomes unlocked or the attempt limit is reached."""
+        """Block until the file is unlocked or attempts are exhausted.
+
+        Args:
+            file_path: Absolute path to check.
+            max_attempts: Maximum number of polling attempts.
+            delay: Seconds to sleep between checks.
+
+        Returns:
+            True if the file became accessible, False otherwise.
+        """
+
         for attempt in range(max_attempts):
             if not UpdateUtilities.is_file_locked(file_path):
                 return True
@@ -197,7 +306,12 @@ class UpdateUtilities:
 
     @staticmethod
     def extract_7z(archive_path, extract_dir):
-        """Extract a .7z archive using py7zr if available, otherwise shell out to 7z."""
+        """Extract a 7z archive using py7zr or the system ``7z`` command.
+
+        Returns:
+            True on success, False if extraction failed.
+        """
+
         if PY7ZR_AVAILABLE:
             with py7zr.SevenZipFile(archive_path, mode="r") as archive:
                 archive.extractall(path=extract_dir)
@@ -213,7 +327,8 @@ class UpdateUtilities:
 
     @staticmethod
     def is_compiled():
-        """Detect whether the updater is running as a Nuitka-compiled executable."""
+        """Return True if running inside a Nuitka-compiled executable."""
+
         if '__compiled__' in globals():
             return True
         else:
@@ -221,7 +336,8 @@ class UpdateUtilities:
 
     @staticmethod
     def find_exe_files(directory):
-        """Return the list of .exe filenames that live directly under `directory`."""
+        """List ``.exe`` filenames located directly under ``directory``."""
+
         exe_files = []
         for item in os.listdir(directory):
             item_path = os.path.join(directory, item)
@@ -231,7 +347,8 @@ class UpdateUtilities:
 
     @staticmethod
     def has_write_access(directory):
-        """Quickly test whether we can create files inside `directory`."""
+        """Return True if the current process can create files in ``directory``."""
+
         test_dir = directory
         if not os.path.isdir(test_dir):
             test_dir = os.path.dirname(test_dir)
@@ -250,7 +367,8 @@ class UpdateUtilities:
 
     @staticmethod
     def is_admin():
-        """Return True if the current process already has administrative/root privileges."""
+        """Return True if running with administrator or root privileges."""
+
         if os.name == 'nt':
             try:
                 return bool(ctypes.windll.shell32.IsUserAnAdmin())
@@ -262,7 +380,12 @@ class UpdateUtilities:
 
     @staticmethod
     def run_elevated(command):
-        """Execute `command` with Windows UAC elevation; returns True if the shell launch succeeds."""
+        """Request Windows UAC elevation and execute ``command``.
+
+        Returns:
+            True if the elevated shell launch was initiated.
+        """
+
         if os.name != 'nt':
             return False
         if not command:
@@ -277,7 +400,8 @@ class UpdateUtilities:
             return False
 
 def _write_metadata_file(metadata):
-    """Persist release metadata to a temporary JSON file for external launcher."""
+    """Write release metadata to a temp JSON file for the external updater."""
+
     temp_dir = Path(tempfile.mkdtemp(prefix="tatgf_update_"))
     metadata_path = temp_dir / "release_metadata.json"
     with metadata_path.open("w", encoding="utf-8") as handle:
@@ -291,11 +415,28 @@ def launch_external_updater(
     exe_mode=False,
     wait_seconds=3,
 ):
-    """Spawn a fresh Python process to run the updater with optional metadata."""
+    """Spawn a detached Python process to run the updater via ``Main.py --update``.
+
+    The new process can overwrite files (including Main.py itself) because the
+    original application will have exited.
+
+    Args:
+        release_metadata: Dict with tag_name, zipball_url, etc.
+        latest_version: Target version string.
+        exe_mode: True to update executable builds rather than source.
+        wait_seconds: Seconds to delay before the updater begins work.
+
+    Returns:
+        True if the process started successfully.
+    """
 
     script_path = Path(__file__).resolve()
     project_root = script_path.parents[2]
-    args = [sys.executable, str(script_path)]
+    
+    # Run Main.py with --update flag instead of update_installer.py directly
+    # This allows Main.py to update itself since the old process will be gone
+    main_py = project_root / "src" / "Main.py"
+    args = [sys.executable, str(main_py), "--update"]
 
     if wait_seconds is not None:
         args.extend(["--wait", str(wait_seconds)])
@@ -303,22 +444,51 @@ def launch_external_updater(
     if exe_mode:
         args.append("--exe-mode")
 
+    if latest_version:
+        args.extend(["--target-tag", latest_version])
+
+    # Write metadata for the new process to use
     if release_metadata:
         metadata_path = _write_metadata_file(release_metadata)
-        args.extend(["--metadata-file", str(metadata_path)])
+        # Store path in environment for the updater to find
+        os.environ["UPDATER_METADATA_FILE"] = str(metadata_path)
 
-    if latest_version:
-        args.extend(["--latest-version", latest_version])
+    print(f"Launching external updater: {' '.join(args)}")
+    print(f"Working directory: {project_root}")
 
-    subprocess.Popen(args, cwd=str(project_root))
-    return True
+    # Use CREATE_NEW_PROCESS_GROUP on Windows for proper detachment
+    kwargs = {"cwd": str(project_root)}
+    if os.name == "nt":
+        # CREATE_NEW_PROCESS_GROUP = 0x00000200
+        # DETACHED_PROCESS = 0x00000008
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+
+    try:
+        process = subprocess.Popen(args, **kwargs)
+        print(f"Updater process started with PID: {process.pid}")
+        return True
+    except Exception as e:
+        print(f"Failed to launch updater: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 class Updater:
-    """Download and apply updates, optionally reporting progress through the Qt UI."""
+    """Download and apply updates, reporting progress through an optional Qt UI.
+
+    Supports both source-mode (zipball) and executable-mode (7z) updates.
+    """
 
     def __init__(self, ui=None, exe_mode=False, target_tag=None, release_metadata=None):
-        """Initialize the updater and create a log file in the app directory when possible."""
+        """Create an Updater with optional Qt UI and target release info.
+
+        Args:
+            ui: QtUpdateDialog or similar object with log/set_progress methods.
+            exe_mode: True when updating a compiled executable distribution.
+            target_tag: Specific tag to update to, or None for latest.
+            release_metadata: Pre-fetched release info dict.
+        """
         self.ui = ui
         self.exe_mode = exe_mode
         self.log_file = None
@@ -327,7 +497,8 @@ class Updater:
         self._setup_log_file()
 
     def _setup_log_file(self):
-        """Create the `logs` directory if needed and configure a timestamped log file."""
+        """Create the ``logs`` directory and open a timestamped log file."""
+
         try:
             if self.exe_mode and UpdateUtilities.is_compiled():
                 app_dir = os.path.dirname(sys.executable)
@@ -342,7 +513,8 @@ class Updater:
             self.log_file = None
 
     def log(self, message, level="info"):
-        """Send a message to the UI or stdout and mirror it into the updater log."""
+        """Log a message to the UI (or stdout) and mirror it to the log file."""
+
         if self.ui:
             self.ui.log(message, level)
         else:
@@ -360,14 +532,16 @@ class Updater:
                     print(f"[WARNING] Could not write to log file: {e}")
 
     def set_progress(self, progress, message=""):
-        """Update the progress bar text/value or print a fallback message in console mode."""
+        """Update progress bar value, falling back to console output if no UI."""
+
         if self.ui:
             self.ui.set_progress(progress, message)
         else:
             print(f"Progress: {progress}% - {message}")
 
     def enable_restart(self, restart_func):
-        """Wire the restart callback into the UI or print manual instructions."""
+        """Provide a restart callback to the UI or print manual instructions."""
+
         if self.ui:
             self.ui.enable_restart(restart_func)
         else:
@@ -375,7 +549,25 @@ class Updater:
 
     @staticmethod
     def get_latest_release_info(tag_name=None, fallback_metadata=None):
-        """Fetch release metadata for a tag or fall back to the latest release."""
+        """Fetch release metadata from GitHub or use provided fallback.
+
+        When ``fallback_metadata`` already contains a zipball_url, no network
+        request is made.
+
+        Args:
+            tag_name: Specific tag to query, or None for latest release.
+            fallback_metadata: Pre-fetched metadata dict.
+
+        Returns:
+            Dict with tag_name, zipball_url, and other release fields.
+        """
+        # If we already have complete metadata with download URL, use it directly
+        if fallback_metadata and fallback_metadata.get("zipball_url"):
+            data = {"tag_name": tag_name or fallback_metadata.get("tag_name", "unknown")}
+            data.update(fallback_metadata)
+            return data
+
+        # Otherwise, try to fetch from GitHub
         if tag_name:
             response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=30)
             if response.status_code == 404 and fallback_metadata:
@@ -391,7 +583,11 @@ class Updater:
 
     @staticmethod
     def _detect_project_root(directory, exe_mode=False):
-        """Check whether `directory` looks like a valid project root for the active mode."""
+        """Return True if ``directory`` matches the expected project layout.
+
+        For executable mode, checks for assets, ImageMagick, and at least one
+        .exe file. For source mode, also requires src, LICENSE, README.md, etc.
+        """
         if exe_mode:
             required_folders = ["assets", "ImageMagick"]
             required_files = []
@@ -423,7 +619,11 @@ class Updater:
 
     @staticmethod
     def _find_github_zipball_root(extract_dir):
-        """Return the real project root inside a GitHub release/zipball extraction."""
+        """Locate the actual project root inside a GitHub zipball extraction.
+
+        Returns:
+            Path to the nested project directory, or None if not found.
+        """
         extracted_contents = os.listdir(extract_dir)
 
         if len(extracted_contents) == 1:
@@ -447,7 +647,17 @@ class Updater:
         return None
 
     def wait_for_main_app_closure(self, max_wait_seconds=30):
-        """Poll for locked files to ensure the app is closed before copying in updates."""
+        """Block until key application files are unlocked.
+
+        In executable mode, the wait time is extended to allow DLLs to be
+        released.
+
+        Args:
+            max_wait_seconds: Timeout before giving up.
+
+        Returns:
+            True if files became accessible, False on timeout.
+        """
         self.log("Waiting for main application to close...")
         self.set_progress(5, "Waiting for application closure...")
 
@@ -508,7 +718,8 @@ class Updater:
         return False
 
     def find_project_root(self):
-        """Locate the project root depending on whether we run from source or executable."""
+        """Determine the project root for source or executable mode."""
+
         if self.exe_mode:
             if UpdateUtilities.is_compiled():
                 return os.path.dirname(sys.executable)
@@ -519,7 +730,8 @@ class Updater:
             return UpdateUtilities.find_root("README.md")
 
     def create_updater_backup(self):
-        """Save a `.backup` copy of this updater script so it can be restored if needed."""
+        """Copy this script to a ``.backup`` file so it can be restored on failure."""
+
         try:
             current_script = os.path.abspath(__file__)
             backup_script = current_script + ".backup"
@@ -533,7 +745,8 @@ class Updater:
             return None
 
     def cleanup_updater_backup(self):
-        """Remove the backup updater file created earlier, ignoring errors."""
+        """Delete the ``.backup`` file if it exists."""
+
         try:
             current_script = os.path.abspath(__file__)
             backup_script = current_script + ".backup"
@@ -545,7 +758,7 @@ class Updater:
             self.log(f"Warning: Could not clean up updater backup: {e}", "warning")
 
     def update_source(self):
-        """Download the latest source zipball and merge it into the local checkout."""
+        """Download and merge the latest source zipball into the local checkout."""
         try:
             self.log("Starting standalone source code update...", "info")
             self.set_progress(10, "Finding project root...")
@@ -666,7 +879,9 @@ class Updater:
 
             self.set_progress(80, "Copying files...")
 
-            items_to_copy = [
+            # Dynamically discover what to copy from the source
+            # Core items that should always be copied if they exist
+            core_items = [
                 "assets",
                 "ImageMagick",
                 "src",
@@ -675,11 +890,38 @@ class Updater:
                 "README.md",
             ]
 
-            optional_items = [".gitignore", ".github", "docs", "setup"]
+            # Optional items that may or may not exist
+            optional_items = [".gitignore", ".github", "docs", "setup", "tests", "tools"]
+
+            # Items to skip (user/local data that shouldn't be overwritten)
+            skip_items = {"logs", "__pycache__", ".git", "config", "user_data", "cache", ".venv", "venv"}
+
+            # Build the list of items to copy based on what actually exists in source
+            items_to_copy = []
+
+            # Add core items that exist in source
+            for item in core_items:
+                if os.path.exists(os.path.join(source_project_root, item)):
+                    items_to_copy.append(item)
+                else:
+                    self.log(f"Core item '{item}' not found in source (may have been removed)", "warning")
+
+            # Add optional items that exist in source
             for item in optional_items:
                 if os.path.exists(os.path.join(source_project_root, item)):
                     items_to_copy.append(item)
                     self.log(f"Found optional item: {item}", "info")
+
+            # Also check for any other top-level items in source that we might have missed
+            for item in zipball_contents:
+                if item not in items_to_copy and item not in skip_items:
+                    src_path = os.path.join(source_project_root, item)
+                    # Only add files or directories that look like project files
+                    if os.path.isfile(src_path) or (os.path.isdir(src_path) and not item.startswith('.')):
+                        items_to_copy.append(item)
+                        self.log(f"Found additional item: {item}", "info")
+
+            self.log(f"Will update {len(items_to_copy)} items: {', '.join(items_to_copy)}", "info")
 
             for item in items_to_copy:
                 src_path = os.path.join(source_project_root, item)
@@ -736,7 +978,7 @@ class Updater:
                 self.ui.log(f"Standalone update failed: {str(e)}", "error")
 
     def update_exe(self):
-        """Download the latest packaged executable build and overwrite the installed files."""
+        """Download the latest 7z executable package and install it."""
         try:
             self.log("Starting executable update...", "info")
 
@@ -1002,7 +1244,22 @@ class Updater:
                 self.ui.log(f"Executable update failed: {str(e)}", "error")
 
     def _merge_directory(self, src_dir, dst_dir):
-        """Recursively copy a tree from `src_dir` into `dst_dir`, overwriting file contents."""
+        """Recursively copy files from ``src_dir`` to ``dst_dir``.
+
+        Overwrites existing files and removes obsolete files in the destination
+        that no longer exist in the source. User data directories such as logs
+        and config are preserved.
+        """
+        # Directories that should never be deleted (user data)
+        preserved_dirs = {'logs', '__pycache__', '.git', 'config', 'user_data', 'cache'}
+        # File extensions that should never be deleted (user data)
+        preserved_extensions = {'.log', '.cfg', '.ini', '.user', '.local'}
+
+        # First, copy all files from source to destination
+        files_copied = 0
+        files_failed = 0
+        important_files = []  # Track important files like Main.py
+        
         for root, dirs, files in os.walk(src_dir):
             rel_path = os.path.relpath(root, src_dir)
             if rel_path == ".":
@@ -1015,65 +1272,177 @@ class Updater:
             for file in files:
                 src_file = os.path.join(root, file)
                 dst_file = os.path.join(target_dir, file)
-                self._copy_file_with_retry(src_file, dst_file)
+                
+                # Track important files
+                if file.lower() in ('main.py', '__init__.py', 'version.py', 'update_installer.py', 'update_checker.py'):
+                    rel_file_path = os.path.join(rel_path, file) if rel_path != "." else file
+                    important_files.append(rel_file_path)
+                
+                try:
+                    success = self._copy_file_with_retry(src_file, dst_file)
+                    if success:
+                        files_copied += 1
+                    else:
+                        files_failed += 1
+                except Exception as e:
+                    self.log(f"ERROR copying {file}: {e}", "error")
+                    files_failed += 1
+
+        self.log(f"Copied {files_copied} files to {os.path.basename(dst_dir)}", "info")
+        if files_failed > 0:
+            self.log(f"Failed to copy {files_failed} files", "warning")
+        
+        # Log important files that were updated
+        if important_files:
+            self.log(f"Key files processed: {', '.join(important_files)}", "success")
+
+        # Then, remove files in destination that don't exist in source
+        # This cleans up old files that were removed in the new version
+        # For src/ directory, we always clean up obsolete files (except user config)
+        files_removed = 0
+        
+        # Files that should never be deleted (user data)
+        preserved_files = {'app_config.cfg'}
+        
+        for root, dirs, files in os.walk(dst_dir):
+            rel_path = os.path.relpath(root, dst_dir)
+
+            # Skip preserved directories
+            if any(preserved in rel_path.split(os.sep) for preserved in preserved_dirs):
+                continue
+
+            for file in files:
+                # Skip preserved file types
+                if any(file.lower().endswith(ext) for ext in preserved_extensions):
+                    continue
+                
+                # Skip specifically preserved files (like app_config.cfg)
+                if file.lower() in preserved_files:
+                    continue
+
+                dst_file = os.path.join(root, file)
+
+                # Determine the corresponding source path
+                if rel_path == ".":
+                    src_file = os.path.join(src_dir, file)
+                else:
+                    src_file = os.path.join(src_dir, rel_path, file)
+
+                # If file doesn't exist in source, it's obsolete - remove it
+                if not os.path.exists(src_file):
+                    try:
+                        os.remove(dst_file)
+                        files_removed += 1
+                        self.log(f"Removed obsolete file: {os.path.join(rel_path, file)}", "info")
+                    except Exception as e:
+                        self.log(f"Could not remove obsolete file {file}: {e}", "warning")
+
+        if files_removed > 0:
+            self.log(f"Cleaned up {files_removed} obsolete files", "info")
 
     def _copy_file_with_retry(self, src_file, dst_file, max_attempts=5):
-        """Copy a file with retry/backoff logic, handling locked DLLs when necessary."""
+        """Copy a file with retry/backoff logic for locked files.
+
+        Falls back to creating a ``.new`` placeholder when the original is
+        locked so the file can be applied on next startup.
+
+        Args:
+            src_file: Source path.
+            dst_file: Destination path.
+            max_attempts: Number of copy attempts before giving up.
+
+        Returns:
+            True on success.
+        """
+        filename = os.path.basename(dst_file)
+        file_ext = os.path.splitext(filename)[1].lower()
+
+        # Files that might be locked and need special handling
+        lockable_extensions = {'.dll', '.exe', '.py', '.pyd', '.so'}
+        is_lockable = file_ext in lockable_extensions
+
         for attempt in range(max_attempts):
             try:
                 os.makedirs(os.path.dirname(dst_file), exist_ok=True)
 
-                if dst_file.lower().endswith(".dll") and os.path.exists(dst_file):
-                    backup_dll = dst_file + ".old"
+                # For lockable files that exist, try backup/rename strategy first
+                if is_lockable and os.path.exists(dst_file):
+                    backup_name = dst_file + ".old"
                     try:
-                        if os.path.exists(backup_dll):
-                            os.remove(backup_dll)
-                        os.rename(dst_file, backup_dll)
-                        self.log(
-                            f"Backed up existing DLL: {os.path.basename(dst_file)}",
-                            "info",
-                        )
+                        if os.path.exists(backup_name):
+                            os.remove(backup_name)
+                        os.rename(dst_file, backup_name)
+                        self.log(f"Backed up existing file: {filename}", "info")
+                    except PermissionError:
+                        # File is locked, will try direct copy anyway
+                        self.log(f"Could not backup {filename} (file in use), attempting direct overwrite", "warning")
                     except Exception as e:
-                        self.log(
-                            f"Could not backup DLL {os.path.basename(dst_file)}: {e}",
-                            "warning",
-                        )
+                        self.log(f"Could not backup {filename}: {e}", "warning")
 
                 shutil.copy2(src_file, dst_file)
-                return
+                
+                # Clean up backup if copy succeeded
+                backup_name = dst_file + ".old"
+                if os.path.exists(backup_name):
+                    try:
+                        os.remove(backup_name)
+                    except Exception:
+                        pass  # Not critical if we can't remove the backup
+                
+                return True
 
             except (PermissionError, OSError) as e:
                 if attempt < max_attempts - 1:
                     self.log(
-                        f"Copy attempt {attempt + 1} failed for {os.path.basename(dst_file)}: {e}",
+                        f"Copy attempt {attempt + 1}/{max_attempts} failed for {filename}: {e}",
                         "warning",
                     )
-                    self.log("Waiting before retry...", "info")
+                    self.log("Waiting 3 seconds before retry...", "info")
                     time.sleep(3)
                 else:
-                    if dst_file.lower().endswith(".dll"):
+                    # Last attempt - try temp file method for lockable files
+                    if is_lockable:
                         try:
                             temp_name = dst_file + ".new"
+                            self.log(f"Trying temp file method for {filename}...", "info")
                             shutil.copy2(src_file, temp_name)
-                            if os.path.exists(dst_file):
-                                os.remove(dst_file)
+                            
+                            # Try to remove original and rename temp
+                            try:
+                                if os.path.exists(dst_file):
+                                    os.remove(dst_file)
+                            except PermissionError:
+                                # Can't remove original, but temp is ready
+                                # On next app start, the .new file will be there
+                                self.log(
+                                    f"Created {filename}.new - original file locked. "
+                                    "New version will be available after restart.",
+                                    "warning"
+                                )
+                                return True
+                            
                             os.rename(temp_name, dst_file)
                             self.log(
-                                f"Successfully updated DLL using temp file method: {os.path.basename(dst_file)}",
+                                f"Successfully updated {filename} using temp file method",
                                 "success",
                             )
-                            return
+                            return True
 
                         except Exception as temp_e:
                             self.log(
-                                f"Temp file method also failed for {os.path.basename(dst_file)}: {temp_e}",
+                                f"All methods failed for {filename}: {temp_e}",
                                 "error",
                             )
+                    
+                    self.log(f"Failed to copy {filename} after {max_attempts} attempts: {e}", "error")
                     raise e
+        
+        return False
 
     @staticmethod
     def _verify_download_size(file_path, expected_size, recorded_size, label):
-        """Ensure the downloaded file size matches GitHub's reported size when available."""
+        """Raise IOError if downloaded file size differs from expected."""
+
         if not expected_size:
             return
         actual_size = os.path.getsize(file_path)
@@ -1083,7 +1452,8 @@ class Updater:
             )
 
     def _ensure_write_permissions(self, target_dir):
-        """Request elevation when the updater lacks permission to modify `target_dir`."""
+        """Request UAC elevation when write access to ``target_dir`` is denied."""
+
         if not target_dir:
             return
         if UpdateUtilities.has_write_access(target_dir) or UpdateUtilities.is_admin():
@@ -1110,7 +1480,8 @@ class Updater:
         )
 
     def _build_elevation_command(self):
-        """Create the command used to relaunch the updater with admin rights."""
+        """Build the command list for relaunching the updater with admin rights."""
+
         cmd = [sys.executable]
         if not UpdateUtilities.is_compiled():
             cmd.append(os.path.abspath(__file__))
@@ -1127,10 +1498,11 @@ class Updater:
 
 
 class UpdateInstaller:
-    """Qt-integrated installer that reuses Updater logic within the main app."""
+    """High-level Qt-integrated installer reusing Updater logic."""
 
     def __init__(self, parent=None):
-        """Store the optional parent widget and ensure Qt is available."""
+        """Store an optional parent widget and verify Qt is available."""
+
         if not QT_AVAILABLE:
             raise ImportError("PySide6 is required for the integrated updater UI")
         self.parent = parent
@@ -1161,7 +1533,9 @@ class UpdateInstaller:
         dialog.log(f"Currently running version {APP_VERSION}", "info")
         if latest_version:
             dialog.log(f"Target version: {latest_version}", "info")
-        if not metadata.get("zipball_url"):
+        if metadata.get("zipball_url"):
+            dialog.log(f"Download URL available: {metadata['zipball_url'][:60]}...", "info")
+        else:
             dialog.log(
                 "No download URL provided; falling back to GitHub release discovery.",
                 "warning",
@@ -1169,11 +1543,16 @@ class UpdateInstaller:
 
         def _run_update():
             try:
+                print(f"[Worker Thread] Starting {mode_label} update...")
                 if exe_mode:
                     updater.update_exe()
                 else:
                     updater.update_source()
+                print("[Worker Thread] Update completed successfully")
             except Exception as err:
+                print(f"[Worker Thread] Error: {err}")
+                import traceback
+                traceback.print_exc()
                 dialog.log(f"Update process encountered an error: {err}", "error")
                 dialog.allow_close()
             else:
@@ -1181,7 +1560,9 @@ class UpdateInstaller:
 
         worker = threading.Thread(target=_run_update, daemon=True)
         worker.start()
+        print("[Main Thread] Worker thread started, entering dialog.exec()")
         dialog.exec()
+        print("[Main Thread] Dialog closed")
 
 
 def main():

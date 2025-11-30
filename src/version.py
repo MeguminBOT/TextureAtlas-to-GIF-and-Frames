@@ -1,4 +1,8 @@
-"""Centralized application metadata and helpers."""
+"""Centralized application version constants and helpers.
+
+Exports the current version string, GitHub API URLs, and a utility for
+parsing semantic version tags into comparable tuples.
+"""
 
 from __future__ import annotations
 
@@ -20,11 +24,19 @@ _SEMVER_PREFIX = re.compile(r"^\s*[vV]?\d")
 
 
 def version_to_tuple(version: str) -> tuple[int, ...]:
-    """Convert semantic versions with optional '-alpha'/'-beta' suffixes.
+    """Parse a semantic version string into a comparable tuple.
 
-    Only tags that begin with a numeric semantic prefix (optionally preceded by
-    'v' or 'V') are accepted. Non-semantic tags raise ``ValueError`` so callers
-    can ignore them.
+    Supports optional ``v``/``V`` prefix and ``-alpha``/``-beta`` suffixes.
+    Non-semantic tags raise ``ValueError``.
+
+    Args:
+        version: Version string like ``v1.2.3`` or ``1.2.0-beta``.
+
+    Returns:
+        Tuple of version segments with a trailing suffix rank.
+
+    Raises:
+        ValueError: If ``version`` is not a valid semantic version.
     """
 
     if not _SEMVER_PREFIX.match(version or ""):
