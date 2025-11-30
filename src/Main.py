@@ -5,7 +5,6 @@ import sys
 import os
 import shutil
 import tempfile
-import webbrowser
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +14,7 @@ from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
+from version import APP_VERSION
 
 DependenciesChecker.check_and_configure_imagemagick()  # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
 from utils.app_config import AppConfig  # noqa: E402
@@ -32,9 +32,9 @@ from gui.extractor.processing_window import ProcessingWindow  # noqa: E402
 from gui.extractor.compression_settings_window import (  # noqa: E402
     CompressionSettingsWindow,
 )
-from gui.machine_translation_disclaimer_dialog import (
+from gui.machine_translation_disclaimer_dialog import ( # noqa: E402
     MachineTranslationDisclaimerDialog,
-)  # noqa: E402
+)
 
 
 class ExtractorWorker(QThread):
@@ -98,7 +98,7 @@ class TextureAtlasExtractorApp(QMainWindow):
         super().__init__()
 
         # Initialize core attributes
-        self.current_version = "2.0.0"
+        self.current_version = APP_VERSION
         self.app_config = AppConfig()
         self.settings_manager = SettingsManager()
         self.temp_dir = tempfile.mkdtemp()
@@ -560,23 +560,65 @@ class TextureAtlasExtractorApp(QMainWindow):
                 )
 
     def check_version(self, force=False):
-        """Checks for updates to the application."""
+        """Checks for updates to the application.
+
+        Uses asynchronous checking on startup to avoid blocking the UI.
+        When force=True (user-initiated), uses synchronous check for immediate feedback.
+        """
         try:
             update_checker = UpdateChecker(self.current_version)
-            if update_checker.check_for_updates() or force:
-                # Show update dialog
-                reply = QMessageBox.question(
-                    self,
-                    self.tr("Update Available"),
-                    self.tr(
-                        "A new version is available! Would you like to visit the download page?"
-                    ),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+
+            if force:
+                # User-initiated check - use synchronous method for immediate feedback
+                update_available, latest_version, update_payload = update_checker.check_for_updates(
+                    self
                 )
 
-                if reply == QMessageBox.StandardButton.Yes:
-                    webbrowser.open(self.linkSourceCode)
+                if update_available:
+                    launched = update_checker.download_and_install_update(
+                        update_payload=update_payload,
+                        latest_version=latest_version,
+                        parent_window=self,
+                    )
+                    if launched:
+                        self._prepare_for_update_shutdown(latest_version)
+                elif latest_version:
+                    QMessageBox.information(
+                        self,
+                        self.tr("Up to Date"),
+                        self.tr("You are already running the latest version ({version}).").format(
+                            version=latest_version
+                        ),
+                    )
+            else:
+                # Startup check - use async to avoid blocking
+                # Keep reference to update_checker to prevent garbage collection
+                self._update_checker = update_checker
+
+                def on_update_available(latest_version, metadata):
+                    launched = update_checker.download_and_install_update(
+                        update_payload=metadata,
+                        latest_version=latest_version,
+                        parent_window=self,
+                    )
+                    if launched:
+                        self._prepare_for_update_shutdown(latest_version)
+
+                def on_no_update():
+                    print("No updates available.")
+
+                def on_error(error_msg):
+                    print(f"Update check failed: {error_msg}")
+
+                update_checker.check_for_updates_async(
+                    parent_window=self,
+                    on_update_available=on_update_available,
+                    on_no_update=on_no_update,
+                    on_error=on_error,
+                )
+
         except Exception as e:
+            print(f"Update check exception: {e}")
             if force:
                 QMessageBox.warning(
                     self,
@@ -585,6 +627,45 @@ class TextureAtlasExtractorApp(QMainWindow):
                         error=str(e)
                     ),
                 )
+
+    def _prepare_for_update_shutdown(self, target_version):
+        """Notify the user and close the application so the external updater can run."""
+        version_label = target_version or self.tr("latest")
+        QMessageBox.information(
+            self,
+            self.tr("Launching Updater"),
+            self.tr(
+                "The updater for version {version} will launch in a new window. "
+                "The application will now close."
+            ).format(version=version_label),
+        )
+
+        QTimer.singleShot(0, self._shutdown_for_update)
+
+    def _shutdown_for_update(self):
+        """Forcefully close the application to allow the updater to run."""
+        import time
+
+        print("Shutting down for update...")
+
+        # Give a brief moment for the message box to close
+        time.sleep(0.5)
+
+        app = QApplication.instance()
+        if app:
+            app.setQuitOnLastWindowClosed(True)
+
+        # Close this window
+        self.close()
+
+        # Quit the application
+        if app:
+            app.quit()
+
+        # Force exit after a brief delay
+        time.sleep(0.5)
+        print("Force exiting application...")
+        os._exit(0)
 
     def update_ui_state(self, *args):
         """Updates the UI state based on current selections and settings."""
@@ -1058,7 +1139,7 @@ def main():
 
     # Set application properties
     app.setApplicationName("TextureAtlas Toolbox")
-    app.setApplicationVersion("2.0.0")
+    app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("AutisticLulu")
 
     # Create and show the main window
@@ -1069,5 +1150,111 @@ def main():
     sys.exit(app.exec())
 
 
+def run_updater(exe_mode: bool, wait_seconds: int = 3, target_tag: str = None):
+    """Run the updater in a separate process context with Qt GUI."""
+    import time
+    import json
+    import threading
+    from utils.update_installer import Updater
+
+    # Import QtUpdateDialog - it's available since Qt is required for Main.py
+    try:
+        from utils.update_installer import QtUpdateDialog
+    except ImportError:
+        print("Error: Qt components not available for updater dialog")
+        return
+
+    print("Starting update process...")
+    if wait_seconds > 0:
+        print(f"Waiting {wait_seconds} seconds for main app to close...")
+        time.sleep(wait_seconds)
+
+    # Check for metadata file passed via environment
+    release_metadata = {}
+    metadata_path = os.environ.get("UPDATER_METADATA_FILE")
+    if metadata_path and os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                release_metadata = json.load(f)
+            print(f"Loaded release metadata from {metadata_path}")
+            # Clean up after reading
+            os.remove(metadata_path)
+        except Exception as e:
+            print(f"Warning: Could not load metadata file: {e}")
+
+    # Create Qt application for the updater dialog
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("TextureAtlas Toolbox Updater")
+    app.setApplicationVersion(APP_VERSION)
+
+    # Create and show the update dialog
+    dialog = QtUpdateDialog(None)
+
+    # Create updater with the dialog as UI
+    updater = Updater(
+        ui=dialog,
+        exe_mode=exe_mode,
+        target_tag=target_tag or release_metadata.get("tag_name"),
+        release_metadata=release_metadata,
+    )
+
+    mode_label = "executable" if exe_mode else "source"
+    dialog.log(f"Starting {mode_label} update...", "info")
+    dialog.log(f"Currently running version {APP_VERSION}", "info")
+    if target_tag:
+        dialog.log(f"Target version: {target_tag}", "info")
+
+    def _run_update():
+        try:
+            print(f"[Worker Thread] Starting {mode_label} update...")
+            if exe_mode:
+                updater.update_exe()
+            else:
+                updater.update_source()
+            print("[Worker Thread] Update completed successfully")
+        except Exception as err:
+            print(f"[Worker Thread] Error: {err}")
+            import traceback
+            traceback.print_exc()
+            dialog.log(f"Update process encountered an error: {err}", "error")
+            dialog.allow_close()
+        else:
+            dialog.allow_close()
+
+    # Run update in a separate thread so dialog stays responsive
+    worker = threading.Thread(target=_run_update, daemon=True)
+    worker.start()
+
+    # Show dialog and block until closed
+    dialog.exec()
+    print("[Main Thread] Updater dialog closed")
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+    from utils.update_installer import UpdateUtilities
+
+    try:
+        parser = argparse.ArgumentParser(description="TextureAtlas Toolbox")
+        parser.add_argument("--update", action="store_true", help="Run in update mode")
+        parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
+        parser.add_argument("--target-tag", type=str, default=None, help="Target version tag to update to")
+        parser.add_argument(
+            "--wait", type=int, default=3, help="Seconds to wait before starting update"
+        )
+        args = parser.parse_args()
+
+        if args.update:
+            # Update mode: run the updater instead of the main app
+            exe_mode = args.exe_mode or UpdateUtilities.is_compiled()
+            run_updater(exe_mode=exe_mode, wait_seconds=args.wait, target_tag=args.target_tag)
+        else:
+            # Normal mode: run the main application
+            print("Starting main application...")
+            main()
+
+    except Exception as e:
+        print(f"Fatal error during startup: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
