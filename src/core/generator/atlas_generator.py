@@ -470,6 +470,9 @@ class AtlasGenerator:
     ) -> PackerResult:
         """Pack frames using the selected algorithm.
 
+        If algorithm is "auto", tries all available algorithms with their
+        best heuristics and returns the result with the best packing efficiency.
+
         If heuristic is "auto" or None, tries all available heuristics
         and returns the result with the best packing efficiency.
         """
@@ -477,8 +480,10 @@ class AtlasGenerator:
 
         # Get packer instance
         algorithm = options.algorithm
-        if algorithm == "auto" or algorithm == "growing":
-            algorithm = "maxrects"  # Default to best algorithm
+
+        # True auto mode: try all algorithms and pick the best
+        if algorithm == "auto":
+            return self._pack_with_best_algorithm(frames, packer_options, options.heuristic)
 
         # Check if we should auto-select the best heuristic
         if options.heuristic == "auto" or options.heuristic is None:
@@ -488,6 +493,75 @@ class AtlasGenerator:
         packer = get_packer(algorithm, packer_options)
         packer.set_heuristic(options.heuristic)
         return packer.pack(frames)
+
+    def _pack_with_best_algorithm(
+        self,
+        frames: List[FrameInput],
+        options: PackerOptions,
+        heuristic_hint: Optional[str] = None,
+    ) -> PackerResult:
+        """Try all algorithms and return the best result.
+
+        For each algorithm, if heuristic_hint is "auto" or None, tries all
+        heuristics. Otherwise uses the specified heuristic if supported.
+
+        "Best" is determined by:
+        1. Successful packing (all frames fit)
+        2. Smallest atlas area
+        3. Highest packing efficiency
+
+        Args:
+            frames: Frames to pack.
+            options: Packer options.
+            heuristic_hint: Optional heuristic to prefer, or "auto"/None for best.
+
+        Returns:
+            The PackerResult with the best efficiency across all algorithms.
+        """
+        algorithms = list_algorithms()
+
+        best_result: Optional[PackerResult] = None
+        best_score: float = float("inf")  # Lower is better (area)
+
+        auto_heuristic = heuristic_hint == "auto" or heuristic_hint is None
+
+        for algo_info in algorithms:
+            algo_name = algo_info.get("name", "")
+            if not algo_name or algo_name == "auto":
+                continue  # Skip meta-algorithm placeholder
+
+            try:
+                if auto_heuristic:
+                    # Try all heuristics for this algorithm
+                    result = self._pack_with_best_heuristic(frames, algo_name, options)
+                else:
+                    # Use specified heuristic
+                    packer = get_packer(algo_name, options)
+                    packer.set_heuristic(heuristic_hint)
+                    result = packer.pack(frames)
+
+                if not result.success:
+                    continue
+
+                # Score by area (smaller is better), tie-break by efficiency
+                score = result.atlas_width * result.atlas_height
+                # Subtract efficiency to prefer higher efficiency at same area
+                score -= result.efficiency * 0.01
+
+                if best_result is None or score < best_score:
+                    best_result = result
+                    best_score = score
+
+            except Exception as e:
+                print(f"Warning: Algorithm '{algo_name}' failed: {e}")
+                continue
+
+        if best_result is None:
+            # All algorithms failed, fall back to maxrects default
+            packer = get_packer("maxrects", options)
+            return packer.pack(frames)
+
+        return best_result
 
     def _pack_with_best_heuristic(
         self,
@@ -683,11 +757,14 @@ class AtlasGenerator:
         frames_for_metadata = expanded_packed_frames or pack_result.packed_frames
 
         # Create generator metadata for watermarking
-        algorithm_name = options.algorithm.title() if options.algorithm else "Unknown"
-        heuristic_name = options.heuristic if options.heuristic else "Auto"
-        # Format heuristic name nicely (e.g., "best_short_side_fit" -> "Best Short Side Fit")
-        if heuristic_name and heuristic_name != "Auto":
-            heuristic_name = heuristic_name.replace("_", " ").title()
+        # Use pack_result values which contain actual algorithm/heuristic used
+        # (important when "auto" was selected - these show what was actually chosen)
+        algorithm_name = pack_result.algorithm_name or options.algorithm or "Unknown"
+        heuristic_name = pack_result.heuristic_name or options.heuristic or "Unknown"
+
+        # Format names nicely (e.g., "best_short_side_fit" -> "Best Short Side Fit")
+        algorithm_name = algorithm_name.replace("_", " ").title()
+        heuristic_name = heuristic_name.replace("_", " ").title()
 
         generator_metadata = GeneratorMetadata(
             app_version=APP_VERSION,
