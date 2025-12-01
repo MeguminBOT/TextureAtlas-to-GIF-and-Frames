@@ -23,6 +23,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -89,6 +90,7 @@ class TxtExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate TXT spritesheet content.
 
@@ -97,12 +99,21 @@ class TxtExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark comments.
 
         Returns:
             Text content with sprite definitions.
         """
         opts = self._format_options
         lines: List[str] = []
+
+        # Add generator metadata as comments
+        if generator_metadata:
+            comment_lines = generator_metadata.format_comment_lines()
+            for line in comment_lines:
+                lines.append(f"{opts.comment_prefix} {line}")
+            if comment_lines:
+                lines.append("")
 
         # Optional header
         if opts.include_header:
@@ -114,10 +125,17 @@ class TxtExporter(BaseExporter):
         # Sprite definitions
         for packed in packed_sprites:
             sprite = packed.sprite
+            width = sprite["width"]
+            height = sprite["height"]
+
+            # Check if rotated - swap dimensions since TXT format has no rotation field
+            is_rotated = packed.rotated or sprite.get("rotated", False)
+            atlas_w, atlas_h = (height, width) if is_rotated else (width, height)
+
             line = (
                 f"{sprite['name']} = "
                 f"{packed.atlas_x} {packed.atlas_y} "
-                f"{sprite['width']} {sprite['height']}"
+                f"{atlas_w} {atlas_h}"
             )
             lines.append(line)
 

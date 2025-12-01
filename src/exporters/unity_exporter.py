@@ -27,6 +27,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -93,6 +94,7 @@ class UnityExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate Unity text metadata.
 
@@ -101,12 +103,21 @@ class UnityExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for header comments.
 
         Returns:
             Text content with header and sprite definitions.
         """
         opts = self._format_options
         lines: List[str] = []
+
+        # Add generator metadata as comments (lines starting with #)
+        if generator_metadata:
+            comment_lines = generator_metadata.format_comment_lines()
+            for line in comment_lines:
+                lines.append(f"# {line}")
+            if comment_lines:
+                lines.append("")
 
         # Header lines
         lines.append(f":format={opts.format_version}")
@@ -132,14 +143,26 @@ class UnityExporter(BaseExporter):
 
         Returns:
             Semicolon-delimited sprite line.
+
+        Note:
+            The Unity format doesn't have a rotation field, so if sprites
+            are rotated in the atlas, the dimensions reflect the actual
+            atlas space occupied (swapped width/height).
         """
         sprite = packed.sprite
+        width = sprite["width"]
+        height = sprite["height"]
+
+        # Check if rotated - swap dimensions since Unity format has no rotation field
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+        atlas_w, atlas_h = (height, width) if is_rotated else (width, height)
+
         parts = [
             sprite["name"],
             str(packed.atlas_x),
             str(packed.atlas_y),
-            str(sprite["width"]),
-            str(sprite["height"]),
+            str(atlas_w),
+            str(atlas_h),
         ]
 
         if opts.include_pivot:

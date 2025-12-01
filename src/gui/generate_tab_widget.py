@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
     QLabel,
+    QPushButton,
 )
 from PySide6.QtCore import QThread, Signal
 
@@ -23,6 +24,9 @@ except ImportError:
 from gui.generator.animation_tree_widget import AnimationTreeWidget
 from parsers.xml_parser import XmlParser
 from utils.utilities import Utilities
+
+# Import the new generator system
+from core.generator import AtlasGenerator, GeneratorOptions, get_available_algorithms
 
 SUPPORTED_ROTATION_FORMATS = frozenset(
     {
@@ -41,7 +45,7 @@ SUPPORTED_FLIP_FORMATS = frozenset({"starling-xml"})
 
 
 class GeneratorWorker(QThread):
-    """Stub worker that reports generator backend unavailability."""
+    """Worker thread for atlas generation."""
 
     progress_updated = Signal(int, int, str)
     generation_completed = Signal(dict)
@@ -55,12 +59,52 @@ class GeneratorWorker(QThread):
         self.animation_groups = None
         self.current_version = current_version
         self.output_format = "starling-xml"
-        self._disabled_message = (
-            "Atlas generation logic is currently unavailable; UI is provided for preview only."
-        )
 
     def run(self):
-        self.generation_failed.emit(self._disabled_message)
+        """Execute atlas generation in background thread."""
+        try:
+            if not self.animation_groups:
+                self.generation_failed.emit("No animation groups provided")
+                return
+
+            # Build generator options from atlas_settings
+            options = GeneratorOptions(
+                algorithm=self.atlas_settings.get("preferred_algorithm", "maxrects"),
+                heuristic=self.atlas_settings.get("heuristic_hint"),
+                max_width=self.atlas_settings.get("max_size", 4096),
+                max_height=self.atlas_settings.get("max_size", 4096),
+                padding=self.atlas_settings.get("padding", 2),
+                power_of_two=self.atlas_settings.get("power_of_2", False),
+                allow_rotation=self.atlas_settings.get("allow_rotation", False),
+                allow_flip=self.atlas_settings.get("allow_vertical_flip", False),
+                export_format=self.output_format,
+                compression_settings=self.atlas_settings.get("compression_settings"),
+            )
+
+            # Handle manual sizing
+            if self.atlas_settings.get("atlas_size_method") == "manual":
+                options.max_width = self.atlas_settings.get("forced_width", 4096)
+                options.max_height = self.atlas_settings.get("forced_height", 4096)
+
+            # Create generator and set progress callback
+            generator = AtlasGenerator()
+            generator.set_progress_callback(self.emit_progress)
+
+            # Run generation
+            result = generator.generate(
+                animation_groups=self.animation_groups,
+                output_path=self.output_path,
+                options=options,
+            )
+
+            if result.success:
+                self.generation_completed.emit(result.to_dict())
+            else:
+                error_msg = "; ".join(result.errors) if result.errors else "Unknown error"
+                self.generation_failed.emit(error_msg)
+
+        except Exception as e:
+            self.generation_failed.emit(f"Generation error: {e}")
 
     def emit_progress(self, current, total, message=""):
         """Thread-safe progress emission."""
@@ -535,18 +579,19 @@ class GenerateTabWidget(QWidget):
             )
 
     def _configure_packer_combo(self):
-        """Populate the packer combo box with supported algorithms."""
+        """Populate the packer combo box with available algorithms from the registry."""
+        # Get algorithms from the new packer registry
+        algorithms = get_available_algorithms()
+
+        # Add a few legacy/convenience options at the top
         algorithm_options = [
             ("Automatic (Best Fit)", "auto"),
-            ("Growing (Auto Expand)", "growing"),
-            ("Grid (Legacy Fill)", "grid"),
-            ("Ordered Rows", "ordered"),
-            ("MaxRects (Tightest)", "maxrects"),
-            ("Guillotine", "guillotine"),
-            ("Shelf (FFDH)", "shelf"),
-            ("Skyline", "skyline"),
-            ("Hybrid Adaptive (Experimental)", "hybrid"),
         ]
+
+        # Add registered algorithms
+        for algo in algorithms:
+            display_name = algo.get("display_name", algo["name"].title())
+            algorithm_options.append((display_name, algo["name"]))
 
         self.packer_method_combobox.blockSignals(True)
         self.packer_method_combobox.clear()
@@ -556,11 +601,18 @@ class GenerateTabWidget(QWidget):
         self.packer_method_combobox.blockSignals(False)
 
     def _setup_heuristic_combo(self):
-        """Create and insert the heuristic combo box after packer method combo."""
+        """Create and insert the heuristic combo box and compression button."""
         # Create label and combo box for heuristic selection
         self.heuristic_label = QLabel(self.tr("Heuristic"))
         self.heuristic_combobox = QComboBox()
         self.heuristic_combobox.setMinimumWidth(140)
+
+        # Create compression settings button
+        self.compression_settings_button = QPushButton(self.tr("Compression Settings..."))
+        self.compression_settings_button.setToolTip(
+            self.tr("Configure format-specific compression options for the output image")
+        )
+        self.compression_settings_button.clicked.connect(self.show_compression_settings)
 
         # Find the packer_method_combobox's parent layout (should be a grid layout)
         packer_combo = self.packer_method_combobox
@@ -580,6 +632,8 @@ class GenerateTabWidget(QWidget):
                             # Insert heuristic widgets in row 7 (after image_format at row 6)
                             layout.addWidget(self.heuristic_label, 7, 0)
                             layout.addWidget(self.heuristic_combobox, 7, 2)
+                            # Insert compression button in row 8
+                            layout.addWidget(self.compression_settings_button, 8, 2)
                             inserted = True
                             break
                     if inserted:
@@ -589,41 +643,30 @@ class GenerateTabWidget(QWidget):
             # Fallback: just hide if we can't find the layout
             self.heuristic_label.setVisible(False)
             self.heuristic_combobox.setVisible(False)
+            self.compression_settings_button.setVisible(False)
 
     def _get_heuristic_options(self, algorithm_key: str):
-        """Return (label, key) tuples for the given algorithm's heuristics."""
-        if algorithm_key == "maxrects":
-            return [
-                (self.tr("Best Short Side Fit (BSSF)"), "bssf"),
-                (self.tr("Best Long Side Fit (BLSF)"), "blsf"),
-                (self.tr("Best Area Fit (BAF)"), "baf"),
-                (self.tr("Bottom-Left (BL)"), "bl"),
-                (self.tr("Contact Point (CP)"), "cp"),
-            ]
-        elif algorithm_key == "guillotine":
-            return [
-                (self.tr("Best Short Side Fit (BSSF)"), "bssf"),
-                (self.tr("Best Long Side Fit (BLSF)"), "blsf"),
-                (self.tr("Best Area Fit (BAF)"), "baf"),
-                (self.tr("Worst Area Fit (WAF)"), "waf"),
-            ]
-        elif algorithm_key == "shelf":
-            return [
-                (self.tr("Next Fit"), "next_fit"),
-                (self.tr("First Fit"), "first_fit"),
-                (self.tr("Best Width Fit"), "best_width"),
-                (self.tr("Best Height Fit"), "best_height"),
-                (self.tr("Worst Width Fit"), "worst_width"),
-            ]
-        elif algorithm_key == "skyline":
-            return [
-                (self.tr("Bottom-Left"), "bottom_left"),
-                (self.tr("Min Waste"), "min_waste"),
-                (self.tr("Best Fit"), "best_fit"),
-            ]
-        else:
-            # Algorithms without heuristics
-            return []
+        """Return (label, key) tuples for the given algorithm's heuristics.
+
+        Always includes "Auto (Best Result)" as the first option, which
+        will try all heuristics and pick the one with best efficiency.
+        """
+        # Get heuristics from the packer registry
+        from packers import get_heuristics_for_algorithm
+
+        heuristics = get_heuristics_for_algorithm(algorithm_key)
+
+        # Fallback for 'auto' algorithm - show maxrects heuristics
+        if not heuristics and algorithm_key == "auto":
+            heuristics = get_heuristics_for_algorithm("maxrects")
+
+        if heuristics:
+            # Start with Auto option, then add algorithm-specific heuristics
+            options = [(self.tr("Auto (Best Result)"), "auto")]
+            options.extend([(display, key) for key, display in heuristics])
+            return options
+
+        return []
 
     def _update_heuristic_combo(self, algorithm_key: str):
         """Update the heuristic combo box based on selected algorithm."""
@@ -760,6 +803,55 @@ class GenerateTabWidget(QWidget):
         if hasattr(self, "heuristic_combobox") and self.heuristic_combobox.isEnabled():
             return self.heuristic_combobox.currentData()
         return None
+
+    def show_compression_settings(self):
+        """Show the compression settings dialog for the current image format."""
+        try:
+            from gui.extractor.compression_settings_window import (
+                CompressionSettingsWindow,
+            )
+
+            # Get current image format from the combo box
+            current_format = self.image_format_combo.currentText().upper()
+
+            # Get settings_manager and app_config from main app if available
+            settings_manager = None
+            app_config = None
+            if hasattr(self.main_app, "settings_manager"):
+                settings_manager = self.main_app.settings_manager
+            if hasattr(self.main_app, "app_config"):
+                app_config = self.main_app.app_config
+
+            dialog = CompressionSettingsWindow(
+                parent=self,
+                settings_manager=settings_manager,
+                app_config=app_config,
+                current_format=current_format,
+            )
+            dialog.exec()
+
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.APP_NAME,
+                self.tr("Could not open compression settings: {0}").format(str(e)),
+            )
+
+    def _get_compression_settings(self):
+        """Get compression settings for the current image format.
+
+        Returns a dict of format-specific compression options.
+        """
+        current_format = self.image_format_combo.currentText().upper()
+        settings = {}
+
+        # Try to get settings from app_config (compression settings are stored there)
+        if hasattr(self.main_app, "app_config"):
+            app_config = self.main_app.app_config
+            if hasattr(app_config, "get_format_compression_settings"):
+                settings = app_config.get_format_compression_settings(current_format) or {}
+
+        return settings
 
     def add_frames_to_default_animation(self, file_paths):
         """Add frame files to a default animation group."""
@@ -952,6 +1044,9 @@ class GenerateTabWidget(QWidget):
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
             }
+
+        # Add compression settings to atlas_settings
+        atlas_settings["compression_settings"] = self._get_compression_settings()
 
         # Create a dummy input_frames list for the worker (for compatibility)
         all_input_frames = []

@@ -25,6 +25,7 @@ from exporters.exporter_types import (
     ExportOptions,
     ExportResult,
     FileWriteError,
+    GeneratorMetadata,
     ImageError,
     PackedSprite,
     PackingError,
@@ -66,6 +67,7 @@ class BaseExporter(ABC):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> Union[str, bytes]:
         """Generate format-specific metadata for the packed atlas.
 
@@ -74,6 +76,8 @@ class BaseExporter(ABC):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image (for references).
+            generator_metadata: Optional metadata about the generation process
+                               for watermarking/comments.
 
         Returns:
             Metadata content as string (text formats) or bytes (binary formats).

@@ -33,6 +33,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -103,6 +104,7 @@ class CssExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate CSS spritesheet content.
 
@@ -111,12 +113,23 @@ class CssExporter(BaseExporter):
             atlas_width: Final atlas width in pixels (unused in CSS).
             atlas_height: Final atlas height in pixels (unused in CSS).
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark comments.
 
         Returns:
             CSS content with class definitions for each sprite.
         """
         opts = self._format_options
         rules: List[str] = []
+
+        # Add generator metadata as CSS comment block
+        if generator_metadata:
+            comment_lines = generator_metadata.format_comment_lines()
+            if comment_lines:
+                rules.append("/*")
+                for line in comment_lines:
+                    rules.append(f" * {line}")
+                rules.append(" */")
+                rules.append("")
 
         for packed in packed_sprites:
             rules.append(self._build_css_rule(packed, image_name, opts))

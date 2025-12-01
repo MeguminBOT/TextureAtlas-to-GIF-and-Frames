@@ -35,6 +35,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -99,6 +100,7 @@ class GodotExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate Godot atlas JSON metadata.
 
@@ -107,6 +109,7 @@ class GodotExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark info.
 
         Returns:
             JSON string with textures array containing sprites.
@@ -128,7 +131,21 @@ class GodotExporter(BaseExporter):
             texture["size"] = {"w": atlas_width, "h": atlas_height}
 
         # Build output
-        output = {"textures": [texture]}
+        output: Dict[str, Any] = {"textures": [texture]}
+
+        # Add generator metadata if provided
+        if generator_metadata:
+            meta_block: Dict[str, Any] = {}
+            if generator_metadata.app_version:
+                meta_block["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+            if generator_metadata.packer:
+                meta_block["packer"] = generator_metadata.packer
+            if generator_metadata.heuristic:
+                meta_block["heuristic"] = generator_metadata.heuristic
+            if generator_metadata.efficiency > 0:
+                meta_block["efficiency"] = f"{generator_metadata.efficiency:.1f}%"
+            if meta_block:
+                output["meta"] = meta_block
 
         # Serialize
         indent = 4 if self.options.pretty_print else None
@@ -142,15 +159,27 @@ class GodotExporter(BaseExporter):
 
         Returns:
             Sprite data dict with filename and region.
+
+        Note:
+            The Godot format doesn't have a rotation field, so if sprites
+            are rotated in the atlas, the dimensions in the region reflect
+            the actual atlas space occupied (swapped width/height).
         """
         sprite = packed.sprite
+        width = sprite["width"]
+        height = sprite["height"]
+
+        # Check if rotated - swap dimensions since Godot format has no rotation field
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+        atlas_w, atlas_h = (height, width) if is_rotated else (width, height)
+
         return {
             "filename": packed.name,
             "region": {
                 "x": packed.atlas_x,
                 "y": packed.atlas_y,
-                "w": sprite["width"],
-                "h": sprite["height"],
+                "w": atlas_w,
+                "h": atlas_h,
             },
         }
 

@@ -36,6 +36,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -104,6 +105,7 @@ class TexturePackerXmlExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate TexturePacker XML metadata.
 
@@ -112,10 +114,12 @@ class TexturePackerXmlExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark comments.
 
         Returns:
             XML string with TextureAtlas and sprite elements.
         """
+        self._generator_metadata = generator_metadata
         opts = self._format_options
 
         # Create root element
@@ -149,15 +153,22 @@ class TexturePackerXmlExporter(BaseExporter):
         sprite = packed.sprite
         elem = ET.SubElement(root, "sprite")
 
+        # Check if rotated
+        rotated = packed.rotated or sprite.get("rotated", False)
+
+        # Atlas dimensions: swap width/height when rotated (standard TexturePacker convention)
+        sprite_w = sprite["width"]
+        sprite_h = sprite["height"]
+        atlas_w, atlas_h = (sprite_h, sprite_w) if rotated else (sprite_w, sprite_h)
+
         # Required attributes (shorthand names)
         elem.set("n", sprite["name"])
         elem.set("x", str(packed.atlas_x))
         elem.set("y", str(packed.atlas_y))
-        elem.set("w", str(sprite["width"]))
-        elem.set("h", str(sprite["height"]))
+        elem.set("w", str(atlas_w))
+        elem.set("h", str(atlas_h))
 
         # Rotation
-        rotated = packed.rotated or sprite.get("rotated", False)
         if rotated:
             if opts.use_short_rotation:
                 elem.set("r", "y")
@@ -167,11 +178,11 @@ class TexturePackerXmlExporter(BaseExporter):
         # Trim/offset data
         frame_x = sprite.get("frameX", 0)
         frame_y = sprite.get("frameY", 0)
-        frame_w = sprite.get("frameWidth", sprite["width"])
-        frame_h = sprite.get("frameHeight", sprite["height"])
+        frame_w = sprite.get("frameWidth", sprite_w)
+        frame_h = sprite.get("frameHeight", sprite_h)
 
         has_offset = frame_x != 0 or frame_y != 0
-        has_orig_size = frame_w != sprite["width"] or frame_h != sprite["height"]
+        has_orig_size = frame_w != sprite_w or frame_h != sprite_h
 
         if has_offset:
             elem.set("oX", str(-frame_x))
@@ -201,6 +212,13 @@ class TexturePackerXmlExporter(BaseExporter):
         """
         rough_string = ET.tostring(root, encoding="unicode")
 
+        # Build generator metadata comment
+        comment_block = ""
+        if hasattr(self, "_generator_metadata") and self._generator_metadata:
+            comment_lines = self._generator_metadata.format_comment_lines()
+            if comment_lines:
+                comment_block = "<!--\n    " + "\n    ".join(comment_lines) + "\n-->\n"
+
         if self.options.pretty_print:
             dom = minidom.parseString(rough_string)
             pretty = dom.toprettyxml(indent="    ", encoding=None)
@@ -208,9 +226,9 @@ class TexturePackerXmlExporter(BaseExporter):
             if lines and lines[0].startswith("<?xml"):
                 lines = lines[1:]
             content = "\n".join(line for line in lines if line.strip())
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + content
+            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + content
         else:
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + rough_string
+            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + rough_string
 
 
 __all__ = ["TexturePackerXmlExporter", "TexturePackerXmlExportOptions"]

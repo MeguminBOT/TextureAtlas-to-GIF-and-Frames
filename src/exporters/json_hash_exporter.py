@@ -39,6 +39,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -113,6 +114,7 @@ class JsonHashExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate JSON Hash metadata.
 
@@ -121,6 +123,7 @@ class JsonHashExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark info.
 
         Returns:
             JSON string with frames hash and optional meta block.
@@ -137,7 +140,7 @@ class JsonHashExporter(BaseExporter):
 
         # Add meta block if requested
         if opts.include_meta:
-            output["meta"] = {
+            meta_block: Dict[str, Any] = {
                 "app": opts.app_name,
                 "version": opts.app_version,
                 "image": image_name,
@@ -145,6 +148,17 @@ class JsonHashExporter(BaseExporter):
                 "size": {"w": atlas_width, "h": atlas_height},
                 "scale": opts.scale_string,
             }
+            # Add generator metadata if provided
+            if generator_metadata:
+                if generator_metadata.app_version:
+                    meta_block["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                if generator_metadata.packer:
+                    meta_block["packer"] = generator_metadata.packer
+                if generator_metadata.heuristic:
+                    meta_block["heuristic"] = generator_metadata.heuristic
+                if generator_metadata.efficiency > 0:
+                    meta_block["efficiency"] = f"{generator_metadata.efficiency:.1f}%"
+            output["meta"] = meta_block
 
         # Serialize
         indent = 4 if self.options.pretty_print else None
@@ -172,6 +186,12 @@ class JsonHashExporter(BaseExporter):
         frame_w = sprite.get("frameWidth", width)
         frame_h = sprite.get("frameHeight", height)
 
+        # Check if rotated
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+
+        # Atlas dimensions: swap width/height when rotated (standard TexturePacker convention)
+        atlas_w, atlas_h = (height, width) if is_rotated else (width, height)
+
         # Determine if trimmed
         trimmed = frame_x != 0 or frame_y != 0 or frame_w != width or frame_h != height
 
@@ -179,10 +199,10 @@ class JsonHashExporter(BaseExporter):
             "frame": {
                 "x": packed.atlas_x,
                 "y": packed.atlas_y,
-                "w": width,
-                "h": height,
+                "w": atlas_w,
+                "h": atlas_h,
             },
-            "rotated": packed.rotated or sprite.get("rotated", False),
+            "rotated": is_rotated,
             "trimmed": trimmed,
             "spriteSourceSize": {
                 "x": -frame_x,

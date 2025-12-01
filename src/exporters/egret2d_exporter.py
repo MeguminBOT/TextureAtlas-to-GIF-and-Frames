@@ -28,6 +28,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -96,6 +97,7 @@ class Egret2DExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate Egret2D JSON metadata.
 
@@ -104,6 +106,7 @@ class Egret2DExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark info.
 
         Returns:
             JSON string with frames hash.
@@ -120,6 +123,20 @@ class Egret2DExporter(BaseExporter):
         if opts.include_file_key:
             output["file"] = image_name
         output["frames"] = frames
+
+        # Add generator metadata if provided
+        if generator_metadata:
+            meta_block: Dict[str, Any] = {}
+            if generator_metadata.app_version:
+                meta_block["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+            if generator_metadata.packer:
+                meta_block["packer"] = generator_metadata.packer
+            if generator_metadata.heuristic:
+                meta_block["heuristic"] = generator_metadata.heuristic
+            if generator_metadata.efficiency > 0:
+                meta_block["efficiency"] = f"{generator_metadata.efficiency:.1f}%"
+            if meta_block:
+                output["meta"] = meta_block
 
         # Serialize
         indent = 4 if self.options.pretty_print else None
@@ -138,16 +155,25 @@ class Egret2DExporter(BaseExporter):
 
         Returns:
             Frame data dict with x, y, w, h (and optional offset/source).
+
+        Note:
+            The Egret2D format doesn't have a rotation field, so if sprites
+            are rotated in the atlas, the dimensions (w, h) reflect the actual
+            atlas space occupied (swapped width/height).
         """
         sprite = packed.sprite
         w = sprite["width"]
         h = sprite["height"]
 
+        # Check if rotated - swap dimensions since Egret2D has no rotation field
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+        atlas_w, atlas_h = (h, w) if is_rotated else (w, h)
+
         entry: Dict[str, int] = {
             "x": packed.atlas_x,
             "y": packed.atlas_y,
-            "w": w,
-            "h": h,
+            "w": atlas_w,
+            "h": atlas_h,
         }
 
         # Optional trim offset

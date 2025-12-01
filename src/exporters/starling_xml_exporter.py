@@ -38,6 +38,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -142,6 +143,7 @@ class StarlingXmlExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate Starling/Sparrow XML metadata.
 
@@ -150,10 +152,12 @@ class StarlingXmlExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for watermark comments.
 
         Returns:
             XML string with TextureAtlas and SubTexture elements.
         """
+        self._generator_metadata = generator_metadata
         opts = self._starling_options
 
         # Create root element
@@ -191,12 +195,21 @@ class StarlingXmlExporter(BaseExporter):
         sprite = packed.sprite
         sub = ET.SubElement(root, "SubTexture")
 
+        # Check if sprite is rotated
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+
+        # Atlas dimensions: swap width/height when rotated (standard TexturePacker convention)
+        # When a sprite is rotated 90° in the atlas, the atlas region has swapped dimensions
+        sprite_w = sprite["width"]
+        sprite_h = sprite["height"]
+        atlas_w, atlas_h = (sprite_h, sprite_w) if is_rotated else (sprite_w, sprite_h)
+
         # Required attributes
         sub.set("name", sprite["name"])
         sub.set("x", str(packed.atlas_x))
         sub.set("y", str(packed.atlas_y))
-        sub.set("width", str(sprite["width"]))
-        sub.set("height", str(sprite["height"]))
+        sub.set("width", str(atlas_w))
+        sub.set("height", str(atlas_h))
 
         # Frame data (trimming offset and original size)
         if opts.include_frame_data:
@@ -254,6 +267,13 @@ class StarlingXmlExporter(BaseExporter):
         # Convert to string
         rough_string = ET.tostring(root, encoding="unicode")
 
+        # Build generator metadata comment
+        comment_block = ""
+        if hasattr(self, "_generator_metadata") and self._generator_metadata:
+            comment_lines = self._generator_metadata.format_comment_lines()
+            if comment_lines:
+                comment_block = "<!--\n    " + "\n    ".join(comment_lines) + "\n-->\n"
+
         # Parse with minidom for pretty printing
         if self.options.pretty_print:
             dom = minidom.parseString(rough_string)
@@ -266,10 +286,10 @@ class StarlingXmlExporter(BaseExporter):
                 lines = lines[1:]
             # Remove extra blank lines
             content = "\n".join(line for line in lines if line.strip())
-            # Add our own declaration
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + content
+            # Add our own declaration and comment
+            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + content
         else:
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + rough_string
+            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + rough_string
 
 
 __all__ = ["StarlingXmlExporter", "StarlingExportOptions"]

@@ -39,6 +39,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -105,6 +106,7 @@ class UIKitPlistExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> bytes:
         """Generate UIKit plist atlas content.
 
@@ -113,6 +115,7 @@ class UIKitPlistExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for plist metadata dict.
 
         Returns:
             Plist content as bytes.
@@ -129,11 +132,22 @@ class UIKitPlistExporter(BaseExporter):
 
         # Add metadata
         if opts.include_metadata:
-            root["metadata"] = {
+            metadata_dict: Dict[str, Any] = {
                 "textureFileName": image_name,
                 "width": atlas_width,
                 "height": atlas_height,
             }
+            # Add generator metadata if provided
+            if generator_metadata:
+                if generator_metadata.app_version:
+                    metadata_dict["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                if generator_metadata.packer:
+                    metadata_dict["packer"] = generator_metadata.packer
+                if generator_metadata.heuristic:
+                    metadata_dict["heuristic"] = generator_metadata.heuristic
+                if generator_metadata.efficiency > 0:
+                    metadata_dict["efficiency"] = f"{generator_metadata.efficiency:.1f}%"
+            root["metadata"] = metadata_dict
 
         # Serialize
         if opts.use_binary:
@@ -149,6 +163,11 @@ class UIKitPlistExporter(BaseExporter):
 
         Returns:
             Frame data dict with scalar integer keys.
+
+        Note:
+            The UIKit plist format doesn't have a rotation field, so if sprites
+            are rotated in the atlas, the dimensions (w, h) reflect the actual
+            atlas space occupied (swapped width/height).
         """
         sprite = packed.sprite
         w = sprite["width"]
@@ -158,11 +177,15 @@ class UIKitPlistExporter(BaseExporter):
         frame_w = sprite.get("frameWidth", w)
         frame_h = sprite.get("frameHeight", h)
 
+        # Check if rotated - swap dimensions since UIKit plist has no rotation field
+        is_rotated = packed.rotated or sprite.get("rotated", False)
+        atlas_w, atlas_h = (h, w) if is_rotated else (w, h)
+
         return {
             "x": packed.atlas_x,
             "y": packed.atlas_y,
-            "w": w,
-            "h": h,
+            "w": atlas_w,
+            "h": atlas_h,
             "oX": -frame_x,
             "oY": -frame_y,
             "oW": frame_w,

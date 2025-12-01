@@ -39,6 +39,7 @@ from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import (
     ExportOptions,
+    GeneratorMetadata,
     PackedSprite,
 )
 
@@ -112,6 +113,7 @@ class SpineExporter(BaseExporter):
         atlas_width: int,
         atlas_height: int,
         image_name: str,
+        generator_metadata: Optional[GeneratorMetadata] = None,
     ) -> str:
         """Generate Spine atlas text metadata.
 
@@ -120,6 +122,7 @@ class SpineExporter(BaseExporter):
             atlas_width: Final atlas width in pixels.
             atlas_height: Final atlas height in pixels.
             image_name: Filename of the atlas image.
+            generator_metadata: Optional metadata for header info.
 
         Returns:
             Text content for the .atlas file.
@@ -135,6 +138,18 @@ class SpineExporter(BaseExporter):
         lines.append(f"repeat: {opts.repeat}")
         if opts.pma:
             lines.append("pma: true")
+
+        # Add generator metadata as comments (Spine format doesn't have official comments,
+        # but we can add them as custom properties that parsers will ignore)
+        if generator_metadata:
+            if generator_metadata.app_version:
+                lines.append(f"generator: TextureAtlas Toolbox ({generator_metadata.app_version})")
+            if generator_metadata.packer:
+                lines.append(f"packer: {generator_metadata.packer}")
+            if generator_metadata.heuristic:
+                lines.append(f"heuristic: {generator_metadata.heuristic}")
+            if generator_metadata.efficiency > 0:
+                lines.append(f"efficiency: {generator_metadata.efficiency:.1f}%")
 
         # Regions (sprites)
         for packed in packed_sprites:
@@ -160,11 +175,14 @@ class SpineExporter(BaseExporter):
         frame_y = sprite.get("frameY", 0)
         rotated = packed.rotated or sprite.get("rotated", False)
 
+        # Atlas dimensions: swap width/height when rotated (standard TexturePacker convention)
+        atlas_w, atlas_h = (height, width) if rotated else (width, height)
+
         lines = [
             sprite["name"],
             f"  rotate: {'true' if rotated else 'false'}",
             f"  xy: {packed.atlas_x}, {packed.atlas_y}",
-            f"  size: {width}, {height}",
+            f"  size: {atlas_w}, {atlas_h}",
             f"  orig: {frame_w}, {frame_h}",
             f"  offset: {-frame_x}, {-frame_y}",
             "  index: -1",
