@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import math
 from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget,
@@ -21,76 +20,47 @@ except ImportError:
     PIL_AVAILABLE = False
 
 # Import our own modules
-from core.generator import SparrowAtlasGenerator, AtlasSettings
 from gui.generator.animation_tree_widget import AnimationTreeWidget
 from parsers.xml_parser import XmlParser
 from utils.utilities import Utilities
 
+SUPPORTED_ROTATION_FORMATS = frozenset(
+    {
+        "starling-xml",
+        "json-hash",
+        "json-array",
+        "texture-packer-xml",
+        "spine",
+        "phaser3",
+        "plist",
+        "paper2d",
+    }
+)
+
+SUPPORTED_FLIP_FORMATS = frozenset({"starling-xml"})
+
 
 class GeneratorWorker(QThread):
-    """Worker thread for atlas generation process."""
+    """Stub worker that reports generator backend unavailability."""
 
-    progress_updated = Signal(int, int, str)  # current, total, message
-    generation_completed = Signal(dict)  # results dictionary
-    generation_failed = Signal(str)  # error message
+    progress_updated = Signal(int, int, str)
+    generation_completed = Signal(dict)
+    generation_failed = Signal(str)
 
     def __init__(self, input_frames, output_path, atlas_settings, current_version):
         super().__init__()
         self.input_frames = input_frames
         self.output_path = output_path
         self.atlas_settings = atlas_settings
-        self.animation_groups = None  # Will be set by the caller
+        self.animation_groups = None
         self.current_version = current_version
-        self.output_format = "starling-xml"  # Default format
+        self.output_format = "starling-xml"
+        self._disabled_message = (
+            "Atlas generation logic is currently unavailable; UI is provided for preview only."
+        )
 
     def run(self):
-        try:
-            generator = SparrowAtlasGenerator(progress_callback=self.emit_progress)
-
-            # Create AtlasSettings from the atlas_settings dict
-            settings = AtlasSettings(
-                max_size=self.atlas_settings.get("max_size", 4096),
-                min_size=self.atlas_settings.get("min_size", 128),
-                padding=self.atlas_settings.get("padding", 2),
-                power_of_2=self.atlas_settings.get("power_of_2", True),
-                optimization_level=self.atlas_settings.get("optimization_level", 5),
-                allow_rotation=self.atlas_settings.get("allow_rotation", True),
-                allow_vertical_flip=self.atlas_settings.get(
-                    "allow_vertical_flip", False
-                ),
-                algorithm_hint=self.atlas_settings.get("preferred_algorithm"),
-                heuristic_hint=self.atlas_settings.get("heuristic_hint"),
-                optimization_mode_index=self.atlas_settings.get(
-                    "optimization_mode_index", 0
-                ),
-                preferred_width=self.atlas_settings.get("preferred_width"),
-                preferred_height=self.atlas_settings.get("preferred_height"),
-                forced_width=self.atlas_settings.get("forced_width"),
-                forced_height=self.atlas_settings.get("forced_height"),
-            )
-
-            # Use animation groups if available, otherwise create default
-            if self.animation_groups:
-                animation_groups = self.animation_groups
-            else:
-                animation_groups = {"Animation_01": self.input_frames}
-
-            # Generate atlas with selected output format
-            results = generator.generate_atlas(
-                animation_groups,
-                self.output_path,
-                settings,
-                self.current_version,
-                output_format=self.output_format,
-            )
-
-            if results["success"]:
-                self.generation_completed.emit(results)
-            else:
-                self.generation_failed.emit(results["error"])
-
-        except Exception as e:
-            self.generation_failed.emit(str(e))
+        self.generation_failed.emit(self._disabled_message)
 
     def emit_progress(self, current, total, message=""):
         """Thread-safe progress emission."""
@@ -111,20 +81,17 @@ class GenerateTabWidget(QWidget):
         self.worker = None
         self.animation_groups = {}
         self.atlas_settings = {}
-        self._initial_mode_index = 0
-        self._algorithm_slider_initialized = False
-        self._mode_by_algorithm = {}
 
         self.APP_NAME = Utilities.APP_NAME
         self.ALL_FILES_FILTER = f"{self.tr('All files')} (*.*)"
 
         # Combined image formats - used for both input and output
         self.IMAGE_FORMATS = {
+            ".png": "PNG",
             ".bmp": "BMP",
             ".dds": "DDS",
             ".jpeg": "JPEG",
             ".jpg": "JPEG",
-            ".png": "PNG",
             ".tga": "TGA",
             ".tiff": "TIFF",
             ".webp": "WebP",
@@ -144,11 +111,14 @@ class GenerateTabWidget(QWidget):
         self._configure_packer_combo()
         self._configure_atlas_type_combo()
 
-        # Initialize slider/algorithm state before size wiring
+        # Initialize heuristic combo for current algorithm
         self.on_algorithm_changed(self.packer_method_combobox.currentText())
 
         # Initialize atlas sizing state
         self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
+
+        # Initialize rotation/flip checkboxes based on selected format
+        self._update_rotation_flip_state()
 
     @property
     def INPUT_FORMATS(self):
@@ -224,8 +194,8 @@ class GenerateTabWidget(QWidget):
         self.atlas_size_label_2 = self.ui.atlas_size_label_2
         self.padding_spin = self.ui.padding_spin
         self.power_of_2_check = self.ui.power_of_2_check
-        self.speed_optimization_slider = self.ui.speed_optimization_slider
-        self.speed_optimization_value_label = self.ui.speed_optimization_value_label
+        self.allow_rotation_check = self.ui.allow_rotation_check
+        self.allow_flip_check = self.ui.allow_flip_check
 
         # Output format
         self.image_format_combo = self.ui.image_format_combo
@@ -280,13 +250,9 @@ class GenerateTabWidget(QWidget):
         self.atlas_size_method_combobox.currentTextChanged.connect(
             self.on_atlas_size_method_changed
         )
-        self.atlas_size_spinbox_1.valueChanged.connect(self.update_atlas_size_estimates)
-        self.atlas_size_spinbox_2.valueChanged.connect(self.update_atlas_size_estimates)
-        self.power_of_2_check.toggled.connect(self.update_atlas_size_estimates)
-        self.padding_spin.valueChanged.connect(self.update_atlas_size_estimates)
         self.image_format_combo.currentTextChanged.connect(self.on_format_change)
-        self.speed_optimization_slider.valueChanged.connect(
-            self.on_speed_slider_changed
+        self.atlas_type_combo.currentIndexChanged.connect(
+            self._update_rotation_flip_state
         )
         self.packer_method_combobox.currentTextChanged.connect(
             self.on_algorithm_changed
@@ -373,7 +339,6 @@ class GenerateTabWidget(QWidget):
 
             self.update_frame_info()
             self.update_generate_button_state()
-            self.update_atlas_size_estimates()
 
     def add_animation_group(self):
         """Add a new animation group."""
@@ -551,7 +516,6 @@ class GenerateTabWidget(QWidget):
 
                 self.update_frame_info()
                 self.update_generate_button_state()
-                self.update_atlas_size_estimates()
             else:
                 QMessageBox.information(
                     self,
@@ -573,14 +537,15 @@ class GenerateTabWidget(QWidget):
     def _configure_packer_combo(self):
         """Populate the packer combo box with supported algorithms."""
         algorithm_options = [
-            (self.tr("Growing (Auto Expand)"), "growing"),
-            (self.tr("Grid (Legacy Fill)"), "grid"),
-            (self.tr("Ordered Rows"), "ordered"),
-            (self.tr("MaxRects (Tightest)"), "maxrects"),
-            (self.tr("Guillotine"), "guillotine"),
-            (self.tr("Shelf (FFDH)"), "shelf"),
-            (self.tr("Skyline"), "skyline"),
-            (self.tr("Hybrid Adaptive (Experimental)"), "hybrid"),
+            ("Automatic (Best Fit)", "auto"),
+            ("Growing (Auto Expand)", "growing"),
+            ("Grid (Legacy Fill)", "grid"),
+            ("Ordered Rows", "ordered"),
+            ("MaxRects (Tightest)", "maxrects"),
+            ("Guillotine", "guillotine"),
+            ("Shelf (FFDH)", "shelf"),
+            ("Skyline", "skyline"),
+            ("Hybrid Adaptive (Experimental)", "hybrid"),
         ]
 
         self.packer_method_combobox.blockSignals(True)
@@ -690,20 +655,20 @@ class GenerateTabWidget(QWidget):
         # Define format options with display names and internal keys
         # Format: (Display Name, format_key, file_extension)
         format_options = [
-            (self.tr("Sparrow/Starling XML"), "starling-xml", ".xml"),
-            (self.tr("JSON Hash"), "json-hash", ".json"),
-            (self.tr("JSON Array"), "json-array", ".json"),
-            (self.tr("TexturePacker XML"), "texture-packer-xml", ".xml"),
-            (self.tr("Spine Atlas"), "spine", ".atlas"),
-            (self.tr("Phaser 3 JSON"), "phaser3", ".json"),
-            (self.tr("CSS Spritesheet"), "css", ".css"),
-            (self.tr("Plain Text"), "txt", ".txt"),
-            (self.tr("Plist (Cocos2d)"), "plist", ".plist"),
-            (self.tr("UIKit Plist"), "uikit-plist", ".plist"),
-            (self.tr("Godot Atlas"), "godot", ".tpsheet"),
-            (self.tr("Egret2D JSON"), "egret2d", ".json"),
-            (self.tr("Paper2D (Unreal)"), "paper2d", ".paper2dsprites"),
-            (self.tr("Unity TexturePacker"), "unity", ".tpsheet"),
+            ("Sparrow/Starling XML", "starling-xml", ".xml"),
+            ("JSON Hash", "json-hash", ".json"),
+            ("JSON Array", "json-array", ".json"),
+            ("TexturePacker XML", "texture-packer-xml", ".xml"),
+            ("Spine Atlas", "spine", ".atlas"),
+            ("Phaser 3 JSON", "phaser3", ".json"),
+            ("CSS Spritesheet", "css", ".css"),
+            ("Plain Text", "txt", ".txt"),
+            ("Plist (Cocos2d)", "plist", ".plist"),
+            ("UIKit Plist", "uikit-plist", ".plist"),
+            ("Godot Atlas", "godot", ".tpsheet"),
+            ("Egret2D JSON", "egret2d", ".json"),
+            ("Paper2D (Unreal)", "paper2d", ".paper2dsprites"),
+            ("Unity TexturePacker", "unity", ".tpsheet"),
         ]
 
         self.atlas_type_combo.blockSignals(True)
@@ -731,154 +696,61 @@ class GenerateTabWidget(QWidget):
         if data:
             return data
         text = self.packer_method_combobox.currentText().lower()
-        if "grow" in text:
-            return "growing"
-        if "order" in text:
-            return "ordered"
         if "max" in text:
             return "maxrects"
-        if "hybrid" in text or "advanced" in text:
-            return "hybrid"
-        if "grid" in text:
-            return "grid"
         if "guillotine" in text:
             return "guillotine"
-        if "shelf" in text or "ffdh" in text:
-            return "shelf"
-        if "skyline" in text:
-            return "skyline"
-        return "growing"
-
-    def _algorithm_level_specs(self):
-        return {
-            "grid": {
-                "steps": [self.tr("Grid Fill")],
-                "allow_rotation": [False],
-                "allow_flip": [False],
-            },
-            "growing": {
-                "steps": [
-                    self.tr("Fast Fill"),
-                    self.tr("Balanced Height"),
-                    self.tr("Dense Packing"),
-                ],
-                "allow_rotation": [False, False, True],
-                "allow_flip": [False, False, False],
-            },
-            "ordered": {
-                "steps": [
-                    self.tr("Preserve Rows"),
-                    self.tr("Row Optimize"),
-                ],
-                "allow_rotation": [False, False],
-                "allow_flip": [False, False],
-            },
-            "maxrects": {
-                "steps": [
-                    self.tr("Basic Fit"),
-                    self.tr("Allow Rotation"),
-                    self.tr("Tight Fit"),
-                    self.tr("Aggressive"),
-                ],
-                "allow_rotation": [False, True, True, True],
-                "allow_flip": [False, False, False, True],
-            },
-            "guillotine": {
-                "steps": [
-                    self.tr("Best Area Fit"),
-                    self.tr("Allow Rotation"),
-                    self.tr("Tight Packing"),
-                ],
-                "allow_rotation": [False, True, True],
-                "allow_flip": [False, False, False],
-            },
-            "shelf": {
-                "steps": [
-                    self.tr("Height Fit"),
-                    self.tr("Allow Rotation"),
-                ],
-                "allow_rotation": [False, True],
-                "allow_flip": [False, False],
-            },
-            "skyline": {
-                "steps": [
-                    self.tr("Min Waste"),
-                    self.tr("Allow Rotation"),
-                    self.tr("Best Fit"),
-                ],
-                "allow_rotation": [False, True, True],
-                "allow_flip": [False, False, False],
-            },
-            "hybrid": {
-                "steps": [
-                    self.tr("Analyzer"),
-                    self.tr("Adaptive"),
-                    self.tr("Experimental"),
-                ],
-                "allow_rotation": [False, True, True],
-                "allow_flip": [False, True, True],
-            },
-        }
+        else:
+            pass
 
     def on_algorithm_changed(self, _text):
+        """Handle packer algorithm selection change."""
         key = self._current_algorithm_key()
-
-        # Update heuristic combo box
+        # Update heuristic combo box based on selected algorithm
         self._update_heuristic_combo(key)
 
-        # Update speed optimization slider
-        specs = self._algorithm_level_specs().get(key)
-        if not specs:
-            return
-        max_value = len(specs["steps"]) - 1
-        if key in self._mode_by_algorithm:
-            cached_value = self._mode_by_algorithm[key]
-        else:
-            cached_value = self.speed_optimization_slider.value()
-        cached_value = max(0, min(cached_value, max_value))
+    def _update_rotation_flip_state(self):
+        """Update rotation and flip checkboxes based on selected atlas format.
 
-        self.speed_optimization_slider.blockSignals(True)
-        self.speed_optimization_slider.setMaximum(max_value)
-        if self.speed_optimization_slider.value() != cached_value:
-            self.speed_optimization_slider.setValue(cached_value)
-        self.speed_optimization_slider.blockSignals(False)
+        Enables/disables checkboxes based on format support and shows warnings
+        for non-standard features.
+        """
+        format_key, _ = self._get_selected_export_format()
 
-        self._mode_by_algorithm[key] = cached_value
-        self.update_speed_opt_label(cached_value)
-
-        if not self._algorithm_slider_initialized:
-            self._initial_mode_index = cached_value
-            self._algorithm_slider_initialized = True
-
-    def on_speed_slider_changed(self, value):
-        key = self._current_algorithm_key()
-        self._mode_by_algorithm[key] = value
-        self.update_speed_opt_label(value)
-
-    def update_speed_opt_label(self, value):
-        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
-        if not specs:
-            self.speed_optimization_value_label.setText(
-                self.tr("Level: {0}").format(value)
+        # Check format support for rotation
+        supports_rotation = format_key in SUPPORTED_ROTATION_FORMATS
+        self.allow_rotation_check.setEnabled(supports_rotation)
+        if supports_rotation:
+            self.allow_rotation_check.setToolTip(
+                self.tr(
+                    "Allow the packer to rotate sprites 90° clockwise for tighter packing."
+                )
             )
-            return
-        steps = specs["steps"]
-        value = max(0, min(value, len(steps) - 1))
-        description = steps[value]
-        self.speed_optimization_value_label.setText(
-            f"{self.tr('Mode')} {value + 1}/{len(steps)} - {description}"
-        )
+        else:
+            self.allow_rotation_check.setChecked(False)
+            self.allow_rotation_check.setToolTip(
+                self.tr("Rotation is not supported by {0} format.").format(format_key)
+            )
 
-    def get_optimization_settings(self, slider_value):
-        """Convert slider value to optimization settings."""
-        specs = self._algorithm_level_specs().get(self._current_algorithm_key())
-        if not specs:
-            return {}
-        index = max(0, min(slider_value, len(specs["steps"]) - 1))
-        return {
-            "allow_rotation": specs["allow_rotation"][index],
-            "allow_flip": specs["allow_flip"][index],
-        }
+        # Check format support for flip (only starling-xml with HaxeFlixel)
+        supports_flip = format_key in SUPPORTED_FLIP_FORMATS
+        self.allow_flip_check.setEnabled(supports_flip)
+        if supports_flip:
+            self.allow_flip_check.setToolTip(
+                self.tr(
+                    "Allow the packer to flip sprites for tighter packing.\n\n"
+                    "Warning: This is a non-standard extension only supported by HaxeFlixel.\n"
+                    "Most Starling/Sparrow implementations will ignore flip attributes."
+                )
+            )
+        else:
+            self.allow_flip_check.setChecked(False)
+            self.allow_flip_check.setToolTip(
+                self.tr(
+                    "Flip is not supported by {0} format.\n"
+                    "Only Sparrow/Starling XML with HaxeFlixel supports flip attributes."
+                ).format(format_key)
+            )
 
     def _determine_algorithm_hint(self):
         return self._current_algorithm_key()
@@ -903,7 +775,6 @@ class GenerateTabWidget(QWidget):
 
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are added
 
     def add_frames_to_new_animation(self, file_paths):
         """Add frame files to a new animation group."""
@@ -920,7 +791,6 @@ class GenerateTabWidget(QWidget):
 
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are added
 
     def is_frame_already_added(self, file_path):
         """Check if a frame is already added to any animation."""
@@ -951,19 +821,16 @@ class GenerateTabWidget(QWidget):
         self.animation_tree.clear_all_animations()
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_atlas_size_estimates()  # Update atlas size estimates when frames are cleared
 
     def on_animation_added(self, animation_name):
         """Handle new animation group added."""
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_atlas_size_estimates()  # Update atlas size estimates when animations change
 
     def on_animation_removed(self, animation_name):
         """Handle animation group removed."""
         self.update_frame_info()
         self.update_generate_button_state()
-        self.update_atlas_size_estimates()  # Update atlas size estimates when animations change
 
     def update_frame_info(self):
         """Update the frame info label."""
@@ -1029,33 +896,20 @@ class GenerateTabWidget(QWidget):
         method = self.atlas_size_method_combobox.currentText()
         algorithm_hint = self._determine_algorithm_hint()
         heuristic_hint = self._get_selected_heuristic()
-        level_settings = self.get_optimization_settings(
-            self.speed_optimization_slider.value()
-        )
-        allow_rotation = level_settings.get("allow_rotation", False)
-        allow_vertical_flip = level_settings.get("allow_flip", False)
+
+        # Get rotation/flip settings from checkboxes
+        allow_rotation = self.allow_rotation_check.isChecked()
+        allow_vertical_flip = self.allow_flip_check.isChecked()
 
         if method == "Automatic":
-            # For automatic mode, calculate optimal sizes
-            width_est, height_est = self.calculate_atlas_size_estimates()
-            if width_est is None or height_est is None:
-                # Fallback to reasonable defaults
-                width_est, height_est = 1024, 1024
-
             atlas_settings = {
-                "max_size": max(width_est, height_est) * 2,  # Give some headroom
-                "min_size": min(width_est, height_est),
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
-                "optimization_level": self.speed_optimization_slider.value(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "automatic",
-                "preferred_width": width_est,
-                "preferred_height": height_est,
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
-                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "MinMax":
             atlas_settings = {
@@ -1063,13 +917,11 @@ class GenerateTabWidget(QWidget):
                 "min_size": self.atlas_size_spinbox_1.value(),
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
-                "optimization_level": self.speed_optimization_slider.value(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "minmax",
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
-                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
         elif method == "Manual":
             atlas_settings = {
@@ -1081,7 +933,6 @@ class GenerateTabWidget(QWidget):
                 ),
                 "padding": self.padding_spin.value(),
                 "power_of_2": self.power_of_2_check.isChecked(),
-                "optimization_level": self.speed_optimization_slider.value(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
                 "atlas_size_method": "manual",
@@ -1089,39 +940,18 @@ class GenerateTabWidget(QWidget):
                 "forced_height": self.atlas_size_spinbox_2.value(),
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
-                "optimization_mode_index": self.speed_optimization_slider.value(),
             }
-
-            # Show warning for manual mode
-            total_area = 0
-            animations = self.animation_tree.get_animation_groups()
-            for animation_name, frames in animations.items():
-                for frame in frames:
-                    try:
-                        with Image.open(frame["path"]) as img:
-                            width, height = img.size
-                            total_area += (width + 2 * self.padding_spin.value()) * (
-                                height + 2 * self.padding_spin.value()
-                            )
-                    except Exception:
-                        continue
-
-            atlas_area = (
-                self.atlas_size_spinbox_1.value() * self.atlas_size_spinbox_2.value()
-            )
-            if (
-                total_area > atlas_area * 0.8
-            ):  # If frames use more than 80% of atlas space
-                reply = QMessageBox.question(
-                    self,
-                    self.tr("Manual Size Warning"),
-                    self.tr(
-                        "The specified atlas size may not be large enough to fit all frames. Continue anyway?"
-                    ),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
-                if reply == QMessageBox.StandardButton.No:
-                    return
+        else:
+            # Fallback to automatic
+            atlas_settings = {
+                "padding": self.padding_spin.value(),
+                "power_of_2": self.power_of_2_check.isChecked(),
+                "allow_rotation": allow_rotation,
+                "allow_vertical_flip": allow_vertical_flip,
+                "atlas_size_method": "automatic",
+                "preferred_algorithm": algorithm_hint,
+                "heuristic_hint": heuristic_hint,
+            }
 
         # Create a dummy input_frames list for the worker (for compatibility)
         all_input_frames = []
@@ -1211,124 +1041,10 @@ class GenerateTabWidget(QWidget):
             self.tr("Atlas generation failed:\n\n{0}").format(error_message),
         )
 
-    def calculate_atlas_size_estimates(self):
-        """Calculate optimal atlas sizes based on input frames for display purposes."""
-        animations = self.animation_tree.get_animation_groups()
-        if not animations:
-            return None, None
-
-        frame_dimensions = []
-        total_area = 0
-        max_width = 0
-        max_height = 0
-
-        # Analyze all frames to get dimensions
-        for animation_name, frames in animations.items():
-            for frame in frames:
-                try:
-                    with Image.open(frame["path"]) as img:
-                        width, height = img.size
-                        frame_dimensions.append((width, height))
-                        total_area += width * height
-                        max_width = max(max_width, width)
-                        max_height = max(max_height, height)
-                except Exception:
-                    # Skip invalid images
-                    continue
-
-        if not frame_dimensions:
-            return None, None
-
-        # Calculate required area with padding
-        padding = self.padding_spin.value()
-
-        # Auto-determine efficiency factor based on optimization level (same as generator)
-        optimization_level = self.speed_optimization_slider.value()
-        if optimization_level <= 3:
-            efficiency_factor = 1.5  # More conservative for basic packing
-        elif optimization_level <= 6:
-            efficiency_factor = 1.3  # Balanced
-        elif optimization_level <= 9:
-            efficiency_factor = 1.2  # More aggressive
-        else:
-            efficiency_factor = 1.15  # Most aggressive for ultra optimization
-
-        # Add padding to each frame's area
-        padded_total_area = 0
-        for width, height in frame_dimensions:
-            padded_width = width + (2 * padding)
-            padded_height = height + (2 * padding)
-            padded_total_area += padded_width * padded_height
-
-        # Apply efficiency factor (accounts for packing inefficiency)
-        estimated_area = padded_total_area * efficiency_factor
-
-        # Calculate minimum atlas size needed
-        min_dimension = math.ceil(math.sqrt(estimated_area))
-
-        # Ensure minimum atlas can fit the largest frame
-        min_dimension = max(
-            min_dimension, max_width + (2 * padding), max_height + (2 * padding)
-        )
-
-        # Round up to next power of 2 if power of 2 is enabled
-        if self.power_of_2_check.isChecked():
-            min_dimension = 2 ** math.ceil(math.log2(min_dimension))
-
-        # For automatic mode, we'll use square dimensions
-        # For display, assume roughly square but allow some variation
-        width_estimate = min_dimension
-        height_estimate = min_dimension
-
-        # Try to make it slightly more rectangular if that's more efficient
-        aspect_ratio = max_width / max_height if max_height > 0 else 1.0
-        if aspect_ratio > 1.5:  # Wide frames
-            width_estimate = int(min_dimension * 1.2)
-            height_estimate = int(min_dimension * 0.8)
-        elif aspect_ratio < 0.67:  # Tall frames
-            width_estimate = int(min_dimension * 0.8)
-            height_estimate = int(min_dimension * 1.2)
-
-        # Apply power of 2 constraint if needed
-        if self.power_of_2_check.isChecked():
-            width_estimate = 2 ** math.ceil(math.log2(width_estimate))
-            height_estimate = 2 ** math.ceil(math.log2(height_estimate))
-
-        return width_estimate, height_estimate
-
-    def update_atlas_size_estimates(self):
-        """Update atlas size estimates based on current settings."""
-        method = self.atlas_size_method_combobox.currentText()
-
-        if method == "Automatic":
-            width_est, height_est = self.calculate_atlas_size_estimates()
-
-            if width_est is not None and height_est is not None:
-                # Update the grayed out spinboxes with estimates
-                self.atlas_size_spinbox_1.setValue(width_est)
-                self.atlas_size_spinbox_2.setValue(height_est)
-
-                # Update status in log
-                animations = self.animation_tree.get_animation_groups()
-                total_frames = sum(len(frames) for frames in animations.values())
-
-                if total_frames > 0:
-                    self.log_text.append(
-                        self.tr(
-                            "Auto-sizing: Estimated {0}x{1}px (based on {2} frames)"
-                        ).format(width_est, height_est, total_frames)
-                    )
-            elif self.animation_tree.get_total_frame_count() > 0:
-                self.log_text.append(
-                    self.tr(
-                        "Auto-sizing: Could not calculate sizes - image analysis failed"
-                    )
-                )
-
     def on_atlas_size_method_changed(self, method_text):
         """Handle atlas size method change."""
         if method_text == "Automatic":
-            # Grey out spinboxes and show estimated values
+            # Grey out spinboxes while automatic sizing is selected
             self.atlas_size_spinbox_1.setEnabled(False)
             self.atlas_size_spinbox_2.setEnabled(False)
 
@@ -1336,13 +1052,8 @@ class GenerateTabWidget(QWidget):
             self.atlas_size_label_1.setText(self.tr("Width"))
             self.atlas_size_label_2.setText(self.tr("Height"))
 
-            # Update with estimates
-            self.update_atlas_size_estimates()
-
             self.log_text.append(
-                self.tr(
-                    "Atlas sizing: Automatic mode enabled - size will be calculated automatically"
-                )
+                self.tr("Atlas sizing: Automatic mode selected.")
             )
 
         elif method_text == "MinMax":
