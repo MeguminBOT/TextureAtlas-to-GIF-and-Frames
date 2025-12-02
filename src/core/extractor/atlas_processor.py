@@ -11,8 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image
 
-# Use lazy imports inside methods to avoid circular imports with parsers package
-
 
 class AtlasProcessor:
     """Open a texture atlas and parse sprite metadata.
@@ -66,7 +64,6 @@ class AtlasProcessor:
         Raises:
             ParserError: If the metadata file cannot be parsed.
         """
-        # Lazy imports to avoid circular dependencies
         from parsers.parser_registry import ParserRegistry
         from parsers.parser_types import ParseResult, ParserError, ParserErrorCode
         from parsers.unknown_parser import UnknownParser
@@ -74,7 +71,6 @@ class AtlasProcessor:
         atlas: Optional[Image.Image] = None
         sprites: List[Dict[str, Any]] = []
 
-        # Open the atlas image
         try:
             Image.MAX_IMAGE_PIXELS = None
             atlas = Image.open(self.atlas_path)
@@ -82,7 +78,6 @@ class AtlasProcessor:
             print(f"Error opening atlas: {e}")
             return None, []
 
-        # Check if metadata_path is None or points to an image file
         if self._is_unknown_spritesheet():
             processed_atlas, sprites = UnknownParser.parse_unknown_image(
                 self.atlas_path, self.parent_window
@@ -91,9 +86,7 @@ class AtlasProcessor:
                 atlas = processed_atlas
             return atlas, sprites
 
-        # Use unified parser registry
         try:
-            # Initialize registry if needed
             if not ParserRegistry._all_parsers:
                 ParserRegistry.initialize()
 
@@ -195,7 +188,6 @@ class AtlasProcessor:
         elif self.metadata_path.endswith(".txt"):
             return self.parse_txt_for_preview(animation_name)
         else:
-            # Use cached sprites and filter
             return self._filter_sprites_for_animation(animation_name, self.sprites)
 
     def _filter_sprites_for_animation(

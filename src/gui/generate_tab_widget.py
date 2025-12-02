@@ -101,7 +101,9 @@ class GeneratorWorker(QThread):
             if result.success:
                 self.generation_completed.emit(result.to_dict())
             else:
-                error_msg = "; ".join(result.errors) if result.errors else "Unknown error"
+                error_msg = (
+                    "; ".join(result.errors) if result.errors else "Unknown error"
+                )
                 self.generation_failed.emit(error_msg)
 
         except Exception as e:
@@ -609,9 +611,13 @@ class GenerateTabWidget(QWidget):
         self.heuristic_combobox.setMinimumWidth(140)
 
         # Create compression settings button
-        self.compression_settings_button = QPushButton(self.tr("Compression Settings..."))
+        self.compression_settings_button = QPushButton(
+            self.tr("Compression Settings...")
+        )
         self.compression_settings_button.setToolTip(
-            self.tr("Configure format-specific compression options for the output image")
+            self.tr(
+                "Configure format-specific compression options for the output image"
+            )
         )
         self.compression_settings_button.clicked.connect(self.show_compression_settings)
 
@@ -851,7 +857,9 @@ class GenerateTabWidget(QWidget):
         if hasattr(self.main_app, "app_config"):
             app_config = self.main_app.app_config
             if hasattr(app_config, "get_format_compression_settings"):
-                settings = app_config.get_format_compression_settings(current_format) or {}
+                settings = (
+                    app_config.get_format_compression_settings(current_format) or {}
+                )
 
         return settings
 
@@ -1149,9 +1157,7 @@ class GenerateTabWidget(QWidget):
             self.atlas_size_label_1.setText(self.tr("Width"))
             self.atlas_size_label_2.setText(self.tr("Height"))
 
-            self.log_text.append(
-                self.tr("Atlas sizing: Automatic mode selected.")
-            )
+            self.log_text.append(self.tr("Atlas sizing: Automatic mode selected."))
 
         elif method_text == "MinMax":
             # Enable spinboxes for min/max size input

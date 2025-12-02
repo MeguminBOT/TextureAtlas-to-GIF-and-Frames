@@ -292,9 +292,15 @@ class UpdateChecker:
                 )
                 return False, latest_version, None
 
-            update_type = self.determine_update_type(self.current_version, latest_version)
+            update_type = self.determine_update_type(
+                self.current_version, latest_version
+            )
             dialog = UpdateDialog(
-                parent_window, self.current_version, latest_version, changelog, update_type
+                parent_window,
+                self.current_version,
+                latest_version,
+                changelog,
+                update_type,
             )
             if dialog.show_dialog():
                 return True, latest_version, metadata
@@ -339,10 +345,16 @@ class UpdateChecker:
         def handle_finished(update_available, latest_version, metadata):
             if update_available and metadata:
                 changelog = metadata.get("changelog", "No changelog available.")
-                update_type = self.determine_update_type(self.current_version, latest_version)
+                update_type = self.determine_update_type(
+                    self.current_version, latest_version
+                )
 
                 dialog = UpdateDialog(
-                    parent_window, self.current_version, latest_version, changelog, update_type
+                    parent_window,
+                    self.current_version,
+                    latest_version,
+                    changelog,
+                    update_type,
                 )
                 if dialog.show_dialog():
                     if on_update_available:
@@ -363,7 +375,10 @@ class UpdateChecker:
     def _is_newer_version(self, latest: str, current: str) -> bool:
         """Return True when ``latest`` represents a higher version than ``current``."""
 
-        return self._compare_versions(version_to_tuple(latest), version_to_tuple(current)) > 0
+        return (
+            self._compare_versions(version_to_tuple(latest), version_to_tuple(current))
+            > 0
+        )
 
     def determine_update_type(self, current_version: str, latest_version: str) -> str:
         """Classify an update as major, minor, or patch.
@@ -396,7 +411,9 @@ class UpdateChecker:
         except (ValueError, IndexError):
             return "patch"
 
-    def download_and_install_update(self, update_payload=None, latest_version=None, parent_window=None):
+    def download_and_install_update(
+        self, update_payload=None, latest_version=None, parent_window=None
+    ):
         """Launch the standalone updater process and report success.
 
         This spawns an external Python process running update_installer.py,
@@ -431,6 +448,7 @@ class UpdateChecker:
         except Exception as e:
             print(f"Failed to launch updater: {e}")
             import traceback
+
             traceback.print_exc()
             QMessageBox.critical(
                 parent_window, "Update Error", f"Failed to start updater:\n{str(e)}"
@@ -462,7 +480,10 @@ class UpdateChecker:
                 continue
             if self._compare_versions(candidate_tuple, current_tuple) <= 0:
                 continue
-            if not newest_tuple or self._compare_versions(candidate_tuple, newest_tuple) > 0:
+            if (
+                not newest_tuple
+                or self._compare_versions(candidate_tuple, newest_tuple) > 0
+            ):
                 newest_tag = tag
                 newest_tuple = candidate_tuple
 
@@ -471,21 +492,27 @@ class UpdateChecker:
     def _fetch_release_for_tag(self, tag_name: str) -> Optional[Dict[str, Any]]:
         """Fetch release metadata for a specific tag, or None if not found."""
 
-        response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=15)
+        response = requests.get(
+            GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=15
+        )
         if response.status_code == 404:
             return None
         response.raise_for_status()
         return response.json()
 
     @staticmethod
-    def _compare_versions(latest_parts: tuple[int, ...], current_parts: tuple[int, ...]) -> int:
+    def _compare_versions(
+        latest_parts: tuple[int, ...], current_parts: tuple[int, ...]
+    ) -> int:
         """Compare two version tuples element-wise.
 
         Returns:
             1 if latest > current, -1 if latest < current, 0 if equal.
         """
 
-        for latest_val, current_val in zip_longest(latest_parts, current_parts, fillvalue=0):
+        for latest_val, current_val in zip_longest(
+            latest_parts, current_parts, fillvalue=0
+        ):
             if latest_val > current_val:
                 return 1
             if latest_val < current_val:

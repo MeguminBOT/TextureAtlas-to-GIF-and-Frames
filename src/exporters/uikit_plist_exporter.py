@@ -140,13 +140,17 @@ class UIKitPlistExporter(BaseExporter):
             # Add generator metadata if provided
             if generator_metadata:
                 if generator_metadata.app_version:
-                    metadata_dict["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                    metadata_dict["generator"] = (
+                        f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                    )
                 if generator_metadata.packer:
                     metadata_dict["packer"] = generator_metadata.packer
                 if generator_metadata.heuristic:
                     metadata_dict["heuristic"] = generator_metadata.heuristic
                 if generator_metadata.efficiency > 0:
-                    metadata_dict["efficiency"] = f"{generator_metadata.efficiency:.1f}%"
+                    metadata_dict["efficiency"] = (
+                        f"{generator_metadata.efficiency:.1f}%"
+                    )
             root["metadata"] = metadata_dict
 
         # Serialize

@@ -289,7 +289,11 @@ class StarlingXmlExporter(BaseExporter):
             # Add our own declaration and comment
             return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + content
         else:
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + rough_string
+            return (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                + comment_block
+                + rough_string
+            )
 
 
 __all__ = ["StarlingXmlExporter", "StarlingExportOptions"]

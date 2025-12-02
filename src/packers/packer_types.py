@@ -115,9 +115,9 @@ class MaxRectsHeuristic(Enum):
 
     BSSF = auto()  # Best Short Side Fit
     BLSF = auto()  # Best Long Side Fit
-    BAF = auto()   # Best Area Fit
-    BL = auto()    # Bottom-Left
-    CP = auto()    # Contact Point
+    BAF = auto()  # Best Area Fit
+    BL = auto()  # Bottom-Left
+    CP = auto()  # Contact Point
 
 
 class GuillotinePlacement(Enum):
@@ -223,9 +223,7 @@ class Rect:
 
     __slots__ = ("_data",)
 
-    def __init__(
-        self, x: int = 0, y: int = 0, width: int = 0, height: int = 0
-    ) -> None:
+    def __init__(self, x: int = 0, y: int = 0, width: int = 0, height: int = 0) -> None:
         # Store as NumPy array: [x, y, width, height]
         object.__setattr__(
             self, "_data", np.array([x, y, width, height], dtype=np.int32)

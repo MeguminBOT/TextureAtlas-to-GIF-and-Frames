@@ -154,9 +154,7 @@ class AtlasGenerator:
     def __init__(self) -> None:
         self._progress_callback: Optional[Callable[[int, int, str], None]] = None
 
-    def set_progress_callback(
-        self, callback: Callable[[int, int, str], None]
-    ) -> None:
+    def set_progress_callback(self, callback: Callable[[int, int, str], None]) -> None:
         """Set callback for progress updates.
 
         Args:
@@ -281,7 +279,9 @@ class AtlasGenerator:
             result.metadata_path = metadata_path
             result.atlas_width = pack_result.atlas_width
             result.atlas_height = pack_result.atlas_height
-            result.frame_count = len(all_frame_data)  # Total frames including duplicates
+            result.frame_count = len(
+                all_frame_data
+            )  # Total frames including duplicates
             result.efficiency = pack_result.efficiency
 
             self._emit_progress(4, 4, "Complete!")
@@ -389,9 +389,7 @@ class AtlasGenerator:
             return packed_frames  # No duplicates, return as-is
 
         # Build lookup from canonical ID to its packed frame
-        packed_lookup: Dict[str, PackedFrame] = {
-            pf.id: pf for pf in packed_frames
-        }
+        packed_lookup: Dict[str, PackedFrame] = {pf.id: pf for pf in packed_frames}
 
         expanded: List[PackedFrame] = []
 
@@ -483,7 +481,9 @@ class AtlasGenerator:
 
         # True auto mode: try all algorithms and pick the best
         if algorithm == "auto":
-            return self._pack_with_best_algorithm(frames, packer_options, options.heuristic)
+            return self._pack_with_best_algorithm(
+                frames, packer_options, options.heuristic
+            )
 
         # Check if we should auto-select the best heuristic
         if options.heuristic == "auto" or options.heuristic is None:

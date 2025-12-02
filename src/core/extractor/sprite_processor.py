@@ -30,9 +30,7 @@ class SpriteProcessor:
             sprites: List of sprite dicts with keys like ``name``, ``x``, ``y``, etc.
         """
         self.atlas = atlas
-        # Cache an RGBA atlas so downstream crops avoid repeated conversions.
         self._atlas_rgba = atlas if atlas.mode == "RGBA" else atlas.convert("RGBA")
-        # Keep a NumPy view of the atlas so each sprite extraction is a cheap slice.
         self._atlas_array = np.ascontiguousarray(np.asarray(self._atlas_rgba))
         self.sprites = sprites
 

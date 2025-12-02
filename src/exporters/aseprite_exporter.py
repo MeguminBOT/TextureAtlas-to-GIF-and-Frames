@@ -66,11 +66,12 @@ class AsepriteExporter(BaseExporter):
         """Generate an Aseprite JSON document."""
 
         frames = {
-            packed.name: self._build_frame_entry(packed)
-            for packed in packed_sprites
+            packed.name: self._build_frame_entry(packed) for packed in packed_sprites
         }
 
-        meta = self._build_meta_block(atlas_width, atlas_height, image_name, generator_metadata)
+        meta = self._build_meta_block(
+            atlas_width, atlas_height, image_name, generator_metadata
+        )
 
         data = {"frames": frames, "meta": meta}
         indent = 4 if self.options.pretty_print else None

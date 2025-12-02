@@ -32,7 +32,7 @@ from gui.extractor.processing_window import ProcessingWindow  # noqa: E402
 from gui.extractor.compression_settings_window import (  # noqa: E402
     CompressionSettingsWindow,
 )
-from gui.machine_translation_disclaimer_dialog import ( # noqa: E402
+from gui.machine_translation_disclaimer_dialog import (  # noqa: E402
     MachineTranslationDisclaimerDialog,
 )
 
@@ -570,8 +570,8 @@ class TextureAtlasExtractorApp(QMainWindow):
 
             if force:
                 # User-initiated check - use synchronous method for immediate feedback
-                update_available, latest_version, update_payload = update_checker.check_for_updates(
-                    self
+                update_available, latest_version, update_payload = (
+                    update_checker.check_for_updates(self)
                 )
 
                 if update_available:
@@ -586,9 +586,9 @@ class TextureAtlasExtractorApp(QMainWindow):
                     QMessageBox.information(
                         self,
                         self.tr("Up to Date"),
-                        self.tr("You are already running the latest version ({version}).").format(
-                            version=latest_version
-                        ),
+                        self.tr(
+                            "You are already running the latest version ({version})."
+                        ).format(version=latest_version),
                     )
             else:
                 # Startup check - use async to avoid blocking
@@ -1215,6 +1215,7 @@ def run_updater(exe_mode: bool, wait_seconds: int = 3, target_tag: str = None):
         except Exception as err:
             print(f"[Worker Thread] Error: {err}")
             import traceback
+
             traceback.print_exc()
             dialog.log(f"Update process encountered an error: {err}", "error")
             dialog.allow_close()
@@ -1237,8 +1238,15 @@ if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser(description="TextureAtlas Toolbox")
         parser.add_argument("--update", action="store_true", help="Run in update mode")
-        parser.add_argument("--exe-mode", action="store_true", help="Force executable update mode")
-        parser.add_argument("--target-tag", type=str, default=None, help="Target version tag to update to")
+        parser.add_argument(
+            "--exe-mode", action="store_true", help="Force executable update mode"
+        )
+        parser.add_argument(
+            "--target-tag",
+            type=str,
+            default=None,
+            help="Target version tag to update to",
+        )
         parser.add_argument(
             "--wait", type=int, default=3, help="Seconds to wait before starting update"
         )
@@ -1247,7 +1255,9 @@ if __name__ == "__main__":
         if args.update:
             # Update mode: run the updater instead of the main app
             exe_mode = args.exe_mode or UpdateUtilities.is_compiled()
-            run_updater(exe_mode=exe_mode, wait_seconds=args.wait, target_tag=args.target_tag)
+            run_updater(
+                exe_mode=exe_mode, wait_seconds=args.wait, target_tag=args.target_tag
+            )
         else:
             # Normal mode: run the main application
             print("Starting main application...")
@@ -1256,5 +1266,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Fatal error during startup: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

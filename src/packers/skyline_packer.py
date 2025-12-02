@@ -153,9 +153,7 @@ class SkylinePacker(BasePacker):
 
         border = self.options.border_padding
         # Start with a single skyline segment at y=0 (top of usable area)
-        self.skyline = [
-            SkylineNode(x=border, y=border, width=width - 2 * border)
-        ]
+        self.skyline = [SkylineNode(x=border, y=border, width=width - 2 * border)]
 
     def _find_best_position(
         self,
@@ -339,7 +337,10 @@ class SkylinePacker(BasePacker):
         new_skyline.append(new_node)
 
         # Skip nodes that are covered by the new rectangle
-        while i < len(self.skyline) and self.skyline[i].x + self.skyline[i].width <= x + width:
+        while (
+            i < len(self.skyline)
+            and self.skyline[i].x + self.skyline[i].width <= x + width
+        ):
             i += 1
 
         # Handle partial overlap on the right

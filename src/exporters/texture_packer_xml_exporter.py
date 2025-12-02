@@ -228,7 +228,11 @@ class TexturePackerXmlExporter(BaseExporter):
             content = "\n".join(line for line in lines if line.strip())
             return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + content
         else:
-            return '<?xml version="1.0" encoding="UTF-8"?>\n' + comment_block + rough_string
+            return (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                + comment_block
+                + rough_string
+            )
 
 
 __all__ = ["TexturePackerXmlExporter", "TexturePackerXmlExportOptions"]

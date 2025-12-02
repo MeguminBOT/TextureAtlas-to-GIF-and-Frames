@@ -143,7 +143,9 @@ class SpineExporter(BaseExporter):
         # but we can add them as custom properties that parsers will ignore)
         if generator_metadata:
             if generator_metadata.app_version:
-                lines.append(f"generator: TextureAtlas Toolbox ({generator_metadata.app_version})")
+                lines.append(
+                    f"generator: TextureAtlas Toolbox ({generator_metadata.app_version})"
+                )
             if generator_metadata.packer:
                 lines.append(f"packer: {generator_metadata.packer}")
             if generator_metadata.heuristic:

@@ -28,7 +28,7 @@ SRC_DIR = Path(__file__).resolve().parents[1]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from version import ( # noqa: E402
+from version import (  # noqa: E402
     APP_VERSION,
     GITHUB_LATEST_RELEASE_URL,
     GITHUB_RELEASE_BY_TAG_URL,
@@ -61,6 +61,7 @@ except ImportError:
 
 
 if QT_AVAILABLE:
+
     class QtUpdateDialog(QDialog):
         """Qt dialog showing update progress with a log view and progress bar.
 
@@ -211,22 +212,22 @@ class UpdateUtilities:
         if search_dir is None:
             # Default to the src directory
             search_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
+
         results = []
-        
+
         # Find all .new files recursively
         for root, _dirs, files in os.walk(search_dir):
             for filename in files:
-                if filename.endswith('.new'):
+                if filename.endswith(".new"):
                     new_file = os.path.join(root, filename)
                     # Target is the same path without .new extension
                     target_file = new_file[:-4]  # Remove '.new'
-                    
+
                     try:
                         # Try to apply the pending update
                         if os.path.exists(target_file):
                             # Create backup
-                            backup_file = target_file + '.bak'
+                            backup_file = target_file + ".bak"
                             try:
                                 if os.path.exists(backup_file):
                                     os.remove(backup_file)
@@ -234,23 +235,23 @@ class UpdateUtilities:
                             except Exception:
                                 # If we can't backup, try direct removal
                                 os.remove(target_file)
-                        
+
                         # Rename .new to target
                         os.rename(new_file, target_file)
-                        
+
                         # Clean up backup if successful
-                        backup_file = target_file + '.bak'
+                        backup_file = target_file + ".bak"
                         if os.path.exists(backup_file):
                             try:
                                 os.remove(backup_file)
                             except Exception:
                                 pass  # Non-critical
-                        
+
                         results.append((new_file, target_file, True))
                     except Exception as e:
                         print(f"Failed to apply pending update {new_file}: {e}")
                         results.append((new_file, target_file, False))
-        
+
         return results
 
     @staticmethod
@@ -319,7 +320,7 @@ class UpdateUtilities:
         else:
             # Fallback to system 7z command
             try:
-                cmd = ['7z', 'x', archive_path, f'-o{extract_dir}', '-y']
+                cmd = ["7z", "x", archive_path, f"-o{extract_dir}", "-y"]
                 subprocess.run(cmd, check=True, capture_output=True, text=True)
                 return True
             except (subprocess.CalledProcessError, FileNotFoundError):
@@ -329,7 +330,7 @@ class UpdateUtilities:
     def is_compiled():
         """Return True if running inside a Nuitka-compiled executable."""
 
-        if '__compiled__' in globals():
+        if "__compiled__" in globals():
             return True
         else:
             return False
@@ -356,9 +357,9 @@ class UpdateUtilities:
             if not test_dir:
                 return False
             if os.access(test_dir, os.W_OK):
-                tmp_path = os.path.join(test_dir, f".tatgf_write_test_{os.getpid()}" )
-                with open(tmp_path, 'w', encoding='utf-8') as tmp_file:
-                    tmp_file.write('1')
+                tmp_path = os.path.join(test_dir, f".tatgf_write_test_{os.getpid()}")
+                with open(tmp_path, "w", encoding="utf-8") as tmp_file:
+                    tmp_file.write("1")
                 os.remove(tmp_path)
                 return True
         except (PermissionError, OSError):
@@ -369,12 +370,12 @@ class UpdateUtilities:
     def is_admin():
         """Return True if running with administrator or root privileges."""
 
-        if os.name == 'nt':
+        if os.name == "nt":
             try:
                 return bool(ctypes.windll.shell32.IsUserAnAdmin())
             except AttributeError:
                 return False
-        if hasattr(os, 'geteuid'):
+        if hasattr(os, "geteuid"):
             return os.geteuid() == 0
         return False
 
@@ -386,18 +387,21 @@ class UpdateUtilities:
             True if the elevated shell launch was initiated.
         """
 
-        if os.name != 'nt':
+        if os.name != "nt":
             return False
         if not command:
             return False
         executable = command[0]
         args = subprocess.list2cmdline(command[1:])
         try:
-            ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, args, None, 1)
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", executable, args, None, 1
+            )
             return True
         except Exception as exc:
             print(f"Failed to request administrator privileges: {exc}")
             return False
+
 
 def _write_metadata_file(metadata):
     """Write release metadata to a temp JSON file for the external updater."""
@@ -432,7 +436,7 @@ def launch_external_updater(
 
     script_path = Path(__file__).resolve()
     project_root = script_path.parents[2]
-    
+
     # Run Main.py with --update flag instead of update_installer.py directly
     # This allows Main.py to update itself since the old process will be gone
     main_py = project_root / "src" / "Main.py"
@@ -461,7 +465,9 @@ def launch_external_updater(
     if os.name == "nt":
         # CREATE_NEW_PROCESS_GROUP = 0x00000200
         # DETACHED_PROCESS = 0x00000008
-        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        )
 
     try:
         process = subprocess.Popen(args, **kwargs)
@@ -470,6 +476,7 @@ def launch_external_updater(
     except Exception as e:
         print(f"Failed to launch updater: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -563,13 +570,17 @@ class Updater:
         """
         # If we already have complete metadata with download URL, use it directly
         if fallback_metadata and fallback_metadata.get("zipball_url"):
-            data = {"tag_name": tag_name or fallback_metadata.get("tag_name", "unknown")}
+            data = {
+                "tag_name": tag_name or fallback_metadata.get("tag_name", "unknown")
+            }
             data.update(fallback_metadata)
             return data
 
         # Otherwise, try to fetch from GitHub
         if tag_name:
-            response = requests.get(GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=30)
+            response = requests.get(
+                GITHUB_RELEASE_BY_TAG_URL.format(tag=tag_name), timeout=30
+            )
             if response.status_code == 404 and fallback_metadata:
                 data = {"tag_name": tag_name}
                 data.update(fallback_metadata)
@@ -810,7 +821,9 @@ class Updater:
                                 f"Downloaded {downloaded / 1024 / 1024:.1f} MB",
                             )
 
-            self._verify_download_size(tmp_path, total_size, downloaded, "source archive")
+            self._verify_download_size(
+                tmp_path, total_size, downloaded, "source archive"
+            )
 
             self.log(f"Download complete: {tmp_path}", "success")
             self.set_progress(60, "Extracting archive...")
@@ -860,9 +873,11 @@ class Updater:
                                     f"Downloaded {downloaded / 1024 / 1024:.1f} MB",
                                 )
 
-                self._verify_download_size(tmp_path, total_size, downloaded, "fallback source archive")
+                self._verify_download_size(
+                    tmp_path, total_size, downloaded, "fallback source archive"
+                )
 
-                with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                with zipfile.ZipFile(tmp_path, "r") as zip_ref:
                     extract_dir = tempfile.mkdtemp()
                     zip_ref.extractall(extract_dir)
 
@@ -891,10 +906,26 @@ class Updater:
             ]
 
             # Optional items that may or may not exist
-            optional_items = [".gitignore", ".github", "docs", "setup", "tests", "tools"]
+            optional_items = [
+                ".gitignore",
+                ".github",
+                "docs",
+                "setup",
+                "tests",
+                "tools",
+            ]
 
             # Items to skip (user/local data that shouldn't be overwritten)
-            skip_items = {"logs", "__pycache__", ".git", "config", "user_data", "cache", ".venv", "venv"}
+            skip_items = {
+                "logs",
+                "__pycache__",
+                ".git",
+                "config",
+                "user_data",
+                "cache",
+                ".venv",
+                "venv",
+            }
 
             # Build the list of items to copy based on what actually exists in source
             items_to_copy = []
@@ -904,7 +935,10 @@ class Updater:
                 if os.path.exists(os.path.join(source_project_root, item)):
                     items_to_copy.append(item)
                 else:
-                    self.log(f"Core item '{item}' not found in source (may have been removed)", "warning")
+                    self.log(
+                        f"Core item '{item}' not found in source (may have been removed)",
+                        "warning",
+                    )
 
             # Add optional items that exist in source
             for item in optional_items:
@@ -917,11 +951,16 @@ class Updater:
                 if item not in items_to_copy and item not in skip_items:
                     src_path = os.path.join(source_project_root, item)
                     # Only add files or directories that look like project files
-                    if os.path.isfile(src_path) or (os.path.isdir(src_path) and not item.startswith('.')):
+                    if os.path.isfile(src_path) or (
+                        os.path.isdir(src_path) and not item.startswith(".")
+                    ):
                         items_to_copy.append(item)
                         self.log(f"Found additional item: {item}", "info")
 
-            self.log(f"Will update {len(items_to_copy)} items: {', '.join(items_to_copy)}", "info")
+            self.log(
+                f"Will update {len(items_to_copy)} items: {', '.join(items_to_copy)}",
+                "info",
+            )
 
             for item in items_to_copy:
                 src_path = os.path.join(source_project_root, item)
@@ -1061,7 +1100,9 @@ class Updater:
                                 f"Downloaded {downloaded / 1024 / 1024:.1f} MB",
                             )
 
-            self._verify_download_size(tmp_path, file_size, downloaded, "executable archive")
+            self._verify_download_size(
+                tmp_path, file_size, downloaded, "executable archive"
+            )
 
             self.log(f"Download complete: {tmp_path}", "success")
             self.set_progress(60, "Extracting archive...")
@@ -1251,15 +1292,15 @@ class Updater:
         and config are preserved.
         """
         # Directories that should never be deleted (user data)
-        preserved_dirs = {'logs', '__pycache__', '.git', 'config', 'user_data', 'cache'}
+        preserved_dirs = {"logs", "__pycache__", ".git", "config", "user_data", "cache"}
         # File extensions that should never be deleted (user data)
-        preserved_extensions = {'.log', '.cfg', '.ini', '.user', '.local'}
+        preserved_extensions = {".log", ".cfg", ".ini", ".user", ".local"}
 
         # First, copy all files from source to destination
         files_copied = 0
         files_failed = 0
         important_files = []  # Track important files like Main.py
-        
+
         for root, dirs, files in os.walk(src_dir):
             rel_path = os.path.relpath(root, src_dir)
             if rel_path == ".":
@@ -1272,12 +1313,20 @@ class Updater:
             for file in files:
                 src_file = os.path.join(root, file)
                 dst_file = os.path.join(target_dir, file)
-                
+
                 # Track important files
-                if file.lower() in ('main.py', '__init__.py', 'version.py', 'update_installer.py', 'update_checker.py'):
-                    rel_file_path = os.path.join(rel_path, file) if rel_path != "." else file
+                if file.lower() in (
+                    "main.py",
+                    "__init__.py",
+                    "version.py",
+                    "update_installer.py",
+                    "update_checker.py",
+                ):
+                    rel_file_path = (
+                        os.path.join(rel_path, file) if rel_path != "." else file
+                    )
                     important_files.append(rel_file_path)
-                
+
                 try:
                     success = self._copy_file_with_retry(src_file, dst_file)
                     if success:
@@ -1291,7 +1340,7 @@ class Updater:
         self.log(f"Copied {files_copied} files to {os.path.basename(dst_dir)}", "info")
         if files_failed > 0:
             self.log(f"Failed to copy {files_failed} files", "warning")
-        
+
         # Log important files that were updated
         if important_files:
             self.log(f"Key files processed: {', '.join(important_files)}", "success")
@@ -1300,10 +1349,10 @@ class Updater:
         # This cleans up old files that were removed in the new version
         # For src/ directory, we always clean up obsolete files (except user config)
         files_removed = 0
-        
+
         # Files that should never be deleted (user data)
-        preserved_files = {'app_config.cfg'}
-        
+        preserved_files = {"app_config.cfg"}
+
         for root, dirs, files in os.walk(dst_dir):
             rel_path = os.path.relpath(root, dst_dir)
 
@@ -1315,7 +1364,7 @@ class Updater:
                 # Skip preserved file types
                 if any(file.lower().endswith(ext) for ext in preserved_extensions):
                     continue
-                
+
                 # Skip specifically preserved files (like app_config.cfg)
                 if file.lower() in preserved_files:
                     continue
@@ -1333,9 +1382,14 @@ class Updater:
                     try:
                         os.remove(dst_file)
                         files_removed += 1
-                        self.log(f"Removed obsolete file: {os.path.join(rel_path, file)}", "info")
+                        self.log(
+                            f"Removed obsolete file: {os.path.join(rel_path, file)}",
+                            "info",
+                        )
                     except Exception as e:
-                        self.log(f"Could not remove obsolete file {file}: {e}", "warning")
+                        self.log(
+                            f"Could not remove obsolete file {file}: {e}", "warning"
+                        )
 
         if files_removed > 0:
             self.log(f"Cleaned up {files_removed} obsolete files", "info")
@@ -1358,7 +1412,7 @@ class Updater:
         file_ext = os.path.splitext(filename)[1].lower()
 
         # Files that might be locked and need special handling
-        lockable_extensions = {'.dll', '.exe', '.py', '.pyd', '.so'}
+        lockable_extensions = {".dll", ".exe", ".py", ".pyd", ".so"}
         is_lockable = file_ext in lockable_extensions
 
         for attempt in range(max_attempts):
@@ -1375,12 +1429,15 @@ class Updater:
                         self.log(f"Backed up existing file: {filename}", "info")
                     except PermissionError:
                         # File is locked, will try direct copy anyway
-                        self.log(f"Could not backup {filename} (file in use), attempting direct overwrite", "warning")
+                        self.log(
+                            f"Could not backup {filename} (file in use), attempting direct overwrite",
+                            "warning",
+                        )
                     except Exception as e:
                         self.log(f"Could not backup {filename}: {e}", "warning")
 
                 shutil.copy2(src_file, dst_file)
-                
+
                 # Clean up backup if copy succeeded
                 backup_name = dst_file + ".old"
                 if os.path.exists(backup_name):
@@ -1388,7 +1445,7 @@ class Updater:
                         os.remove(backup_name)
                     except Exception:
                         pass  # Not critical if we can't remove the backup
-                
+
                 return True
 
             except (PermissionError, OSError) as e:
@@ -1404,9 +1461,11 @@ class Updater:
                     if is_lockable:
                         try:
                             temp_name = dst_file + ".new"
-                            self.log(f"Trying temp file method for {filename}...", "info")
+                            self.log(
+                                f"Trying temp file method for {filename}...", "info"
+                            )
                             shutil.copy2(src_file, temp_name)
-                            
+
                             # Try to remove original and rename temp
                             try:
                                 if os.path.exists(dst_file):
@@ -1417,10 +1476,10 @@ class Updater:
                                 self.log(
                                     f"Created {filename}.new - original file locked. "
                                     "New version will be available after restart.",
-                                    "warning"
+                                    "warning",
                                 )
                                 return True
-                            
+
                             os.rename(temp_name, dst_file)
                             self.log(
                                 f"Successfully updated {filename} using temp file method",
@@ -1433,10 +1492,13 @@ class Updater:
                                 f"All methods failed for {filename}: {temp_e}",
                                 "error",
                             )
-                    
-                    self.log(f"Failed to copy {filename} after {max_attempts} attempts: {e}", "error")
+
+                    self.log(
+                        f"Failed to copy {filename} after {max_attempts} attempts: {e}",
+                        "error",
+                    )
                     raise e
-        
+
         return False
 
     @staticmethod
@@ -1446,7 +1508,9 @@ class Updater:
         if not expected_size:
             return
         actual_size = os.path.getsize(file_path)
-        if actual_size != expected_size or (recorded_size and recorded_size != expected_size):
+        if actual_size != expected_size or (
+            recorded_size and recorded_size != expected_size
+        ):
             raise IOError(
                 f"{label} integrity check failed (expected {expected_size} bytes, got {actual_size})."
             )
@@ -1469,7 +1533,10 @@ class Updater:
         if compiled_mode:
             command = self._build_elevation_command()
             if UpdateUtilities.run_elevated(command):
-                self.log("Elevation request sent. Closing current updater instance...", "info")
+                self.log(
+                    "Elevation request sent. Closing current updater instance...",
+                    "info",
+                )
                 if self.ui:
                     self.ui.allow_close()
                 sys.exit(0)
@@ -1534,7 +1601,9 @@ class UpdateInstaller:
         if latest_version:
             dialog.log(f"Target version: {latest_version}", "info")
         if metadata.get("zipball_url"):
-            dialog.log(f"Download URL available: {metadata['zipball_url'][:60]}...", "info")
+            dialog.log(
+                f"Download URL available: {metadata['zipball_url'][:60]}...", "info"
+            )
         else:
             dialog.log(
                 "No download URL provided; falling back to GitHub release discovery.",
@@ -1552,6 +1621,7 @@ class UpdateInstaller:
             except Exception as err:
                 print(f"[Worker Thread] Error: {err}")
                 import traceback
+
                 traceback.print_exc()
                 dialog.log(f"Update process encountered an error: {err}", "error")
                 dialog.allow_close()
@@ -1566,11 +1636,21 @@ class UpdateInstaller:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Standalone updater for TextureAtlas-to-GIF-and-Frames")
-    parser.add_argument("--no-gui", action="store_true", help="Run in console mode without GUI")
-    parser.add_argument("--exe-mode", action="store_true", help="Run in executable update mode")
-    parser.add_argument("--wait", type=int, default=3, help="Seconds to wait before starting update")
-    parser.add_argument("--metadata-file", help="Path to release metadata JSON", default=None)
+    parser = argparse.ArgumentParser(
+        description="Standalone updater for TextureAtlas-to-GIF-and-Frames"
+    )
+    parser.add_argument(
+        "--no-gui", action="store_true", help="Run in console mode without GUI"
+    )
+    parser.add_argument(
+        "--exe-mode", action="store_true", help="Run in executable update mode"
+    )
+    parser.add_argument(
+        "--wait", type=int, default=3, help="Seconds to wait before starting update"
+    )
+    parser.add_argument(
+        "--metadata-file", help="Path to release metadata JSON", default=None
+    )
     parser.add_argument("--latest-version", help="Target version label", default=None)
 
     args = parser.parse_args()

@@ -255,25 +255,17 @@ class GuillotinePacker(BasePacker):
             # Right rect spans full height of original
             # Bottom rect only spans placed width
             if leftover_w > 0:
-                new_rects.append(
-                    Rect(x + width, rect.y, leftover_w, rect.height)
-                )
+                new_rects.append(Rect(x + width, rect.y, leftover_w, rect.height))
             if leftover_h > 0:
-                new_rects.append(
-                    Rect(x, y + height, width, leftover_h)
-                )
+                new_rects.append(Rect(x, y + height, width, leftover_h))
         else:
             # Vertical split:
             # Bottom rect spans full width of original
             # Right rect only spans placed height
             if leftover_h > 0:
-                new_rects.append(
-                    Rect(rect.x, y + height, rect.width, leftover_h)
-                )
+                new_rects.append(Rect(rect.x, y + height, rect.width, leftover_h))
             if leftover_w > 0:
-                new_rects.append(
-                    Rect(x + width, y, leftover_w, height)
-                )
+                new_rects.append(Rect(x + width, y, leftover_w, height))
 
         # Remove the used free rectangle and add new ones
         del self.free_rects[rect_idx]
@@ -306,12 +298,20 @@ class GuillotinePacker(BasePacker):
             # Horizontal split
             h_area1 = leftover_w * (height + leftover_h) if leftover_w > 0 else 0
             h_area2 = width * leftover_h if leftover_h > 0 else 0
-            h_min = min(h_area1, h_area2) if h_area1 > 0 and h_area2 > 0 else max(h_area1, h_area2)
+            h_min = (
+                min(h_area1, h_area2)
+                if h_area1 > 0 and h_area2 > 0
+                else max(h_area1, h_area2)
+            )
 
             # Vertical split
             v_area1 = leftover_w * height if leftover_w > 0 else 0
             v_area2 = (width + leftover_w) * leftover_h if leftover_h > 0 else 0
-            v_min = min(v_area1, v_area2) if v_area1 > 0 and v_area2 > 0 else max(v_area1, v_area2)
+            v_min = (
+                min(v_area1, v_area2)
+                if v_area1 > 0 and v_area2 > 0
+                else max(v_area1, v_area2)
+            )
 
             return h_min < v_min
 
@@ -319,11 +319,19 @@ class GuillotinePacker(BasePacker):
             # Choose split that maximizes the smallest resulting rectangle
             h_area1 = leftover_w * (height + leftover_h) if leftover_w > 0 else 0
             h_area2 = width * leftover_h if leftover_h > 0 else 0
-            h_min = min(h_area1, h_area2) if h_area1 > 0 and h_area2 > 0 else max(h_area1, h_area2)
+            h_min = (
+                min(h_area1, h_area2)
+                if h_area1 > 0 and h_area2 > 0
+                else max(h_area1, h_area2)
+            )
 
             v_area1 = leftover_w * height if leftover_w > 0 else 0
             v_area2 = (width + leftover_w) * leftover_h if leftover_h > 0 else 0
-            v_min = min(v_area1, v_area2) if v_area1 > 0 and v_area2 > 0 else max(v_area1, v_area2)
+            v_min = (
+                min(v_area1, v_area2)
+                if v_area1 > 0 and v_area2 > 0
+                else max(v_area1, v_area2)
+            )
 
             return h_min >= v_min
 

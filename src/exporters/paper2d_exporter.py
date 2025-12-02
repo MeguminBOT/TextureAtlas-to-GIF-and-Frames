@@ -145,7 +145,9 @@ class Paper2DExporter(BaseExporter):
             # Add generator metadata if provided
             if generator_metadata:
                 if generator_metadata.app_version:
-                    meta_block["generator"] = f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                    meta_block["generator"] = (
+                        f"TextureAtlas Toolbox ({generator_metadata.app_version})"
+                    )
                 if generator_metadata.packer:
                     meta_block["packer"] = generator_metadata.packer
                 if generator_metadata.heuristic:

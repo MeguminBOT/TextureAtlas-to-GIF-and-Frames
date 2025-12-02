@@ -426,9 +426,7 @@ class MaxRectsPacker(BasePacker):
                 remove[i] = True
 
         # Keep only non-removed rectangles
-        self.free_rects = [
-            self.free_rects[i] for i in range(n) if not remove[i]
-        ]
+        self.free_rects = [self.free_rects[i] for i in range(n) if not remove[i]]
 
     def occupancy(self) -> float:
         """Calculate the ratio of used area to total bin area."""
