@@ -197,6 +197,7 @@ class ExporterRegistry:
         from exporters import egret2d_exporter  # noqa: F401
         from exporters import paper2d_exporter  # noqa: F401
         from exporters import unity_exporter  # noqa: F401
+        from exporters import aseprite_exporter  # noqa: F401
         # fmt: on
 
 

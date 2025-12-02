@@ -95,6 +95,10 @@ from exporters.json_array_exporter import (
     JsonArrayExporter,
     JsonArrayExportOptions,
 )
+from exporters.aseprite_exporter import (
+    AsepriteExporter,
+    AsepriteExportOptions,
+)
 from exporters.spine_exporter import (
     SpineExporter,
     SpineExportOptions,
@@ -166,6 +170,8 @@ __all__ = [
     "JsonHashExportOptions",
     "JsonArrayExporter",
     "JsonArrayExportOptions",
+    "AsepriteExporter",
+    "AsepriteExportOptions",
     "SpineExporter",
     "SpineExportOptions",
     "TexturePackerXmlExporter",
