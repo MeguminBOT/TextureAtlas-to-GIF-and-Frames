@@ -24,9 +24,23 @@ class UnknownSpritesheetHandler:
 
     Attributes:
         SUPPORTED_IMAGE_SUFFIXES: Tuple of file extensions considered valid.
+        SUPPORTED_METADATA_SUFFIXES: Tuple of metadata file extensions to check.
     """
 
     SUPPORTED_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
+
+    # All metadata file extensions supported by parsers
+    SUPPORTED_METADATA_SUFFIXES = (
+        ".json",
+        ".xml",
+        ".txt",
+        ".plist",
+        ".atlas",
+        ".css",
+        ".tpsheet",
+        ".tpset",
+        ".paper2dsprites",
+    )
 
     def __init__(self, logger: Callable[[str], None] | None = None):
         """Initialise the handler with an optional logger.
@@ -136,7 +150,7 @@ class UnknownSpritesheetHandler:
             spritesheet_list: Relative filenames to check.
 
         Returns:
-            List of filenames with no XML, TXT, or spritemap JSON metadata.
+            List of filenames with no recognized metadata files.
         """
         unknown_sheets: List[str] = []
         for filename in spritesheet_list:
@@ -145,18 +159,23 @@ class UnknownSpritesheetHandler:
             base_filename = relative_path.stem
             atlas_dir = atlas_path.parent
 
-            xml_path = atlas_dir / f"{base_filename}.xml"
-            txt_path = atlas_dir / f"{base_filename}.txt"
-            spritemap_json_path = atlas_dir / f"{base_filename}.json"
-            animation_json_path = atlas_dir / "Animation.json"
-            has_spritemap_metadata = (
-                animation_json_path.is_file() and spritemap_json_path.is_file()
-            )
+            # Check for any supported metadata file extension
+            has_metadata = False
+            for ext in self.SUPPORTED_METADATA_SUFFIXES:
+                metadata_path = atlas_dir / f"{base_filename}{ext}"
+                if metadata_path.is_file():
+                    has_metadata = True
+                    break
+
+            # Also check for Adobe Animate spritemap (Animation.json + spritemap.json)
+            if not has_metadata:
+                animation_json_path = atlas_dir / "Animation.json"
+                spritemap_json_path = atlas_dir / f"{base_filename}.json"
+                if animation_json_path.is_file() and spritemap_json_path.is_file():
+                    has_metadata = True
 
             if (
-                not xml_path.is_file()
-                and not txt_path.is_file()
-                and not has_spritemap_metadata
+                not has_metadata
                 and atlas_path.is_file()
                 and atlas_path.suffix.lower() in self.SUPPORTED_IMAGE_SUFFIXES
             ):

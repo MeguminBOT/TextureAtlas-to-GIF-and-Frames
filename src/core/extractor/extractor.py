@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from queue import SimpleQueue, Empty
 from threading import Event, Lock
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from PySide6.QtCore import QCoreApplication, QThread, Signal
 
@@ -36,6 +36,19 @@ ProgressCallback = Callable[[int, int, str], None]
 StatisticsCallback = Callable[[int, int, int], None]
 ErrorPromptCallback = Callable[[str, BaseException], bool]
 StatsUpdate = Dict[str, Any]
+
+SUPPORTED_METADATA_EXTENSIONS: Tuple[str, ...] = (
+    ".json",
+    ".xml",
+    ".txt",
+    ".plist",
+    ".atlas",
+    ".css",
+    ".tpsheet",
+    ".tpset",
+    ".paper2dsprites",
+)
+SUPPORTED_METADATA_SUFFIXES = {ext.lower() for ext in SUPPORTED_METADATA_EXTENSIONS}
 
 
 class ExtractionCancelled(Exception):
@@ -1055,8 +1068,6 @@ class FileProcessorWorker(QThread):
             atlas_path = Path(self.input_dir) / relative_path
             atlas_dir = atlas_path.parent
             base_filename = relative_path.stem
-            xml_path = atlas_dir / f"{base_filename}.xml"
-            txt_path = atlas_dir / f"{base_filename}.txt"
             image_path = str(atlas_path)
             sprite_output_dir = Path(self.output_dir) / relative_path.with_suffix("")
             animation_json_path = atlas_dir / "Animation.json"
@@ -1068,10 +1079,24 @@ class FileProcessorWorker(QThread):
             has_animation_project = (
                 animation_json_path.is_file() and spritemap_json_path.is_file()
             )
-            xml_exists = xml_path.is_file()
-            txt_exists = txt_path.is_file()
-            has_metadata = xml_exists or txt_exists
-            metadata_file = str(xml_path) if xml_exists else str(txt_path)
+            metadata_file = None
+            if not has_animation_project:
+                metadata_candidates: Dict[str, str] = {}
+                try:
+                    for candidate in atlas_dir.glob(f"{base_filename}.*"):
+                        suffix = candidate.suffix.lower()
+                        if suffix in SUPPORTED_METADATA_SUFFIXES:
+                            metadata_candidates.setdefault(suffix, str(candidate))
+                except Exception:
+                    metadata_candidates = {}
+
+                for ext in SUPPORTED_METADATA_EXTENSIONS:
+                    chosen = metadata_candidates.get(ext)
+                    if chosen:
+                        metadata_file = chosen
+                        break
+
+            has_metadata = metadata_file is not None
             image_is_supported = filename.lower().endswith(
                 (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
             )

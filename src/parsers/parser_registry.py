@@ -137,6 +137,23 @@ class ParserRegistry:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
+            # Check for Aseprite format first (has specific markers)
+            meta = data.get("meta", {})
+            app = meta.get("app", "")
+            if "aseprite.org" in app.lower():
+                for parser in candidates:
+                    if parser.__name__ == "AsepriteParser":
+                        return parser
+            # Also check for Aseprite-specific metadata patterns
+            if "frameTags" in meta and "layers" in meta:
+                frames = data.get("frames", {})
+                if isinstance(frames, dict) and frames:
+                    first_frame = next(iter(frames.values()))
+                    if "duration" in first_frame:
+                        for parser in candidates:
+                            if parser.__name__ == "AsepriteParser":
+                                return parser
+
             # Check for specific JSON structures
             if "textures" in data:
                 # Could be Godot Atlas or Phaser3
@@ -308,6 +325,7 @@ class ParserRegistry:
         """
         # Import all parser modules to trigger registration
         from parsers import (
+            aseprite_parser,
             css_legacy_parser,
             css_spritesheet_parser,
             egret2d_parser,
@@ -327,6 +345,7 @@ class ParserRegistry:
 
         # Register all parsers
         parsers_to_register = [
+            aseprite_parser.AsepriteParser,
             css_legacy_parser.CssLegacyParser,
             css_spritesheet_parser.CssSpriteSheetParser,
             egret2d_parser.Egret2DParser,

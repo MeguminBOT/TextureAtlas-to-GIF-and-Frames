@@ -1355,11 +1355,24 @@ class AnimationPreviewWindow(QDialog):
             if spritesheet_name in self.parent().data_dict:
                 data_files = self.parent().data_dict[spritesheet_name]
                 if isinstance(data_files, dict):
-                    if "xml" in data_files:
-                        metadata_path = data_files["xml"]
-                    elif "txt" in data_files:
-                        metadata_path = data_files["txt"]
-                    elif "spritemap" in data_files:
+                    # Check for metadata files in priority order
+                    metadata_keys = [
+                        "xml",
+                        "txt",
+                        "json",
+                        "plist",
+                        "atlas",
+                        "css",
+                        "tpsheet",
+                        "tpset",
+                        "paper2dsprites",
+                    ]
+                    for key in metadata_keys:
+                        if key in data_files:
+                            metadata_path = data_files[key]
+                            break
+                    # Special handling for spritemap
+                    if metadata_path is None and "spritemap" in data_files:
                         spritemap_info = data_files["spritemap"]
 
             extractor = Extractor(None, "2.0.0", self.parent().settings_manager)

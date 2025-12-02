@@ -37,7 +37,10 @@ class SpriteProcessor:
         self.sprites = sprites
 
     def process_sprites(self):
-        """Process all sprites and group them into animations by name prefix.
+        """Process all sprites and group them into animations.
+
+        For formats with animation tags (like Aseprite), groups by tag.
+        Otherwise, groups by name prefix (strips trailing digits).
 
         Returns:
             Dict mapping animation names to lists of ``(name, image, metadata)``
@@ -48,38 +51,55 @@ class SpriteProcessor:
             frame_tuple = self._build_frame_tuple(sprite)
             if frame_tuple is None:
                 continue
-            name = frame_tuple[0]
-            folder_name = Utilities.strip_trailing_digits(name)
+
+            animation_tag = sprite.get("animation_tag")
+            if animation_tag:
+                folder_name = animation_tag
+            else:
+                name = frame_tuple[0]
+                folder_name = Utilities.strip_trailing_digits(name)
+
             animations.setdefault(folder_name, []).append(frame_tuple)
         return animations
 
     def process_specific_animation(self, animation_name):
         """Process only sprites belonging to a specific animation.
 
-        Uses flexible pattern matching to handle trailing digits and
-        separator variations.
+        For formats with animation tags (like Aseprite), matches by tag.
+        Otherwise, uses flexible pattern matching to handle trailing digits
+        and separator variations.
 
         Args:
-            animation_name: Animation identifier to match against sprite names.
+            animation_name: Animation identifier to match against sprite names or tags.
 
         Returns:
             Dict mapping matched animation names to frame tuple lists.
         """
-        patterns = [
-            animation_name,
-            re.sub(r"\d+$", "", animation_name),
-            re.sub(r"_?\d+$", "", animation_name),
-            re.sub(r"[-_]?\d+$", "", animation_name),
+        tag_matched_sprites = [
+            sprite
+            for sprite in self.sprites
+            if sprite.get("animation_tag") == animation_name
         ]
-        patterns = list(dict.fromkeys(patterns))
 
-        matching_sprites = []
-        for sprite in self.sprites:
-            sprite_name = sprite.get("name", "")
-            if any(
-                sprite_name == pat or sprite_name.startswith(pat) for pat in patterns
-            ):
-                matching_sprites.append(sprite)
+        if tag_matched_sprites:
+            matching_sprites = tag_matched_sprites
+        else:
+            patterns = [
+                animation_name,
+                re.sub(r"\d+$", "", animation_name),
+                re.sub(r"_?\d+$", "", animation_name),
+                re.sub(r"[-_]?\d+$", "", animation_name),
+            ]
+            patterns = list(dict.fromkeys(patterns))
+
+            matching_sprites = []
+            for sprite in self.sprites:
+                sprite_name = sprite.get("name", "")
+                if any(
+                    sprite_name == pat or sprite_name.startswith(pat)
+                    for pat in patterns
+                ):
+                    matching_sprites.append(sprite)
 
         if not matching_sprites:
             return {}
@@ -89,8 +109,14 @@ class SpriteProcessor:
             frame_tuple = self._build_frame_tuple(sprite)
             if frame_tuple is None:
                 continue
-            name = frame_tuple[0]
-            folder_name = Utilities.strip_trailing_digits(name)
+
+            animation_tag = sprite.get("animation_tag")
+            if animation_tag:
+                folder_name = animation_tag
+            else:
+                name = frame_tuple[0]
+                folder_name = Utilities.strip_trailing_digits(name)
+
             animations.setdefault(folder_name, []).append(frame_tuple)
 
         return animations

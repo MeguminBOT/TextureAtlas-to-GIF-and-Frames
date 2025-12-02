@@ -744,7 +744,22 @@ class ExtractTabWidget(QWidget):
     def _format_display_name(
         self, base_directory: Optional[Path], spritesheet_path: Path
     ) -> str:
-        """Return a label relative to ``base_directory`` when feasible."""
+        """Format a spritesheet path as a user-friendly display label.
+
+        When a base directory is provided, the path is shown relative to it
+        using POSIX separators for consistency. Falls back to the filename
+        alone if the spritesheet lies outside the base directory or no base
+        is given.
+
+        Args:
+            base_directory: Root folder to compute relative paths from, or
+                ``None`` to always use the filename.
+            spritesheet_path: Absolute path to the spritesheet image.
+
+        Returns:
+            str: A forward-slash-separated relative path, or the bare filename.
+        """
+
         if base_directory:
             try:
                 relative = spritesheet_path.relative_to(base_directory)
@@ -753,36 +768,87 @@ class ExtractTabWidget(QWidget):
                 pass
         return spritesheet_path.name
 
+    SUPPORTED_METADATA_EXTENSIONS = (
+        ".json",
+        ".xml",
+        ".txt",
+        ".plist",
+        ".atlas",
+        ".css",
+        ".tpsheet",
+        ".tpset",
+        ".paper2dsprites",
+    )
+
     def find_data_files_for_spritesheet(
         self, spritesheet_path, search_directory=None, display_name=None
     ):
-        """Find data files (XML, TXT) associated with a spritesheet."""
+        """Locate and register metadata files accompanying a spritesheet.
+
+        Scans the search directory for files matching the spritesheet's base
+        name with supported extensions (.xml, .txt, .json, .plist, .atlas,
+        .css, .tpsheet, .tpset, .paper2dsprites). Found files are stored in
+        ``parent_app.data_dict`` keyed by the display name.
+
+        Adobe Animate spritemaps receive special handling: when both
+        ``Animation.json`` and a matching JSON file exist, symbol metadata
+        is parsed and stored under the ``"spritemap"`` key.
+
+        Args:
+            spritesheet_path: Path to the spritesheet image (used to derive
+                the base filename).
+            search_directory: Folder to scan for metadata. Defaults to the
+                spritesheet's parent directory.
+            display_name: Key used in ``data_dict``. Defaults to the
+                spritesheet filename if not provided.
+        """
+
         if not self.parent_app:
             return
 
         spritesheet_path = Path(spritesheet_path)
         base_name = spritesheet_path.stem
-        # Use provided search directory or default to spritesheet's directory
         directory = (
             Path(search_directory) if search_directory else spritesheet_path.parent
         )
 
-        # Initialize data dict entry
         record_key = display_name or spritesheet_path.name
         if record_key not in self.parent_app.data_dict:
             self.parent_app.data_dict[record_key] = {}
 
-        # Look for XML files
         xml_file = directory / f"{base_name}.xml"
         if xml_file.exists():
             self.parent_app.data_dict[record_key]["xml"] = str(xml_file)
 
-        # Look for TXT files
         txt_file = directory / f"{base_name}.txt"
         if txt_file.exists():
             self.parent_app.data_dict[record_key]["txt"] = str(txt_file)
 
-        # Look for Adobe spritemap exports (Animation.json + matching spritemap JSON)
+        plist_file = directory / f"{base_name}.plist"
+        if plist_file.exists():
+            self.parent_app.data_dict[record_key]["plist"] = str(plist_file)
+
+        atlas_file = directory / f"{base_name}.atlas"
+        if atlas_file.exists():
+            self.parent_app.data_dict[record_key]["atlas"] = str(atlas_file)
+
+        css_file = directory / f"{base_name}.css"
+        if css_file.exists():
+            self.parent_app.data_dict[record_key]["css"] = str(css_file)
+
+        tpsheet_file = directory / f"{base_name}.tpsheet"
+        if tpsheet_file.exists():
+            self.parent_app.data_dict[record_key]["tpsheet"] = str(tpsheet_file)
+
+        tpset_file = directory / f"{base_name}.tpset"
+        if tpset_file.exists():
+            self.parent_app.data_dict[record_key]["tpset"] = str(tpset_file)
+
+        paper2d_file = directory / f"{base_name}.paper2dsprites"
+        if paper2d_file.exists():
+            self.parent_app.data_dict[record_key]["paper2dsprites"] = str(paper2d_file)
+
+        # Check for spritemap with Animation.json (Adobe Animate)
         animation_json = directory / "Animation.json"
         spritemap_json = directory / f"{base_name}.json"
         if animation_json.exists() and spritemap_json.exists():
@@ -793,6 +859,10 @@ class ExtractTabWidget(QWidget):
                 "spritemap_json": str(spritemap_json),
                 "symbol_map": symbol_map,
             }
+        elif spritemap_json.exists():
+            # Look for standalone JSON files (Aseprite, TexturePacker JSON, etc.)
+            # Only use if not already handled as spritemap above
+            self.parent_app.data_dict[record_key]["json"] = str(spritemap_json)
 
     def _build_spritemap_symbol_map(self, animation_json_path):
         """Return a mapping of display labels to spritemap metadata entries.
@@ -914,7 +984,16 @@ class ExtractTabWidget(QWidget):
         self.populate_animation_list(spritesheet_name)
 
     def populate_animation_list(self, spritesheet_name):
-        """Populates the animation list for the selected spritesheet."""
+        """Populate the animation listbox for a spritesheet.
+
+        Clears the current list, parses associated metadata files using the
+        appropriate parser, and appends any editor-created composites.
+
+        Args:
+            spritesheet_name: Display name (key in ``data_dict``) of the
+                spritesheet to load animations for.
+        """
+
         if not self.parent_app:
             return
 
@@ -974,12 +1053,79 @@ class ExtractTabWidget(QWidget):
                             self._populate_animation_names(parser.get_data())
                     except Exception as e:
                         print(f"Error parsing spritemap animations: {e}")
+
+            elif "json" in data_files:
+                self._parse_with_registry(data_files["json"])
+
+            elif "plist" in data_files:
+                self._parse_with_registry(data_files["plist"])
+
+            elif "atlas" in data_files:
+                self._parse_with_registry(data_files["atlas"])
+
+            elif "css" in data_files:
+                self._parse_with_registry(data_files["css"])
+
+            elif "tpsheet" in data_files:
+                self._parse_with_registry(data_files["tpsheet"])
+
+            elif "tpset" in data_files:
+                self._parse_with_registry(data_files["tpset"])
+
+            elif "paper2dsprites" in data_files:
+                self._parse_with_registry(data_files["paper2dsprites"])
+
             else:
                 self._populate_unknown_parser_fallback()
         else:
             self._populate_unknown_parser_fallback()
 
         self._append_editor_composites_to_list(spritesheet_name)
+
+    def _parse_with_registry(self, metadata_path: str):
+        """Parse a metadata file using the ParserRegistry.
+
+        Uses automatic format detection to find the appropriate parser
+        and populate the animation list.
+
+        Args:
+            metadata_path: Path to the metadata file.
+        """
+        try:
+            from parsers.parser_registry import ParserRegistry
+            import inspect
+
+            if not ParserRegistry._all_parsers:
+                ParserRegistry.initialize()
+
+            parser_cls = ParserRegistry.detect_parser(metadata_path)
+            if parser_cls:
+                filename = Path(metadata_path).name
+                directory = str(Path(metadata_path).parent)
+
+                sig = inspect.signature(parser_cls.__init__)
+                params = list(sig.parameters.keys())
+
+                filename_param = None
+                for param in params:
+                    if param.endswith("_filename") or param == "filename":
+                        filename_param = param
+                        break
+
+                if filename_param:
+                    parser = parser_cls(
+                        directory=directory, **{filename_param: filename}
+                    )
+                else:
+                    parser = parser_cls(directory=directory, filename=filename)
+
+                self._populate_animation_names(parser.get_data())
+            else:
+                print(f"No parser found for: {metadata_path}")
+                self._populate_unknown_parser_fallback()
+        except Exception as e:
+            print(f"Error parsing {metadata_path}: {e}")
+            self._populate_unknown_parser_fallback()
 
     def _populate_unknown_parser_fallback(self):
         """Use the generic parser when nothing else recognized the source."""
@@ -1512,17 +1658,28 @@ class ExtractTabWidget(QWidget):
                 )
                 return
 
-            # Find the metadata file
             metadata_path = None
             spritemap_info = None
             if spritesheet_name in self.parent_app.data_dict:
                 data_files = self.parent_app.data_dict[spritesheet_name]
                 if isinstance(data_files, dict):
-                    if "xml" in data_files:
-                        metadata_path = data_files["xml"]
-                    elif "txt" in data_files:
-                        metadata_path = data_files["txt"]
-                    elif "spritemap" in data_files:
+                    metadata_keys = [
+                        "xml",
+                        "txt",
+                        "json",
+                        "plist",
+                        "atlas",
+                        "css",
+                        "tpsheet",
+                        "tpset",
+                        "paper2dsprites",
+                    ]
+                    for key in metadata_keys:
+                        if key in data_files:
+                            metadata_path = data_files[key]
+                            break
+                    # Special handling for spritemap
+                    if metadata_path is None and "spritemap" in data_files:
                         spritemap_info = data_files["spritemap"]
 
             # Use parent app's preview functionality
@@ -1705,7 +1862,17 @@ class ExtractTabWidget(QWidget):
         return spritesheet_list
 
     def check_for_unknown_atlases(self, spritesheet_list):
-        """Check for atlases without metadata files (unknown atlases)."""
+        """Identify spritesheets lacking any recognized metadata file.
+
+        Args:
+            spritesheet_list: Display names of spritesheets to check.
+
+        Returns:
+            A tuple ``(has_unknown, unknown_atlases)`` where ``has_unknown``
+            is ``True`` if any atlases lack metadata and ``unknown_atlases``
+            lists their display names.
+        """
+
         if not self.parent_app:
             return False, []
 
@@ -1718,14 +1885,20 @@ class ExtractTabWidget(QWidget):
             atlas_path = base_directory / relative_path
             atlas_dir = atlas_path.parent
             base_filename = relative_path.stem
-            xml_path = atlas_dir / f"{base_filename}.xml"
-            txt_path = atlas_dir / f"{base_filename}.txt"
-            spritemap_json_path = atlas_dir / f"{base_filename}.json"
-            animation_json_path = atlas_dir / "Animation.json"
 
-            has_spritemap_metadata = (
-                animation_json_path.is_file() and spritemap_json_path.is_file()
-            )
+            has_metadata = False
+            for ext in self.SUPPORTED_METADATA_EXTENSIONS:
+                metadata_path = atlas_dir / f"{base_filename}{ext}"
+                if metadata_path.is_file():
+                    has_metadata = True
+                    break
+
+            # Also check for Adobe Animate spritemap (Animation.json + matching json)
+            if not has_metadata:
+                animation_json_path = atlas_dir / "Animation.json"
+                spritemap_json_path = atlas_dir / f"{base_filename}.json"
+                if animation_json_path.is_file() and spritemap_json_path.is_file():
+                    has_metadata = True
 
             if (
                 not has_spritemap_metadata

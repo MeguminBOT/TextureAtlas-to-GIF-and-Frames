@@ -205,13 +205,26 @@ class AtlasProcessor:
     ) -> List[Dict[str, Any]]:
         """Filter sprites to only those matching an animation name.
 
+        Supports two matching modes:
+        1. Animation tag matching (Aseprite format) - sprites with 'animation_tag' field
+        2. Name prefix matching (traditional) - sprite names starting with animation name
+
         Args:
-            animation_name: Animation prefix to filter by.
+            animation_name: Animation name or prefix to filter by.
             sprites: List of all sprites.
 
         Returns:
             Filtered list of matching sprites.
         """
+
+        tag_matched_sprites = [
+            sprite
+            for sprite in sprites
+            if sprite.get("animation_tag") == animation_name
+        ]
+        if tag_matched_sprites:
+            return tag_matched_sprites
+
         anim_patterns = self._get_animation_patterns(animation_name)
 
         animation_sprites = []
