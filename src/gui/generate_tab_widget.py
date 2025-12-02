@@ -71,8 +71,8 @@ class GeneratorWorker(QThread):
             options = GeneratorOptions(
                 algorithm=self.atlas_settings.get("preferred_algorithm", "maxrects"),
                 heuristic=self.atlas_settings.get("heuristic_hint"),
-                max_width=self.atlas_settings.get("max_size", 4096),
-                max_height=self.atlas_settings.get("max_size", 4096),
+                max_width=self.atlas_settings.get("max_size", 8192),
+                max_height=self.atlas_settings.get("max_size", 8192),
                 padding=self.atlas_settings.get("padding", 2),
                 power_of_two=self.atlas_settings.get("power_of_2", False),
                 allow_rotation=self.atlas_settings.get("allow_rotation", False),
@@ -83,8 +83,8 @@ class GeneratorWorker(QThread):
 
             # Handle manual sizing
             if self.atlas_settings.get("atlas_size_method") == "manual":
-                options.max_width = self.atlas_settings.get("forced_width", 4096)
-                options.max_height = self.atlas_settings.get("forced_height", 4096)
+                options.max_width = self.atlas_settings.get("forced_width", 8192)
+                options.max_height = self.atlas_settings.get("forced_height", 8192)
 
             # Create generator and set progress callback
             generator = AtlasGenerator()

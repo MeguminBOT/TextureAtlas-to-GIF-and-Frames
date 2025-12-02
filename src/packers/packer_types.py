@@ -208,7 +208,6 @@ class ExpandStrategy(Enum):
 # =============================================================================
 
 
-@dataclass
 class Rect:
     """Axis-aligned rectangle with position and size.
 
@@ -222,100 +221,154 @@ class Rect:
         height: Rectangle height in pixels.
     """
 
-    x: int = 0
-    y: int = 0
-    width: int = 0
-    height: int = 0
+    __slots__ = ("_data",)
+
+    def __init__(
+        self, x: int = 0, y: int = 0, width: int = 0, height: int = 0
+    ) -> None:
+        # Store as NumPy array: [x, y, width, height]
+        object.__setattr__(
+            self, "_data", np.array([x, y, width, height], dtype=np.int32)
+        )
+
+    @property
+    def x(self) -> int:
+        """Left edge X coordinate."""
+        return int(self._data[0])
+
+    @x.setter
+    def x(self, value: int) -> None:
+        self._data[0] = value
+
+    @property
+    def y(self) -> int:
+        """Top edge Y coordinate."""
+        return int(self._data[1])
+
+    @y.setter
+    def y(self, value: int) -> None:
+        self._data[1] = value
+
+    @property
+    def width(self) -> int:
+        """Rectangle width in pixels."""
+        return int(self._data[2])
+
+    @width.setter
+    def width(self, value: int) -> None:
+        self._data[2] = value
+
+    @property
+    def height(self) -> int:
+        """Rectangle height in pixels."""
+        return int(self._data[3])
+
+    @height.setter
+    def height(self, value: int) -> None:
+        self._data[3] = value
 
     @property
     def left(self) -> int:
         """Left edge X coordinate."""
-        return self.x
+        return int(self._data[0])
 
     @left.setter
     def left(self, value: int) -> None:
-        delta = self.x - value
-        self.width += delta
-        self.x = value
+        delta = self._data[0] - value
+        self._data[2] += delta
+        self._data[0] = value
 
     @property
     def top(self) -> int:
         """Top edge Y coordinate."""
-        return self.y
+        return int(self._data[1])
 
     @top.setter
     def top(self, value: int) -> None:
-        delta = self.y - value
-        self.height += delta
-        self.y = value
+        delta = self._data[1] - value
+        self._data[3] += delta
+        self._data[1] = value
 
     @property
     def right(self) -> int:
         """Right edge X coordinate (exclusive)."""
-        return self.x + self.width
+        return int(self._data[0] + self._data[2])
 
     @right.setter
     def right(self, value: int) -> None:
-        self.width = value - self.x
+        self._data[2] = value - self._data[0]
 
     @property
     def bottom(self) -> int:
         """Bottom edge Y coordinate (exclusive)."""
-        return self.y + self.height
+        return int(self._data[1] + self._data[3])
 
     @bottom.setter
     def bottom(self, value: int) -> None:
-        self.height = value - self.y
+        self._data[3] = value - self._data[1]
 
     @property
     def area(self) -> int:
         """Rectangle area in pixels."""
-        return self.width * self.height
+        return int(self._data[2] * self._data[3])
 
     @property
     def short_side(self) -> int:
         """Shorter dimension."""
-        return min(self.width, self.height)
+        return int(min(self._data[2], self._data[3]))
 
     @property
     def long_side(self) -> int:
         """Longer dimension."""
-        return max(self.width, self.height)
+        return int(max(self._data[2], self._data[3]))
 
     @property
     def center(self) -> Tuple[float, float]:
         """Center point (x, y)."""
-        return (self.x + self.width / 2, self.y + self.height / 2)
+        return (
+            float(self._data[0]) + float(self._data[2]) / 2,
+            float(self._data[1]) + float(self._data[3]) / 2,
+        )
 
     def clone(self) -> "Rect":
         """Create a copy of this rectangle."""
-        return Rect(self.x, self.y, self.width, self.height)
+        return Rect(
+            int(self._data[0]),
+            int(self._data[1]),
+            int(self._data[2]),
+            int(self._data[3]),
+        )
 
     def contains(self, other: "Rect") -> bool:
         """Check if this rectangle fully contains another."""
-        return (
-            self.x <= other.x
-            and self.y <= other.y
-            and self.right >= other.right
-            and self.bottom >= other.bottom
+        return bool(
+            self._data[0] <= other._data[0]
+            and self._data[1] <= other._data[1]
+            and self._data[0] + self._data[2] >= other._data[0] + other._data[2]
+            and self._data[1] + self._data[3] >= other._data[1] + other._data[3]
         )
 
     def intersects(self, other: "Rect") -> bool:
         """Check if this rectangle overlaps with another."""
         return not (
-            self.x >= other.right
-            or self.right <= other.x
-            or self.y >= other.bottom
-            or self.bottom <= other.y
+            self._data[0] >= other._data[0] + other._data[2]
+            or self._data[0] + self._data[2] <= other._data[0]
+            or self._data[1] >= other._data[1] + other._data[3]
+            or self._data[1] + self._data[3] <= other._data[1]
         )
 
     def to_tuple(self) -> Tuple[int, int, int, int]:
         """Return (x, y, width, height) tuple."""
-        return (self.x, self.y, self.width, self.height)
+        return (
+            int(self._data[0]),
+            int(self._data[1]),
+            int(self._data[2]),
+            int(self._data[3]),
+        )
 
     def to_numpy(self) -> np.ndarray:
-        """Return [x, y, width, height] as numpy array."""
-        return np.array([self.x, self.y, self.width, self.height], dtype=np.int32)
+        """Return [x, y, width, height] as numpy array (copy)."""
+        return self._data.copy()
 
     @classmethod
     def from_numpy(cls, arr: np.ndarray) -> "Rect":
@@ -325,15 +378,13 @@ class Rect:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Rect):
             return NotImplemented
-        return (
-            self.x == other.x
-            and self.y == other.y
-            and self.width == other.width
-            and self.height == other.height
-        )
+        return bool(np.array_equal(self._data, other._data))
+
+    def __hash__(self) -> int:
+        return hash(tuple(self._data))
 
     def __repr__(self) -> str:
-        return f"Rect(x={self.x}, y={self.y}, w={self.width}, h={self.height})"
+        return f"Rect(x={self._data[0]}, y={self._data[1]}, w={self._data[2]}, h={self._data[3]})"
 
 
 @dataclass
@@ -448,8 +499,8 @@ class PackerOptions:
         sort_by_max_side: Pre-sort frames by max(width, height) descending.
     """
 
-    max_width: int = 4096
-    max_height: int = 4096
+    max_width: int = 8192
+    max_height: int = 8192
     padding: int = 2
     border_padding: int = 0
     power_of_two: bool = False

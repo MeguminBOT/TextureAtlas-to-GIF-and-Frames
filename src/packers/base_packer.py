@@ -28,10 +28,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-import numpy as np
-
 from packers.packer_types import (
-    AtlasOverflowError,
     ExpandStrategy,
     FrameInput,
     FrameTooLargeError,
@@ -40,7 +37,6 @@ from packers.packer_types import (
     PackerErrorCode,
     PackerOptions,
     PackerResult,
-    Rect,
 )
 
 
@@ -281,31 +277,17 @@ class BasePacker(ABC):
         padding = self.options.padding
         border = self.options.border_padding
 
-        # Calculate total area with padding
-        total_area = sum(
-            (f.width + padding) * (f.height + padding) for f in frames
-        )
-
-        # Find largest frame dimensions
+        # Find largest frame dimensions (include padding between sprites)
         max_frame_w = max(f.width for f in frames) + padding
         max_frame_h = max(f.height for f in frames) + padding
 
-        # Start with square-ish estimate
-        side = int(np.ceil(np.sqrt(total_area)))
+        # Smallest workspace that can physically fit every frame (include borders)
+        min_width = max_frame_w + 2 * border
+        min_height = max_frame_h + 2 * border
 
-        # Ensure we can fit the largest frame
-        side = max(side, max_frame_w, max_frame_h)
-
-        # Add border padding
-        side += 2 * border
-
-        # Round up to power of 2 if requested
-        if self.options.power_of_two:
-            side = self._next_power_of_two(side)
-
-        # Clamp to maximum
-        width = min(side, self.options.max_width)
-        height = min(side, self.options.max_height)
+        # Clamp to allowed maxima; validation already guarantees they fit
+        width = min(min_width, self.options.max_width)
+        height = min(min_height, self.options.max_height)
 
         return width, height
 
