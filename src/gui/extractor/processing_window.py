@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QFont
 
+from utils.translation_manager import tr as translate
+
 
 class ProcessingWindow(QDialog):
     """Modal dialog displaying extraction progress, statistics, and logs.
@@ -46,6 +48,8 @@ class ProcessingWindow(QDialog):
     """
 
     cancellation_requested = Signal()
+
+    tr = translate
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Initialize the processing dialog with progress indicators and timers.
@@ -81,12 +85,6 @@ class ProcessingWindow(QDialog):
         self._ui_update_timer = QTimer(self)
         self._ui_update_timer.setInterval(100)
         self._ui_update_timer.timeout.connect(self._flush_pending_updates)
-
-    def tr(self, text: str) -> str:
-        """Translate text using the application's current locale."""
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self) -> None:
         """Build and configure all UI components for the dialog."""

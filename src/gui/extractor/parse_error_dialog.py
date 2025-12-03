@@ -24,8 +24,10 @@ from PySide6.QtWidgets import (
     QFrame,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
+
+from utils.translation_manager import tr as translate
 
 from parsers.parser_types import ParseResult, ParserErrorCode
 
@@ -55,6 +57,8 @@ class ParseErrorDialog(QDialog):
     ICON_WARNING = "⚠️"
     ICON_INFO = "ℹ️"
 
+    tr = translate
+
     def __init__(
         self,
         parent,
@@ -79,10 +83,6 @@ class ParseErrorDialog(QDialog):
         self.setMinimumHeight(400)
         self.setup_ui()
         self.populate_tree()
-
-    def tr(self, text: str) -> str:
-        """Translate text using Qt's translation system."""
-        return QCoreApplication.translate("ParseErrorDialog", text)
 
     def setup_ui(self):
         """Set up the dialog UI."""

@@ -331,6 +331,8 @@ class TranslationManager:
         return title, message
 
 
+DEFAULT_TRANSLATION_CONTEXT = "TextureAtlasExtractorApp"
+
 _translation_manager: TranslationManager | None = None
 
 
@@ -343,17 +345,33 @@ def get_translation_manager() -> TranslationManager:
     return _translation_manager
 
 
-def tr(text: str, context: str | None = None) -> str:
-    """Translate text using the application's current locale.
+class _Translator:
+    """Callable descriptor that binds translation context per class instance."""
 
-    Args:
-        text: Text to translate.
-        context: Optional translation context for disambiguation.
+    def __call__(self, text: str, context: str | None = None) -> str:
+        """Translate text using the application's current locale."""
 
-    Returns:
-        Translated text, or the original if no translation exists.
-    """
+        translation_context = (
+            context if context is not None else DEFAULT_TRANSLATION_CONTEXT
+        )
+        return QCoreApplication.translate(translation_context, text)
 
-    if context:
-        return QCoreApplication.translate(context, text)
-    return QCoreApplication.translate("", text)
+    def _resolve_context(self, owner: type | None) -> str:
+        if owner is None:
+            return DEFAULT_TRANSLATION_CONTEXT
+        custom_context = getattr(owner, "TRANSLATION_CONTEXT", None)
+        if isinstance(custom_context, str) and custom_context:
+            return custom_context
+        return owner.__name__
+
+    def __get__(self, instance, owner):
+        context = self._resolve_context(owner)
+
+        def bound(text: str, context_override: str | None = None) -> str:
+            translation_context = context_override or context
+            return self(text, context=translation_context)
+
+        return bound
+
+
+tr = _Translator()

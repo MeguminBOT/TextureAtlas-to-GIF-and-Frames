@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSettings
 
+from utils.translation_manager import tr as translate
+
 
 class MachineTranslationDisclaimerDialog(QDialog):
     """Modal dialog displaying a machine translation quality warning.
@@ -22,6 +24,8 @@ class MachineTranslationDisclaimerDialog(QDialog):
         disclaimer_title: Title text for the warning.
         disclaimer_message: Body text explaining translation limitations.
     """
+
+    tr = translate
 
     def __init__(
         self, parent=None, language_name="", disclaimer_title="", disclaimer_message=""
@@ -105,19 +109,6 @@ class MachineTranslationDisclaimerDialog(QDialog):
         button_layout.addWidget(ok_button)
 
         layout.addLayout(button_layout)
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate("MachineTranslationDisclaimerDialog", text)
 
     def open_github(self):
         """Open the project repository in the default browser."""

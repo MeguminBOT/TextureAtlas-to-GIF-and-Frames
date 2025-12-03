@@ -20,6 +20,10 @@ DependenciesChecker.check_and_configure_imagemagick()  # This function must be c
 from utils.app_config import AppConfig  # noqa: E402
 from utils.update_checker import UpdateChecker  # noqa: E402
 from utils.settings_manager import SettingsManager  # noqa: E402
+from utils.translation_manager import (
+    get_translation_manager,
+    tr as translate,
+)  # noqa: E402
 from utils.FNF.character_data import CharacterData  # noqa: E402
 from core.extractor import Extractor  # noqa: E402
 from gui.app_ui import Ui_TextureAtlasToolboxApp  # noqa: E402
@@ -90,9 +94,8 @@ class TextureAtlasExtractorApp(QMainWindow):
     A Qt/PySide6 GUI application for extracting textures from a texture atlas and converting them to GIF, WebP, and APNG formats.
     """
 
-    def tr(self, text):
-        """Translate text using Qt's translation system."""
-        return QCoreApplication.translate("TextureAtlasExtractorApp", text)
+    tr = translate
+    TRANSLATION_CONTEXT = "TextureAtlasExtractorApp"
 
     def __init__(self):
         super().__init__()
@@ -108,8 +111,6 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.data_dict = {}
 
         # Initialize translation manager and load language
-        from utils.translation_manager import get_translation_manager
-
         self.translation_manager = get_translation_manager()
         effective_language = self.app_config.get_effective_language()
         self.translation_manager.load_translation(effective_language)

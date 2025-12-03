@@ -26,6 +26,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from utils.utilities import Utilities
+from utils.translation_manager import tr as translate
 
 
 class OverrideSettingsWindow(QDialog):
@@ -46,6 +47,8 @@ class OverrideSettingsWindow(QDialog):
         spritesheet_name: The parent spritesheet name.
         animation_name: The animation name, or None for spritesheets.
     """
+
+    tr = translate
 
     def __init__(
         self, parent, name, settings_type, settings_manager, on_store_callback, app=None
@@ -92,12 +95,6 @@ class OverrideSettingsWindow(QDialog):
 
         self.setup_ui()
         self.load_current_values()
-
-    def tr(self, text):
-        """Translate text using the application's current locale."""
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_current_settings(self):
         """Load current settings for the animation or spritesheet.

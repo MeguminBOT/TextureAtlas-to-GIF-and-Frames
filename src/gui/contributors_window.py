@@ -16,9 +16,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
+from utils.translation_manager import tr as translate
+
 
 class ContributorsWindow(QDialog):
     """Modal dialog displaying project contributors with clickable profile links."""
+
+    tr = translate
 
     def __init__(self, parent=None):
         """Initialize the dialog and build the contributor list UI.
@@ -30,19 +34,6 @@ class ContributorsWindow(QDialog):
         self.setWindowTitle(self.tr("Contributors"))
         self.setGeometry(200, 200, 600, 500)
         self.setup_ui()
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build the scrollable contributor list with title and close button."""

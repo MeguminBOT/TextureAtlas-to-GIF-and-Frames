@@ -26,8 +26,10 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
+
+from utils.translation_manager import tr as translate
 
 from gui.extractor.enhanced_list_widget import EnhancedListWidget
 from utils.utilities import Utilities
@@ -40,6 +42,8 @@ from core.extractor.spritemap.normalizer import normalize_animation_document
 
 class ExtractTabWidget(QWidget):
     """Widget for the Extract tab functionality."""
+
+    tr = translate
 
     def __init__(self, parent=None, use_existing_ui=False):
         """Initialize the Extract tab UI and hook into parent callbacks.
@@ -69,18 +73,6 @@ class ExtractTabWidget(QWidget):
 
         self.setup_connections()
         self.setup_default_values()
-
-    def tr(self, text):
-        """Translate text using Qt's translation system.
-
-        Args:
-            text: The source string to translate.
-
-        Returns:
-            The translated string for the current locale.
-        """
-
-        return QCoreApplication.translate("ExtractTabWidget", text)
 
     def setup_with_existing_ui(self):
         """Set up the widget using existing UI elements from the parent."""

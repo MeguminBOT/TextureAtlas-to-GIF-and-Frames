@@ -27,6 +27,7 @@ from utils.utilities import Utilities
 
 # Import the new generator system
 from core.generator import AtlasGenerator, GeneratorOptions, get_available_algorithms
+from utils.translation_manager import tr as translate
 
 SUPPORTED_ROTATION_FORMATS = frozenset(
     {
@@ -118,6 +119,7 @@ class GenerateTabWidget(QWidget):
     """Widget containing all Generate tab functionality."""
 
     # Constants
+    tr = translate
 
     def __init__(self, ui, parent=None):
         super().__init__(parent)
@@ -181,12 +183,6 @@ class GenerateTabWidget(QWidget):
                 pattern = f"*{ext}"
                 formats.append((name, pattern))
         return formats
-
-    def tr(self, text):
-        """Translation helper method."""
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_image_file_filter(self):
         """Generate file filter string for image files."""

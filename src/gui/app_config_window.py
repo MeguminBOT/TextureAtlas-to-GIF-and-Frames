@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
+from utils.translation_manager import tr as translate
+
 
 class AppConfigWindow(QDialog):
     """Modal dialog for editing global application settings.
@@ -47,6 +49,8 @@ class AppConfigWindow(QDialog):
         extraction_fields: Dict mapping setting keys to extraction controls.
         compression_fields: Dict mapping setting keys to compression controls.
     """
+
+    tr = translate
 
     def __init__(self, parent, app_config):
         """Initialize the configuration dialog.
@@ -67,12 +71,6 @@ class AppConfigWindow(QDialog):
 
         self.setup_ui()
         self.load_current_settings()
-
-    def tr(self, text):
-        """Translate text using the application's current locale."""
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def get_system_info(self):
         """Detect CPU model, thread count, and available RAM."""

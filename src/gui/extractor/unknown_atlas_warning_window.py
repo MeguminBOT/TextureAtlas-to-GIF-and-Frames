@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPixmap
 
+from utils.translation_manager import tr as translate
+
 try:
     from PIL import Image
 
@@ -41,6 +43,8 @@ class UnknownAtlasWarningWindow(QDialog):
         result: User's choice: "proceed", "skip", or "cancel".
     """
 
+    tr = translate
+
     def __init__(self, parent, unknown_atlases, input_directory=None):
         """Initialize the warning dialog.
 
@@ -60,12 +64,6 @@ class UnknownAtlasWarningWindow(QDialog):
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         self.setup_ui()
-
-    def tr(self, text):
-        """Translate text using the application's current locale."""
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build and configure all UI components for the dialog."""

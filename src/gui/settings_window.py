@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
+from utils.translation_manager import tr as translate
+
 
 class SettingsWindow(QDialog):
     """Modal dialog listing user-defined animation and spritesheet overrides.
@@ -24,6 +26,8 @@ class SettingsWindow(QDialog):
         content_widget: Scrollable container for settings labels.
         content_layout: Vertical layout inside the content widget.
     """
+
+    tr = translate
 
     def __init__(self, parent, settings_manager):
         """Initialize the settings overview dialog.
@@ -62,19 +66,6 @@ class SettingsWindow(QDialog):
         button_layout.addWidget(close_button)
 
         main_layout.addLayout(button_layout)
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def update_settings(self):
         """Refresh the displayed animation and spritesheet settings."""

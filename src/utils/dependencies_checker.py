@@ -19,11 +19,15 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
+from utils.translation_manager import tr as translate
+
 from utils.utilities import Utilities
 
 
 class ErrorDialogWithLinks(QDialog):
     """Dialog displaying an error message with clickable hyperlinks."""
+
+    tr = translate
 
     def __init__(self, message: str, links: List[Tuple[str, str]], parent=None):
         """Initialize the error dialog.
@@ -44,19 +48,6 @@ class ErrorDialogWithLinks(QDialog):
             self.move(parent.geometry().center() - self.rect().center())
 
         self.setup_ui(message, links)
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self, message: str, links: List[Tuple[str, str]]):
         """Build the message label, link labels, and OK button.

@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor, QPainter
 
+from utils.translation_manager import tr as translate
+
 
 class BackgroundHandlerWindow(QDialog):
     """Dialog for background color detection and removal options.
@@ -35,6 +37,8 @@ class BackgroundHandlerWindow(QDialog):
         checkbox_vars: Dictionary mapping filenames to their QCheckBox widgets.
         filtered_results: Detection results excluding images with transparency.
     """
+
+    tr = translate
 
     def __init__(self, parent, detection_results):
         """Create the background handler dialog.
@@ -74,19 +78,6 @@ class BackgroundHandlerWindow(QDialog):
             )
 
         self.setup_ui()
-
-    def tr(self, text):
-        """Translate a string using Qt's translation system.
-
-        Args:
-            text: String to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build the dialog layout with spritesheet entries and controls."""
@@ -364,6 +355,8 @@ class ColorSampleWidget(QWidget):
         color: QColor instance for the fill color.
     """
 
+    tr = translate
+
     def __init__(self, rgb_color):
         """Create a color sample widget.
 
@@ -372,19 +365,6 @@ class ColorSampleWidget(QWidget):
         """
         super().__init__()
         self.color = QColor(rgb_color[0], rgb_color[1], rgb_color[2])
-
-    def tr(self, text):
-        """Translate a string using Qt's translation system.
-
-        Args:
-            text: String to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def paintEvent(self, event):
         """Draw the color swatch with a black border.

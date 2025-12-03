@@ -30,6 +30,7 @@ from core.extractor.animation_processor import AnimationProcessor
 from core.extractor.preview_generator import PreviewGenerator
 from core.extractor.spritemap import AdobeSpritemapRenderer
 from core.extractor.unknown_spritesheet_handler import UnknownSpritesheetHandler
+from utils.translation_manager import tr as translate
 from utils.utilities import Utilities
 
 ProgressCallback = Callable[[int, int, str], None]
@@ -986,6 +987,8 @@ class FileProcessorWorker(QThread):
     task_started = Signal(str)
     task_finished = Signal(str)
 
+    tr = translate
+
     def __init__(
         self,
         input_dir: str,
@@ -1010,19 +1013,6 @@ class FileProcessorWorker(QThread):
         self.extractor = extractor_instance
         self.task_queue = task_queue
         self.current_filename = None
-
-    def tr(self, text: str) -> str:
-        """Translate a string using the Qt internationalization system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string, or the original if no translation exists.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def run(self) -> None:
         """Pull files from the queue until a sentinel or cancellation.

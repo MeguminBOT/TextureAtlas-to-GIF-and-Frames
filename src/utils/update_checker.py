@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject
 
+from utils.translation_manager import tr as translate
+
 from version import (
     APP_VERSION,
     GITHUB_RELEASE_BY_TAG_URL,
@@ -93,6 +95,8 @@ class UpdateDialog(QDialog):
         result: User's choice; True to proceed with update, False to cancel.
     """
 
+    tr = translate
+
     def __init__(
         self,
         parent,
@@ -126,13 +130,6 @@ class UpdateDialog(QDialog):
             )
 
         self._create_widgets(current_version, latest_version, changelog, update_type)
-
-    def tr(self, text: str) -> str:
-        """Translate text using the application's current locale."""
-
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def _create_widgets(
         self,

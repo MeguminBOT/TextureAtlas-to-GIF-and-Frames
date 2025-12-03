@@ -5,9 +5,13 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit
 from PySide6.QtGui import QFont
 
+from utils.translation_manager import tr as translate
+
 
 class HelpWindow(QDialog):
     """Modal dialog displaying scrollable help text with monospace formatting."""
+
+    tr = translate
 
     def __init__(self, parent=None, help_text="", title="Help"):
         """Initialize the help dialog with the given content.
@@ -22,19 +26,6 @@ class HelpWindow(QDialog):
         self.setGeometry(200, 200, 800, 600)
         self.help_text = help_text
         self.setup_ui()
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build the text area and close button layout."""

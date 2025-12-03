@@ -9,6 +9,8 @@ selections without manual data role handling.
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from PySide6.QtCore import Qt
 
+from utils.translation_manager import tr as translate
+
 
 class EnhancedListWidget(QListWidget):
     """QListWidget with convenience methods for data association.
@@ -16,6 +18,8 @@ class EnhancedListWidget(QListWidget):
     Simplifies common patterns like storing user data alongside display
     text and retrieving the current selection.
     """
+
+    tr = translate
 
     def __init__(self, parent=None):
         """Create an enhanced list widget.
@@ -25,19 +29,6 @@ class EnhancedListWidget(QListWidget):
         """
         super().__init__(parent)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-
-    def tr(self, text):
-        """Translate a string using Qt's translation system.
-
-        Args:
-            text: String to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def add_item(self, text, data=None):
         """Append an item with optional user data.

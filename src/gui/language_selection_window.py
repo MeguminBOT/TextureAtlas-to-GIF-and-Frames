@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QCoreApplication
 
+from utils.translation_manager import tr as translate
+
 
 class LanguageSelectionWindow(QDialog):
     """Modal dialog for choosing the application language.
@@ -25,6 +27,8 @@ class LanguageSelectionWindow(QDialog):
         current_language: Language code currently active.
         new_language: Language code selected by the user.
     """
+
+    tr = translate
 
     def __init__(self, parent=None, current_language="en"):
         """Initialize the language selection dialog.
@@ -50,17 +54,6 @@ class LanguageSelectionWindow(QDialog):
                 parent.x() + (parent.width() - self.width()) // 2,
                 parent.y() + (parent.height() - self.height()) // 2,
             )
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        return QCoreApplication.translate("LanguageSelectionWindow", text)
 
     def _format_language_display_name(self, native_name, english_name):
         """Format a language name for display in the combo box.

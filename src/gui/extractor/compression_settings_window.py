@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from utils.translation_manager import tr as translate
+
 
 class CompressionSettingsWindow(QDialog):
     """Dialog for configuring format-specific compression settings.
@@ -35,6 +37,8 @@ class CompressionSettingsWindow(QDialog):
         original_values: Snapshot of values when the dialog opened.
         compression_widgets: Dictionary mapping format names to widget dicts.
     """
+
+    tr = translate
 
     def __init__(
         self, parent=None, settings_manager=None, app_config=None, current_format="PNG"
@@ -61,19 +65,6 @@ class CompressionSettingsWindow(QDialog):
 
         self.setup_ui()
         self.load_current_values()
-
-    def tr(self, text):
-        """Translate a string using Qt's translation system.
-
-        Args:
-            text: String to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build the dialog layout with format-specific controls."""

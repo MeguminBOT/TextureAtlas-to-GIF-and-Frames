@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from utils.translation_manager import tr as translate
+
 
 class FindReplaceWindow(QDialog):
     """Dialog for managing filename find-and-replace rules.
@@ -31,6 +33,8 @@ class FindReplaceWindow(QDialog):
         replace_rules: List of rule dictionaries.
         rule_widgets: List of QGroupBox widgets representing each rule.
     """
+
+    tr = translate
 
     def __init__(self, on_store_callback, replace_rules=None, parent=None):
         """Create the find-and-replace dialog.
@@ -48,19 +52,6 @@ class FindReplaceWindow(QDialog):
         self.rule_widgets = []
         self.setup_ui()
         self.load_existing_rules()
-
-    def tr(self, text):
-        """Translate a string using Qt's translation system.
-
-        Args:
-            text: String to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_ui(self):
         """Build the dialog layout with rules list and controls."""

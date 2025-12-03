@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QAction
 
+from utils.translation_manager import tr as translate
+
 
 class AnimationTreeWidget(QTreeWidget):
     """Tree widget for managing animation groups and their frame order.
@@ -30,6 +32,8 @@ class AnimationTreeWidget(QTreeWidget):
     animation_removed = Signal(str)
     frame_order_changed = Signal()
 
+    tr = translate
+
     def __init__(self, parent=None):
         """Initialize the animation tree widget.
 
@@ -38,19 +42,6 @@ class AnimationTreeWidget(QTreeWidget):
         """
         super().__init__(parent)
         self.setup_tree()
-
-    def tr(self, text):
-        """Translate text using the Qt translation system.
-
-        Args:
-            text: Source string to translate.
-
-        Returns:
-            Translated string for the current locale.
-        """
-        from PySide6.QtCore import QCoreApplication
-
-        return QCoreApplication.translate(self.__class__.__name__, text)
 
     def setup_tree(self):
         """Configure tree properties, drag-drop, and context menu."""
