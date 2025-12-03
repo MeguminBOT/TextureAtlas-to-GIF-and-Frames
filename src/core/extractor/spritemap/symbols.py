@@ -153,7 +153,14 @@ class Symbols:
                 if "SI" in element:
                     instance = element["SI"]
                     element_name = instance.get("SN")
-                    first_frame = instance.get("FF", 0)
+                    if not element_name:
+                        continue
+                    instance_frame = self._resolve_instance_frame(
+                        element_name,
+                        instance,
+                        frame["I"],
+                        frame_index,
+                    )
                     element_color = (
                         color @ ColorEffect.parse(instance["C"])
                         if "C" in instance
@@ -163,7 +170,7 @@ class Symbols:
                     self._render_symbol(
                         canvas,
                         element_name,
-                        first_frame,
+                        instance_frame,
                         matrix @ transform,
                         element_color,
                     )
@@ -210,6 +217,54 @@ class Symbols:
                     base_canvas.alpha_composite(masked_canvas, dest=mask_bbox[:2])
 
                 canvas = base_canvas
+
+    def _resolve_instance_frame(
+        self,
+        symbol_name: str,
+        instance: dict,
+        frame_start: int,
+        parent_frame_index: int,
+    ) -> int:
+        """Return which frame of a nested symbol should render on a parent frame.
+
+        Args:
+            symbol_name: Name of the child symbol timeline.
+            instance: Raw ``SI`` payload describing loop mode and offsets.
+            frame_start: Parent key-frame index where the instance begins.
+            parent_frame_index: Absolute frame index currently being rendered.
+
+        Returns:
+            Integer index within the child symbol timeline.
+        """
+
+        symbol_length = self.length(symbol_name)
+        if symbol_length <= 0:
+            return 0
+
+        try:
+            first_frame = int(instance.get("FF", 0))
+        except (TypeError, ValueError):
+            first_frame = 0
+        first_frame = max(0, min(first_frame, symbol_length - 1))
+
+        offset = max(0, parent_frame_index - frame_start)
+        loop_mode = instance.get("LP") or "LP"
+        if isinstance(loop_mode, str):
+            loop_mode = loop_mode.upper()
+        else:
+            loop_mode = "LP"
+
+        if loop_mode == "SF":
+            return first_frame
+
+        target = first_frame + offset
+        if loop_mode == "PO":
+            return min(target, symbol_length - 1)
+
+        if symbol_length == 0:
+            return first_frame
+
+        return target % symbol_length
 
     def get_label_ranges(self, symbol_name: Optional[str]):
         """Return all timeline labels for the requested symbol.

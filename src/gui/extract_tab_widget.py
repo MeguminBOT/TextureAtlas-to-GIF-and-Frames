@@ -35,6 +35,7 @@ from core.extractor.spritemap.metadata import (
     compute_symbol_lengths,
     extract_label_ranges,
 )
+from core.extractor.spritemap.normalizer import normalize_animation_document
 
 
 class ExtractTabWidget(QWidget):
@@ -54,6 +55,11 @@ class ExtractTabWidget(QWidget):
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
         self.filter_single_frame_spritemaps = True
+        if parent and hasattr(parent, "app_config"):
+            ui_state = parent.app_config.get("ui_state", {})
+            self.filter_single_frame_spritemaps = ui_state.get(
+                "filter_single_frame_spritemaps", True
+            )
         self.editor_composites = defaultdict(dict)
 
         if use_existing_ui and parent:
@@ -874,7 +880,7 @@ class ExtractTabWidget(QWidget):
 
         try:
             with open(animation_json_path, "r", encoding="utf-8") as animation_file:
-                animation_json = json.load(animation_file)
+                animation_json = normalize_animation_document(json.load(animation_file))
 
             symbol_lengths = compute_symbol_lengths(animation_json)
 

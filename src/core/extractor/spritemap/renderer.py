@@ -15,6 +15,7 @@ from PIL import Image
 from utils.utilities import Utilities
 from .sprite_atlas import SpriteAtlas
 from .symbols import Symbols
+from .normalizer import normalize_animation_document
 
 
 class AdobeSpritemapRenderer:
@@ -62,7 +63,9 @@ class AdobeSpritemapRenderer:
         self.atlas_image_path = atlas_image_path
 
         with open(animation_path, "r", encoding="utf-8") as animation_file:
-            self.animation_json = json.load(animation_file)
+            self.animation_json = normalize_animation_document(
+                json.load(animation_file)
+            )
 
         with open(spritemap_json_path, "rb") as spritemap_file:
             spritemap_json = json.loads(spritemap_file.read().decode("utf-8-sig"))

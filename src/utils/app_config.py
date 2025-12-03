@@ -72,6 +72,7 @@ class AppConfig:
             "last_output_directory": "",
             "remember_input_directory": True,
             "remember_output_directory": True,
+            "filter_single_frame_spritemaps": True,
         },
     }
 
@@ -111,6 +112,7 @@ class AppConfig:
         "last_output_directory": str,
         "remember_input_directory": bool,
         "remember_output_directory": bool,
+        "filter_single_frame_spritemaps": bool,
         "origin_mode": str,
     }
 

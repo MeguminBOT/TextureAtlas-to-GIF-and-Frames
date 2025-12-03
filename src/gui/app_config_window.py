@@ -133,6 +133,7 @@ class AppConfigWindow(QDialog):
         self.auto_update_cb = None
         self.remember_input_dir_cb = None
         self.remember_output_dir_cb = None
+        self.filter_single_frame_spritemaps_cb = None
         self.extraction_fields = {}
         self.compression_fields = {}
 
@@ -650,6 +651,10 @@ class AppConfigWindow(QDialog):
             self.remember_output_dir_cb.setChecked(
                 ui_state.get("remember_output_directory", True)
             )
+        if self.filter_single_frame_spritemaps_cb:
+            self.filter_single_frame_spritemaps_cb.setChecked(
+                ui_state.get("filter_single_frame_spritemaps", False)
+            )
 
         self.on_check_updates_change(self.check_updates_cb.checkState())
 
@@ -794,6 +799,10 @@ class AppConfigWindow(QDialog):
                 ui_state["remember_output_directory"] = (
                     self.remember_output_dir_cb.isChecked()
                 )
+            if self.filter_single_frame_spritemaps_cb:
+                ui_state["filter_single_frame_spritemaps"] = (
+                    self.filter_single_frame_spritemaps_cb.isChecked()
+                )
 
             self.app_config.settings["resource_limits"] = resource_limits
             self.app_config.settings["extraction_defaults"] = extraction_defaults
@@ -875,6 +884,23 @@ class AppConfigWindow(QDialog):
         dir_layout.addWidget(self.remember_output_dir_cb)
 
         layout.addWidget(dir_group)
+
+        spritemap_group = QGroupBox("Spritemap Settings")
+        spritemap_layout = QVBoxLayout(spritemap_group)
+
+        self.filter_single_frame_spritemaps_cb = QCheckBox(
+            "Hide single-frame spritemap animations"
+        )
+        self.filter_single_frame_spritemaps_cb.setToolTip(
+            self.tr(
+                "When enabled, spritemap animations with only one frame will be hidden from the animation list.\n"
+                "Adobe Animate spritemaps often contain single-frame symbols for cut-ins and poses.\n"
+                "Should not affect animations that use these single frame symbols."
+            )
+        )
+        spritemap_layout.addWidget(self.filter_single_frame_spritemaps_cb)
+
+        layout.addWidget(spritemap_group)
         layout.addStretch()
 
         return widget

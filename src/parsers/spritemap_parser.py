@@ -20,6 +20,7 @@ from core.extractor.spritemap.metadata import (
     compute_symbol_lengths,
     extract_label_ranges,
 )
+from core.extractor.spritemap.normalizer import normalize_animation_document
 
 
 class SpritemapParser(BaseParser):
@@ -55,7 +56,7 @@ class SpritemapParser(BaseParser):
         animation_path = Path(self.directory) / self.filename
         try:
             with open(animation_path, "r", encoding="utf-8") as animation_file:
-                animation_json = json.load(animation_file)
+                animation_json = normalize_animation_document(json.load(animation_file))
 
             symbol_lengths = compute_symbol_lengths(animation_json)
 
@@ -95,7 +96,7 @@ class SpritemapParser(BaseParser):
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+                data = normalize_animation_document(json.load(f))
 
             # Validate this is a spritemap Animation.json
             if "SD" not in data and "ATLAS" not in data:
@@ -142,7 +143,7 @@ class SpritemapParser(BaseParser):
         """
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+                data = normalize_animation_document(json.load(f))
             return "SD" in data or ("ATLAS" in data and "AN" in data)
         except Exception:
             return False
