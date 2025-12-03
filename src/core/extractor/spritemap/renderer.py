@@ -8,7 +8,8 @@ or timeline label into a sequence of cropped RGBA frames.
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional, Tuple
+import math
+from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image
 
@@ -16,6 +17,7 @@ from utils.utilities import Utilities
 from .sprite_atlas import SpriteAtlas
 from .symbols import Symbols
 from .normalizer import normalize_animation_document
+from .transform_matrix import TransformMatrix
 
 
 class AdobeSpritemapRenderer:
@@ -72,7 +74,11 @@ class AdobeSpritemapRenderer:
 
         atlas_image = Image.open(atlas_image_path)
         if canvas_size is None:
-            canvas_size = atlas_image.size
+            canvas_size = _infer_canvas_size(
+                self.animation_json,
+                spritemap_json,
+                atlas_image.size,
+            )
 
         self.frame_rate = self.animation_json.get("MD", {}).get("FRT", 24)
         self.filter_single_frame = filter_single_frame
@@ -296,3 +302,232 @@ class AdobeSpritemapRenderer:
         if isinstance(target, dict):
             return target.get("type", "symbol"), target.get("value")
         return "symbol", target
+
+
+def _infer_canvas_size(animation_json, spritemap_json, atlas_size):
+    """Compute a canvas size large enough to contain all transformed sprites.
+
+    Scans every symbol timeline and atlas sprite instance, applying their
+    transforms to determine the maximum extent any sprite can reach. The
+    returned dimensions ensure no sprite is clipped during rendering.
+
+    Args:
+        animation_json: Normalized Animation.json dict.
+        spritemap_json: Parsed spritemap JSON with sprite regions.
+        atlas_size: Default ``(width, height)`` from the atlas image.
+
+    Returns:
+        A ``(width, height)`` tuple at least as large as ``atlas_size`` and
+        sufficient to hold all transformed sprite bounds.
+    """
+
+    sprite_sizes = _collect_sprite_sizes(spritemap_json)
+    if not sprite_sizes:
+        return atlas_size
+
+    timelines = _collect_timelines(animation_json)
+    if not timelines:
+        return atlas_size
+
+    bounds_cache: Dict[Optional[str], Optional[Tuple[float, float, float, float]]] = {}
+    visiting: set[Optional[str]] = set()
+
+    def symbol_bounds(
+        symbol_name: Optional[str],
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """Return the cumulative bounding box for all frames of a symbol.
+
+        Recursively resolves nested symbol instances and caches results to
+        avoid redundant traversals. Cyclic references are detected via the
+        ``visiting`` set and return ``None`` to break infinite loops.
+
+        Args:
+            symbol_name: Name of the symbol, or ``None`` for the root timeline.
+
+        Returns:
+            A ``(min_x, min_y, max_x, max_y)`` tuple, or ``None`` if the
+            symbol has no renderable content.
+        """
+
+        if symbol_name in bounds_cache:
+            return bounds_cache[symbol_name]
+        if symbol_name in visiting:
+            return None
+        visiting.add(symbol_name)
+
+        min_x = float("inf")
+        min_y = float("inf")
+        max_x = float("-inf")
+        max_y = float("-inf")
+
+        for layer in timelines.get(symbol_name, []):
+            for frame in layer.get("FR", []):
+                for element in frame.get("E", []):
+                    bounds = _element_bounds(element, sprite_sizes, symbol_bounds)
+                    if not bounds:
+                        continue
+                    min_x = min(min_x, bounds[0])
+                    min_y = min(min_y, bounds[1])
+                    max_x = max(max_x, bounds[2])
+                    max_y = max(max_y, bounds[3])
+
+        visiting.remove(symbol_name)
+
+        if min_x == float("inf"):
+            bounds_cache[symbol_name] = None
+        else:
+            bounds_cache[symbol_name] = (min_x, min_y, max_x, max_y)
+        return bounds_cache[symbol_name]
+
+    for symbol_name in timelines.keys():
+        symbol_bounds(symbol_name)
+
+    max_abs_x = 0.0
+    max_abs_y = 0.0
+    for bounds in bounds_cache.values():
+        if not bounds:
+            continue
+        min_x, min_y, max_x, max_y = bounds
+        max_abs_x = max(max_abs_x, abs(min_x), abs(max_x))
+        max_abs_y = max(max_abs_y, abs(min_y), abs(max_y))
+
+    if max_abs_x == 0 and max_abs_y == 0:
+        return atlas_size
+
+    padding = 32.0
+    inferred_width = int(math.ceil(max_abs_x * 2.0 + padding))
+    inferred_height = int(math.ceil(max_abs_y * 2.0 + padding))
+    return (
+        max(atlas_size[0], inferred_width),
+        max(atlas_size[1], inferred_height),
+    )
+
+
+def _collect_sprite_sizes(spritemap_json: Dict[str, Any]) -> Dict[str, Tuple[int, int]]:
+    """Build a mapping of sprite names to their pixel dimensions.
+
+    Args:
+        spritemap_json: Parsed spritemap JSON containing an ``ATLAS.SPRITES``
+            list.
+
+    Returns:
+        Dict mapping each sprite name to its ``(width, height)`` in pixels.
+    """
+
+    sizes: Dict[str, Tuple[int, int]] = {}
+    for sprite in spritemap_json.get("ATLAS", {}).get("SPRITES", []):
+        data = sprite.get("SPRITE", sprite)
+        name = data.get("name")
+        if not name:
+            continue
+        sizes[name] = (int(data.get("w", 0)), int(data.get("h", 0)))
+    return sizes
+
+
+def _collect_timelines(animation_json: Dict[str, Any]):
+    """Extract all symbol timelines from a normalized animation document.
+
+    Args:
+        animation_json: Normalized Animation.json dict with ``SD`` (symbol
+            dictionary) and ``AN`` (root animation) sections.
+
+    Returns:
+        Dict mapping symbol names (or ``None`` for the root timeline) to
+        their layer lists.
+    """
+
+    timelines: Dict[Optional[str], List[Dict[str, Any]]] = {}
+    for symbol in animation_json.get("SD", {}).get("S", []):
+        name = symbol.get("SN")
+        if not name:
+            continue
+        layers = symbol.get("TL", {}).get("L", [])
+        timelines[name] = layers
+    timelines[None] = animation_json.get("AN", {}).get("TL", {}).get("L", [])
+    return timelines
+
+
+def _element_bounds(element, sprite_sizes, symbol_bounds_fn):
+    """Compute the transformed bounding box for a single frame element.
+
+    Handles both atlas sprite instances (``ASI``) and nested symbol instances
+    (``SI``), recursively resolving child symbol bounds when necessary.
+
+    Args:
+        element: A frame element dict potentially containing ``ASI`` or ``SI``.
+        sprite_sizes: Dict mapping sprite names to ``(width, height)``.
+        symbol_bounds_fn: Callable accepting a symbol name and returning its
+            cumulative bounds, used for recursive symbol resolution.
+
+    Returns:
+        A ``(min_x, min_y, max_x, max_y)`` tuple, or ``None`` if the element
+        cannot be resolved.
+    """
+
+    if not isinstance(element, dict):
+        return None
+    if "ASI" in element:
+        atlas = element["ASI"]
+        sprite_name = atlas.get("N")
+        if not sprite_name:
+            return None
+        sprite_size = sprite_sizes.get(sprite_name)
+        if not sprite_size:
+            return None
+        matrix = TransformMatrix.parse(atlas.get("M3D"))
+        return _transform_sprite(sprite_size, matrix)
+    if "SI" in element:
+        instance = element["SI"]
+        child_name = instance.get("SN")
+        if not child_name:
+            return None
+        child_bounds = symbol_bounds_fn(child_name)
+        if not child_bounds:
+            return None
+        matrix = TransformMatrix.parse(instance.get("M3D"))
+        return _transform_bounds(child_bounds, matrix)
+    return None
+
+
+def _transform_sprite(sprite_size: Tuple[int, int], matrix: TransformMatrix):
+    """Apply a transform to an origin-anchored sprite and return its bounds.
+
+    Args:
+        sprite_size: ``(width, height)`` of the sprite in pixels.
+        matrix: Affine transform to apply.
+
+    Returns:
+        Transformed ``(min_x, min_y, max_x, max_y)`` bounding box.
+    """
+
+    width, height = sprite_size
+    return _transform_bounds((0.0, 0.0, float(width), float(height)), matrix)
+
+
+def _transform_bounds(
+    bounds: Tuple[float, float, float, float], matrix: TransformMatrix
+) -> Tuple[float, float, float, float]:
+    """Transform a bounding box and return its axis-aligned enclosure.
+
+    Applies the affine transform to each corner of the input rectangle and
+    computes the smallest axis-aligned rectangle containing the results.
+
+    Args:
+        bounds: ``(min_x, min_y, max_x, max_y)`` rectangle.
+        matrix: Affine transform to apply.
+
+    Returns:
+        Transformed ``(min_x, min_y, max_x, max_y)`` bounding box.
+    """
+
+    min_x, min_y, max_x, max_y = bounds
+    corners = (
+        (min_x, min_y),
+        (min_x, max_y),
+        (max_x, min_y),
+        (max_x, max_y),
+    )
+    a, b, c, d, e, f = matrix.m.reshape(-1)[:6]
+    transformed = ((a * x + b * y + c, d * x + e * y + f) for (x, y) in corners)
+    xs, ys = zip(*transformed)
+    return (min(xs), min(ys), max(xs), max(ys))

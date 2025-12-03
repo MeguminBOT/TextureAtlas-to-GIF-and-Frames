@@ -16,6 +16,7 @@ predictable format.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 IDENTITY_M3D: List[float] = [
@@ -103,7 +104,15 @@ def normalize_animation_document(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _normalize_animation_section(section: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Normalize the root ``ANIMATION`` section into the abbreviated shape."""
+    """Normalize the root ``ANIMATION`` section into the abbreviated shape.
+
+    Args:
+        section: Verbose ``ANIMATION`` dict from the raw export.
+
+    Returns:
+        Abbreviated dict with ``N``, ``SN``, and ``TL`` keys as applicable.
+    """
+
     if not isinstance(section, dict):
         return {}
 
@@ -127,7 +136,15 @@ def _normalize_animation_section(section: Optional[Dict[str, Any]]) -> Dict[str,
 
 
 def _normalize_symbol_dictionary(section: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Convert ``symbolDictionary`` entries into the compact ``SD`` layout."""
+    """Convert ``symbolDictionary`` entries into the compact ``SD`` layout.
+
+    Args:
+        section: Verbose ``SYMBOL_DICTIONARY`` dict containing a ``Symbols`` list.
+
+    Returns:
+        Dict with an ``S`` key holding a list of abbreviated symbol dicts.
+    """
+
     if not isinstance(section, dict):
         return {}
 
@@ -157,7 +174,15 @@ def _normalize_symbol_dictionary(section: Optional[Dict[str, Any]]) -> Dict[str,
 
 
 def _normalize_timeline(section: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Normalize timeline layers from verbose ``LAYERS`` definitions."""
+    """Normalize timeline layers from verbose ``LAYERS`` definitions.
+
+    Args:
+        section: Verbose ``TIMELINE`` dict containing a ``LAYERS`` list.
+
+    Returns:
+        Dict with an ``L`` key holding a list of abbreviated layer dicts.
+    """
+
     if not isinstance(section, dict):
         return {}
 
@@ -171,7 +196,15 @@ def _normalize_timeline(section: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _normalize_layer(layer: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Convert a single layer definition and its frames into ``FR`` blocks."""
+    """Convert a single layer definition and its frames into ``FR`` blocks.
+
+    Args:
+        layer: Verbose layer dict with ``Frames`` and optional clipping flags.
+
+    Returns:
+        Abbreviated layer dict with ``LN``, ``FR``, and clipping keys.
+    """
+
     if not isinstance(layer, dict):
         return {}
 
@@ -194,7 +227,15 @@ def _normalize_layer(layer: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _normalize_frame(frame: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Translate a frame record plus its elements into the shorthand form."""
+    """Translate a frame record plus its elements into the shorthand form.
+
+    Args:
+        frame: Verbose frame dict with ``index``, ``duration``, and ``elements``.
+
+    Returns:
+        Abbreviated frame dict with ``I``, ``DU``, ``E``, and optional ``N``.
+    """
+
     if not isinstance(frame, dict):
         return {}
 
@@ -216,7 +257,16 @@ def _normalize_frame(frame: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _normalize_element(element: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Normalize symbol or atlas instances embedded inside a frame."""
+    """Normalize symbol or atlas instances embedded inside a frame.
+
+    Args:
+        element: Verbose element dict potentially containing ``SYMBOL_Instance``
+            or ``ATLAS_SPRITE_instance``.
+
+    Returns:
+        Dict with either ``SI`` or ``ASI`` key in abbreviated form.
+    """
+
     if not isinstance(element, dict):
         return {}
 
@@ -257,7 +307,16 @@ def _normalize_element(element: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _normalize_symbol_instance(instance: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Convert verbose symbol instance dictionaries into ``SI`` payloads."""
+    """Convert verbose symbol instance dictionaries into ``SI`` payloads.
+
+    Args:
+        instance: Verbose ``SYMBOL_Instance`` dict with symbol name, loop mode,
+            transform data, etc.
+
+    Returns:
+        Abbreviated ``SI`` dict ready for the rendering pipeline.
+    """
+
     if not isinstance(instance, dict):
         return {}
 
@@ -296,7 +355,10 @@ def _normalize_symbol_instance(instance: Optional[Dict[str, Any]]) -> Dict[str, 
             "x": float(transform_point.get("x", 0.0)),
             "y": float(transform_point.get("y", 0.0)),
         }
-    normalized["M3D"] = _normalize_matrix(_get_first(instance, "M3D", "Matrix3D"))
+    matrix_source = _get_first(instance, "M3D", "Matrix3D")
+    if matrix_source is None:
+        matrix_source = _matrix_from_decomposed(instance)
+    normalized["M3D"] = _normalize_matrix(matrix_source)
     color_effect = _get_first(instance, "C", "colorEffect", "colourEffect")
     if color_effect is not None:
         normalized["C"] = color_effect
@@ -304,7 +366,15 @@ def _normalize_symbol_instance(instance: Optional[Dict[str, Any]]) -> Dict[str, 
 
 
 def _normalize_symbol_bitmap(instance: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Convert a symbol instance that only references a bitmap into ``ASI``."""
+    """Convert a symbol instance that only references a bitmap into ``ASI``.
+
+    Args:
+        instance: Verbose symbol instance dict that may contain a ``bitmap`` key.
+
+    Returns:
+        Abbreviated ``ASI`` dict if a bitmap reference exists, else empty dict.
+    """
+
     if not isinstance(instance, dict):
         return {}
     bitmap = instance.get("bitmap")
@@ -314,12 +384,23 @@ def _normalize_symbol_bitmap(instance: Optional[Dict[str, Any]]) -> Dict[str, An
     if not name:
         return {}
     normalized: Dict[str, Any] = {"N": name}
-    normalized["M3D"] = _normalize_matrix(_get_first(instance, "M3D", "Matrix3D"))
+    matrix_source = _get_first(instance, "M3D", "Matrix3D")
+    if matrix_source is None:
+        matrix_source = _matrix_from_decomposed(instance)
+    normalized["M3D"] = _normalize_matrix(matrix_source)
     return normalized
 
 
 def _normalize_atlas_instance(instance: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Normalize atlas sprite instances into ``ASI`` structures."""
+    """Normalize atlas sprite instances into ``ASI`` structures.
+
+    Args:
+        instance: Verbose ``ATLAS_SPRITE_instance`` dict with name and matrix.
+
+    Returns:
+        Abbreviated ``ASI`` dict with ``N`` and ``M3D`` keys.
+    """
+
     if not isinstance(instance, dict):
         return {}
 
@@ -327,14 +408,83 @@ def _normalize_atlas_instance(instance: Optional[Dict[str, Any]]) -> Dict[str, A
     name = _get_first(instance, "N", "name", "Name")
     if name:
         normalized["N"] = name
-    normalized["M3D"] = _normalize_matrix(
-        _get_first(instance, "M3D", "Matrix3D", "matrix3D")
-    )
+    matrix_source = _get_first(instance, "M3D", "Matrix3D", "matrix3D")
+    if matrix_source is None:
+        matrix_source = _matrix_from_decomposed(instance)
+    normalized["M3D"] = _normalize_matrix(matrix_source)
     return normalized
 
 
+def _matrix_from_decomposed(
+    instance: Optional[Dict[str, Any]],
+) -> Optional[List[float]]:
+    """Build an ``M3D`` list from separate position/rotation/scale data.
+
+    Args:
+        instance: Dict that may contain ``DecomposedMatrix``, ``Position``,
+            ``Rotation``, or ``Scaling`` keys.
+
+    Returns:
+        A 16-element column-major matrix list, or ``None`` if no decomposed
+        data is present.
+    """
+
+    if not isinstance(instance, dict):
+        return None
+
+    containers = []
+    decomposed = _get_first(instance, "DecomposedMatrix", "decomposedMatrix")
+    if isinstance(decomposed, dict):
+        containers.append(decomposed)
+    containers.append(instance)
+
+    position = None
+    rotation = None
+    scaling = None
+
+    for container in containers:
+        if position is None:
+            position = _get_first(container, "Position", "position")
+        if rotation is None:
+            rotation = _get_first(container, "Rotation", "rotation")
+        if scaling is None:
+            scaling = _get_first(container, "Scaling", "scaling", "Scale", "scale")
+
+    if position is None and rotation is None and scaling is None:
+        return None
+
+    translate_x = _safe_float(position.get("x"), default=0.0) if position else 0.0
+    translate_y = _safe_float(position.get("y"), default=0.0) if position else 0.0
+
+    angle_z = 0.0
+    if rotation:
+        angle_z = math.radians(_safe_float(rotation.get("z"), default=0.0))
+    scale_x = _safe_float(scaling.get("x"), default=1.0) if scaling else 1.0
+    scale_y = _safe_float(scaling.get("y"), default=1.0) if scaling else 1.0
+
+    cos_z = math.cos(angle_z)
+    sin_z = math.sin(angle_z)
+
+    matrix = list(IDENTITY_M3D)
+    matrix[0] = scale_x * cos_z
+    matrix[4] = -scale_y * sin_z
+    matrix[1] = scale_x * sin_z
+    matrix[5] = scale_y * cos_z
+    matrix[12] = translate_x
+    matrix[13] = translate_y
+    return matrix
+
+
 def _normalize_matrix(matrix: Optional[Any]) -> List[float]:
-    """Return a 16-value matrix list no matter the incoming representation."""
+    """Return a 16-value matrix list no matter the incoming representation.
+
+    Args:
+        matrix: A 16-element list, a dict with ``m00``–``m33`` keys, or ``None``.
+
+    Returns:
+        A 16-element column-major matrix list; identity if input is invalid.
+    """
+
     if isinstance(matrix, list) and len(matrix) == 16:
         return matrix
     if isinstance(matrix, dict):
@@ -359,8 +509,25 @@ def _normalize_matrix(matrix: Optional[Any]) -> List[float]:
     return list(IDENTITY_M3D)
 
 
+def _safe_float(value: Optional[Any], default: float = 0.0) -> float:
+    """Return ``value`` coerced to ``float`` or the provided default."""
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _normalize_metadata(section: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Extract frame-rate metadata from verbose ``metadata`` blocks."""
+    """Extract frame-rate metadata from verbose ``metadata`` blocks.
+
+    Args:
+        section: Verbose ``metadata`` dict potentially containing ``framerate``.
+
+    Returns:
+        Dict with ``FRT`` key if a valid frame rate is found, else empty.
+    """
+
     if not isinstance(section, dict):
         return {}
     framerate = section.get("framerate") or section.get("frameRate")
@@ -382,7 +549,16 @@ def _safe_int(value: Optional[Any], default: int = 0) -> int:
 
 
 def _get_first(container: Optional[Dict[str, Any]], *keys: str) -> Any:
-    """Fetch the first key present in ``container`` (case insensitive)."""
+    """Fetch the first key present in ``container`` (case insensitive).
+
+    Args:
+        container: Dict to search.
+        *keys: Keys to try in order; first match wins.
+
+    Returns:
+        The value for the first matching key, or ``None`` if none match.
+    """
+
     if not isinstance(container, dict):
         return None
     for key in keys:
@@ -405,7 +581,16 @@ def _get_first(container: Optional[Dict[str, Any]], *keys: str) -> Any:
 
 
 def _truthy(value: Any) -> bool:
-    """Return ``True`` if the provided value is truthy or affirmative text."""
+    """Return ``True`` if the provided value is truthy or affirmative text.
+
+    Args:
+        value: Any value; strings ``"true"``, ``"1"``, and ``"yes"`` are
+            considered truthy regardless of case.
+
+    Returns:
+        Boolean interpretation of the value.
+    """
+
     if isinstance(value, str):
         return value.lower() in {"true", "1", "yes"}
     return bool(value)
