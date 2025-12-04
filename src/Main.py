@@ -44,7 +44,7 @@ from gui.machine_translation_disclaimer_dialog import (  # noqa: E402
 class ExtractorWorker(QThread):
     """Worker thread for extraction process."""
 
-    progress_updated = Signal(int, int, str)  # current, total, filename
+    progress_updated = Signal(int, int, object)  # current, total, status (filename str or status dict)
     statistics_updated = Signal(
         int, int, int
     )  # frames_generated, animations_generated, sprites_failed
@@ -74,10 +74,10 @@ class ExtractorWorker(QThread):
             print(f"[ExtractorWorker] Extraction failed: {str(e)}")
             self.extraction_failed.emit(str(e))
 
-    def emit_progress(self, current, total, filename=""):
+    def emit_progress(self, current, total, status=""):
         """Thread-safe progress emission."""
-        print(f"[ExtractorWorker] Progress: {current}/{total} - {filename}")
-        self.progress_updated.emit(current, total, filename)
+        print(f"[ExtractorWorker] Progress: {current}/{total} - {status}")
+        self.progress_updated.emit(current, total, status)
 
     def emit_statistics(self, frames_generated, animations_generated, sprites_failed):
         """Thread-safe statistics emission."""
@@ -767,9 +767,9 @@ class TextureAtlasExtractorApp(QMainWindow):
             print(f"[run_extractor_core] Starting with {len(spritesheet_list)} files")
 
             # Create progress callback that emits signals to update UI
-            def progress_callback(current, total, filename=""):
-                print(f"[progress_callback] {current}/{total} - {filename}")
-                progress_signal(current, total, filename)
+            def progress_callback(current, total, status=""):
+                print(f"[progress_callback] {current}/{total} - {status}")
+                progress_signal(current, total, status)
 
             # Create statistics callback to track generation statistics
             def statistics_callback(
@@ -844,11 +844,11 @@ class TextureAtlasExtractorApp(QMainWindow):
         if hasattr(self, "processing_window"):
             self.processing_window.processing_completed(False, error_message)
 
-    def on_progress_updated(self, current, total, filename):
+    def on_progress_updated(self, current, total, status):
         """Updates the processing window with progress information."""
-        print(f"[on_progress_updated] {current}/{total} - {filename}")
+        print(f"[on_progress_updated] {current}/{total} - {status}")
         if hasattr(self, "processing_window") and self.processing_window:
-            self.processing_window.update_progress(current, total, filename)
+            self.processing_window.update_progress(current, total, status)
         else:
             print("[on_progress_updated] No processing window available")
 

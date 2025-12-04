@@ -246,14 +246,14 @@ class ProcessingWindow(QDialog):
         self,
         current_file: int,
         total_files: int,
-        progress_payload: Any = "",
+        status: Any = "",
     ) -> None:
         """Buffer progress updates for coalesced UI refresh.
 
         Args:
             current_file: Number of files completed so far.
             total_files: Total files in the batch.
-            progress_payload: Either a status string or dict with worker details.
+            status: Either a status string or dict with worker details.
         """
         self.current_file_index = current_file
         self.total_files = total_files
@@ -261,17 +261,17 @@ class ProcessingWindow(QDialog):
         recent_path = None
         recent_display = None
 
-        if isinstance(progress_payload, dict):
+        if isinstance(status, dict):
             summary_text = (
-                progress_payload.get("summary")
-                or progress_payload.get("fallback")
+                status.get("summary")
+                or status.get("fallback")
                 or ""
             )
-            worker_entries = progress_payload.get("workers")
-            recent_path = progress_payload.get("recent_full_path")
-            recent_display = progress_payload.get("recent_display")
+            worker_entries = status.get("workers")
+            recent_path = status.get("recent_full_path")
+            recent_display = status.get("recent_display")
         else:
-            summary_text = progress_payload or ""
+            summary_text = status or ""
 
         self.current_filename = summary_text
         self._pending_current_files_text = summary_text
@@ -284,8 +284,8 @@ class ProcessingWindow(QDialog):
             log_entry = self.tr("Processing: {filename}").format(filename=display_name)
             self._log_buffer.append(log_entry)
             self._last_logged_recent_path = recent_path
-        elif isinstance(progress_payload, str):
-            filename = progress_payload
+        elif isinstance(status, str):
+            filename = status
             if (
                 filename
                 and not filename.startswith("Processing:")
