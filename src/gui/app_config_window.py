@@ -275,6 +275,7 @@ class AppConfigWindow(QDialog):
             "period": ("Period (ms):", "int", 0),
             "scale": ("Scale:", "float", 1.0),
             "threshold": ("Alpha threshold:", "float", 0.1),
+            "resampling_method": ("Resampling method:", "combo", "Nearest"),
             "frame_export": ("Enable frame export:", "bool", True),
             "frame_format": ("Frame format:", "combo", "PNG"),
             "frame_scale": ("Frame scale:", "float", 1.0),
@@ -291,7 +292,25 @@ class AppConfigWindow(QDialog):
                 self.extraction_fields[key] = checkbox
                 group_layout.addWidget(checkbox, row, 1)
             elif field_type == "combo":
-                if "format" in key:
+                if key == "resampling_method":
+                    from utils.resampling import (
+                        RESAMPLING_DISPLAY_NAMES,
+                        get_resampling_tooltip,
+                    )
+
+                    combo = QComboBox()
+                    combo.addItems(RESAMPLING_DISPLAY_NAMES)
+                    combo.setCurrentText(str(default))
+                    combo.setToolTip(
+                        "Resampling method for image scaling:\n\n"
+                        + "\n\n".join(
+                            f"• {name}: {get_resampling_tooltip(name).split(chr(10))[0]}"
+                            for name in RESAMPLING_DISPLAY_NAMES
+                        )
+                    )
+                    self.extraction_fields[key] = combo
+                    group_layout.addWidget(combo, row, 1)
+                elif "format" in key:
                     if "animation" in key:
                         options = ["GIF", "WebP", "APNG"]
                     else:
@@ -883,6 +902,7 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(dir_group)
 
+        # Spritemap settings group
         spritemap_group = QGroupBox("Spritemap Settings")
         spritemap_layout = QVBoxLayout(spritemap_group)
 

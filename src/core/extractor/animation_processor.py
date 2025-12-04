@@ -16,6 +16,7 @@ from core.extractor.frame_pipeline import FramePipeline
 from core.extractor.image_utils import (
     ensure_pil_image,
     frame_dimensions,
+    scale_image,
     scale_image_nearest,
 )
 from core.editor.editor_composite import (
@@ -268,7 +269,7 @@ class AnimationProcessor:
         return adjusted
 
     def scale_image(self, img, size):
-        """Scale an image using nearest-neighbour interpolation.
+        """Scale an image using the configured resampling method.
 
         Args:
             img: Source PIL Image or NumPy array.
@@ -277,4 +278,7 @@ class AnimationProcessor:
         Returns:
             Scaled PIL Image.
         """
-        return scale_image_nearest(img, size)
+        resampling_method = self.settings_manager.global_settings.get(
+            "resampling_method", "Lanczos"
+        )
+        return scale_image(img, size, resampling_method=resampling_method)

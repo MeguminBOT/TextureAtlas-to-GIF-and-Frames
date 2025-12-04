@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from core.extractor.animation_exporter import AnimationExporter
 from core.extractor.atlas_processor import AtlasProcessor
 from core.extractor.frame_pipeline import FramePipeline
-from core.extractor.image_utils import scale_image_nearest
+from core.extractor.image_utils import scale_image
 from core.editor.editor_composite import (
     build_editor_composite_frames,
     clone_animation_map,
@@ -83,10 +83,15 @@ class PreviewGenerator:
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
 
+            resampling_method = settings.get("resampling_method", "Lanczos")
+            scale_fn = lambda img, size: scale_image(
+                img, size, resampling_method=resampling_method
+            )
+
             animation_exporter = AnimationExporter(
                 temp_dir,
                 self.current_version,
-                scale_image_nearest,
+                scale_fn,
             )
 
             for anim_name, image_tuples in animations.items():

@@ -26,6 +26,7 @@ from core.extractor.image_utils import (
     frame_dimensions,
     pad_frames_to_canvas,
 )
+from utils.resampling import get_wand_resampling_filter
 from utils.utilities import Utilities
 
 
@@ -288,12 +289,25 @@ class AnimationExporter:
             # Removing duplicates after quantization ensures palette changes are accounted for once.
             if dedupe_required:
                 self.remove_dups(animation)
+
+            # Apply scaling with the configured resampling method
+            resampling_method = settings.get("resampling_method", "Lanczos")
+            wand_filter = get_wand_resampling_filter(resampling_method, abs(scale))
+
             for i in range(len(animation.sequence)):
                 animation.iterator_set(i)
-                animation.sample(
-                    width=int(animation.width * abs(scale)),
-                    height=int(animation.height * abs(scale)),
-                )
+                new_width = int(animation.width * abs(scale))
+                new_height = int(animation.height * abs(scale))
+
+                # Use resize with filter for quality scaling, or sample for Nearest
+                if resampling_method == "Nearest":
+                    animation.sample(width=new_width, height=new_height)
+                else:
+                    animation.resize(
+                        width=new_width,
+                        height=new_height,
+                        filter=wand_filter,
+                    )
 
                 if scale < 0:
                     animation.flop()

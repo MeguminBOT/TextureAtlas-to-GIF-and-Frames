@@ -97,6 +97,7 @@ class ExtractTabWidget(QWidget):
         self.frame_scale_entry = self.parent_app.ui.frame_scale_entry
         self.frame_selection_combobox = self.parent_app.ui.frame_selection_combobox
         self.cropping_method_combobox = self.parent_app.ui.cropping_method_combobox
+        self.resampling_method_combobox = self.parent_app.ui.resampling_method_combobox
         self.filename_format_combobox = self.parent_app.ui.filename_format_combobox
         self.filename_prefix_entry = self.parent_app.ui.filename_prefix_entry
         self.filename_suffix_entry = self.parent_app.ui.filename_suffix_entry
@@ -524,6 +525,32 @@ class ExtractTabWidget(QWidget):
             if "frame_format" in defaults:
                 format_index = self.get_frame_format_index(defaults["frame_format"])
                 self.frame_format_combobox.setCurrentIndex(format_index)
+
+            # Set default resampling method (Nearest = index 0)
+            resampling_index = self.get_resampling_method_index(
+                defaults.get("resampling_method", "Nearest")
+            )
+            self.resampling_method_combobox.setCurrentIndex(resampling_index)
+
+    def get_resampling_method_index(self, method_name):
+        """Map a resampling method name to its combobox index.
+
+        Args:
+            method_name: One of ``"Nearest"``, ``"Bilinear"``, ``"Bicubic"``,
+                ``"Lanczos"``, ``"Box"``, or ``"Hamming"``.
+
+        Returns:
+            The zero-based index, or ``0`` (Nearest) if the name is unrecognized.
+        """
+        method_map = {
+            "Nearest": 0,
+            "Bilinear": 1,
+            "Bicubic": 2,
+            "Lanczos": 3,
+            "Box": 4,
+            "Hamming": 5,
+        }
+        return method_map.get(method_name, 0)  # Default to Nearest
 
     def get_animation_format_index(self, format_name):
         """Map an animation format name to its combobox index.
@@ -1817,6 +1844,14 @@ class ExtractTabWidget(QWidget):
         ]
         crop_option_map = ["None", "Animation based", "Frame based"]
         filename_format_map = ["Standardized", "No spaces", "No special characters"]
+        resampling_method_map = [
+            "Nearest",
+            "Bilinear",
+            "Bicubic",
+            "Lanczos",
+            "Box",
+            "Hamming",
+        ]
 
         animation_format = animation_format_map[
             self.animation_format_combobox.currentIndex()
@@ -1828,6 +1863,9 @@ class ExtractTabWidget(QWidget):
         crop_option = crop_option_map[self.cropping_method_combobox.currentIndex()]
         filename_format = filename_format_map[
             self.filename_format_combobox.currentIndex()
+        ]
+        resampling_method = resampling_method_map[
+            self.resampling_method_combobox.currentIndex()
         ]
 
         animation_export = self.animation_export_group.isChecked()
@@ -1846,6 +1884,7 @@ class ExtractTabWidget(QWidget):
             "frame_scale": self.frame_scale_entry.value(),
             "frame_selection": frame_selection,
             "crop_option": crop_option,
+            "resampling_method": resampling_method,
             "prefix": self.filename_prefix_entry.text(),
             "suffix": self.filename_suffix_entry.text(),
             "filename_format": filename_format,

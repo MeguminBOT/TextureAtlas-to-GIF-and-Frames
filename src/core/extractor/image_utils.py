@@ -16,9 +16,44 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 from PIL import Image
 
+from utils.resampling import get_pil_resampling_filter
+
 
 FrameSource = Union[Image.Image, np.ndarray]
 BBox = Tuple[int, int, int, int]
+
+
+def scale_image(
+    image: Image.Image,
+    size: float,
+    resampling_method: str = "Nearest",
+) -> Image.Image:
+    """Scale an image using a configurable resampling method.
+
+    Negative scale flips the source horizontally before resizing. Size is
+    interpreted as a multiplier (1.0 keeps the original dimensions).
+
+    Args:
+        image: Source PIL image.
+        size: Scale multiplier; negative values flip horizontally.
+        resampling_method: One of "Nearest", "Bilinear", "Bicubic",
+            "Lanczos", "Box", or "Hamming".
+
+    Returns:
+        Resized PIL image, or the original if dimensions are unchanged.
+    """
+    working = image
+    if size < 0:
+        working = working.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+
+    abs_size = abs(size)
+    new_width = max(1, round(working.width * abs_size))
+    new_height = max(1, round(working.height * abs_size))
+    if new_width == working.width and new_height == working.height:
+        return working
+
+    pil_filter = get_pil_resampling_filter(resampling_method, abs_size)
+    return working.resize((new_width, new_height), pil_filter)
 
 
 def scale_image_nearest(image: Image.Image, size: float) -> Image.Image:
@@ -33,17 +68,12 @@ def scale_image_nearest(image: Image.Image, size: float) -> Image.Image:
 
     Returns:
         Resized PIL image, or the original if dimensions are unchanged.
+
+    Note:
+        This function is deprecated; prefer ``scale_image`` with the
+        ``resampling_method`` parameter set to ``"Nearest"``.
     """
-
-    working = image
-    if size < 0:
-        working = working.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-
-    new_width = max(1, round(working.width * abs(size)))
-    new_height = max(1, round(working.height * abs(size)))
-    if new_width == working.width and new_height == working.height:
-        return working
-    return working.resize((new_width, new_height), Image.NEAREST)
+    return scale_image(image, size, resampling_method="Nearest")
 
 
 def pad_frames_to_canvas(images: Sequence[FrameSource]) -> List[np.ndarray]:
