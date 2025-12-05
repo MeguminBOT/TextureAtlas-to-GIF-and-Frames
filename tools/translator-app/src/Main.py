@@ -197,7 +197,7 @@ class TranslationEditor(QMainWindow):
 
     def show_api_key_help(self) -> None:
         html = (
-            "<p>Machine translation is optional. Provide your own API key or request one from the maintainer if needed.</p>"
+            "<p>Machine translation is optional. Provide your own API key.</p>"
             "<h3>DeepL (paid subscription)</h3>"
             "<ul><li>Requires an active DeepL API plan.</li>"
             "<li>Set <code>DEEPL_API_KEY</code> (and <code>DEEPL_API_ENDPOINT</code> for Pro/custom).</li></ul>"
