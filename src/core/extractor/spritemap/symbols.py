@@ -292,3 +292,14 @@ class Symbols:
             if entry["name"] == label_name:
                 return entry
         return None
+
+    def close(self) -> None:
+        """Release atlas and timeline data.
+
+        Drops the sprite atlas reference and clears timeline and label
+        structures so associated memory can be reclaimed.
+        """
+
+        self.sprite_atlas = None
+        self.timelines.clear()
+        self.label_map.clear()

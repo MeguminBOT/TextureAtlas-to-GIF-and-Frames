@@ -83,10 +83,10 @@ class PreviewGenerator:
             if temp_dir is None:
                 temp_dir = tempfile.mkdtemp()
 
-            resampling_method = settings.get("resampling_method", "Lanczos")
-            scale_fn = lambda img, size: scale_image(
-                img, size, resampling_method=resampling_method
-            )
+            resampling_method = settings.get("resampling_method", "Nearest")
+
+            def scale_fn(img, size):
+                return scale_image(img, size, resampling_method=resampling_method)
 
             animation_exporter = AnimationExporter(
                 temp_dir,

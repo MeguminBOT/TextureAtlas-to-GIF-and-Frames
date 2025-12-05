@@ -262,11 +262,7 @@ class ProcessingWindow(QDialog):
         recent_display = None
 
         if isinstance(status, dict):
-            summary_text = (
-                status.get("summary")
-                or status.get("fallback")
-                or ""
-            )
+            summary_text = status.get("summary") or status.get("fallback") or ""
             worker_entries = status.get("workers")
             recent_path = status.get("recent_full_path")
             recent_display = status.get("recent_display")

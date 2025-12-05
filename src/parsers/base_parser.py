@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from parsers.parser_types import (
-    ContentError,
+    ContentError,  # noqa: F401
     FileError,
     FormatError,
     ParseResult,

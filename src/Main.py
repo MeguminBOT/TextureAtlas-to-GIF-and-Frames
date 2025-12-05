@@ -44,7 +44,9 @@ from gui.machine_translation_disclaimer_dialog import (  # noqa: E402
 class ExtractorWorker(QThread):
     """Worker thread for extraction process."""
 
-    progress_updated = Signal(int, int, object)  # current, total, status (filename str or status dict)
+    progress_updated = Signal(
+        int, int, object
+    )  # current, total, status (filename str or status dict)
     statistics_updated = Signal(
         int, int, int
     )  # frames_generated, animations_generated, sprites_failed
