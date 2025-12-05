@@ -122,3 +122,27 @@ class SpriteAtlas:
             transform_size, Image.AFFINE, data=matrix.data(), resample=self.resample
         )
         return sprite.convert("RGBA"), (min_x, min_y)
+
+    def close(self) -> None:
+        """Release cached sprites and the atlas image.
+
+        Closes each cached crop and the source atlas, then clears the sprite
+        dict so memory can be reclaimed.
+        """
+
+        if getattr(self, "sprites", None):
+            for sprite in list(self.sprites.values()):
+                try:
+                    if sprite is not None:
+                        sprite.close()
+                except Exception:
+                    pass
+            self.sprites.clear()
+
+        if getattr(self, "img", None) is not None:
+            try:
+                self.img.close()
+            except Exception:
+                pass
+            finally:
+                self.img = None

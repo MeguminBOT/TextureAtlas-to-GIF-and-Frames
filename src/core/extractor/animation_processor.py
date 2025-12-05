@@ -282,3 +282,24 @@ class AnimationProcessor:
             "resampling_method", "Lanczos"
         )
         return scale_image(img, size, resampling_method=resampling_method)
+
+    def dispose(self) -> None:
+        """Release cached data and child exporters.
+
+        Clears animation frame dicts, source frames, and composite name
+        tracking. Drops references to the frame pipeline and exporters so
+        their buffers can be reclaimed.
+        """
+
+        if isinstance(getattr(self, "animations", None), dict):
+            self.animations.clear()
+        if isinstance(getattr(self, "_source_frames", None), dict):
+            self._source_frames.clear()
+
+        self.animations = None
+        self._source_frames = None
+        if hasattr(self, "_editor_composite_names"):
+            self._editor_composite_names.clear()
+        self._frame_pipeline = None
+        self.frame_exporter = None
+        self.animation_exporter = None

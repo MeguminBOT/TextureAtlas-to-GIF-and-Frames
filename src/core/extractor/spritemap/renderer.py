@@ -303,6 +303,31 @@ class AdobeSpritemapRenderer:
             return target.get("type", "symbol"), target.get("value")
         return "symbol", target
 
+    def close(self) -> None:
+        """Release renderer resources.
+
+        Closes the ``Symbols`` and ``SpriteAtlas`` instances, then drops the
+        parsed animation JSON so memory can be reclaimed.
+        """
+
+        if getattr(self, "symbols", None):
+            try:
+                self.symbols.close()
+            except Exception:
+                pass
+            finally:
+                self.symbols = None
+
+        if getattr(self, "sprite_atlas", None):
+            try:
+                self.sprite_atlas.close()
+            except Exception:
+                pass
+            finally:
+                self.sprite_atlas = None
+
+        self.animation_json = None
+
 
 def _infer_canvas_size(animation_json, spritemap_json, atlas_size):
     """Compute a canvas size large enough to contain all transformed sprites.

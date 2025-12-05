@@ -14,6 +14,7 @@ Type Aliases:
 
 from __future__ import annotations
 
+import gc
 import os
 import time
 from pathlib import Path
@@ -22,6 +23,11 @@ from threading import Event, Lock
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from PySide6.QtCore import QCoreApplication, QThread, Signal
+
+try:
+    import psutil
+except ImportError:  # pragma: no cover - psutil is part of app requirements
+    psutil = None
 
 # Import our own modules
 from core.extractor.atlas_processor import AtlasProcessor
@@ -107,8 +113,8 @@ class Extractor:
         self.fnf_idle_loop = False
         self.preview_generator = PreviewGenerator(settings_manager, current_version)
         self.unknown_handler = UnknownSpritesheetHandler()
-        # Opt-in flag so stats logging does not spam unless explicitly requested.
         self._trace_stats = False
+        # UI updates and worker management
         self._stats_queue = SimpleQueue()
         self._progress_callback = None
         self.work_in_progress = {}
@@ -123,6 +129,14 @@ class Extractor:
         self._pause_event.set()
         self._awaiting_error_decision = False
         self._error_prompt_lock = Lock()
+        # Memory Management
+        self._memory_limit_mb = self._resolve_memory_limit()
+        self._psutil_process = None
+        self._memory_check_interval = 0.2
+        self._memory_resume_ratio = 0.96
+        self._memory_overage_logged = False
+        self._last_gc_collect = 0.0
+        self._gc_collect_interval = 0.75
 
     def process_directory(
         self,
@@ -157,6 +171,8 @@ class Extractor:
 
         cpu_threads = self._resolve_cpu_threads()
         filenames = list(spritesheet_list or [])
+        if filenames:
+            filenames = self._prioritize_spritesheets(input_dir, filenames)
         self.total_files = len(filenames)
         self.work_in_progress.clear()
         for filename in filenames:
@@ -194,6 +210,8 @@ class Extractor:
         self.total_frames_generated = 0
         self.total_anims_generated = 0
         self.total_sprites_failed = 0
+        self._memory_limit_mb = self._resolve_memory_limit()
+        self._memory_overage_logged = False
         self.processed_count = 0
         self.active_workers = []
         self._stats_queue = SimpleQueue()
@@ -247,6 +265,120 @@ class Extractor:
             cpu_threads = max(1, os.cpu_count() // 2)
         return cpu_threads
 
+    def _resolve_memory_limit(self) -> int:
+        """Return the configured memory threshold in megabytes.
+
+        Reads ``resource_limits.memory_limit_mb`` from ``app_config``. Returns
+        ``0`` when no limit is configured or if reading the value fails.
+        """
+
+        if not self.app_config:
+            return 0
+
+        try:
+            resource_limits = self.app_config.settings.get("resource_limits", {})
+            limit_value = resource_limits.get("memory_limit_mb", 0)
+            return max(0, int(limit_value or 0))
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return 0
+
+    def _memory_budget_enabled(self) -> bool:
+        """Check whether memory-based worker throttling is active.
+
+        Returns:
+            ``True`` when a non-zero limit is set and ``psutil`` is available.
+        """
+
+        return bool(self._memory_limit_mb and psutil is not None)
+
+    def _get_process_memory_usage_mb(self) -> float:
+        """Query the current Resident Set Size of this process.
+
+        RSS represents the portion of memory held in RAM. The value is
+        returned in megabytes. Returns ``0.0`` when throttling is disabled.
+        """
+
+        if not self._memory_budget_enabled():
+            return 0.0
+
+        try:
+            if self._psutil_process is None:
+                self._psutil_process = psutil.Process(os.getpid())
+            rss = self._psutil_process.memory_info().rss
+        except psutil.Error:
+            self._psutil_process = psutil.Process(os.getpid())
+            rss = self._psutil_process.memory_info().rss
+
+        return rss / (1024 * 1024)
+
+    def _maybe_collect_garbage(self, *, force: bool = False) -> None:
+        """Run garbage collection with a cooldown to reduce memory pressure.
+
+        Args:
+            force: Bypass the cooldown interval and collect immediately.
+        """
+
+        if not self._memory_budget_enabled():
+            return
+
+        now = time.monotonic()
+        if force or (now - self._last_gc_collect) >= self._gc_collect_interval:
+            gc.collect()
+            self._last_gc_collect = now
+
+    def wait_for_memory_budget(self) -> bool:
+        """Block until process memory drops below the configured threshold.
+
+        Uses hysteresis so workers resume only after memory falls to 85-96%
+        of the limit (whichever is lower). Periodically triggers garbage
+        collection while waiting.
+
+        Returns:
+            ``True`` when memory is within budget, ``False`` on cancellation.
+        """
+
+        if not self._memory_budget_enabled():
+            return True
+
+        resume_threshold = max(
+            self._memory_limit_mb * self._memory_resume_ratio,
+            self._memory_limit_mb - 64,
+        )
+        overage_start = None
+
+        while True:
+            if self.cancel_event.is_set():
+                return False
+
+            usage = self._get_process_memory_usage_mb()
+            if usage <= max(resume_threshold, self._memory_limit_mb * 0.85):
+                self._memory_overage_logged = False
+                return True
+
+            if overage_start is None:
+                overage_start = time.monotonic()
+
+            elapsed = time.monotonic() - overage_start
+            if not self._memory_overage_logged and elapsed > 1.5:
+                print(
+                    f"[Extractor] Waiting for memory to drop below {self._memory_limit_mb} MB (current {usage:.1f} MB)"
+                )
+                self._memory_overage_logged = True
+
+            self._maybe_collect_garbage()
+            time.sleep(self._memory_check_interval)
+
+    def _after_file_processed(self) -> None:
+        """Post-processing hook invoked after each spritesheet completes.
+
+        Forces a garbage collection pass when memory throttling is enabled
+        so freed buffers are reclaimed before the next file is dequeued.
+        """
+
+        if not self._memory_budget_enabled():
+            return
+        self._maybe_collect_garbage(force=True)
+
     @staticmethod
     def _determine_worker_budget(cpu_threads, file_count):
         """Return the smaller of available threads and pending files.
@@ -259,6 +391,62 @@ class Extractor:
             Worker count capped to avoid idle threads.
         """
         return min(cpu_threads, file_count)
+
+    def _prioritize_spritesheets(
+        self, input_dir: str, filenames: Sequence[str]
+    ) -> List[str]:
+        """Reorder filenames so heavy spritemap projects process last.
+
+        Adobe spritemap projects are CPU and memory intensive, so deferring
+        them reduces peak resource contention when mixed with lighter atlases.
+
+        Args:
+            input_dir: Root directory containing atlas files.
+            filenames: Unordered sequence of relative paths.
+
+        Returns:
+            List with standard atlases first, followed by spritemap projects.
+        """
+
+        if not filenames:
+            return []
+
+        regular: List[str] = []
+        spritemaps: List[str] = []
+        for name in filenames:
+            try:
+                target = (
+                    spritemaps
+                    if self._looks_like_spritemap(input_dir, name)
+                    else regular
+                )
+            except Exception:
+                target = regular
+            target.append(name)
+
+        return regular + spritemaps
+
+    @staticmethod
+    def _looks_like_spritemap(input_dir: str, filename: str) -> bool:
+        """Detect whether a file belongs to an Adobe spritemap project.
+
+        A spritemap project is identified by the presence of both an
+        ``Animation.json`` and a matching ``<stem>.json`` in the same folder.
+
+        Args:
+            input_dir: Root directory containing atlas files.
+            filename: Relative path to the candidate image.
+
+        Returns:
+            ``True`` when companion metadata files exist, ``False`` otherwise.
+        """
+
+        atlas_path = Path(input_dir) / Path(filename)
+        atlas_dir = atlas_path.parent
+        base_name = atlas_path.stem
+        animation_json = atlas_dir / "Animation.json"
+        spritemap_json = atlas_dir / f"{base_name}.json"
+        return animation_json.is_file() and spritemap_json.is_file()
 
     def _start_worker_pool(
         self,
@@ -799,6 +987,15 @@ class Extractor:
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
+        atlas_processor: Optional[AtlasProcessor] = None
+        sprite_processor: Optional[SpriteProcessor] = None
+        animation_processor: Optional[AnimationProcessor] = None
+        animations = None
+        result = {
+            "frames_generated": 0,
+            "anims_generated": 0,
+            "sprites_failed": 0,
+        }
 
         try:
             is_unknown_spritesheet = metadata_path is None
@@ -820,26 +1017,42 @@ class Extractor:
             frames_generated, anims_generated = animation_processor.process_animations(
                 is_unknown_spritesheet
             )
-            return {
-                "frames_generated": frames_generated,
-                "anims_generated": anims_generated,
-                "sprites_failed": sprites_failed,
-            }
+            result["frames_generated"] = frames_generated
+            result["anims_generated"] = anims_generated
 
         except Exception as general_error:
             sprites_failed += 1
+            result["sprites_failed"] = sprites_failed
             print(
                 f"[extract_sprites] Exception for {atlas_path}: {str(general_error)}, sprites_failed = {sprites_failed}"
             )
             print(
                 f"[extract_sprites] Returning error result: frames_generated=0, anims_generated=0, sprites_failed={sprites_failed}"
             )
-            # Return a result even on failure so statistics can be updated
-            return {
-                "frames_generated": 0,
-                "anims_generated": 0,
-                "sprites_failed": sprites_failed,
-            }
+        finally:
+            if animation_processor is not None:
+                try:
+                    animation_processor.dispose()
+                except Exception:
+                    pass
+            if sprite_processor is not None:
+                try:
+                    sprite_processor.dispose()
+                except Exception:
+                    pass
+            if atlas_processor is not None:
+                try:
+                    atlas_processor.close()
+                except Exception:
+                    pass
+            if isinstance(animations, dict):
+                animations.clear()
+            animations = None
+            animation_processor = None
+            sprite_processor = None
+            atlas_processor = None
+
+        return result
 
     def extract_spritemap_project(
         self,
@@ -866,6 +1079,14 @@ class Extractor:
         frames_generated = 0
         anims_generated = 0
         sprites_failed = 0
+        renderer: Optional[AdobeSpritemapRenderer] = None
+        animation_processor: Optional[AnimationProcessor] = None
+        animations = None
+        result = {
+            "frames_generated": 0,
+            "anims_generated": 0,
+            "sprites_failed": 0,
+        }
 
         try:
             spritesheet_name = spritesheet_label or os.path.basename(atlas_path)
@@ -881,11 +1102,7 @@ class Extractor:
             animations = renderer.build_animation_frames()
 
             if not animations:
-                return {
-                    "frames_generated": 0,
-                    "anims_generated": 0,
-                    "sprites_failed": 0,
-                }
+                return result
 
             animation_processor = AnimationProcessor(
                 animations,
@@ -896,19 +1113,31 @@ class Extractor:
                 spritesheet_label=spritesheet_name,
             )
             frames_generated, anims_generated = animation_processor.process_animations()
-            return {
-                "frames_generated": frames_generated,
-                "anims_generated": anims_generated,
-                "sprites_failed": 0,
-            }
+            result["frames_generated"] = frames_generated
+            result["anims_generated"] = anims_generated
+
         except Exception as exc:
             sprites_failed += 1
+            result["sprites_failed"] = sprites_failed
             print(f"[extract_spritemap_project] Error processing {atlas_path}: {exc}")
-            return {
-                "frames_generated": 0,
-                "anims_generated": 0,
-                "sprites_failed": sprites_failed,
-            }
+        finally:
+            if animation_processor is not None:
+                try:
+                    animation_processor.dispose()
+                except Exception:
+                    pass
+            if renderer is not None:
+                try:
+                    renderer.close()
+                except Exception:
+                    pass
+            if isinstance(animations, dict):
+                animations.clear()
+            animations = None
+            animation_processor = None
+            renderer = None
+
+        return result
 
     def generate_temp_animation_for_preview(
         self,
@@ -1027,6 +1256,9 @@ class FileProcessorWorker(QThread):
             if not self.extractor.wait_for_resume():
                 break
 
+            if not self.extractor.wait_for_memory_budget():
+                break
+
             filename = self.task_queue.get()
             if filename is None or self.extractor.cancel_event.is_set():
                 break
@@ -1052,6 +1284,7 @@ class FileProcessorWorker(QThread):
             thread_id (int): Worker thread identifier, useful for diagnostics.
         """
         if self.extractor.cancel_event.is_set():
+            self.extractor._after_file_processed()
             return
         try:
             relative_path = Path(filename)
@@ -1140,3 +1373,5 @@ class FileProcessorWorker(QThread):
 
             traceback.print_exc()
             self.file_failed.emit(filename, e)
+        finally:
+            self.extractor._after_file_processed()

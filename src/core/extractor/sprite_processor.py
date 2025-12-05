@@ -220,3 +220,32 @@ class SpriteProcessor:
             ]
 
         return canvas
+
+    def dispose(self) -> None:
+        """Release atlas and sprite references.
+
+        Clears the cached NumPy array view and closes the underlying PIL
+        image so large buffers can be garbage-collected.
+        """
+
+        self.sprites = None
+        self._atlas_array = None
+        if getattr(self, "_atlas_rgba", None) is not None:
+            try:
+                if self._atlas_rgba is not self.atlas and hasattr(
+                    self._atlas_rgba, "close"
+                ):
+                    self._atlas_rgba.close()
+            except Exception:
+                pass
+            finally:
+                self._atlas_rgba = None
+
+        if getattr(self, "atlas", None) is not None:
+            try:
+                if hasattr(self.atlas, "close"):
+                    self.atlas.close()
+            except Exception:
+                pass
+            finally:
+                self.atlas = None

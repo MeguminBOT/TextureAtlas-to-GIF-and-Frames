@@ -328,5 +328,23 @@ class AtlasProcessor:
             print(f"Error parsing TXT for animation {animation_name}: {e}")
             return []
 
+    def close(self) -> None:
+        """Release resources held by this processor.
+
+        Closes the atlas PIL image and clears the sprite list and parse
+        result so memory can be reclaimed.
+        """
+
+        if getattr(self, "atlas", None) is not None:
+            try:
+                self.atlas.close()
+            except Exception:
+                pass
+            finally:
+                self.atlas = None
+
+        self.sprites = []
+        self.parse_result = None
+
 
 __all__ = ["AtlasProcessor"]

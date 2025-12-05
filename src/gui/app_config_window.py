@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QFrame,
     QWidget,
     QPushButton,
     QLineEdit,
@@ -180,18 +181,29 @@ class AppConfigWindow(QDialog):
 
         main_layout.addLayout(button_layout)
 
+    def _wrap_in_scroll_area(self, content_widget: QWidget) -> QScrollArea:
+        """Wrap a widget in a styled scroll area for consistent tab appearance.
+
+        Args:
+            content_widget: The widget containing the tab's content.
+
+        Returns:
+            QScrollArea with no frame and consistent styling.
+        """
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setWidget(content_widget)
+        return scroll_area
+
     def create_system_tab(self):
         """Build the system resources tab with CPU and memory controls.
 
         Returns:
-            QScrollArea containing resource limit widgets.
+            QWidget containing resource limit widgets.
         """
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         sys_group = QGroupBox("Your Computer")
         sys_layout = QVBoxLayout(sys_group)
@@ -215,15 +227,31 @@ class AppConfigWindow(QDialog):
         resource_group = QGroupBox("App Resource Limits")
         resource_layout = QGridLayout(resource_group)
 
+        cpu_threads_tooltip = self.tr(
+            "Number of worker threads for parallel processing.\n\n"
+            "More threads is not always faster—each worker holds\n"
+            "sprite data in memory, so you need adequate RAM.\n\n"
+            "Rough estimates (actual usage varies by spritesheet sizes):\n"
+            "•  4,096 MB RAM → up to 2 threads\n"
+            "•  8,192 MB RAM → up to 4 threads\n"
+            "• 16,384 MB RAM → up to 8 threads\n"
+            "• 32,768 MB RAM → up to 16 threads\n\n"
+            "Using more threads with insufficient memory (e.g. 16\n"
+            "threads on 8,192 MB) will cause most threads to sit idle\n"
+            "waiting for memory to free up."
+        )
+
         cpu_label = QLabel(
             self.tr("CPU threads to use (max: {max_threads}):").format(
                 max_threads=self.max_threads
             )
         )
+        cpu_label.setToolTip(cpu_threads_tooltip)
         resource_layout.addWidget(cpu_label, 0, 0)
 
         self.cpu_threads_edit = QSpinBox()
         self.cpu_threads_edit.setRange(1, self.max_threads)
+        self.cpu_threads_edit.setToolTip(cpu_threads_tooltip)
         resource_layout.addWidget(self.cpu_threads_edit, 0, 1)
 
         mem_label = QLabel(
@@ -231,38 +259,36 @@ class AppConfigWindow(QDialog):
                 max_memory=self.max_memory_mb
             )
         )
+        memory_limit_tooltip = self.tr(
+            "Memory threshold for worker threads.\n\n"
+            "When the app's memory usage exceeds this limit, new\n"
+            "worker threads will wait before starting their next file.\n"
+            "Existing work is not interrupted.\n\n"
+            "Set to 0 to disable memory-based throttling (Not recommended, may make app unstable)."
+        )
+
+        mem_label.setToolTip(memory_limit_tooltip)
         resource_layout.addWidget(mem_label, 1, 0)
 
         self.memory_limit_edit = QSpinBox()
         self.memory_limit_edit.setRange(0, self.max_memory_mb)
         self.memory_limit_edit.setSuffix(" MB")
+        self.memory_limit_edit.setToolTip(memory_limit_tooltip)
         resource_layout.addWidget(self.memory_limit_edit, 1, 1)
-
-        mem_note = QLabel(
-            self.tr("Note: Memory limit is for future use and not yet implemented.")
-        )
-        mem_note.setFont(QFont("Arial", 8, QFont.Weight.ExtraLight))
-        mem_note.setStyleSheet("QLabel { color: #666; }")
-        resource_layout.addWidget(mem_note, 2, 0, 1, 2)
 
         layout.addWidget(resource_group)
         layout.addStretch()
 
-        scroll_area.setWidget(widget)
-        return scroll_area
+        return self._wrap_in_scroll_area(widget)
 
     def create_extraction_tab(self):
         """Build the extraction defaults tab with format and scale controls.
 
         Returns:
-            QScrollArea containing extraction setting widgets.
+            QWidget containing extraction setting widgets.
         """
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         group = QGroupBox("Extraction Default Settings")
         group_layout = QGridLayout(group)
@@ -337,21 +363,16 @@ class AppConfigWindow(QDialog):
         layout.addWidget(group)
         layout.addStretch()
 
-        scroll_area.setWidget(widget)
-        return scroll_area
+        return self._wrap_in_scroll_area(widget)
 
     def create_compression_tab(self):
         """Build the compression settings tab with per-format controls.
 
         Returns:
-            QScrollArea containing PNG, WebP, AVIF, and TIFF widgets.
+            QWidget containing PNG, WebP, AVIF, and TIFF widgets.
         """
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         png_group = QGroupBox("PNG Settings")
         png_layout = QGridLayout(png_group)
@@ -551,21 +572,16 @@ class AppConfigWindow(QDialog):
         layout.addWidget(tiff_group)
         layout.addStretch()
 
-        scroll_area.setWidget(widget)
-        return scroll_area
+        return self._wrap_in_scroll_area(widget)
 
     def create_update_tab(self):
         """Build the update preferences tab with auto-update toggles.
 
         Returns:
-            QScrollArea containing update preference widgets.
+            QWidget containing update preference widgets.
         """
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         group = QGroupBox("Update Preferences")
         group_layout = QVBoxLayout(group)
@@ -590,8 +606,7 @@ class AppConfigWindow(QDialog):
         layout.addWidget(group)
         layout.addStretch()
 
-        scroll_area.setWidget(widget)
-        return scroll_area
+        return self._wrap_in_scroll_area(widget)
 
     def on_check_updates_change(self, state):
         """Toggle auto-update checkbox based on the check-updates setting.
@@ -921,4 +936,4 @@ class AppConfigWindow(QDialog):
         layout.addWidget(spritemap_group)
         layout.addStretch()
 
-        return widget
+        return self._wrap_in_scroll_area(widget)
