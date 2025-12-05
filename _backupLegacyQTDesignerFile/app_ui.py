@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'app.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.2
+## Created by: Qt User Interface Compiler version 6.10.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -17,20 +17,18 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
-    QDoubleSpinBox, QFormLayout, QFrame, QGridLayout,
-    QGroupBox, QHBoxLayout, QHeaderView, QLabel,
-    QLayout, QLineEdit, QListView, QMainWindow,
-    QMenu, QMenuBar, QProgressBar, QPushButton,
-    QScrollArea, QSizePolicy, QSlider, QSpacerItem,
-    QSpinBox, QSplitter, QStatusBar, QTabWidget,
-    QTextEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-    QWidget)
+    QDoubleSpinBox, QFrame, QGridLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLayout, QLineEdit,
+    QListView, QMainWindow, QMenu, QMenuBar,
+    QProgressBar, QPushButton, QSizePolicy, QSpinBox,
+    QSplitter, QStatusBar, QTabWidget, QTextEdit,
+    QVBoxLayout, QWidget)
 
 class Ui_TextureAtlasToolboxApp(object):
     def setupUi(self, TextureAtlasToolboxApp):
         if not TextureAtlasToolboxApp.objectName():
             TextureAtlasToolboxApp.setObjectName(u"TextureAtlasToolboxApp")
-        TextureAtlasToolboxApp.resize(926, 778)
+        TextureAtlasToolboxApp.resize(908, 783)
         TextureAtlasToolboxApp.setUnifiedTitleAndToolBarOnMac(True)
         self.select_directory = QAction(TextureAtlasToolboxApp)
         self.select_directory.setObjectName(u"select_directory")
@@ -52,8 +50,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.centralwidget.setObjectName(u"centralwidget")
         self.tools_tab = QTabWidget(self.centralwidget)
         self.tools_tab.setObjectName(u"tools_tab")
-        self.tools_tab.setGeometry(QRect(0, 10, 921, 701))
-        self.tools_tab.setStyleSheet(u"")
+        self.tools_tab.setGeometry(QRect(0, 0, 901, 721))
         self.tools_tab.setTabPosition(QTabWidget.TabPosition.North)
         self.tools_tab.setElideMode(Qt.TextElideMode.ElideLeft)
         self.tools_tab.setDocumentMode(False)
@@ -263,7 +260,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.filename_format_combobox.addItem("")
         self.filename_format_combobox.setObjectName(u"filename_format_combobox")
         self.filename_format_combobox.setGeometry(QRect(690, 470, 131, 24))
-        self.filename_format_combobox.setMaximumSize(QSize(16777215, 16777215))
         self.filename_format_label = QLabel(self.tool_extract)
         self.filename_format_label.setObjectName(u"filename_format_label")
         self.filename_format_label.setGeometry(QRect(700, 450, 111, 16))
@@ -395,9 +391,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_layout.addWidget(self.atlas_size_method_combobox, 21, 2, 1, 1)
 
         self.packer_method_combobox = QComboBox(self.atlas_group)
-        self.packer_method_combobox.addItem("")
-        self.packer_method_combobox.addItem("")
-        self.packer_method_combobox.addItem("")
         self.packer_method_combobox.setObjectName(u"packer_method_combobox")
 
         self.atlas_layout.addWidget(self.packer_method_combobox, 5, 2, 1, 1)
@@ -445,21 +438,17 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.atlas_layout.addWidget(self.atlas_type_combo, 3, 2, 1, 1)
 
-        self.speed_optimization_slider = QSlider(self.atlas_group)
-        self.speed_optimization_slider.setObjectName(u"speed_optimization_slider")
-        self.speed_optimization_slider.setMinimum(0)
-        self.speed_optimization_slider.setMaximum(10)
-        self.speed_optimization_slider.setValue(5)
-        self.speed_optimization_slider.setOrientation(Qt.Orientation.Horizontal)
-        self.speed_optimization_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.speed_optimization_slider.setTickInterval(1)
+        self.allow_rotation_check = QCheckBox(self.atlas_group)
+        self.allow_rotation_check.setObjectName(u"allow_rotation_check")
+        self.allow_rotation_check.setChecked(True)
 
-        self.atlas_layout.addWidget(self.speed_optimization_slider, 12, 2, 1, 1)
+        self.atlas_layout.addWidget(self.allow_rotation_check, 12, 0, 1, 1)
 
-        self.speed_optimization_label = QLabel(self.atlas_group)
-        self.speed_optimization_label.setObjectName(u"speed_optimization_label")
+        self.allow_flip_check = QCheckBox(self.atlas_group)
+        self.allow_flip_check.setObjectName(u"allow_flip_check")
+        self.allow_flip_check.setChecked(False)
 
-        self.atlas_layout.addWidget(self.speed_optimization_label, 12, 0, 1, 1)
+        self.atlas_layout.addWidget(self.allow_flip_check, 13, 0, 1, 1)
 
         self.atlas_size_spinbox_2 = QSpinBox(self.atlas_group)
         self.atlas_size_spinbox_2.setObjectName(u"atlas_size_spinbox_2")
@@ -468,11 +457,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_size_spinbox_2.setValue(8192)
 
         self.atlas_layout.addWidget(self.atlas_size_spinbox_2, 24, 2, 1, 1)
-
-        self.speed_optimization_value_label = QLabel(self.atlas_group)
-        self.speed_optimization_value_label.setObjectName(u"speed_optimization_value_label")
-
-        self.atlas_layout.addWidget(self.speed_optimization_value_label, 20, 0, 1, 1)
 
         self.packer_method_label = QLabel(self.atlas_group)
         self.packer_method_label.setObjectName(u"packer_method_label")
@@ -551,339 +535,10 @@ class Ui_TextureAtlasToolboxApp(object):
         self.main_layout.addWidget(self.progress_panel)
 
         self.tools_tab.addTab(self.tool_generate, "")
-        self.tool_editor = QWidget()
-        self.tool_editor.setObjectName(u"tool_editor")
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.tool_editor.sizePolicy().hasHeightForWidth())
-        self.tool_editor.setSizePolicy(sizePolicy)
-        self.editor_tab_layout = QVBoxLayout(self.tool_editor)
-        self.editor_tab_layout.setSpacing(8)
-        self.editor_tab_layout.setObjectName(u"editor_tab_layout")
-        self.editor_tab_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-        self.editor_tab_layout.setContentsMargins(8, 8, 8, 8)
-        self.editor_outer_splitter = QSplitter(self.tool_editor)
-        self.editor_outer_splitter.setObjectName(u"editor_outer_splitter")
-        self.editor_outer_splitter.setOrientation(Qt.Orientation.Horizontal)
-        self.editor_outer_splitter.setChildrenCollapsible(False)
-        self.editor_lists_widget = QWidget(self.editor_outer_splitter)
-        self.editor_lists_widget.setObjectName(u"editor_lists_widget")
-        self.editor_lists_widget.setMinimumSize(QSize(280, 0))
-        self.editor_lists_widget.setMaximumSize(QSize(420, 16777215))
-        self.editor_lists_layout = QVBoxLayout(self.editor_lists_widget)
-        self.editor_lists_layout.setSpacing(8)
-        self.editor_lists_layout.setObjectName(u"editor_lists_layout")
-        self.editor_lists_layout.setContentsMargins(8, 8, 8, 8)
-        self.editor_anim_label = QLabel(self.editor_lists_widget)
-        self.editor_anim_label.setObjectName(u"editor_anim_label")
-
-        self.editor_lists_layout.addWidget(self.editor_anim_label)
-
-        self.animation_tree = QTreeWidget(self.editor_lists_widget)
-        __qtreewidgetitem = QTreeWidgetItem()
-        __qtreewidgetitem.setText(0, u"1");
-        self.animation_tree.setHeaderItem(__qtreewidgetitem)
-        self.animation_tree.setObjectName(u"animation_tree")
-        self.animation_tree.setHeaderHidden(True)
-
-        self.editor_lists_layout.addWidget(self.animation_tree)
-
-        self.editor_button_row = QHBoxLayout()
-        self.editor_button_row.setSpacing(4)
-        self.editor_button_row.setObjectName(u"editor_button_row")
-        self.editor_button_row.setContentsMargins(4, 4, 4, 4)
-        self.load_files_button = QPushButton(self.editor_lists_widget)
-        self.load_files_button.setObjectName(u"load_files_button")
-
-        self.editor_button_row.addWidget(self.load_files_button)
-
-        self.remove_animation_button = QPushButton(self.editor_lists_widget)
-        self.remove_animation_button.setObjectName(u"remove_animation_button")
-
-        self.editor_button_row.addWidget(self.remove_animation_button)
-
-        self.combine_button = QPushButton(self.editor_lists_widget)
-        self.combine_button.setObjectName(u"combine_button")
-        self.combine_button.setEnabled(False)
-
-        self.editor_button_row.addWidget(self.combine_button)
-
-
-        self.editor_lists_layout.addLayout(self.editor_button_row)
-
-        self.editor_outer_splitter.addWidget(self.editor_lists_widget)
-        self.editor_inner_splitter = QSplitter(self.editor_outer_splitter)
-        self.editor_inner_splitter.setObjectName(u"editor_inner_splitter")
-        self.editor_inner_splitter.setFrameShape(QFrame.Shape.NoFrame)
-        self.editor_inner_splitter.setFrameShadow(QFrame.Shadow.Plain)
-        self.editor_inner_splitter.setOrientation(Qt.Orientation.Horizontal)
-        self.editor_inner_splitter.setChildrenCollapsible(False)
-        self.canvas_panel = QWidget(self.editor_inner_splitter)
-        self.canvas_panel.setObjectName(u"canvas_panel")
-        self.canvas_column = QVBoxLayout(self.canvas_panel)
-        self.canvas_column.setSpacing(4)
-        self.canvas_column.setObjectName(u"canvas_column")
-        self.canvas_column.setContentsMargins(0, 0, 0, 0)
-        self.canvas_holder = QWidget(self.canvas_panel)
-        self.canvas_holder.setObjectName(u"canvas_holder")
-        self.canvas_holder_layout = QVBoxLayout(self.canvas_holder)
-        self.canvas_holder_layout.setSpacing(0)
-        self.canvas_holder_layout.setObjectName(u"canvas_holder_layout")
-        self.canvas_holder_layout.setContentsMargins(0, 0, 0, 0)
-        self.canvas_scroll = QScrollArea(self.canvas_holder)
-        self.canvas_scroll.setObjectName(u"canvas_scroll")
-        self.canvas_scroll.setWidgetResizable(True)
-        self.canvas_scroll_placeholder = QWidget()
-        self.canvas_scroll_placeholder.setObjectName(u"canvas_scroll_placeholder")
-        self.canvas_scroll_placeholder.setGeometry(QRect(0, 0, 325, 596))
-        self.canvas_scroll.setWidget(self.canvas_scroll_placeholder)
-
-        self.canvas_holder_layout.addWidget(self.canvas_scroll)
-
-
-        self.canvas_column.addWidget(self.canvas_holder)
-
-        self.canvas_toolbar = QHBoxLayout()
-        self.canvas_toolbar.setSpacing(4)
-        self.canvas_toolbar.setObjectName(u"canvas_toolbar")
-        self.canvas_toolbar.setContentsMargins(4, 4, 4, 4)
-        self.zoom_out_button = QPushButton(self.canvas_panel)
-        self.zoom_out_button.setObjectName(u"zoom_out_button")
-
-        self.canvas_toolbar.addWidget(self.zoom_out_button)
-
-        self.zoom_in_button = QPushButton(self.canvas_panel)
-        self.zoom_in_button.setObjectName(u"zoom_in_button")
-
-        self.canvas_toolbar.addWidget(self.zoom_in_button)
-
-        self.zoom_100_button = QPushButton(self.canvas_panel)
-        self.zoom_100_button.setObjectName(u"zoom_100_button")
-
-        self.canvas_toolbar.addWidget(self.zoom_100_button)
-
-        self.zoom_50_button = QPushButton(self.canvas_panel)
-        self.zoom_50_button.setObjectName(u"zoom_50_button")
-
-        self.canvas_toolbar.addWidget(self.zoom_50_button)
-
-        self.center_view_button = QPushButton(self.canvas_panel)
-        self.center_view_button.setObjectName(u"center_view_button")
-
-        self.canvas_toolbar.addWidget(self.center_view_button)
-
-        self.fit_canvas_button = QPushButton(self.canvas_panel)
-        self.fit_canvas_button.setObjectName(u"fit_canvas_button")
-
-        self.canvas_toolbar.addWidget(self.fit_canvas_button)
-
-        self.reset_zoom_button = QPushButton(self.canvas_panel)
-        self.reset_zoom_button.setObjectName(u"reset_zoom_button")
-
-        self.canvas_toolbar.addWidget(self.reset_zoom_button)
-
-        self.zoom_label = QLabel(self.canvas_panel)
-        self.zoom_label.setObjectName(u"zoom_label")
-
-        self.canvas_toolbar.addWidget(self.zoom_label)
-
-        self.canvas_toolbar_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.canvas_toolbar.addItem(self.canvas_toolbar_spacer)
-
-
-        self.canvas_column.addLayout(self.canvas_toolbar)
-
-        self.editor_status_label = QLabel(self.canvas_panel)
-        self.editor_status_label.setObjectName(u"editor_status_label")
-
-        self.canvas_column.addWidget(self.editor_status_label)
-
-        self.editor_inner_splitter.addWidget(self.canvas_panel)
-        self.controls_panel = QWidget(self.editor_inner_splitter)
-        self.controls_panel.setObjectName(u"controls_panel")
-        self.controls_panel.setMinimumSize(QSize(280, 0))
-        self.controls_panel.setMaximumSize(QSize(320, 16777215))
-        self.controls_panel_layout = QVBoxLayout(self.controls_panel)
-        self.controls_panel_layout.setSpacing(8)
-        self.controls_panel_layout.setObjectName(u"controls_panel_layout")
-        self.controls_panel_layout.setContentsMargins(8, 8, 8, 8)
-        self.controls_group = QGroupBox(self.controls_panel)
-        self.controls_group.setObjectName(u"controls_group")
-        self.controls_group.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.controls_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.controls_group.setFlat(True)
-        self.controls_layout = QFormLayout(self.controls_group)
-        self.controls_layout.setObjectName(u"controls_layout")
-        self.controls_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
-        self.controls_layout.setHorizontalSpacing(8)
-        self.controls_layout.setVerticalSpacing(8)
-        self.controls_layout.setContentsMargins(8, 8, 8, 8)
-        self.label_offset_x = QLabel(self.controls_group)
-        self.label_offset_x.setObjectName(u"label_offset_x")
-
-        self.controls_layout.setWidget(0, QFormLayout.ItemRole.LabelRole, self.label_offset_x)
-
-        self.label_offset_y = QLabel(self.controls_group)
-        self.label_offset_y.setObjectName(u"label_offset_y")
-
-        self.controls_layout.setWidget(1, QFormLayout.ItemRole.LabelRole, self.label_offset_y)
-
-        self.offset_x_spin = QSpinBox(self.controls_group)
-        self.offset_x_spin.setObjectName(u"offset_x_spin")
-        self.offset_x_spin.setMinimum(-4096)
-        self.offset_x_spin.setMaximum(4096)
-
-        self.controls_layout.setWidget(0, QFormLayout.ItemRole.FieldRole, self.offset_x_spin)
-
-        self.offset_y_spin = QSpinBox(self.controls_group)
-        self.offset_y_spin.setObjectName(u"offset_y_spin")
-        self.offset_y_spin.setMinimum(-4096)
-        self.offset_y_spin.setMaximum(4096)
-        self.offset_y_spin.setStepType(QAbstractSpinBox.StepType.DefaultStepType)
-
-        self.controls_layout.setWidget(1, QFormLayout.ItemRole.FieldRole, self.offset_y_spin)
-
-        self.control_buttons = QHBoxLayout()
-        self.control_buttons.setObjectName(u"control_buttons")
-        self.reset_offset_button = QPushButton(self.controls_group)
-        self.reset_offset_button.setObjectName(u"reset_offset_button")
-
-        self.control_buttons.addWidget(self.reset_offset_button)
-
-        self.apply_all_button = QPushButton(self.controls_group)
-        self.apply_all_button.setObjectName(u"apply_all_button")
-
-        self.control_buttons.addWidget(self.apply_all_button)
-
-
-        self.controls_layout.setLayout(2, QFormLayout.ItemRole.SpanningRole, self.control_buttons)
-
-        self.save_overrides_button = QPushButton(self.controls_group)
-        self.save_overrides_button.setObjectName(u"save_overrides_button")
-        self.save_overrides_button.setEnabled(False)
-
-        self.controls_layout.setWidget(3, QFormLayout.ItemRole.SpanningRole, self.save_overrides_button)
-
-
-        self.controls_panel_layout.addWidget(self.controls_group)
-
-        self.display_group = QGroupBox(self.controls_panel)
-        self.display_group.setObjectName(u"display_group")
-        self.display_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.display_group.setFlat(True)
-        self.display_group.setCheckable(False)
-        self.display_layout = QFormLayout(self.display_group)
-        self.display_layout.setObjectName(u"display_layout")
-        self.display_layout.setHorizontalSpacing(8)
-        self.display_layout.setVerticalSpacing(8)
-        self.display_layout.setContentsMargins(8, 8, 8, 8)
-        self.label_canvas_width = QLabel(self.display_group)
-        self.label_canvas_width.setObjectName(u"label_canvas_width")
-
-        self.display_layout.setWidget(0, QFormLayout.ItemRole.LabelRole, self.label_canvas_width)
-
-        self.canvas_width_spin = QSpinBox(self.display_group)
-        self.canvas_width_spin.setObjectName(u"canvas_width_spin")
-        self.canvas_width_spin.setMinimum(8)
-        self.canvas_width_spin.setMaximum(4096)
-
-        self.display_layout.setWidget(0, QFormLayout.ItemRole.FieldRole, self.canvas_width_spin)
-
-        self.label_canvas_height = QLabel(self.display_group)
-        self.label_canvas_height.setObjectName(u"label_canvas_height")
-
-        self.display_layout.setWidget(1, QFormLayout.ItemRole.LabelRole, self.label_canvas_height)
-
-        self.canvas_height_spin = QSpinBox(self.display_group)
-        self.canvas_height_spin.setObjectName(u"canvas_height_spin")
-        self.canvas_height_spin.setMinimum(8)
-        self.canvas_height_spin.setMaximum(4096)
-
-        self.display_layout.setWidget(1, QFormLayout.ItemRole.FieldRole, self.canvas_height_spin)
-
-        self.ghost_widget = QWidget(self.display_group)
-        self.ghost_widget.setObjectName(u"ghost_widget")
-        self.ghost_layout = QHBoxLayout(self.ghost_widget)
-        self.ghost_layout.setSpacing(6)
-        self.ghost_layout.setObjectName(u"ghost_layout")
-        self.ghost_layout.setContentsMargins(0, 0, 0, 0)
-        self.ghost_checkbox = QCheckBox(self.ghost_widget)
-        self.ghost_checkbox.setObjectName(u"ghost_checkbox")
-
-        self.ghost_layout.addWidget(self.ghost_checkbox)
-
-        self.ghost_frame_combo = QComboBox(self.ghost_widget)
-        self.ghost_frame_combo.setObjectName(u"ghost_frame_combo")
-        self.ghost_frame_combo.setEnabled(False)
-
-        self.ghost_layout.addWidget(self.ghost_frame_combo)
-
-
-        self.display_layout.setWidget(3, QFormLayout.ItemRole.FieldRole, self.ghost_widget)
-
-        self.label_snapping = QLabel(self.display_group)
-        self.label_snapping.setObjectName(u"label_snapping")
-
-        self.display_layout.setWidget(4, QFormLayout.ItemRole.LabelRole, self.label_snapping)
-
-        self.snap_widget = QWidget(self.display_group)
-        self.snap_widget.setObjectName(u"snap_widget")
-        self.snap_layout = QHBoxLayout(self.snap_widget)
-        self.snap_layout.setSpacing(6)
-        self.snap_layout.setObjectName(u"snap_layout")
-        self.snap_layout.setContentsMargins(0, 0, 0, 0)
-        self.snap_checkbox = QCheckBox(self.snap_widget)
-        self.snap_checkbox.setObjectName(u"snap_checkbox")
-
-        self.snap_layout.addWidget(self.snap_checkbox)
-
-        self.snap_step_spin = QSpinBox(self.snap_widget)
-        self.snap_step_spin.setObjectName(u"snap_step_spin")
-        self.snap_step_spin.setEnabled(False)
-        self.snap_step_spin.setMinimum(1)
-        self.snap_step_spin.setMaximum(256)
-        self.snap_step_spin.setValue(1)
-
-        self.snap_layout.addWidget(self.snap_step_spin)
-
-
-        self.display_layout.setWidget(4, QFormLayout.ItemRole.FieldRole, self.snap_widget)
-
-        self.label_ghost_frame = QLabel(self.display_group)
-        self.label_ghost_frame.setObjectName(u"label_ghost_frame")
-
-        self.display_layout.setWidget(3, QFormLayout.ItemRole.LabelRole, self.label_ghost_frame)
-
-        self.detach_canvas_button = QPushButton(self.display_group)
-        self.detach_canvas_button.setObjectName(u"detach_canvas_button")
-
-        self.display_layout.setWidget(5, QFormLayout.ItemRole.SpanningRole, self.detach_canvas_button)
-
-
-        self.controls_panel_layout.addWidget(self.display_group)
-
-        self.export_composite_button = QPushButton(self.controls_panel)
-        self.export_composite_button.setObjectName(u"export_composite_button")
-        self.export_composite_button.setEnabled(False)
-
-        self.controls_panel_layout.addWidget(self.export_composite_button)
-
-        self.controls_panel_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-
-        self.controls_panel_layout.addItem(self.controls_panel_spacer)
-
-        self.editor_inner_splitter.addWidget(self.controls_panel)
-        self.editor_outer_splitter.addWidget(self.editor_inner_splitter)
-
-        self.editor_tab_layout.addWidget(self.editor_outer_splitter)
-
-        self.tools_tab.addTab(self.tool_editor, "")
         TextureAtlasToolboxApp.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(TextureAtlasToolboxApp)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 926, 33))
+        self.menubar.setGeometry(QRect(0, 0, 908, 33))
         self.file_menu = QMenu(self.menubar)
         self.file_menu.setObjectName(u"file_menu")
         self.import_menu = QMenu(self.menubar)
@@ -918,7 +573,7 @@ class Ui_TextureAtlasToolboxApp(object):
 
         self.retranslateUi(TextureAtlasToolboxApp)
 
-        self.tools_tab.setCurrentIndex(2)
+        self.tools_tab.setCurrentIndex(1)
         self.animation_format_combobox.setCurrentIndex(0)
         self.frame_format_combobox.setCurrentIndex(3)
         self.cropping_method_combobox.setCurrentIndex(1)
@@ -1120,10 +775,6 @@ class Ui_TextureAtlasToolboxApp(object):
 #if QT_CONFIG(statustip)
         self.atlas_size_method_combobox.setStatusTip(QCoreApplication.translate("TextureAtlasToolboxApp", u"Choose how the atlas size is determined", None))
 #endif // QT_CONFIG(statustip)
-        self.packer_method_combobox.setItemText(0, QCoreApplication.translate("TextureAtlasToolboxApp", u"OrderedBlocks", None))
-        self.packer_method_combobox.setItemText(1, QCoreApplication.translate("TextureAtlasToolboxApp", u"MaxRects", None))
-        self.packer_method_combobox.setItemText(2, QCoreApplication.translate("TextureAtlasToolboxApp", u"GrowingBin", None))
-
         self.atlas_type_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Atlas type", None))
         self.image_format_combo.setItemText(0, QCoreApplication.translate("TextureAtlasToolboxApp", u"PNG", None))
         self.image_format_combo.setItemText(1, QCoreApplication.translate("TextureAtlasToolboxApp", u"JPEG", None))
@@ -1153,12 +804,18 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_size_label_1.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Min atlas size", None))
         self.atlas_type_combo.setItemText(0, QCoreApplication.translate("TextureAtlasToolboxApp", u"Sparrow", None))
 
-        self.speed_optimization_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Speed vs Optimization:", None))
+#if QT_CONFIG(tooltip)
+        self.allow_rotation_check.setToolTip(QCoreApplication.translate("TextureAtlasToolboxApp", u"<html><head/><body><p>Allow the packer to rotate sprites 90\u00b0 clockwise for tighter packing.</p><p>Only works with atlas formats that support rotation metadata.</p></body></html>", None))
+#endif // QT_CONFIG(tooltip)
+        self.allow_rotation_check.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Allow rotation (90\u00b0)", None))
+#if QT_CONFIG(tooltip)
+        self.allow_flip_check.setToolTip(QCoreApplication.translate("TextureAtlasToolboxApp", u"<html><head/><body><p>Allow the packer to flip sprites vertically for tighter packing.</p><p><span style=\" font-weight:700;\">Warning:</span> This is a non-standard extension only supported by HaxeFlixel. Most Starling/Sparrow implementations will ignore flip attributes.</p></body></html>", None))
+#endif // QT_CONFIG(tooltip)
+        self.allow_flip_check.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Allow flip X/Y (non-standard)", None))
 #if QT_CONFIG(statustip)
         self.atlas_size_spinbox_2.setStatusTip("")
 #endif // QT_CONFIG(statustip)
         self.atlas_size_spinbox_2.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.speed_optimization_value_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Level: 5 (Balanced)", None))
         self.packer_method_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Packer method", None))
         self.image_format_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Image format", None))
 #if QT_CONFIG(statustip)
@@ -1181,40 +838,6 @@ class Ui_TextureAtlasToolboxApp(object):
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Atlas generation log will appear here...</p></body></html>", None))
         self.tools_tab.setTabText(self.tools_tab.indexOf(self.tool_generate), QCoreApplication.translate("TextureAtlasToolboxApp", u"Generate", None))
-        self.editor_anim_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Animations & Frames", None))
-        self.load_files_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Load", None))
-        self.remove_animation_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Remove", None))
-        self.combine_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Combine", None))
-        self.zoom_out_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"-", None))
-        self.zoom_in_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"+", None))
-        self.zoom_100_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"100%", None))
-        self.zoom_50_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"50%", None))
-        self.center_view_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Center View", None))
-        self.fit_canvas_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Fit Canvas", None))
-        self.reset_zoom_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Reset Zoom", None))
-        self.zoom_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Zoom: 100%", None))
-        self.editor_status_label.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Drag the frame, use arrow keys for fine adjustments, or type offsets manually.", None))
-        self.controls_group.setTitle(QCoreApplication.translate("TextureAtlasToolboxApp", u"Alignment controls", None))
-        self.label_offset_x.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Frame offset X", None))
-        self.label_offset_y.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Frame offset Y", None))
-        self.offset_x_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.offset_y_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.reset_offset_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Reset to default", None))
-        self.apply_all_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Apply to all frames", None))
-        self.save_overrides_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Save Alignment to Extract Tab", None))
-        self.display_group.setTitle(QCoreApplication.translate("TextureAtlasToolboxApp", u"Canvas controls", None))
-        self.label_canvas_width.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Canvas width", None))
-        self.canvas_width_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.label_canvas_height.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Canvas height", None))
-        self.canvas_height_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.ghost_checkbox.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Enable", None))
-        self.label_snapping.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Snapping", None))
-        self.snap_checkbox.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Enable", None))
-        self.snap_step_spin.setSuffix(QCoreApplication.translate("TextureAtlasToolboxApp", u" px", None))
-        self.label_ghost_frame.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Ghost frame", None))
-        self.detach_canvas_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Detach canvas", None))
-        self.export_composite_button.setText(QCoreApplication.translate("TextureAtlasToolboxApp", u"Export Composite to Sprites", None))
-        self.tools_tab.setTabText(self.tools_tab.indexOf(self.tool_editor), QCoreApplication.translate("TextureAtlasToolboxApp", u"Editor", None))
         self.file_menu.setTitle(QCoreApplication.translate("TextureAtlasToolboxApp", u"File", None))
         self.import_menu.setTitle(QCoreApplication.translate("TextureAtlasToolboxApp", u"Import", None))
         self.help_menu.setTitle(QCoreApplication.translate("TextureAtlasToolboxApp", u"Help", None))

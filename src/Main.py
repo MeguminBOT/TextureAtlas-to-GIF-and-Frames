@@ -320,7 +320,7 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Set default selections using index mapping to avoid translation issues
         if "animation_format" in defaults:
-            animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+            animation_format_map = ["GIF", "WebP", "APNG"]
             try:
                 format_index = animation_format_map.index(defaults["animation_format"])
             except ValueError:

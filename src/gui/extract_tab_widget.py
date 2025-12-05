@@ -245,9 +245,7 @@ class ExtractTabWidget(QWidget):
 
         self.animation_format_combobox = QComboBox(group)
         self.animation_format_combobox.setGeometry(10, 50, 171, 24)
-        self.animation_format_combobox.addItems(
-            ["GIF", "WebP", "APNG", "Custom FFMPEG"]
-        )
+        self.animation_format_combobox.addItems(["GIF", "WebP", "APNG"])
 
         frame_rate_label = QLabel(self.tr("Frame rate"))
         frame_rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -330,7 +328,7 @@ class ExtractTabWidget(QWidget):
         self.frame_selection_combobox = QComboBox(group)
         self.frame_selection_combobox.setGeometry(10, 100, 171, 24)
         self.frame_selection_combobox.addItems(
-            ["All", "No duplicates", "First", "Last", "First, Last", "Custom"]
+            ["All", "No duplicates", "First", "Last", "First, Last"]
         )
 
         scale_label = QLabel(self.tr("Frame scale"))
@@ -556,14 +554,13 @@ class ExtractTabWidget(QWidget):
         """Map an animation format name to its combobox index.
 
         Args:
-            format_name: One of ``"GIF"``, ``"WebP"``, ``"APNG"``, or
-                ``"Custom FFMPEG"``.
+            format_name: One of ``"GIF"``, ``"WebP"``, or ``"APNG"``.
 
         Returns:
             The zero-based index, or ``0`` if the name is unrecognized.
         """
 
-        format_map = {"GIF": 0, "WebP": 1, "APNG": 2, "Custom FFMPEG": 3}
+        format_map = {"GIF": 0, "WebP": 1, "APNG": 2}
         return format_map.get(format_name, 0)
 
     def get_frame_format_index(self, format_name):
@@ -1832,7 +1829,7 @@ class ExtractTabWidget(QWidget):
         if not self.parent_app:
             return {}
 
-        animation_format_map = ["GIF", "WebP", "APNG", "Custom FFMPEG"]
+        animation_format_map = ["GIF", "WebP", "APNG"]
         frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
         frame_selection_map = [
             "All",
@@ -1840,7 +1837,6 @@ class ExtractTabWidget(QWidget):
             "First",
             "Last",
             "First, Last",
-            "Custom",
         ]
         crop_option_map = ["None", "Animation based", "Frame based"]
         filename_format_map = ["Standardized", "No spaces", "No special characters"]

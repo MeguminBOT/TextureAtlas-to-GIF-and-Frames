@@ -144,7 +144,7 @@ class AppConfigWindow(QDialog):
         tab_widget = QTabWidget()
 
         system_tab = self.create_system_tab()
-        tab_widget.addTab(system_tab, "System & Resources")
+        tab_widget.addTab(system_tab, "System Resources")
 
         extraction_tab = self.create_extraction_tab()
         tab_widget.addTab(extraction_tab, "Extraction Defaults")
@@ -290,77 +290,207 @@ class AppConfigWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        group = QGroupBox("Extraction Default Settings")
-        group_layout = QGridLayout(group)
-
-        extraction_fields = {
-            "animation_export": ("Enable animation export:", "bool", True),
-            "animation_format": ("Animation format:", "combo", "GIF"),
-            "fps": ("FPS:", "int", 24),
-            "delay": ("End delay (ms):", "int", 250),
-            "period": ("Period (ms):", "int", 0),
-            "scale": ("Scale:", "float", 1.0),
-            "threshold": ("Alpha threshold:", "float", 0.1),
-            "resampling_method": ("Resampling method:", "combo", "Nearest"),
-            "frame_export": ("Enable frame export:", "bool", True),
-            "frame_format": ("Frame format:", "combo", "PNG"),
-            "frame_scale": ("Frame scale:", "float", 1.0),
-        }
+        # Animation export group
+        anim_group = QGroupBox("Animation Export Defaults")
+        anim_layout = QGridLayout(anim_group)
 
         row = 0
-        for key, (label_text, field_type, default) in extraction_fields.items():
-            label = QLabel(label_text)
-            group_layout.addWidget(label, row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Enable animation export:")), row, 0)
+        anim_export_cb = QCheckBox()
+        anim_export_cb.setChecked(True)
+        self.extraction_fields["animation_export"] = anim_export_cb
+        anim_layout.addWidget(anim_export_cb, row, 1)
+        row += 1
 
-            if field_type == "bool":
-                checkbox = QCheckBox()
-                checkbox.setChecked(default)
-                self.extraction_fields[key] = checkbox
-                group_layout.addWidget(checkbox, row, 1)
-            elif field_type == "combo":
-                if key == "resampling_method":
-                    from utils.resampling import (
-                        RESAMPLING_DISPLAY_NAMES,
-                        get_resampling_tooltip,
-                    )
+        anim_layout.addWidget(QLabel(self.tr("Animation format:")), row, 0)
+        anim_format_combo = QComboBox()
+        anim_format_combo.addItems(["GIF", "WebP", "APNG"])
+        anim_format_combo.setCurrentText("GIF")
+        self.extraction_fields["animation_format"] = anim_format_combo
+        anim_layout.addWidget(anim_format_combo, row, 1)
+        row += 1
 
-                    combo = QComboBox()
-                    combo.addItems(RESAMPLING_DISPLAY_NAMES)
-                    combo.setCurrentText(str(default))
-                    combo.setToolTip(
-                        "Resampling method for image scaling:\n\n"
-                        + "\n\n".join(
-                            f"• {name}: {get_resampling_tooltip(name).split(chr(10))[0]}"
-                            for name in RESAMPLING_DISPLAY_NAMES
-                        )
-                    )
-                    self.extraction_fields[key] = combo
-                    group_layout.addWidget(combo, row, 1)
-                elif "format" in key:
-                    if "animation" in key:
-                        options = ["GIF", "WebP", "APNG"]
-                    else:
-                        options = ["PNG", "JPG", "JPEG", "BMP", "TIFF"]
+        anim_layout.addWidget(QLabel(self.tr("FPS:")), row, 0)
+        fps_spinbox = QSpinBox()
+        fps_spinbox.setRange(1, 120)
+        fps_spinbox.setValue(24)
+        self.extraction_fields["fps"] = fps_spinbox
+        anim_layout.addWidget(fps_spinbox, row, 1)
+        row += 1
 
-                    combo = QComboBox()
-                    combo.addItems(options)
-                    combo.setCurrentText(str(default))
-                    self.extraction_fields[key] = combo
-                    group_layout.addWidget(combo, row, 1)
-            elif field_type == "int":
-                spinbox = QSpinBox()
-                spinbox.setRange(0, 99999)
-                spinbox.setValue(default)
-                self.extraction_fields[key] = spinbox
-                group_layout.addWidget(spinbox, row, 1)
-            elif field_type == "float":
-                line_edit = QLineEdit(str(default))
-                self.extraction_fields[key] = line_edit
-                group_layout.addWidget(line_edit, row, 1)
+        anim_layout.addWidget(QLabel(self.tr("End delay (ms):")), row, 0)
+        delay_spinbox = QSpinBox()
+        delay_spinbox.setRange(0, 99999)
+        delay_spinbox.setValue(250)
+        self.extraction_fields["delay"] = delay_spinbox
+        anim_layout.addWidget(delay_spinbox, row, 1)
+        row += 1
 
-            row += 1
+        anim_layout.addWidget(QLabel(self.tr("Period (ms):")), row, 0)
+        period_spinbox = QSpinBox()
+        period_spinbox.setRange(0, 99999)
+        period_spinbox.setValue(0)
+        self.extraction_fields["period"] = period_spinbox
+        anim_layout.addWidget(period_spinbox, row, 1)
+        row += 1
 
-        layout.addWidget(group)
+        anim_layout.addWidget(QLabel(self.tr("Scale:")), row, 0)
+        scale_spinbox = QDoubleSpinBox()
+        scale_spinbox.setRange(0.01, 100.0)
+        scale_spinbox.setDecimals(2)
+        scale_spinbox.setSingleStep(0.01)
+        scale_spinbox.setValue(1.0)
+        scale_spinbox.setSuffix(" x")
+        self.extraction_fields["scale"] = scale_spinbox
+        anim_layout.addWidget(scale_spinbox, row, 1)
+        row += 1
+
+        anim_layout.addWidget(QLabel(self.tr("Alpha threshold:")), row, 0)
+        threshold_spinbox = QSpinBox()
+        threshold_spinbox.setRange(0, 100)
+        threshold_spinbox.setSingleStep(1)
+        threshold_spinbox.setValue(50)
+        threshold_spinbox.setSuffix(" %")
+        threshold_spinbox.setToolTip(
+            self.tr(
+                "Alpha threshold for GIF transparency (0-100%):\n"
+                "• 0%: All pixels visible\n"
+                "• 50%: Default, balanced transparency\n"
+                "• 100%: Only fully opaque pixels visible"
+            )
+        )
+        self.extraction_fields["threshold"] = threshold_spinbox
+        anim_layout.addWidget(threshold_spinbox, row, 1)
+        row += 1
+
+        anim_layout.addWidget(QLabel(self.tr("Resampling method:")), row, 0)
+        from utils.resampling import (
+            RESAMPLING_DISPLAY_NAMES,
+            get_resampling_tooltip,
+        )
+
+        resampling_combo = QComboBox()
+        resampling_combo.addItems(RESAMPLING_DISPLAY_NAMES)
+        resampling_combo.setCurrentText("Nearest")
+        resampling_combo.setToolTip(
+            "Resampling method for image scaling:\n\n"
+            + "\n\n".join(
+                f"• {name}: {get_resampling_tooltip(name).split(chr(10))[0]}"
+                for name in RESAMPLING_DISPLAY_NAMES
+            )
+        )
+        self.extraction_fields["resampling_method"] = resampling_combo
+        anim_layout.addWidget(resampling_combo, row, 1)
+
+        layout.addWidget(anim_group)
+
+        # Frame export group
+        frame_group = QGroupBox("Frame Export Defaults")
+        frame_layout = QGridLayout(frame_group)
+
+        row = 0
+        frame_layout.addWidget(QLabel(self.tr("Enable frame export:")), row, 0)
+        frame_export_cb = QCheckBox()
+        frame_export_cb.setChecked(True)
+        self.extraction_fields["frame_export"] = frame_export_cb
+        frame_layout.addWidget(frame_export_cb, row, 1)
+        row += 1
+
+        frame_layout.addWidget(QLabel(self.tr("Frame format:")), row, 0)
+        frame_format_combo = QComboBox()
+        frame_format_combo.addItems(
+            ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
+        )
+        frame_format_combo.setCurrentText("PNG")
+        self.extraction_fields["frame_format"] = frame_format_combo
+        frame_layout.addWidget(frame_format_combo, row, 1)
+        row += 1
+
+        frame_layout.addWidget(QLabel(self.tr("Frame scale:")), row, 0)
+        frame_scale_spinbox = QDoubleSpinBox()
+        frame_scale_spinbox.setRange(0.01, 100.0)
+        frame_scale_spinbox.setDecimals(2)
+        frame_scale_spinbox.setSingleStep(0.01)
+        frame_scale_spinbox.setValue(1.0)
+        frame_scale_spinbox.setSuffix(" x")
+        self.extraction_fields["frame_scale"] = frame_scale_spinbox
+        frame_layout.addWidget(frame_scale_spinbox, row, 1)
+        row += 1
+
+        frame_layout.addWidget(QLabel(self.tr("Frame selection:")), row, 0)
+        frame_selection_combo = QComboBox()
+        frame_selection_combo.addItems(
+            ["All", "No duplicates", "First", "Last", "First, Last"]
+        )
+        frame_selection_combo.setCurrentText("All")
+        frame_selection_combo.setToolTip(
+            self.tr(
+                "Which frames to export:\n"
+                "• All: Export every frame\n"
+                "• No duplicates: Export unique frames only (skip repeated frames)\n"
+                "• First: Export only the first frame\n"
+                "• Last: Export only the last frame\n"
+                "• First, Last: Export first and last frames"
+            )
+        )
+        self.extraction_fields["frame_selection"] = frame_selection_combo
+        frame_layout.addWidget(frame_selection_combo, row, 1)
+
+        layout.addWidget(frame_group)
+
+        # General export settings group
+        general_group = QGroupBox("General Export Settings")
+        general_layout = QGridLayout(general_group)
+
+        row = 0
+        general_layout.addWidget(QLabel(self.tr("Cropping method:")), row, 0)
+        crop_combo = QComboBox()
+        crop_combo.addItems(["None", "Animation based", "Frame based"])
+        crop_combo.setCurrentText("Animation based")
+        crop_combo.setToolTip(
+            self.tr(
+                "How cropping should be done:\n"
+                "• None: No cropping, keep original sprite size\n"
+                "• Animation based: Crop to fit all frames in an animation\n"
+                "• Frame based: Crop each frame individually (frames only)"
+            )
+        )
+        self.extraction_fields["crop_option"] = crop_combo
+        general_layout.addWidget(crop_combo, row, 1)
+        row += 1
+
+        general_layout.addWidget(QLabel(self.tr("Filename format:")), row, 0)
+        filename_format_combo = QComboBox()
+        filename_format_combo.addItems(
+            ["Standardized", "No spaces", "No special characters"]
+        )
+        filename_format_combo.setCurrentText("Standardized")
+        filename_format_combo.setToolTip(
+            self.tr(
+                "How output filenames are formatted:\n"
+                "• Standardized: Keep original naming\n"
+                "• No spaces: Replace spaces with underscores\n"
+                "• No special characters: Remove special chars"
+            )
+        )
+        self.extraction_fields["filename_format"] = filename_format_combo
+        general_layout.addWidget(filename_format_combo, row, 1)
+        row += 1
+
+        general_layout.addWidget(QLabel(self.tr("Filename prefix:")), row, 0)
+        prefix_entry = QLineEdit()
+        prefix_entry.setPlaceholderText(self.tr("Optional prefix"))
+        self.extraction_fields["filename_prefix"] = prefix_entry
+        general_layout.addWidget(prefix_entry, row, 1)
+        row += 1
+
+        general_layout.addWidget(QLabel(self.tr("Filename suffix:")), row, 0)
+        suffix_entry = QLineEdit()
+        suffix_entry.setPlaceholderText(self.tr("Optional suffix"))
+        self.extraction_fields["filename_suffix"] = suffix_entry
+        general_layout.addWidget(suffix_entry, row, 1)
+
+        layout.addWidget(general_group)
         layout.addStretch()
 
         return self._wrap_in_scroll_area(widget)
@@ -642,7 +772,13 @@ class AppConfigWindow(QDialog):
                 if isinstance(control, QComboBox):
                     control.setCurrentText(str(value))
                 elif isinstance(control, QSpinBox):
-                    control.setValue(int(value))
+                    # Threshold is stored as 0.0-1.0 but displayed as 0-100%
+                    if key == "threshold":
+                        control.setValue(int(float(value) * 100))
+                    else:
+                        control.setValue(int(value))
+                elif isinstance(control, QDoubleSpinBox):
+                    control.setValue(float(value))
                 elif isinstance(control, QLineEdit):
                     control.setText(str(value))
                 elif isinstance(control, QCheckBox):
@@ -715,7 +851,11 @@ class AppConfigWindow(QDialog):
                     if isinstance(control, QComboBox):
                         control.setCurrentText(str(default_value))
                     elif isinstance(control, QSpinBox):
-                        control.setValue(int(default_value))
+                        # Threshold is stored as 0.0-1.0 but displayed as 0-100%
+                        if key == "threshold":
+                            control.setValue(int(float(default_value) * 100))
+                        else:
+                            control.setValue(int(default_value))
                     elif isinstance(control, QDoubleSpinBox):
                         control.setValue(float(default_value))
                     elif isinstance(control, QCheckBox):
@@ -780,21 +920,18 @@ class AppConfigWindow(QDialog):
                 if isinstance(control, QComboBox):
                     extraction_defaults[key] = control.currentText()
                 elif isinstance(control, QSpinBox):
+                    # Threshold is displayed as 0-100% but stored as 0.0-1.0
+                    if key == "threshold":
+                        extraction_defaults[key] = control.value() / 100.0
+                    else:
+                        extraction_defaults[key] = control.value()
+                elif isinstance(control, QDoubleSpinBox):
                     extraction_defaults[key] = control.value()
                 elif isinstance(control, QCheckBox):
                     extraction_defaults[key] = control.isChecked()
                 elif isinstance(control, QLineEdit):
-                    try:
-                        if key in ["scale", "threshold", "frame_scale"]:
-                            extraction_defaults[key] = float(control.text())
-                        else:
-                            extraction_defaults[key] = int(control.text())
-                    except ValueError:
-                        raise ValueError(
-                            self.tr("Invalid value for {key}: {value}").format(
-                                key=key, value=control.text()
-                            )
-                        )
+                    # String fields like filename_prefix, filename_suffix
+                    extraction_defaults[key] = control.text()
 
             compression_defaults = {"png": {}, "webp": {}, "avif": {}, "tiff": {}}
 
