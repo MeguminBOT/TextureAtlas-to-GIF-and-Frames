@@ -6,7 +6,8 @@
 
 *Formerly known as TextureAtlas to GIFs and Frames*
 
-📄 **Licensed under [AGPL-3.0](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/blob/main/LICENSE)**
+📄 **Licensed under [AGPL-3.0](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/blob/main/LICENSE)**  
+📜 **Third-party licenses:** See [`docs/licenses.md`](docs/licenses.md)
 
 ## Quick Navigation
 

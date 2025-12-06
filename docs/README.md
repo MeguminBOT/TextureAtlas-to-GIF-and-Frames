@@ -17,6 +17,8 @@ documentation that mirrors the current UI and APIs.
 | [API Reference](api-reference.md) | Key classes, callbacks, and extension points |
 | [Release Notes](release-notes.md) | Version history and migration guidance |
 | [Translation Guide](translation-guide.md) | Working with Qt `.ts` files for localization |
+| [Licenses](licenses.md) | Project license and third-party license summaries |
+
 
 ## How to Use These Docs
 
