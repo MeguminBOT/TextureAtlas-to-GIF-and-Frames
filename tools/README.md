@@ -206,3 +206,5 @@ When adding new development tools:
 2. Add documentation to this README
 3. Use relative paths that work from project root
 4. Include error handling for missing directories
+
+*Last updated: December 6, 2025 — TextureAtlas Toolbox v2.0.0*

@@ -1,6 +1,8 @@
 # Frequently Asked Questions (FAQ)
 
-Welcome to the TextureAtlas to GIF and Frames FAQ! This guide helps you solve common issues when using our tool to convert sprite sheets into animated GIFs and individual frames.
+Welcome to the TextureAtlas Toolbox FAQ! This guide helps you solve common issues when using
+our tool to extract and generate texture atlases, convert sprite sheets into animated GIFs, and
+export individual frames.
 
 ## 📋 Table of Contents
 
@@ -31,12 +33,34 @@ If you still have trouble after following the installation guide, please open an
 ## 📄 File Format Questions
 
 ### Q: What file types can I use with this tool?
-**A:** You can use:
-- **Image files**: PNG
-- **Metadata files**: 
-  - XML files (Starling/Sparrow format)
-  - TXT files (TextPacker format)
+**A:** The tool supports both extraction and generation workflows:
+
+**For Extraction (Extract tab):**
+- **Image files**: PNG, BMP, DDS, JPEG/JPG, TGA, TIFF, WebP
+- **Metadata files**:
+  - Starling/Sparrow XML (`.xml`)
+  - TexturePacker XML (`.xml`)
+  - JSON Hash/Array (`.json`)
+  - Phaser 3 (`.json`)
+  - Aseprite JSON (`.json`)
+  - Spine Atlas (`.atlas`)
+  - Plist (Cocos2d) (`.plist`)
+  - UIKit Plist (`.plist`)
+  - Godot Atlas (`.tpsheet`, `.tpset`)
+  - Egret2D (`.json`)
+  - Paper2D (`.paper2dsprites`)
+  - TexturePacker Unity (`.tpsheet`)
+  - CSS Spritesheet (`.css`)
+  - TXT (TexturePacker text) (`.txt`)
+  - Adobe Animate spritemap pairs (`Animation.json` + `spritemap.json`)
 - **FNF files**: JSON or XML character data files from Friday Night Funkin' engines
+- **Metadata-free atlases**: PNG/JPEG atlases with no metadata (use chroma key for extraction)
+
+**For Generation (Generate tab):**
+- **Input**: Loose PNG/JPEG frames or frame sequences
+- **Output metadata formats**: Sparrow/Starling XML, TexturePacker XML, JSON hash/array,
+  Aseprite JSON, Spine Atlas, Phaser 3, CSS Spritesheet, TXT, Plist (Cocos2d), UIKit Plist,
+  Godot (`.tpsheet`, `.tpset`), Egret2D, Paper2D, TexturePacker Unity (`.tpsheet`)
 
 ## 📤 Export Problems
 
@@ -72,6 +96,17 @@ If you still have trouble after following the installation guide, please open an
 
 ## ⚡ Performance Issues
 
+### Q: Adobe Animate spritemap extraction is very slow or crashes
+**A:** Adobe Animate spritemaps (`Animation.json` + `sheet.json` pairs) require significantly
+more memory and CPU than other formats. Try these solutions:
+- **Close other applications**: Free up as much RAM as possible.
+- **Reduce worker threads**: Lower the thread count in settings; fewer threads = less
+  simultaneous memory usage.
+- **Use an SSD**: Faster disk access helps with intermediate frame caching.
+- **Process smaller batches**: Extract one or two Adobe spritemaps at a time instead of
+  batching many together.
+- **Upgrade RAM**: 16GB+ is recommended; 32GB+ for large Adobe atlases.
+
 ### Q: The program is very slow with big sprite sheets
 **A:** Try these speed-up tricks:
 - **Increase CPU Threads**: Increase the number in the settings menu. NOTE: This will have the opposite effect if you don't have enough memory.
@@ -102,12 +137,22 @@ If you still have trouble after following the installation guide, please open an
 
 ### Q: How can I process a single spritesheet?
 **A:** Here's how you do it:
-1. In the menu bar at the top of the application, choose "Select files."
-2. Select the data file for your sprite sheet.
+1. In the **Extract** tab, use the menu bar and choose "Select files."
+2. Select the metadata file for your sprite sheet.
 3. Select the image file containing the sprite sheet.
-4. Adjust your settings using global settings, and use override settings by double-clicking an animation entry if needed.
+4. Adjust your settings using global settings, or double-click an animation entry to configure
+   per-animation overrides.
+5. Click **Start process** to begin extraction.
 
-### Q: How can I process a multiple spritesheets not located in the same folder?
+### Q: How can I generate a new texture atlas from loose frames?
+**A:** Use the **Generate** tab:
+1. Switch to the **Generate** tab in the main window.
+2. Add your loose frame images (PNG/JPEG).
+3. Choose your packing algorithm and output metadata format.
+4. Configure options like padding, power-of-two sizing, and deduplication.
+5. Click the generate button to create your atlas.
+
+### Q: How can I process multiple spritesheets not located in the same folder?
 **A:** See the answer to the previous question:
 - Anything you add with "Select files" will be added to the processing list.
 
@@ -192,3 +237,7 @@ If you still have trouble after following the installation guide, please open an
 ---
 
 *Can't find your answer? Open an issue on [GitHub](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/issues) with your question.*
+
+---
+
+*Last updated: December 6, 2025 — TextureAtlas Toolbox v2.0.0*

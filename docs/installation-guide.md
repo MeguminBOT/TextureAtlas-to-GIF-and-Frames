@@ -4,6 +4,8 @@ This guide will walk you through installing and setting up TextureAtlas-to-GIF-a
 
 **This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
 
+<!-- TODO: Add screenshot of the main application window here -->
+
 ## 📑 Table of Contents
 
 - [📝 System Requirements](#system-requirements)
