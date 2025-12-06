@@ -1,16 +1,18 @@
 # Installation Guide
 
-This guide will walk you through installing and setting up TextureAtlas-to-GIF-and-Frames on your system. Mac OS X and Linux users or developers can refer to the detailed manual installation sections.
+This guide will walk you through installing and setting up TextureAtlas Toolbox on your system.
+macOS and Linux users or developers can refer to the detailed manual installation sections.
 
-**This doc file was partly written by AI, some parts may need to be rewritten which I will do whenever I have time**
 
 <!-- TODO: Add screenshot of the main application window here -->
+<!-- ![TextureAtlas Toolbox main window](images/main-window.png) -->
 
 ## 📑 Table of Contents
 
 - [📝 System Requirements](#system-requirements)
   - [Minimum Requirements](#minimum-requirements)
   - [Recommended Requirements](#recommended-requirements)
+  - [Performance Notes](#performance-notes)
 - [🚀 Normal Install (Windows only)](#normal-install-windows-only)
 - [🚀 Manual Installation](#manual-installation)
   - [Python Installation](#python-installation)
@@ -26,44 +28,77 @@ This guide will walk you through installing and setting up TextureAtlas-to-GIF-a
     - [macOS (Manual)](#macos-manual)
     - [Linux (Manual)](#linux-manual)
   - [Clone Repository (For Developers)](#clone-repository-for-developers)
+  - [Compiling from Source (Windows)](#compiling-from-source-windows)
 - [🔧 Troubleshooting Installation & Common Errors](#troubleshooting-installation--common-errors)
   - [Python Not Recognized](#python-not-recognized)
   - [Missing Packages](#missing-packages)
   - [ImageMagick Errors](#imagemagick-errors)
   - ["No module named 'PIL'"](#no-module-named-pil)
-  - ["tkinter not found" (Linux)](#tkinter-not-found-linux)
 - [Verifying Installation](#verifying-installation)
 - [Updating the Application](#updating-the-application)
 
 ## System Requirements
 
 ### Minimum Requirements
-- **Operating System**: Windows 7+, macOS 10.12+, or Linux (Ubuntu/Debian/CentOS/Fedora etc)
-- **CPU**: At least 2 cores (dual-core or better required)
-- **Python**: Version 3.10 or higher
-- **RAM**: At least 4GB
-- **Storage**: 1GB for application + output of single spritesheet processing (5GB+ recommended for batch processing)
-- **Internet Access**: Required for downloading dependencies and updates
 
-> **Important Notices:**
-> - 32-bit operating systems are **not officially supported** and will **not receive troubleshooting help**.
-> - Operating systems below macOS 11, Windows 10, and older Linux distributions are **not officially supported** and will **not receive troubleshooting help**.
-> - Python versions below 3.10 are **not officially supported** and will **not receive troubleshooting help**.
+- **Operating System**: Windows 10+, macOS 11+, or Linux (Ubuntu 20.04+/Debian 11+/Fedora 36+)
+- **CPU**: At least 2 cores (dual-core or better required)
+- **Python**: Version 3.14 or higher
+- **RAM**: At least 8GB
+- **Storage**: 1GB for application + output of single spritesheet processing (5GB+ recommended
+  for batch processing)
+- **Internet Access**: Required for downloading dependencies and updates
 
 ### Recommended Requirements
-- **Operating System**: Windows 10/11 (64-bit), macOS 11+ (Big Sur or later), or recent Linux (Ubuntu 20.04+/Fedora 36+)
+
+- **Operating System**: Windows 10/11 (64-bit), macOS 11+ (Big Sur or later), or recent Linux
+  (Ubuntu 22.04+/Fedora 38+)
 - **CPU**: Quad-core or better
-- **Python**: Version 3.12 or higher (64-bit)
-- **RAM**: 8GB or more (16GB+ recommended for for batch processing large atlases)
-- **Storage**: SSD with 10GB+ free space for faster processing speeds but a regular hard drive will suffice.
+- **Python**: Version 3.14 or higher (64-bit)
+- **RAM**: 16GB or more (32GB+ recommended for batch processing large atlases or Adobe Animate
+  spritemaps)
+- **Storage**: SSD with 10GB+ free space for faster processing speeds (a regular hard drive
+  will suffice for smaller workloads)
 - **Internet Access**: Required for downloading dependencies and updates
+
+> **⚠️ Important Notices:**
+> - 32-bit operating systems are **not officially supported** and will **not receive
+>   troubleshooting help**.
+> - Operating systems below macOS 11, Windows 10, and older Linux distributions are **not
+>   officially supported** and will **not receive troubleshooting help**.
+> - Python versions below 3.14 are **not officially supported** and will **not receive
+>   troubleshooting help**.
+
+### Performance Notes
+> ⚠️ **Adobe Animate Spritemap Extraction**  
+> Extracting Adobe Animate spritemaps (the `Animation.json` + `sheet.json` pairs) is
+> significantly more memory-intensive than other formats. Each spritemap typically requires
+> decompressing high-resolution frames and rebuilding matrix transformations. **Expect
+> substantially higher RAM and CPU usage during these operations.**  
+> - For large Adobe Animate atlases, close other memory-heavy applications before processing.
+> - Consider reducing the number of worker threads if you encounter out-of-memory errors.
+> - An SSD is strongly recommended for caching intermediate frames.
 
 ## Normal Install (Windows only)
 
+> ⚠️ **Antivirus False Positives**  
+> The Windows executable releases are **very likely to be flagged as malware** by antivirus
+> software. This is a common false positive for Python applications compiled with tools like
+> Nuitka or PyInstaller. The application is open-source and safe—you can verify the code
+> yourself. If your antivirus blocks or quarantines the executable:
+> - Add an exception for the `TextureAtlas Toolbox.exe` file or the installation folder.
+> - Alternatively, use the [Manual Installation](#manual-installation) method to run from
+>   source, which avoids this issue entirely.
+> - You can also [compile the application yourself](#compiling-from-source-windows) using the
+>   provided build script, but this requires doing the [Manual Installation](#manual-installation) anyways.
+
 1. Go to the [GitHub Releases page](https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames/releases).
 2. Download the latest release ZIP or 7z file.
-3. Extract all files to a folder of your choice (e.g., `C:\TextureAtlas-to-GIF-and-Frames`).
-4. Run "TextureAtlas to GIF and Frames.exe"
+3. Extract all files to a folder of your choice (e.g., `C:\TextureAtlasToolbox`).
+4. Run `TextureAtlas Toolbox.exe`.
+
+<!-- TODO: Add screenshot of the extracted folder contents here -->
+<!-- ![Extracted folder contents](images/extracted-folder.png) -->
 
 **That's it!** If you encounter any issues, check the [Troubleshooting section](#-troubleshooting-installation--common-errors) below.
 
@@ -80,14 +115,14 @@ This will guide you through how to install Python and the required dependencies 
 
 #### Windows
 
-1. Download Python from [python.org](https://www.python.org/downloads/).
+1. Download Python 3.14+ from [python.org](https://www.python.org/downloads/).
 2. **Important**: During installation, check the box for **"Add Python to PATH"**.
 3. Complete the installation.
 4. Open Command Prompt and verify installation:
    ```cmd
    python --version
    ```
-   If you see a version number (e.g., `Python 3.12.3`), Python is installed correctly.
+   If you see a version number (e.g., `Python 3.14.0`), Python is installed correctly.
 
 #### macOS
 
@@ -114,6 +149,7 @@ This will guide you through how to install Python and the required dependencies 
    ```bash
    sudo apt install python3 python3-pip
    ```
+
 3. Verify installation:
    ```bash
    python3 --version
@@ -124,24 +160,46 @@ This will guide you through how to install Python and the required dependencies 
 #### Using requirements.txt (Recommended Stable Build)
 
 **Windows:**
-1. Double-click or run `setup/setup_windows.bat` from the project folder. This will attempt to install all required dependencies automatically.
-   - If Python 3.10+ is missing, the script now silently installs the bundled 64-bit build (3.12.x) with PATH integration, requesting elevation only when required.
-2. If you prefer manual steps, open a terminal or command prompt, navigate to the project root directory, and run:
-   ```powershell
-   pip install -r setup/requirements.txt
-   ```
-   If you encounter permission errors, try:
-   ```powershell
-   python -m pip install --user -r setup/requirements.txt
-   ```
-   Need the bleeding edge dependency set? Replace `requirements.txt` with `requirements-experimental.txt` in the commands above.
+
+The `setup/setup_windows.bat` script automates the entire setup process:
+
+1. **Double-click** or run `setup/setup_windows.bat` from the project folder.
+2. The script performs the following steps automatically:
+   - **Detects Python**: Checks for `py`, `python`, or common installation paths.
+   - **Validates version**: Ensures Python 3.14+ is available.
+   - **Installs Python if missing**: Downloads and silently installs Python 3.14.x (64-bit) from
+     python.org, adding it to your PATH. You may be prompted for administrator approval.
+   - **Upgrades pip**: Updates pip to the latest version.
+   - **Prompts for dependency install**: Asks whether to install dependencies.
+   - **Lets you choose stable or experimental**: Select option 1 for `requirements.txt` (stable)
+     or option 2 for `requirements-experimental.txt` (bleeding-edge).
+   - **Installs dependencies**: Runs `pip install --upgrade --user` with your chosen file.
+   - **Adds Scripts to PATH**: Automatically adds the Python Scripts directory to your user PATH
+     so tools like `pip` work in new terminal sessions.
+
+<!-- TODO: Add screenshot of the setup script prompts here -->
+<!-- ![Windows setup script](images/setup-windows.png) -->
+
+If you prefer manual steps, open a terminal or command prompt, navigate to the project root
+directory, and run:
+```powershell
+pip install -r setup/requirements.txt
+```
+If you encounter permission errors, try:
+```powershell
+python -m pip install --user -r setup/requirements.txt
+```
+Need the bleeding-edge dependency set? Replace `requirements.txt` with
+`requirements-experimental.txt` in the commands above.
 
 **macOS:**
+
 1. Open Terminal and run the setup script:
    ```bash
    bash setup/setup_macOSX.sh
    ```
-   This will attempt to install all required dependencies automatically, please note that the .sh script for OSX is experimental and not tested by me.
+   This will attempt to install all required dependencies automatically. Note that the `.sh`
+   script for macOS is experimental and not extensively tested.
 2. If you prefer manual steps, navigate to the project root directory and run:
    ```bash
    pip install -r setup/requirements.txt
@@ -153,6 +211,7 @@ This will guide you through how to install Python and the required dependencies 
    For the experimental stack, swap in `setup/requirements-experimental.txt`.
 
 **Linux:**
+
 1. Open a terminal, navigate to the project root directory, and run:
    ```bash
    pip install -r setup/requirements.txt
@@ -161,29 +220,33 @@ This will guide you through how to install Python and the required dependencies 
    ```bash
    python3 -m pip install --user -r setup/requirements.txt
    ```
-   Swap the filename with `setup/requirements-experimental.txt` if you prefer the less-tested dependency set.
+   Swap the filename with `setup/requirements-experimental.txt` if you prefer the less-tested
+   dependency set.
 
 ##### Full manual Installation
 
 If you prefer, you can install packages individually:
 ```bash
-pip install certifi charset-normalizer colorama idna numpy pillow psutil requests tqdm urllib3 Wand tkinter py7zr
+pip install certifi charset-normalizer colorama idna numpy pillow psutil requests tqdm urllib3 Wand pyside6 py7zr
 ```
-- **Note:** On some Linux systems, you may need to install `tkinter` separately (see Troubleshooting).
 
 #### Package Details
-- **Pillow (PIL)**: Image processing and manipulation
-- **Wand**: Python binding for ImageMagick
-- **NumPy**: Numerical operations for image arrays
-- **Tkinter**: GUI framework (usually included with Python)
-- **Requests**: HTTP library for update checking
-- **certifi**: Root certificates for validating the trustworthiness of SSL certificates
-- **charset-normalizer**: Encoding detection for text files and web content
-- **colorama**: Cross-platform colored terminal text
-- **idna**: Internationalized Domain Names in Applications (IDNA) support
-- **psutil**: System and process utilities (used for resource monitoring)
-- **tqdm**: Progress bar for loops and CLI operations
-- **urllib3**: HTTP client for Python (dependency of requests)
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| **certifi** | 2024.8.30 | Root certificates for SSL validation |
+| **charset-normalizer** | 3.4.0 | Encoding detection for text files and web content |
+| **colorama** | 0.4.6 | Cross-platform colored terminal text |
+| **idna** | 3.10 | Internationalized Domain Names support |
+| **numpy** | 2.2.0 | Numerical operations |
+| **pillow** | 11.3.0 | Image processing and manipulation |
+| **psutil** | 6.1.0 | System and process utilities (resource monitoring) |
+| **py7zr** | 1.0.0 | 7-Zip archive support |
+| **pyside6** | 6.9.2 | Qt 6 bindings for the GUI framework |
+| **requests** | 2.32.3 | HTTP library for update checking |
+| **tqdm** | 4.67.1 | Progress bar for loops and CLI operations |
+| **urllib3** | 2.2.3 | HTTP client (dependency of requests) |
+| **Wand** | 0.6.13 | Python binding for ImageMagick |
 
 ### ImageMagick Setup
 
@@ -243,16 +306,43 @@ magick --version
    git clone https://github.com/MeguminBOT/TextureAtlas-to-GIF-and-Frames.git
    cd TextureAtlas-to-GIF-and-Frames
    ```
+
+### Compiling from Python to Source (Windows)
+
+If you prefer to compile your own Windows executable,
+use the provided Nuitka build script:
+
+1. Ensure you have Python 3.14+ installed (Visual Studio build tools are required).
+2. *(Optional)* Install Visual Studio with the following components for MSVC builds:
+   - Windows 10 SDK (10.0.19041.0 or later)
+   - MSVC v143 – VS 2022 C++ x64/x86 build tools
+   - C++/CLI support for v143 build tools
+3. Run the build script:
+   ```cmd
+   setup\build-windows.bat
+   ```
+4. The script will:
+   - Automatically install or upgrade Nuitka via pip.
+   - Detect whether to use MSVC or MinGW64 (prompts you if both are available).
+   - Ask for a version number to embed in the executable.
+   - Compile the application to `_build-output\Main.dist\`.
+
+> **Note:** This build script is provided as-is; the maintainer does not offer support for
+> build-related issues.
+
 ---
 
 ## Troubleshooting Installation & Common Errors
 
-If you run into installation or startup problems, use this section to diagnose and fix the most common issues. These solutions apply to both source and (where relevant) .exe versions.
+If you run into installation or startup problems, use this section to diagnose and fix the most
+common issues. These solutions apply to both source and (where relevant) .exe versions.
 
 ### Python Not Recognized
 
-- **Windows**: Run `setup/setup_windows.bat` or reinstall Python and ensure "Add Python to PATH" is checked.
-- **macOS**: Run `setup/setup_macOSX.sh` or install Python via Homebrew. (The setup script for OSX is experimental and not tested by me)
+- **Windows**: Run `setup/setup_windows.bat` or reinstall Python and ensure "Add Python to PATH"
+  is checked.
+- **macOS**: Run `setup/setup_macOSX.sh` or install Python via Homebrew. (The setup script for
+  macOS is experimental and not extensively tested.)
 - **Linux**: Install Python using your package manager.
 
 ### Missing Packages
@@ -274,21 +364,6 @@ If you run into installation or startup problems, use this section to diagnose a
   pip install Pillow
   ```
 
-### "tkinter not found" (Linux)
-
-- **Ubuntu/Debian**:
-  ```bash
-  sudo apt install python3-tk
-  ```
-- **Fedora**:
-  ```bash
-  sudo dnf install python3-tkinter
-  ```
-- **CentOS/RHEL**:
-  ```bash
-  sudo yum install tk-devel
-  ```
-
 
 ## Verifying Installation
 
@@ -307,3 +382,5 @@ If you run into installation or startup problems, use this section to diagnose a
 - If notified, download the latest release and replace your files.
 
 ---
+
+*Last updated: December 6, 2025 — TextureAtlas Toolbox v2.0.0* 
