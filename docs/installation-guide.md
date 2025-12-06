@@ -307,4 +307,3 @@ If you run into installation or startup problems, use this section to diagnose a
 - If notified, download the latest release and replace your files.
 
 ---
-*Last updated: June 17, 2025 - Version 1.9.5*
