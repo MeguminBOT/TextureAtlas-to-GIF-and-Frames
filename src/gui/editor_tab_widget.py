@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import os
 import uuid
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -37,6 +38,8 @@ from PySide6.QtWidgets import (
 
 from utils.FNF.alignment import resolve_fnf_offset
 
+import numpy as np
+
 
 try:
     from PIL import Image, ImageSequence
@@ -55,6 +58,50 @@ FRAME_INDEX_ROLE = Qt.ItemDataRole.UserRole + 2
 ORIGIN_MODE_CENTER = "center"
 ORIGIN_MODE_TOP_LEFT = "top_left"
 VALID_ORIGIN_MODES = {ORIGIN_MODE_CENTER, ORIGIN_MODE_TOP_LEFT}
+
+
+class _TopLevelOnlyDragFilter(QObject):
+    """Block drag-and-drop attempts involving child frame rows."""
+
+    def __init__(self, tree: QTreeWidget):
+        super().__init__(tree)
+        self._tree = tree
+
+    def eventFilter(self, obj, event):  # noqa: D401 - Qt API
+        """Allow moves only when both source and target are top-level."""
+        if obj is not self._tree:
+            return False
+        if event.type() in (
+            QEvent.Type.DragEnter,
+            QEvent.Type.DragMove,
+            QEvent.Type.Drop,
+        ):
+            selected_items = self._tree.selectedItems()
+            if any(item.parent() is not None for item in selected_items):
+                event.ignore()
+                return True
+
+            if event.type() in (QEvent.Type.DragMove, QEvent.Type.Drop):
+                # Guard against dropping onto a child row or stacking onto another top-level item.
+                pos = (
+                    event.position().toPoint()
+                    if hasattr(event, "position")
+                    else event.pos()
+                )
+                target = self._tree.itemAt(pos)
+                indicator = self._tree.dropIndicatorPosition()
+                if target is not None and target.parent() is not None:
+                    event.ignore()
+                    return True
+                if (
+                    indicator == QAbstractItemView.DropIndicatorPosition.OnItem
+                    and target is not None
+                    and target.parent() is None
+                ):
+                    event.ignore()
+                    return True
+            return False
+        return False
 
 
 @dataclass
@@ -536,6 +583,8 @@ class EditorTabWidget(QWidget):
         self._updating_controls = False
         self._detached_window: Optional[CanvasDetachWindow] = None
         self._animation_items: Dict[str, QTreeWidgetItem] = {}
+        self._tree_reorder_filter: Optional[QObject] = None
+        self._multi_drag_baselines: Optional[Dict[str, Tuple[int, int]]] = None
         self._default_status_text = self.tr(
             "Drag the frame, use arrow keys for fine adjustments, or type offsets manually."
         )
@@ -543,9 +592,11 @@ class EditorTabWidget(QWidget):
             self._setup_with_existing_ui()
         else:
             self._build_ui()
+        self._configure_animation_tree_drag_reorder()
         self._connect_signals()
         self._update_zoom_label(self.canvas.zoom())
         self._initialize_origin_mode()
+        self._reset_multi_drag_baselines()
 
     # ------------------------------------------------------------------
     # UI setup
@@ -808,6 +859,22 @@ class EditorTabWidget(QWidget):
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([360, 960])
 
+    def _configure_animation_tree_drag_reorder(self):
+        """Enable drag-to-reorder for animation groups while blocking frame moves."""
+        tree = getattr(self, "animation_tree", None)
+        if tree is None:
+            return
+
+        tree.setDragEnabled(True)
+        tree.setAcceptDrops(True)
+        tree.setDropIndicatorShown(True)
+        tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+        tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+
+        if self._tree_reorder_filter is None:
+            self._tree_reorder_filter = _TopLevelOnlyDragFilter(tree)
+            tree.installEventFilter(self._tree_reorder_filter)
+
     def _connect_signals(self):
         """Wire widget signals to handler methods for the editor workflow."""
         self.animation_tree.currentItemChanged.connect(self._on_tree_current_changed)
@@ -968,6 +1035,8 @@ class EditorTabWidget(QWidget):
             if item.parent() is None
         ]
         self.combine_button.setEnabled(len(selected_top_levels) >= 2)
+        # Changing selection invalidates any cached multi-drag baselines.
+        self._multi_drag_baselines = None
 
     def _show_tree_context_menu(self, pos):
         """Show contextual actions for removing animations or frames."""
@@ -1406,6 +1475,7 @@ class EditorTabWidget(QWidget):
 
             for idx, frame_entry in enumerate(raw_frames):
                 frame_name, pil_image, _meta = frame_entry
+                pil_image = self._ensure_pil_image(pil_image)
                 frame_metadata = self._extract_frame_metadata(_meta)
                 pixmap = self._pil_to_pixmap(pil_image)
                 frames.append(
@@ -1549,8 +1619,13 @@ class EditorTabWidget(QWidget):
         combined_frames: List[AlignmentFrame] = []
         composite_sources: List[str] = []
         source_animation_ids: List[str] = []
+        source_animation_names: Dict[str, str] = {}
         max_frame_width = 0
         max_frame_height = 0
+        base_sheet_name: Optional[str] = None
+        base_spritesheet_path: Optional[str] = None
+        base_metadata_path: Optional[str] = None
+        export_info_confident = True
 
         for item in selected_items:
             animation_id = item.data(0, ANIMATION_ID_ROLE)
@@ -1560,6 +1635,22 @@ class EditorTabWidget(QWidget):
             composite_sources.append(animation.display_name)
             if animation_id not in source_animation_ids:
                 source_animation_ids.append(animation_id)
+                name_hint = animation.animation_name or animation.display_name
+                if name_hint:
+                    source_animation_names[animation_id] = name_hint
+
+            if animation.source == "extract" and animation.spritesheet_name:
+                candidate_sheet = animation.spritesheet_name
+                candidate_meta = (animation.metadata or {}).get("metadata_path")
+                candidate_sheet_path = (animation.metadata or {}).get(
+                    "spritesheet_path"
+                )
+                if base_sheet_name is None:
+                    base_sheet_name = candidate_sheet
+                    base_metadata_path = candidate_meta
+                    base_spritesheet_path = candidate_sheet_path
+                elif base_sheet_name != candidate_sheet:
+                    export_info_confident = False
             for index, frame in enumerate(animation.frames):
                 max_frame_width = max(max_frame_width, frame.pixmap.width())
                 max_frame_height = max(max_frame_height, frame.pixmap.height())
@@ -1615,6 +1706,22 @@ class EditorTabWidget(QWidget):
             },
             default_offset=(0, 0),
         )
+
+        if source_animation_names:
+            composite_animation.metadata["source_animation_names"] = json.dumps(
+                source_animation_names
+            )
+
+        if export_info_confident and base_sheet_name:
+            composite_animation.metadata["source_sheet_name"] = base_sheet_name
+            if base_spritesheet_path:
+                composite_animation.metadata["source_spritesheet_path"] = (
+                    base_spritesheet_path
+                )
+            if base_metadata_path:
+                composite_animation.metadata["source_metadata_path"] = (
+                    base_metadata_path
+                )
         composite_animation.ensure_canvas_bounds()
         self._register_animation(composite_animation)
         self.status_label.setText(
@@ -1695,6 +1802,114 @@ class EditorTabWidget(QWidget):
         self._refresh_ghost_options()
         self._update_combine_button_state()
         self.status_label.setText(self._default_status_text)
+        self._multi_drag_baselines = None
+
+    def _selected_top_level_animation_ids(self) -> List[str]:
+        """Return IDs for currently selected top-level animation rows."""
+        tree = getattr(self, "animation_tree", None)
+        if tree is None:
+            return []
+        selected_ids: List[str] = []
+        for item in tree.selectedItems():
+            if item is None or item.parent() is not None:
+                continue
+            anim_id = item.data(0, ANIMATION_ID_ROLE)
+            if isinstance(anim_id, str):
+                selected_ids.append(anim_id)
+        return selected_ids
+
+    def _reset_multi_drag_baselines(self):
+        """Forget cached baseline offsets for group drag."""
+        self._multi_drag_baselines = None
+
+    def _ensure_multi_drag_baselines(self, selected_ids: List[str]):
+        """Capture current display offsets for each selected animation."""
+        if not selected_ids:
+            self._multi_drag_baselines = None
+            return
+        if self._multi_drag_baselines is not None and set(
+            self._multi_drag_baselines.keys()
+        ) == set(selected_ids):
+            return
+        baselines: Dict[str, Tuple[int, int]] = {}
+        for anim_id in selected_ids:
+            animation = self._animations.get(anim_id)
+            if animation is None:
+                continue
+            base_x, base_y = self._determine_root_display_offsets(animation)
+            baselines[anim_id] = (base_x, base_y)
+        self._multi_drag_baselines = baselines
+
+    def _apply_offsets_to_selected_animations(
+        self,
+        offset_x: int,
+        offset_y: int,
+        *,
+        update_default: bool,
+        status_message: bool,
+    ) -> bool:
+        """Apply offsets to all selected top-level animations at once."""
+        selected_ids = self._selected_top_level_animation_ids()
+        if len(selected_ids) <= 1:
+            return False
+
+        for anim_id in selected_ids:
+            animation = self._animations.get(anim_id)
+            if animation is None:
+                continue
+            if anim_id == self._current_animation_id:
+                reference_index = self._current_frame_index
+            else:
+                reference_index = 0 if animation.frames else None
+            self._apply_offsets_to_animation(
+                animation,
+                offset_x,
+                offset_y,
+                update_default=update_default,
+                reference_frame_index=reference_index,
+            )
+
+        if status_message:
+            self.status_label.setText(
+                self.tr("Applied ({x}, {y}) to {count} animations.").format(
+                    x=offset_x, y=offset_y, count=len(selected_ids)
+                )
+            )
+        return True
+
+    def _apply_relative_offsets_to_selected_animations(
+        self,
+        target_offset_x: int,
+        target_offset_y: int,
+    ) -> bool:
+        """Apply relative delta from the current animation to all selected ones."""
+        selected_ids = self._selected_top_level_animation_ids()
+        if len(selected_ids) <= 1:
+            return False
+
+        self._ensure_multi_drag_baselines(selected_ids)
+        if not self._multi_drag_baselines:
+            return False
+
+        anchor_base = self._multi_drag_baselines.get(
+            self._current_animation_id, (target_offset_x, target_offset_y)
+        )
+        delta_x = target_offset_x - anchor_base[0]
+        delta_y = target_offset_y - anchor_base[1]
+
+        for anim_id, (base_x, base_y) in self._multi_drag_baselines.items():
+            animation = self._animations.get(anim_id)
+            if animation is None:
+                continue
+            reference_index = 0 if animation.frames else None
+            self._apply_offsets_to_animation(
+                animation,
+                base_x + delta_x,
+                base_y + delta_y,
+                update_default=True,
+                reference_frame_index=reference_index,
+            )
+        return True
 
     # ------------------------------------------------------------------
     # Selection handlers
@@ -1707,6 +1922,7 @@ class EditorTabWidget(QWidget):
             self._current_animation_id = None
             self._current_frame_index = -1
             self._root_alignment_mode = False
+            self._reset_multi_drag_baselines()
             self.canvas.set_pixmap(None)
             self.save_overrides_button.setEnabled(False)
             self.export_composite_button.setEnabled(False)
@@ -1721,6 +1937,8 @@ class EditorTabWidget(QWidget):
         if animation is None:
             return
 
+        self._reset_multi_drag_baselines()
+
         animation.ensure_canvas_bounds(respect_existing=True)
 
         frame_index = current.data(0, FRAME_INDEX_ROLE)
@@ -1733,6 +1951,14 @@ class EditorTabWidget(QWidget):
 
         self._root_alignment_mode = False
         self._current_frame_index = int(frame_index)
+        if not animation.frames or self._current_frame_index >= len(animation.frames):
+            # Tree may temporarily reference a frame index that was removed; fall back gracefully.
+            self._current_frame_index = 0 if animation.frames else -1
+            self.canvas.set_pixmap(None)
+            self._refresh_ghost_options()
+            self.status_label.setText(self._default_status_text)
+            return
+
         frame = animation.frames[self._current_frame_index]
         self.canvas.set_pixmap(frame.pixmap)
         self.canvas.set_canvas_size(animation.canvas_width, animation.canvas_height)
@@ -1769,6 +1995,12 @@ class EditorTabWidget(QWidget):
     ) -> Tuple[int, int]:
         """Figure out which offsets to show when the animation root is active."""
         translate_x, translate_y = self._get_composite_translation(animation)
+        if self._is_composite_animation(animation):
+            reference_frame = self._current_reference_frame(animation)
+            base_x, base_y = self._reference_offset_for_composite(
+                animation, reference_frame
+            )
+            return base_x + translate_x, base_y + translate_y
         if not animation.frames:
             base_x, base_y = animation.default_offset
             return base_x + translate_x, base_y + translate_y
@@ -1786,6 +2018,7 @@ class EditorTabWidget(QWidget):
     ):
         """Switch into animation-level editing where offsets apply globally."""
         self._root_alignment_mode = True
+        self._multi_drag_baselines = None
         preview_index = 0
         if 0 <= self._current_frame_index < len(animation.frames):
             preview_index = self._current_frame_index
@@ -1843,10 +2076,17 @@ class EditorTabWidget(QWidget):
         offset_x: int,
         offset_y: int,
         update_default: bool = False,
+        reference_frame_index: Optional[int] = None,
     ):
         """Apply offsets to every frame (or composite metadata) as needed."""
         if self._is_composite_animation(animation):
-            reference_frame = self._current_reference_frame(animation)
+            reference_frame = None
+            if reference_frame_index is not None and 0 <= reference_frame_index < len(
+                animation.frames
+            ):
+                reference_frame = animation.frames[reference_frame_index]
+            else:
+                reference_frame = self._current_reference_frame(animation)
             self._apply_composite_translation(
                 animation, offset_x, offset_y, reference_frame
             )
@@ -1873,6 +2113,8 @@ class EditorTabWidget(QWidget):
         offset_y = self.offset_y_spin.value()
         self.canvas.set_offsets(offset_x, offset_y)
         if self._root_alignment_mode:
+            if self._apply_relative_offsets_to_selected_animations(offset_x, offset_y):
+                return
             self._apply_offsets_to_animation(
                 animation, offset_x, offset_y, update_default=True
             )
@@ -1903,6 +2145,8 @@ class EditorTabWidget(QWidget):
         self.offset_y_spin.setValue(offset_y)
         self._updating_controls = False
         if self._root_alignment_mode:
+            if self._apply_relative_offsets_to_selected_animations(offset_x, offset_y):
+                return
             self._apply_offsets_to_animation(
                 animation, offset_x, offset_y, update_default=True
             )
@@ -2089,50 +2333,58 @@ class EditorTabWidget(QWidget):
             if item:
                 source_animations.append(item)
 
-        if not source_animations:
-            QMessageBox.warning(
-                self,
-                self.tr("Export composite"),
-                self.tr("Source animations are no longer available in the session."),
-            )
-            return
+        base_spritesheet: Optional[str] = None
+        base_metadata: Dict[str, Any] = {}
 
-        if any(anim.source != "extract" for anim in source_animations):
-            QMessageBox.warning(
-                self,
-                self.tr("Export composite"),
-                self.tr(
-                    "Composite export currently supports animations loaded from the extractor only."
+        if source_animations:
+            if any(anim.source != "extract" for anim in source_animations):
+                QMessageBox.warning(
+                    self,
+                    self.tr("Export composite"),
+                    self.tr(
+                        "Composite export currently supports animations loaded from the extractor only."
+                    ),
+                )
+                return
+
+            base_spritesheet = source_animations[0].spritesheet_name
+            base_metadata = dict(source_animations[0].metadata or {})
+            different_sheet = any(
+                anim.spritesheet_name != base_spritesheet for anim in source_animations
+            )
+            if not base_spritesheet or different_sheet:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Export composite"),
+                    self.tr(
+                        "All combined animations must belong to the same spritesheet and originate from the extractor."
+                    ),
+                )
+                return
+        else:
+            # Fall back to stored metadata captured during combine so export still works
+            base_spritesheet = animation.metadata.get("source_sheet_name")
+            base_metadata = {
+                "spritesheet_path": animation.metadata.get(
+                    "source_spritesheet_path", ""
                 ),
-            )
-            return
+                "metadata_path": animation.metadata.get("source_metadata_path", ""),
+            }
+            if not base_spritesheet:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Export composite"),
+                    self.tr(
+                        "Source animations were removed and no export metadata was stored. Recreate the composite while source animations are present."
+                    ),
+                )
+                return
 
-        base_spritesheet = source_animations[0].spritesheet_name
-        base_metadata = dict(source_animations[0].metadata or {})
         spritesheet_path = base_metadata.get("spritesheet_path")
         metadata_path = base_metadata.get("metadata_path")
-        if not base_spritesheet:
-            QMessageBox.warning(
-                self,
-                self.tr("Export composite"),
-                self.tr(
-                    "Composite export requires animations that originated from the extractor."
-                ),
-            )
-            return
 
-        different_sheet = any(
-            anim.spritesheet_name != base_spritesheet for anim in source_animations
-        )
-        if different_sheet:
-            QMessageBox.warning(
-                self,
-                self.tr("Export composite"),
-                self.tr("All combined animations must belong to the same spritesheet."),
-            )
-            return
-
-        default_name = self.tr("Composite_{count}").format(count=len(source_animations))
+        composite_count = max(len(source_animations), len(source_ids), 1)
+        default_name = self.tr("Composite_{count}").format(count=composite_count)
         animation_name, accepted = QInputDialog.getText(
             self,
             self.tr("Composite name"),
@@ -2216,8 +2468,10 @@ class EditorTabWidget(QWidget):
     def _build_alignment_overrides(self, animation: AlignmentAnimation) -> dict:
         """Build the JSON-serializable overrides payload for an animation."""
         frame_overrides = {}
+        use_frame_name = self._is_composite_animation(animation)
         for frame in animation.frames:
-            frame_overrides[frame.original_key] = {
+            override_key = frame.name if use_frame_name else frame.original_key
+            frame_overrides[override_key] = {
                 "x": frame.offset_x,
                 "y": frame.offset_y,
             }
@@ -2247,6 +2501,19 @@ class EditorTabWidget(QWidget):
             return None
 
         source_map: Dict[str, AlignmentAnimation] = {}
+        fallback_names: Dict[str, str] = {}
+        fallback_raw = animation.metadata.get("source_animation_names")
+        if isinstance(fallback_raw, str):
+            try:
+                decoded = json.loads(fallback_raw)
+                if isinstance(decoded, dict):
+                    fallback_names = {
+                        str(key): str(value)
+                        for key, value in decoded.items()
+                        if value is not None
+                    }
+            except (json.JSONDecodeError, TypeError, ValueError):
+                fallback_names = {}
         for source_id in source_ids_value.split(","):
             source_id = source_id.strip()
             if not source_id:
@@ -2263,14 +2530,20 @@ class EditorTabWidget(QWidget):
                 continue
             source_anim = source_map.get(source_id)
             if source_anim is None or source_anim.animation_name is None:
-                continue
+                fallback_name = fallback_names.get(source_id)
+                if not fallback_name:
+                    continue
             try:
                 source_index = int(source_index_value)
             except (TypeError, ValueError):
                 continue
             sequence.append(
                 {
-                    "source_animation": source_anim.animation_name,
+                    "source_animation": (
+                        fallback_name
+                        if source_anim is None
+                        else source_anim.animation_name
+                    ),
                     "source_frame_index": source_index,
                     "original_key": frame.original_key,
                     "name": frame.name,
@@ -2389,6 +2662,28 @@ class EditorTabWidget(QWidget):
     # Utility helpers
     # ------------------------------------------------------------------
     @staticmethod
+    def _ensure_pil_image(image: Any) -> Any:
+        """Normalize frame payloads into Pillow images for preview rendering."""
+        if not PIL_AVAILABLE:
+            raise RuntimeError("Pillow is required to prepare frames for preview")
+
+        if PIL_AVAILABLE and isinstance(image, Image.Image):
+            return image
+
+        if isinstance(image, np.ndarray):
+            array = image
+            if array.dtype != np.uint8:
+                array = array.astype(np.uint8)
+
+            channels = array.shape[2] if array.ndim == 3 else 1
+            mode = "RGBA" if channels >= 4 else "RGB"
+            return Image.fromarray(np.ascontiguousarray(array), mode)
+
+        raise TypeError(
+            f"Unsupported frame type {type(image)}; expected Pillow image or ndarray"
+        )
+
+    @staticmethod
     def _pil_to_pixmap(image) -> QPixmap:
         """Convert a Pillow image into a ``QPixmap`` for canvas rendering."""
         image = image.convert("RGBA")
@@ -2420,31 +2715,62 @@ class EditorTabWidget(QWidget):
         return pil_image.copy()
 
     def build_canvas_frames(self, animation_id: str) -> List[Tuple[str, Any, dict]]:
-        """Render frames as RGBA canvases honoring origin modes and offsets."""
+        """Render frames as RGBA canvases honoring origin modes and offsets.
+
+        Computes the required canvas size to ensure no frame is clipped,
+        then renders each sprite at its proper position.
+        """
         if not PIL_AVAILABLE:
             return []
         animation = self._animations.get(animation_id)
         if animation is None or not animation.frames:
             return []
-        aligned_frames: List[Tuple[str, Any, dict]] = []
-        for index, frame in enumerate(animation.frames):
-            canvas = Image.new(
-                "RGBA",
-                (animation.canvas_width, animation.canvas_height),
-                (0, 0, 0, 0),
-            )
+
+        # Pre-compute paste positions and determine actual canvas bounds needed
+        frame_positions: List[Tuple[AlignmentFrame, Any, int, int]] = []
+        min_x, min_y = 0, 0
+        max_x, max_y = 0, 0
+
+        for frame in animation.frames:
             pixmap_image = self._pixmap_to_pil(frame.pixmap)
             if animation.origin_mode == ORIGIN_MODE_TOP_LEFT:
-                offset_x = frame.offset_x
-                offset_y = frame.offset_y
+                paste_x = frame.offset_x
+                paste_y = frame.offset_y
             else:
-                offset_x = (
+                paste_x = (
                     animation.canvas_width - pixmap_image.width
                 ) // 2 + frame.offset_x
-                offset_y = (
+                paste_y = (
                     animation.canvas_height - pixmap_image.height
                 ) // 2 + frame.offset_y
-            canvas.paste(pixmap_image, (offset_x, offset_y), pixmap_image)
+
+            frame_positions.append((frame, pixmap_image, paste_x, paste_y))
+
+            # Track bounds needed to fit all sprites
+            min_x = min(min_x, paste_x)
+            min_y = min(min_y, paste_y)
+            max_x = max(max_x, paste_x + pixmap_image.width)
+            max_y = max(max_y, paste_y + pixmap_image.height)
+
+        # Determine final canvas size: at least the animation's canvas,
+        # but expanded if sprites extend beyond
+        final_width = max(animation.canvas_width, max_x - min(0, min_x))
+        final_height = max(animation.canvas_height, max_y - min(0, min_y))
+
+        # Offset to apply if any sprite starts at negative coords
+        shift_x = -min(0, min_x)
+        shift_y = -min(0, min_y)
+
+        aligned_frames: List[Tuple[str, Any, dict]] = []
+        for index, (frame, pixmap_image, paste_x, paste_y) in enumerate(
+            frame_positions
+        ):
+            canvas = Image.new("RGBA", (final_width, final_height), (0, 0, 0, 0))
+            canvas.paste(
+                pixmap_image,
+                (paste_x + shift_x, paste_y + shift_y),
+                pixmap_image,
+            )
             aligned_frames.append(
                 (
                     frame.name or f"frame_{index}",

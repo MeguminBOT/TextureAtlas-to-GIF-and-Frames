@@ -76,6 +76,7 @@ class AppConfig:
             "remember_input_directory": True,
             "remember_output_directory": True,
             "filter_single_frame_spritemaps": True,
+            "use_native_file_dialog": False,
         },
     }
 
@@ -119,6 +120,7 @@ class AppConfig:
         "remember_input_directory": bool,
         "remember_output_directory": bool,
         "filter_single_frame_spritemaps": bool,
+        "use_native_file_dialog": bool,
         "origin_mode": str,
     }
 

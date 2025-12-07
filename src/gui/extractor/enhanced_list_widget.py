@@ -29,6 +29,8 @@ class EnhancedListWidget(QListWidget):
         """
         super().__init__(parent)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        # Allow multi-selection for batch operations like remove/send to editor.
+        self.setSelectionMode(self.SelectionMode.ExtendedSelection)
 
     def add_item(self, text, data=None):
         """Append an item with optional user data.

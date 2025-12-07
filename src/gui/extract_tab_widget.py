@@ -40,6 +40,141 @@ from core.extractor.spritemap.metadata import (
 from core.extractor.spritemap.normalizer import normalize_animation_document
 
 
+class SpritesheetFileDialog(QFileDialog):
+    """Custom file dialog for selecting spritesheet and metadata files.
+
+    Extends QFileDialog to provide a more user-friendly experience when
+    selecting multiple spritesheet files. In non-native mode, the dialog
+    hides verbose filter details and provides an editable address bar for
+    direct path entry, mimicking native dialog behavior.
+
+    When ``use_native_dialog`` is True, the OS-native file picker is used
+    instead, which shows full filter details but provides familiar navigation.
+
+    Attributes:
+        _address_line: QLineEdit used for direct path entry in the address bar.
+    """
+
+    tr = translate
+
+    def __init__(
+        self,
+        parent,
+        title,
+        start_directory,
+        name_filters,
+        use_native_dialog=False,
+    ):
+        """Initialize the spritesheet file dialog.
+
+        Args:
+            parent: Parent widget for the dialog.
+            title: Window title displayed in the dialog.
+            start_directory: Initial directory to display.
+            name_filters: List of file filter strings for the dropdown.
+            use_native_dialog: When True, uses the OS-native file picker.
+                When False, uses Qt's styled dialog with hidden filter
+                details and an editable address bar.
+        """
+        super().__init__(parent, title, start_directory)
+        self.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        self.setNameFilters(name_filters)
+        self.setViewMode(QFileDialog.ViewMode.Detail)
+        self.setOption(QFileDialog.Option.DontUseNativeDialog, not use_native_dialog)
+        if not use_native_dialog:
+            self.setOption(QFileDialog.Option.HideNameFilterDetails, True)
+            self.setLabelText(
+                QFileDialog.DialogLabel.FileName, self.tr("Path or filenames")
+            )
+            self._tune_filename_entry()
+            self._ensure_address_bar()
+
+    def choose_files(self):
+        """Execute the dialog and return selected file paths.
+
+        Returns:
+            list[str]: Paths of selected files, or empty list if cancelled.
+        """
+        return self.selectedFiles() if self.exec() else []
+
+    def _tune_filename_entry(self):
+        """Configure the filename entry field with placeholder text.
+
+        Locates Qt's built-in filename edit widget and adds a helpful
+        placeholder indicating users can paste paths or filenames.
+        """
+        file_name_edit = self.findChild(QLineEdit, "fileNameEdit")
+        if not file_name_edit:
+            return
+        file_name_edit.setPlaceholderText(
+            self.tr("Paste a path or space-separated files")
+        )
+        file_name_edit.setClearButtonEnabled(True)
+
+    def _ensure_address_bar(self):
+        """Set up an editable address bar for direct path navigation.
+
+        Attempts to reuse Qt's built-in "Look in" combo box by making it
+        editable. If that widget isn't found, injects a standalone line
+        edit at the top of the dialog. The address bar syncs with directory
+        changes and navigates when the user presses Enter.
+        """
+        location_combo = self.findChild(QComboBox, "lookInCombo")
+        address_line = None
+
+        if location_combo:
+            location_combo.setEditable(True)
+            location_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+            address_line = location_combo.lineEdit()
+        else:
+            # Fallback: inject our own address bar at the top of the dialog layout.
+            address_line = QLineEdit(self)
+            address_line.setClearButtonEnabled(True)
+            address_line.setMinimumWidth(200)
+            layout = self.layout()
+            if layout:
+                layout.insertWidget(0, address_line)
+
+        if not address_line:
+            return
+
+        self._address_line = address_line
+        self._address_line.setPlaceholderText(self.tr("Type a path and press Enter"))
+        self._address_line.returnPressed.connect(self._handle_address_entered)
+        self.directoryEntered.connect(self._sync_address_line)
+        self.currentChanged.connect(self._sync_address_line)
+        self._sync_address_line(self.directory().absolutePath())
+
+    def _handle_address_entered(self):
+        """Navigate to the path entered in the address bar.
+
+        Called when the user presses Enter in the address bar. Expands
+        user home directory shortcuts (``~``) and changes the dialog's
+        current directory.
+        """
+        if not hasattr(self, "_address_line"):
+            return
+        text = self._address_line.text().strip()
+        if not text:
+            return
+        self.setDirectory(str(Path(text).expanduser()))
+
+    def _sync_address_line(self, path):
+        """Update the address bar to reflect the current directory.
+
+        Connected to ``directoryEntered`` and ``currentChanged`` signals
+        to keep the address bar synchronized with navigation.
+
+        Args:
+            path: Current directory path (str or Path object).
+        """
+        if not hasattr(self, "_address_line") or not self._address_line:
+            return
+        if isinstance(path, Path):
+            path = str(path)
+        self._address_line.setText(str(path))
+
+
 class ExtractTabWidget(QWidget):
     """Widget for the Extract tab functionality."""
 
@@ -59,11 +194,13 @@ class ExtractTabWidget(QWidget):
         self.parent_app = parent
         self.use_existing_ui = use_existing_ui
         self.filter_single_frame_spritemaps = True
+        self.use_native_file_dialog = False
         if parent and hasattr(parent, "app_config"):
             ui_state = parent.app_config.get("ui_state", {})
             self.filter_single_frame_spritemaps = ui_state.get(
                 "filter_single_frame_spritemaps", True
             )
+            self.use_native_file_dialog = ui_state.get("use_native_file_dialog", False)
         self.editor_composites = defaultdict(dict)
 
         if use_existing_ui and parent:
@@ -631,13 +768,18 @@ class ExtractTabWidget(QWidget):
             return
 
         start_directory = self.parent_app.app_config.get_last_input_directory()
+        ui_state = self.parent_app.app_config.get("ui_state", {})
+        use_native_dialog = ui_state.get("use_native_file_dialog", False)
 
-        files, _ = QFileDialog.getOpenFileNames(
+        dialog = SpritesheetFileDialog(
             self,
             self.tr("Select Files"),
             start_directory,
-            self.tr("Image files (*.png *.jpg *.jpeg);;All files (*.*)"),
+            self.SPRITESHEET_METADATA_FILTERS,
+            use_native_dialog,
         )
+
+        files = dialog.choose_files()
 
         if files:
             if files:
@@ -658,18 +800,23 @@ class ExtractTabWidget(QWidget):
             self.parent_app.manual_selection_temp_dir = tempfile.mkdtemp(
                 prefix="texture_atlas_manual_"
             )
+            copied_files = self._copy_files_to_temp(
+                files, Path(self.parent_app.manual_selection_temp_dir)
+            )
             self.input_dir_label.setText(
-                self.tr("Manual selection ({count} files)").format(count=len(files))
+                self.tr("Manual selection ({count} files)").format(
+                    count=len(copied_files)
+                )
             )
             self.populate_spritesheet_list_from_files(
-                files, self.parent_app.manual_selection_temp_dir
+                copied_files, self.parent_app.manual_selection_temp_dir
             )
 
     def populate_spritesheet_list(self, directory):
         """Populate the spritesheet listbox from a directory.
 
-        Clears existing entries, scans for PNG files, and registers any
-        accompanying metadata files.
+        Clears existing entries, scans for spritesheet image files, and
+        registers any accompanying metadata files.
 
         Args:
             directory: Folder path to scan for spritesheets.
@@ -686,30 +833,38 @@ class ExtractTabWidget(QWidget):
         if not directory_path.exists():
             return
 
-        for png_file in sorted(directory_path.glob("*.png")):
-            display_name = self._format_display_name(directory_path, png_file)
-            self.listbox_png.add_item(display_name, str(png_file))
+        image_files = []
+        for ext in self.SUPPORTED_IMAGE_EXTENSIONS:
+            image_files.extend(sorted(directory_path.glob(f"*{ext}")))
+
+        for image_file in sorted(image_files):
+            display_name = self._format_display_name(directory_path, image_file)
+            self.listbox_png.add_item(display_name, str(image_file))
             self.find_data_files_for_spritesheet(
-                png_file,
-                search_directory=png_file.parent,
+                image_file,
+                search_directory=image_file.parent,
                 display_name=display_name,
             )
 
         # Nested spritemap folders (Animation.json + matching spritemap json)
-        for png_file in sorted(directory_path.rglob("*.png")):
-            if png_file.parent == directory_path:
+        nested_image_files = []
+        for ext in self.SUPPORTED_IMAGE_EXTENSIONS:
+            nested_image_files.extend(sorted(directory_path.rglob(f"*{ext}")))
+
+        for image_file in sorted(nested_image_files):
+            if image_file.parent == directory_path:
                 continue
-            animation_json = png_file.parent / "Animation.json"
-            spritemap_json = png_file.parent / f"{png_file.stem}.json"
+            animation_json = image_file.parent / "Animation.json"
+            spritemap_json = image_file.parent / f"{image_file.stem}.json"
             if not (animation_json.exists() and spritemap_json.exists()):
                 continue
-            display_name = self._format_display_name(directory_path, png_file)
+            display_name = self._format_display_name(directory_path, image_file)
             if self.listbox_png.find_item_by_text(display_name):
                 continue
-            self.listbox_png.add_item(display_name, str(png_file))
+            self.listbox_png.add_item(display_name, str(image_file))
             self.find_data_files_for_spritesheet(
-                png_file,
-                search_directory=png_file.parent,
+                image_file,
+                search_directory=image_file.parent,
                 display_name=display_name,
             )
 
@@ -728,9 +883,11 @@ class ExtractTabWidget(QWidget):
         self.listbox_data.clear()
         self.parent_app.data_dict.clear()
 
+        image_exts = {ext.lower() for ext in self.SUPPORTED_IMAGE_EXTENSIONS}
+
         for file_path in files:
             path = Path(file_path)
-            if path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
+            if path.suffix.lower() in image_exts:
                 display_name = self._format_display_name(
                     Path(temp_folder) if temp_folder else None, path
                 )
@@ -769,6 +926,36 @@ class ExtractTabWidget(QWidget):
                 pass
         return spritesheet_path.name
 
+    def _copy_files_to_temp(self, files, temp_dir: Path):
+        """Copy selected files into a staging directory, avoiding name collisions."""
+        copied = []
+        for file_path in files:
+            src = Path(file_path)
+            if not src.exists():
+                continue
+            dest = temp_dir / src.name
+            counter = 1
+            while dest.exists():
+                dest = temp_dir / f"{src.stem}_{counter}{src.suffix}"
+                counter += 1
+            try:
+                shutil.copy2(src, dest)
+                copied.append(dest)
+            except Exception:
+                continue
+        return copied
+
+    SUPPORTED_IMAGE_EXTENSIONS = (
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".avif",
+        ".bmp",
+        ".tga",
+        ".tiff",
+        ".webp",
+    )
+
     SUPPORTED_METADATA_EXTENSIONS = (
         ".json",
         ".xml",
@@ -780,6 +967,21 @@ class ExtractTabWidget(QWidget):
         ".tpset",
         ".paper2dsprites",
     )
+
+    SPRITESHEET_METADATA_FILTERS = [
+        "All Spritesheet Files (*.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp *.xml *.txt *.json *.plist *.atlas *.css *.tpsheet *.tpset *.paper2dsprites)",
+        "Spritesheets Images (*.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets XML (*.xml *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets JSON (*.json *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets TXT (*.txt *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets PLIST (*.plist *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets Atlas (*.atlas *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets CSS (*.css *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets TPSHEET (*.tpsheet *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets TPSET (*.tpset *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "Spritesheets PAPER2D (*.paper2dsprites *.png *.jpg *.jpeg *.avif *.bmp *.tga *.tiff *.webp)",
+        "All files (*.*)",
+    ]
 
     def find_data_files_for_spritesheet(
         self, spritesheet_path, search_directory=None, display_name=None
@@ -1239,33 +1441,33 @@ class ExtractTabWidget(QWidget):
         self.parent_app.data_dict.clear()
 
     def delete_selected_spritesheet(self):
-        """Deletes the selected spritesheet and related settings."""
+        """Delete one or more selected spritesheets and their settings."""
         if not self.parent_app:
             return
 
-        current_item = self.listbox_png.currentItem()
-        if not current_item:
+        selected_items = self.listbox_png.selectedItems()
+        if not selected_items:
+            current_item = self.listbox_png.currentItem()
+            selected_items = [current_item] if current_item else []
+        if not selected_items:
             return
 
-        spritesheet_name = current_item.text()
+        for item in selected_items:
+            if item is None:
+                continue
+            spritesheet_name = item.text()
+            if spritesheet_name in self.parent_app.data_dict:
+                del self.parent_app.data_dict[spritesheet_name]
 
-        if spritesheet_name in self.parent_app.data_dict:
-            del self.parent_app.data_dict[spritesheet_name]
+            row = self.listbox_png.row(item)
+            if row >= 0:
+                self.listbox_png.takeItem(row)
 
-        row = self.listbox_png.row(current_item)
-        self.listbox_png.takeItem(row)
+            self.parent_app.settings_manager.spritesheet_settings.pop(
+                spritesheet_name, None
+            )
 
         self.listbox_data.clear()
-
-        self.parent_app.settings_manager.spritesheet_settings.pop(
-            spritesheet_name, None
-        )
-
-        self.listbox_data.clear()
-
-        self.parent_app.settings_manager.spritesheet_settings.pop(
-            spritesheet_name, None
-        )
 
     def show_listbox_png_menu(self, position):
         """Display a context menu for the spritesheet listbox.
@@ -1284,11 +1486,19 @@ class ExtractTabWidget(QWidget):
         if item is None:
             return
 
+        self.listbox_png.setCurrentItem(item)
+
+        selected_items = self.listbox_png.selectedItems()
+        if not selected_items or item not in selected_items:
+            selected_items = [item]
+
         menu = QMenu(self)
 
         editor_action = QAction(self.tr("Add to Editor Tab"), self)
         editor_action.triggered.connect(
-            lambda checked=False, entry=item: self.open_spritesheet_in_editor(entry)
+            lambda checked=False, entries=selected_items: self.open_spritesheets_in_editor(
+                entries
+            )
         )
         menu.addAction(editor_action)
         menu.addSeparator()
@@ -1322,36 +1532,58 @@ class ExtractTabWidget(QWidget):
         if item is None:
             return
 
+        self.listbox_data.setCurrentItem(item)
+
+        selected_items = self.listbox_data.selectedItems()
+        if not selected_items or item not in selected_items:
+            selected_items = [item]
+
         menu = QMenu(self)
-        item_data = item.data(Qt.ItemDataRole.UserRole)
-        if isinstance(item_data, dict) and item_data.get("type") == "editor_composite":
-            editor_action = QAction(self.tr("Focus in Editor Tab"), self)
-            editor_action.triggered.connect(
-                lambda checked=False, entry=item: self.open_animation_item_in_editor(
-                    entry
-                )
+        any_composite = any(
+            isinstance(sel.data(Qt.ItemDataRole.UserRole), dict)
+            and sel.data(Qt.ItemDataRole.UserRole).get("type") == "editor_composite"
+            for sel in selected_items
+        )
+
+        editor_action = QAction(
+            (
+                self.tr("Focus in Editor Tab")
+                if any_composite
+                else self.tr("Add to Editor Tab")
+            ),
+            self,
+        )
+        editor_action.triggered.connect(
+            lambda checked=False, entries=selected_items: self.open_selected_animations_in_editor(
+                entries
             )
-            menu.addAction(editor_action)
-        else:
-            editor_action = QAction(self.tr("Add to Editor Tab"), self)
-            editor_action.triggered.connect(
-                lambda checked=False, entry=item: self.open_animation_item_in_editor(
-                    entry
-                )
-            )
-            menu.addAction(editor_action)
+        )
+        menu.addAction(editor_action)
 
-            menu.addSeparator()
+        # Preview/settings make sense only for single non-composite selections
+        if len(selected_items) == 1:
+            item_data = item.data(Qt.ItemDataRole.UserRole)
+            if not (
+                isinstance(item_data, dict)
+                and item_data.get("type") == "editor_composite"
+            ):
+                menu.addSeparator()
 
-            preview_action = QAction(self.tr("Preview Animation"), self)
-            preview_action.triggered.connect(self.preview_selected_animation)
-            menu.addAction(preview_action)
+                preview_action = QAction(self.tr("Preview Animation"), self)
+                preview_action.triggered.connect(self.preview_selected_animation)
+                menu.addAction(preview_action)
 
-            menu.addSeparator()
+                menu.addSeparator()
 
-            settings_action = QAction(self.tr("Override Settings"), self)
-            settings_action.triggered.connect(self.override_animation_settings)
-            menu.addAction(settings_action)
+                settings_action = QAction(self.tr("Override Settings"), self)
+                settings_action.triggered.connect(self.override_animation_settings)
+                menu.addAction(settings_action)
+
+        menu.addSeparator()
+
+        delete_action = QAction(self.tr("Remove from List"), self)
+        delete_action.triggered.connect(self.delete_selected_animations)
+        menu.addAction(delete_action)
 
         menu.exec(self.listbox_data.mapToGlobal(position))
 
@@ -1538,6 +1770,13 @@ class ExtractTabWidget(QWidget):
         for item in eligible_items:
             self._open_animation_in_editor(spritesheet_item, item)
 
+    def open_spritesheets_in_editor(self, spritesheet_items):
+        """Batch-send multiple spritesheets to the editor tab."""
+        if not self.parent_app:
+            return
+        for sheet_item in spritesheet_items or []:
+            self.open_spritesheet_in_editor(sheet_item)
+
     def open_animation_item_in_editor(self, animation_item):
         """Send a single animation to the editor tab.
 
@@ -1586,6 +1825,22 @@ class ExtractTabWidget(QWidget):
             return
 
         self._open_animation_in_editor(spritesheet_item, animation_item)
+
+    def open_selected_animations_in_editor(self, animation_items):
+        """Send one or more animations to the editor tab."""
+        if not self.parent_app:
+            return
+        spritesheet_item = self.listbox_png.currentItem()
+        if not spritesheet_item:
+            QMessageBox.information(
+                self,
+                self.tr("Editor"),
+                self.tr("Select a spritesheet first."),
+            )
+            return
+
+        for item in animation_items or []:
+            self.open_animation_item_in_editor(item)
 
     def _open_animation_in_editor(self, spritesheet_item, animation_item):
         """Send the selected spritesheet + animation metadata to the editor tab.
@@ -1637,6 +1892,44 @@ class ExtractTabWidget(QWidget):
             spritemap_info,
             spritemap_target,
         )
+
+    def delete_selected_animations(self):
+        """Remove selected animations from the list (non-destructive)."""
+        selected_items = self.listbox_data.selectedItems()
+        if not selected_items:
+            current_item = self.listbox_data.currentItem()
+            selected_items = [current_item] if current_item else []
+        if not selected_items:
+            return
+
+        spritesheet_item = self.listbox_png.currentItem()
+        spritesheet_name = spritesheet_item.text() if spritesheet_item else None
+
+        for item in selected_items:
+            if item is None:
+                continue
+            item_data = item.data(Qt.ItemDataRole.UserRole)
+            row = self.listbox_data.row(item)
+            if row >= 0:
+                self.listbox_data.takeItem(row)
+
+            # Remove persisted editor composite definitions when deleting them from the list
+            if (
+                isinstance(item_data, dict)
+                and item_data.get("type") == "editor_composite"
+                and spritesheet_name
+            ):
+                composites = self.editor_composites.get(spritesheet_name, {})
+                composites.pop(item.text(), None)
+                if hasattr(self.parent_app, "settings_manager"):
+                    sheet_settings = (
+                        self.parent_app.settings_manager.spritesheet_settings.get(
+                            spritesheet_name, {}
+                        )
+                    )
+                    editor_defs = sheet_settings.get("editor_composites")
+                    if isinstance(editor_defs, dict):
+                        editor_defs.pop(item.text(), None)
 
     def override_animation_settings(self):
         """Opens window to override settings for selected animation."""
@@ -1965,7 +2258,7 @@ class ExtractTabWidget(QWidget):
             return False, []
 
         unknown_atlases = []
-        input_directory = self.input_dir_label.text()
+        input_directory = self.get_input_directory()
         base_directory = Path(input_directory)
 
         for filename in spritesheet_list:
@@ -2068,7 +2361,13 @@ class ExtractTabWidget(QWidget):
 
     def get_input_directory(self):
         """Return the currently selected input directory path."""
-
+        if (
+            hasattr(self.parent_app, "manual_selection_temp_dir")
+            and self.parent_app.manual_selection_temp_dir
+        ):
+            temp_dir = Path(self.parent_app.manual_selection_temp_dir)
+            if temp_dir.exists():
+                return str(temp_dir)
         return self.input_dir_label.text()
 
     def get_output_directory(self):

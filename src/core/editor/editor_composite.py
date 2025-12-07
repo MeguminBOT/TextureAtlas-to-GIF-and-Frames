@@ -92,10 +92,9 @@ def build_editor_composite_frames(
             return []
 
         original_name, image, metadata = source_frame
+        preferred_name = frame_spec.get("name")
         original_key = frame_spec.get("original_key") or original_name
-        frame_name = (
-            original_key or frame_spec.get("name") or original_name or f"frame_{index}"
-        )
+        frame_name = preferred_name or original_key or original_name or f"frame_{index}"
 
         frame_metadata = _coerce_metadata(metadata)
         if "duration_ms" in frame_spec:

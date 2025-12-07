@@ -133,6 +133,7 @@ class AppConfigWindow(QDialog):
         self.remember_input_dir_cb = None
         self.remember_output_dir_cb = None
         self.filter_single_frame_spritemaps_cb = None
+        self.use_native_file_dialog_cb = None
         self.extraction_fields = {}
         self.compression_fields = {}
 
@@ -823,6 +824,10 @@ class AppConfigWindow(QDialog):
             self.filter_single_frame_spritemaps_cb.setChecked(
                 ui_state.get("filter_single_frame_spritemaps", False)
             )
+        if self.use_native_file_dialog_cb:
+            self.use_native_file_dialog_cb.setChecked(
+                ui_state.get("use_native_file_dialog", False)
+            )
 
         self.on_check_updates_change(self.check_updates_cb.checkState())
 
@@ -972,6 +977,10 @@ class AppConfigWindow(QDialog):
                 ui_state["filter_single_frame_spritemaps"] = (
                     self.filter_single_frame_spritemaps_cb.isChecked()
                 )
+            if self.use_native_file_dialog_cb:
+                ui_state["use_native_file_dialog"] = (
+                    self.use_native_file_dialog_cb.isChecked()
+                )
 
             self.app_config.settings["resource_limits"] = resource_limits
             self.app_config.settings["extraction_defaults"] = extraction_defaults
@@ -1071,6 +1080,22 @@ class AppConfigWindow(QDialog):
         spritemap_layout.addWidget(self.filter_single_frame_spritemaps_cb)
 
         layout.addWidget(spritemap_group)
+
+        file_dialog_group = QGroupBox("File Picker")
+        file_dialog_layout = QVBoxLayout(file_dialog_group)
+
+        self.use_native_file_dialog_cb = QCheckBox(
+            "Use native file picker when available"
+        )
+        self.use_native_file_dialog_cb.setToolTip(
+            self.tr(
+                "Uses the OS-native file dialog instead of the Qt-styled picker.\n"
+                "This only affects the Extract tab's manual file selection."
+            )
+        )
+        file_dialog_layout.addWidget(self.use_native_file_dialog_cb)
+
+        layout.addWidget(file_dialog_group)
         layout.addStretch()
 
         return self._wrap_in_scroll_area(widget)

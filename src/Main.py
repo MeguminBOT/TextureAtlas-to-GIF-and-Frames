@@ -20,10 +20,10 @@ DependenciesChecker.check_and_configure_imagemagick()  # This function must be c
 from utils.app_config import AppConfig  # noqa: E402
 from utils.update_checker import UpdateChecker  # noqa: E402
 from utils.settings_manager import SettingsManager  # noqa: E402
-from utils.translation_manager import (
+from utils.translation_manager import (  # noqa: E402
     get_translation_manager,
     tr as translate,
-)  # noqa: E402
+)
 from utils.FNF.character_data import CharacterData  # noqa: E402
 from core.extractor import Extractor  # noqa: E402
 from gui.app_ui import Ui_TextureAtlasToolboxApp  # noqa: E402
@@ -813,7 +813,7 @@ class TextureAtlasExtractorApp(QMainWindow):
             extractor.fnf_idle_loop = self.fnf_idle_loop
 
             # Run extraction
-            input_dir = self.ui.input_dir_label.text()
+            input_dir = self.extract_tab_widget.get_input_directory()
             output_dir = self.ui.output_dir_label.text()
 
             print(f"[run_extractor_core] Input: {input_dir}, Output: {output_dir}")
