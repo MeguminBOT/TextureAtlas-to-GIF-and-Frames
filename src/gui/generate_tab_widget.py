@@ -506,6 +506,30 @@ class GenerateTabWidget(QWidget):
                             if rotated:
                                 sprite_region = sprite_region.rotate(-90, expand=True)
 
+                            # Rebuild logical canvas when offsets are present
+                            frame_x = int(sprite_data.get("frameX", 0))
+                            frame_y = int(sprite_data.get("frameY", 0))
+                            frame_w = int(
+                                sprite_data.get("frameWidth", sprite_region.width)
+                            )
+                            frame_h = int(
+                                sprite_data.get("frameHeight", sprite_region.height)
+                            )
+
+                            if (
+                                frame_x != 0
+                                or frame_y != 0
+                                or frame_w != sprite_region.width
+                                or frame_h != sprite_region.height
+                            ):
+                                canvas = Image.new(
+                                    "RGBA", (frame_w, frame_h), (0, 0, 0, 0)
+                                )
+                                dest_x = max(0, -frame_x)
+                                dest_y = max(0, -frame_y)
+                                canvas.paste(sprite_region, (dest_x, dest_y))
+                                sprite_region = canvas
+
                             # Save as temporary file
                             frame_filename = f"{sprite_data['name']}{self.PNG_FORMAT}"
                             # Sanitize filename

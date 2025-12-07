@@ -809,20 +809,46 @@ class AtlasGenerator:
         Returns:
             Path to the metadata file.
         """
+        # Determine a consistent logical canvas per animation so playback stays aligned
+        animation_max_sizes: Dict[str, Tuple[int, int]] = {}
+        for packed in packed_frames:
+            user_data = packed.frame.user_data or {}
+            animation_name = user_data.get("animation") or ""
+            max_w, max_h = animation_max_sizes.get(animation_name, (0, 0))
+            animation_max_sizes[animation_name] = (
+                max(max_w, packed.source_width),
+                max(max_h, packed.source_height),
+            )
+
         # Convert PackedFrame to the format expected by exporters
         sprites_data = []
         for packed in packed_frames:
             user_data = packed.frame.user_data or {}
+            animation_name = user_data.get("animation") or ""
+            max_w, max_h = animation_max_sizes.get(
+                animation_name, (packed.source_width, packed.source_height)
+            )
+            sprite_width = packed.source_width
+            sprite_height = packed.source_height
+
+            # Center smaller frames within the animation's logical canvas
+            frame_x = -((max_w - sprite_width) // 2)
+            frame_y = -((max_h - sprite_height) // 2)
+
             sprite = {
                 "name": user_data.get("name", packed.id),
                 "x": packed.x,
                 "y": packed.y,
-                "width": packed.width,
-                "height": packed.height,
-                "source_width": packed.source_width,
-                "source_height": packed.source_height,
+                "width": sprite_width,
+                "height": sprite_height,
+                "frameX": frame_x,
+                "frameY": frame_y,
+                "frameWidth": max_w,
+                "frameHeight": max_h,
+                "source_width": sprite_width,
+                "source_height": sprite_height,
                 "rotated": packed.rotated,
-                "animation": user_data.get("animation", ""),
+                "animation": animation_name,
                 "index": user_data.get("index", 0),
             }
             sprites_data.append(sprite)
@@ -847,16 +873,8 @@ class AtlasGenerator:
 
             packed_sprites = []
             for sprite in sprites_data:
-                # Create SpriteData-like dict
-                sprite_data = {
-                    "name": sprite["name"],
-                    "x": sprite["x"],
-                    "y": sprite["y"],
-                    "width": sprite["source_width"],
-                    "height": sprite["source_height"],
-                }
                 packed_sprite = PackedSprite(
-                    sprite=sprite_data,
+                    sprite=sprite,
                     atlas_x=sprite["x"],
                     atlas_y=sprite["y"],
                     rotated=sprite["rotated"],

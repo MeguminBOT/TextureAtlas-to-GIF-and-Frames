@@ -317,17 +317,18 @@ class BasePacker(ABC):
             packed = self._pack_internal(frames, width, height)
 
             if len(packed) == len(frames):
-                # Success - calculate tight bounds
-                # Note: PackedFrame.width/height are source dimensions;
-                # we need to add padding to match actual placement
+                # Success - calculate tight bounds around packed frames.
+                # PackedFrame dimensions exclude padding; padding is only used as
+                # inter-sprite spacing, so we do not add an extra outer margin.
                 if packed:
-                    final_w = max(p.x + p.width + padding for p in packed)
-                    final_h = max(p.y + p.height + padding for p in packed)
+                    final_w = max(p.x + p.width for p in packed)
+                    final_h = max(p.y + p.height for p in packed)
                 else:
                     final_w = 0
                     final_h = 0
 
-                # Add border padding
+                # Apply optional border padding on the far edge only; positions already
+                # include the leading border offset when used by packers.
                 final_w += self.options.border_padding
                 final_h += self.options.border_padding
 
