@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
 from PIL import Image
 
 from packers import (
@@ -58,6 +59,7 @@ class GeneratorOptions:
         force_square: Force square atlas.
         allow_rotation: Allow 90° rotation for tighter packing.
         allow_flip: Allow sprite flipping (limited format support).
+        trim_sprites: Trim transparent edges from sprites for tighter packing.
         expand_strategy: How to grow atlas when sprites don't fit.
         image_format: Output image format (png, webp, etc.).
         export_format: Metadata format key (e.g., 'starling-xml', 'json-hash').
@@ -74,6 +76,7 @@ class GeneratorOptions:
     force_square: bool = False
     allow_rotation: bool = False
     allow_flip: bool = False
+    trim_sprites: bool = False
     expand_strategy: str = "short_side"
     image_format: str = "png"
     export_format: str = "starling-xml"
@@ -168,6 +171,47 @@ class AtlasGenerator:
             self._progress_callback(current, total, message)
 
     @staticmethod
+    def _trim_image(img: Image.Image) -> Tuple[Image.Image, int, int, int, int]:
+        """Trim transparent edges from an image.
+
+        Finds the bounding box of non-transparent pixels and crops to it.
+        Uses NumPy for efficient bounding box calculation.
+
+        Args:
+            img: PIL Image to trim (must be RGBA mode).
+
+        Returns:
+            Tuple of (trimmed_image, trim_left, trim_top, original_width, original_height).
+            If the image is fully transparent, returns a 1x1 crop with zero offsets.
+        """
+        original_width, original_height = img.width, img.height
+
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+
+        arr = np.asarray(img)
+        alpha = arr[:, :, 3]
+
+        rows_with_content = np.any(alpha > 0, axis=1)
+        cols_with_content = np.any(alpha > 0, axis=0)
+
+        if not np.any(rows_with_content):
+            # Fully transparent image - return 1x1 to avoid zero-size issues
+            return img.crop((0, 0, 1, 1)), 0, 0, original_width, original_height
+
+        row_indices = np.where(rows_with_content)[0]
+        col_indices = np.where(cols_with_content)[0]
+
+        top = int(row_indices[0])
+        bottom = int(row_indices[-1]) + 1
+        left = int(col_indices[0])
+        right = int(col_indices[-1]) + 1
+
+        trimmed = img.crop((left, top, right, bottom))
+
+        return trimmed, left, top, original_width, original_height
+
+    @staticmethod
     def _compute_image_hash(img: Image.Image) -> str:
         """Compute a hash for image content comparison.
 
@@ -219,7 +263,9 @@ class AtlasGenerator:
         try:
             # Step 1: Load all images and detect duplicates
             self._emit_progress(0, 4, "Loading images...")
-            load_result = self._load_images_with_dedup(animation_groups)
+            load_result = self._load_images_with_dedup(
+                animation_groups, trim_sprites=options.trim_sprites
+            )
             unique_frames = load_result["unique_frames"]
             images = load_result["images"]
             duplicate_map = load_result["duplicate_map"]
@@ -279,9 +325,7 @@ class AtlasGenerator:
             result.metadata_path = metadata_path
             result.atlas_width = pack_result.atlas_width
             result.atlas_height = pack_result.atlas_height
-            result.frame_count = len(
-                all_frame_data
-            )  # Total frames including duplicates
+            result.frame_count = len(all_frame_data)
             result.efficiency = pack_result.efficiency
 
             self._emit_progress(4, 4, "Complete!")
@@ -294,12 +338,17 @@ class AtlasGenerator:
     def _load_images_with_dedup(
         self,
         animation_groups: Dict[str, List[str]],
+        trim_sprites: bool = False,
     ) -> Dict[str, Any]:
         """Load images from animation groups with duplicate detection.
 
         Detects images that are 100% identical and deduplicates them so
         only unique images are packed. Duplicates are mapped to their
         canonical (first-seen) version.
+
+        Args:
+            animation_groups: Dict mapping animation names to frame path lists.
+            trim_sprites: If True, trim transparent edges from sprites.
 
         Returns:
             Dict with:
@@ -324,11 +373,22 @@ class AtlasGenerator:
                     if img.mode != "RGBA":
                         img = img.convert("RGBA")
 
+                    original_width, original_height = img.width, img.height
+                    trim_offset_x, trim_offset_y = 0, 0
+
+                    if trim_sprites:
+                        (
+                            img,
+                            trim_offset_x,
+                            trim_offset_y,
+                            original_width,
+                            original_height,
+                        ) = self._trim_image(img)
+
                     # Generate unique ID for this frame
                     frame_id = f"{anim_name}_{idx:04d}"
                     path_obj = Path(path)
 
-                    # Create frame input with metadata
                     frame_input = FrameInput(
                         id=frame_id,
                         width=img.width,
@@ -338,20 +398,27 @@ class AtlasGenerator:
                             "name": path_obj.stem,
                             "animation": anim_name,
                             "index": idx,
+                            "trim_offset_x": trim_offset_x,
+                            "trim_offset_y": trim_offset_y,
+                            "original_width": original_width,
+                            "original_height": original_height,
+                            "trimmed": trim_sprites
+                            and (
+                                trim_offset_x != 0
+                                or trim_offset_y != 0
+                                or img.width != original_width
+                                or img.height != original_height
+                            ),
                         },
                     )
                     all_frame_data.append(frame_input)
 
-                    # Compute hash and check for duplicates
                     img_hash = self._compute_image_hash(img)
 
                     if img_hash in hash_to_canonical:
-                        # This is a duplicate - map to canonical
                         canonical_id = hash_to_canonical[img_hash]
                         duplicate_map[frame_id] = canonical_id
-                        # Don't store the duplicate image
                     else:
-                        # First occurrence - this is the canonical version
                         hash_to_canonical[img_hash] = frame_id
                         unique_frames.append(frame_input)
                         images[frame_id] = img
@@ -386,21 +453,17 @@ class AtlasGenerator:
             List of PackedFrame for all frames (unique + duplicates).
         """
         if not duplicate_map:
-            return packed_frames  # No duplicates, return as-is
+            return packed_frames
 
-        # Build lookup from canonical ID to its packed frame
         packed_lookup: Dict[str, PackedFrame] = {pf.id: pf for pf in packed_frames}
 
         expanded: List[PackedFrame] = []
 
         for frame in all_frame_data:
             if frame.id in duplicate_map:
-                # This is a duplicate - use the canonical's position
                 canonical_id = duplicate_map[frame.id]
                 canonical_packed = packed_lookup.get(canonical_id)
                 if canonical_packed:
-                    # Create a new PackedFrame for the duplicate
-                    # pointing to the same atlas position
                     duplicate_packed = PackedFrame(
                         frame=frame,
                         x=canonical_packed.x,
@@ -411,7 +474,6 @@ class AtlasGenerator:
                     )
                     expanded.append(duplicate_packed)
             else:
-                # This is a unique frame - use its own packed position
                 packed = packed_lookup.get(frame.id)
                 if packed:
                     expanded.append(packed)
@@ -441,7 +503,6 @@ class AtlasGenerator:
                     frame_id = f"{anim_name}_{idx:04d}"
                     path_obj = Path(path)
 
-                    # Store with original filename as user_data for metadata
                     frame_input = FrameInput(
                         id=frame_id,
                         width=img.width,
@@ -476,7 +537,6 @@ class AtlasGenerator:
         """
         packer_options = options.to_packer_options()
 
-        # Get packer instance
         algorithm = options.algorithm
 
         # True auto mode: try all algorithms and pick the best
@@ -668,25 +728,20 @@ class AtlasGenerator:
         save_kwargs: Dict[str, Any] = {}
 
         if fmt == "png":
-            # PNG compression settings
             save_kwargs["compress_level"] = user_settings.get("compress_level", 9)
             save_kwargs["optimize"] = user_settings.get("optimize", True)
 
         elif fmt == "webp":
-            # WebP compression settings
             lossless = user_settings.get("lossless", True)
             save_kwargs["lossless"] = lossless
             if lossless:
-                # For lossless, quality affects compression effort (0-100)
                 save_kwargs["quality"] = user_settings.get("quality", 90)
             else:
-                # For lossy, quality is the actual quality setting
                 save_kwargs["quality"] = user_settings.get("quality", 85)
             if "method" in user_settings:
                 save_kwargs["method"] = user_settings["method"]
 
         elif fmt in ("jpg", "jpeg"):
-            # JPEG compression settings
             save_kwargs["quality"] = user_settings.get("quality", 95)
             save_kwargs["optimize"] = user_settings.get("optimize", True)
             if "progressive" in user_settings:
@@ -695,27 +750,22 @@ class AtlasGenerator:
                 save_kwargs["subsampling"] = user_settings["subsampling"]
 
         elif fmt == "tiff":
-            # TIFF compression settings
             compression = user_settings.get("compression", "tiff_lzw")
             save_kwargs["compression"] = compression
 
         elif fmt == "avif":
-            # AVIF compression settings (requires pillow-avif-plugin)
             save_kwargs["quality"] = user_settings.get("quality", 80)
             if "speed" in user_settings:
                 save_kwargs["speed"] = user_settings["speed"]
 
         elif fmt == "bmp":
-            # BMP has no compression options
             pass
 
         elif fmt == "tga":
-            # TGA compression
             if user_settings.get("rle", False):
                 save_kwargs["rle"] = True
 
         elif fmt == "dds":
-            # DDS format (if supported)
             pass
 
         return save_kwargs
@@ -810,14 +860,18 @@ class AtlasGenerator:
             Path to the metadata file.
         """
         # Determine a consistent logical canvas per animation so playback stays aligned
+        # When sprites are trimmed, use original (pre-trim) dimensions for canvas sizing
         animation_max_sizes: Dict[str, Tuple[int, int]] = {}
         for packed in packed_frames:
             user_data = packed.frame.user_data or {}
             animation_name = user_data.get("animation") or ""
+            # Use original dimensions if available (trimmed sprites have these)
+            original_w = user_data.get("original_width", packed.source_width)
+            original_h = user_data.get("original_height", packed.source_height)
             max_w, max_h = animation_max_sizes.get(animation_name, (0, 0))
             animation_max_sizes[animation_name] = (
-                max(max_w, packed.source_width),
-                max(max_h, packed.source_height),
+                max(max_w, original_w),
+                max(max_h, original_h),
             )
 
         # Convert PackedFrame to the format expected by exporters
@@ -825,15 +879,40 @@ class AtlasGenerator:
         for packed in packed_frames:
             user_data = packed.frame.user_data or {}
             animation_name = user_data.get("animation") or ""
-            max_w, max_h = animation_max_sizes.get(
-                animation_name, (packed.source_width, packed.source_height)
-            )
+
+            # Get original and trimmed dimensions
+            original_w = user_data.get("original_width", packed.source_width)
+            original_h = user_data.get("original_height", packed.source_height)
+            trim_offset_x = user_data.get("trim_offset_x", 0)
+            trim_offset_y = user_data.get("trim_offset_y", 0)
+            was_trimmed = user_data.get("trimmed", False)
+
+            # Current sprite dimensions (trimmed if applicable)
             sprite_width = packed.source_width
             sprite_height = packed.source_height
 
-            # Center smaller frames within the animation's logical canvas
-            frame_x = -((max_w - sprite_width) // 2)
-            frame_y = -((max_h - sprite_height) // 2)
+            # Get animation canvas size
+            max_w, max_h = animation_max_sizes.get(
+                animation_name, (original_w, original_h)
+            )
+
+            # Calculate frame offsets
+            # frameX/frameY indicate the position within the original canvas
+            # They're stored as negative values (TexturePacker convention)
+            if was_trimmed:
+                # When trimmed, frameX/Y = negative of trim offset
+                # This tells the engine where the trimmed content sits in the original
+                frame_x = -trim_offset_x
+                frame_y = -trim_offset_y
+                # frameWidth/Height = original dimensions
+                frame_w = original_w
+                frame_h = original_h
+            else:
+                # Not trimmed - center smaller frames within animation's canvas
+                frame_x = -((max_w - sprite_width) // 2)
+                frame_y = -((max_h - sprite_height) // 2)
+                frame_w = max_w
+                frame_h = max_h
 
             sprite = {
                 "name": user_data.get("name", packed.id),
@@ -843,10 +922,10 @@ class AtlasGenerator:
                 "height": sprite_height,
                 "frameX": frame_x,
                 "frameY": frame_y,
-                "frameWidth": max_w,
-                "frameHeight": max_h,
-                "source_width": sprite_width,
-                "source_height": sprite_height,
+                "frameWidth": frame_w,
+                "frameHeight": frame_h,
+                "source_width": original_w,
+                "source_height": original_h,
                 "rotated": packed.rotated,
                 "animation": animation_name,
                 "index": user_data.get("index", 0),

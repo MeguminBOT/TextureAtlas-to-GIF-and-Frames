@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QLabel,
     QPushButton,
+    QCheckBox,
 )
 from PySide6.QtCore import QThread, Signal
 
@@ -45,6 +46,23 @@ SUPPORTED_ROTATION_FORMATS = frozenset(
 
 SUPPORTED_FLIP_FORMATS = frozenset({"starling-xml"})
 
+# Formats that support storing trim offset data (frameX/frameY, spriteSourceSize, etc.)
+# These formats can represent trimmed sprites with offset metadata so consumers
+# can reconstruct the original sprite position during playback.
+SUPPORTED_TRIM_FORMATS = frozenset(
+    {
+        "starling-xml",  # frameX, frameY, frameWidth, frameHeight
+        "json-hash",  # spriteSourceSize, sourceSize, trimmed
+        "json-array",  # spriteSourceSize, sourceSize, trimmed
+        "texture-packer-xml",  # oX, oY (offset attributes)
+        "spine",  # offset in atlas format
+        "phaser3",  # spriteSourceSize, sourceSize
+        "plist",  # spriteOffset, spriteSourceSize
+        "uikit-plist",  # oX, oY offset fields
+        "paper2d",  # spriteSourceSize metadata
+    }
+)
+
 
 class GeneratorWorker(QThread):
     """Worker thread for atlas generation."""
@@ -79,6 +97,7 @@ class GeneratorWorker(QThread):
                 power_of_two=self.atlas_settings.get("power_of_2", False),
                 allow_rotation=self.atlas_settings.get("allow_rotation", False),
                 allow_flip=self.atlas_settings.get("allow_vertical_flip", False),
+                trim_sprites=self.atlas_settings.get("trim_sprites", False),
                 export_format=self.output_format,
                 compression_settings=self.atlas_settings.get("compression_settings"),
             )
@@ -166,8 +185,8 @@ class GenerateTabWidget(QWidget):
         # Initialize atlas sizing state
         self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
 
-        # Initialize rotation/flip checkboxes based on selected format
-        self._update_rotation_flip_state()
+        # Initialize rotation/flip/trim checkboxes based on selected format
+        self._update_rotation_flip_trim_state()
 
     @property
     def INPUT_FORMATS(self):
@@ -275,6 +294,9 @@ class GenerateTabWidget(QWidget):
         # Create heuristic selection combo box and label
         self._setup_heuristic_combo()
 
+        # Create trim sprites checkbox
+        self._setup_trim_checkbox()
+
     def setup_connections(self):
         """Set up signal-slot connections."""
         # File management
@@ -295,7 +317,7 @@ class GenerateTabWidget(QWidget):
         )
         self.image_format_combo.currentTextChanged.connect(self.on_format_change)
         self.atlas_type_combo.currentIndexChanged.connect(
-            self._update_rotation_flip_state
+            self._update_rotation_flip_trim_state
         )
         self.packer_method_combobox.currentTextChanged.connect(
             self.on_algorithm_changed
@@ -780,8 +802,48 @@ class GenerateTabWidget(QWidget):
         # Update heuristic combo box based on selected algorithm
         self._update_heuristic_combo(key)
 
-    def _update_rotation_flip_state(self):
-        """Update rotation and flip checkboxes based on selected atlas format.
+    def _setup_trim_checkbox(self):
+        """Create and insert the trim sprites checkbox."""
+        self.trim_sprites_check = QCheckBox(self.tr("Trim Sprites"))
+        self.trim_sprites_check.setChecked(False)
+        self.trim_sprites_check.setToolTip(
+            self.tr(
+                "Trim transparent edges from sprites for tighter packing.\n\n"
+                "When enabled, transparent pixels around each sprite are removed,\n"
+                "and offset metadata is stored so the original position can be\n"
+                "reconstructed during playback."
+            )
+        )
+
+        # Find the allow_flip_check's parent layout and insert after it
+        flip_check = self.allow_flip_check
+        parent_widget = flip_check.parent()
+        inserted = False
+        if parent_widget and parent_widget.layout():
+            layout = parent_widget.layout()
+            from PySide6.QtWidgets import QGridLayout
+
+            if isinstance(layout, QGridLayout):
+                # Find where the flip check is
+                for row in range(layout.rowCount()):
+                    for col in range(layout.columnCount()):
+                        item = layout.itemAtPosition(row, col)
+                        if item and item.widget() == flip_check:
+                            # Insert trim checkbox in next row
+                            layout.addWidget(
+                                self.trim_sprites_check, row + 1, col, 1, 1
+                            )
+                            inserted = True
+                            break
+                    if inserted:
+                        break
+
+        if not inserted:
+            # Fallback: hide if we can't find the layout
+            self.trim_sprites_check.setVisible(False)
+
+    def _update_rotation_flip_trim_state(self):
+        """Update rotation, flip, and trim checkboxes based on selected atlas format.
 
         Enables/disables checkboxes based on format support and shows warnings
         for non-standard features.
@@ -822,6 +884,29 @@ class GenerateTabWidget(QWidget):
                     "Only Sparrow/Starling XML with HaxeFlixel supports flip attributes."
                 ).format(format_key)
             )
+
+        # Check format support for trim (requires offset metadata storage)
+        supports_trim = format_key in SUPPORTED_TRIM_FORMATS
+        if hasattr(self, "trim_sprites_check"):
+            self.trim_sprites_check.setEnabled(supports_trim)
+            if supports_trim:
+                self.trim_sprites_check.setToolTip(
+                    self.tr(
+                        "Trim transparent edges from sprites for tighter packing.\n\n"
+                        "When enabled, transparent pixels around each sprite are removed,\n"
+                        "and offset metadata is stored so the original position can be\n"
+                        "reconstructed during playback."
+                    )
+                )
+            else:
+                self.trim_sprites_check.setChecked(False)
+                self.trim_sprites_check.setToolTip(
+                    self.tr(
+                        "Trim is not supported by {0} format.\n\n"
+                        "This format cannot store the offset metadata required\n"
+                        "to reconstruct sprite positions after trimming."
+                    ).format(format_key)
+                )
 
     def _determine_algorithm_hint(self):
         return self._current_algorithm_key()
@@ -1019,9 +1104,14 @@ class GenerateTabWidget(QWidget):
         algorithm_hint = self._determine_algorithm_hint()
         heuristic_hint = self._get_selected_heuristic()
 
-        # Get rotation/flip settings from checkboxes
+        # Get rotation/flip/trim settings from checkboxes
         allow_rotation = self.allow_rotation_check.isChecked()
         allow_vertical_flip = self.allow_flip_check.isChecked()
+        trim_sprites = (
+            self.trim_sprites_check.isChecked()
+            if hasattr(self, "trim_sprites_check")
+            else False
+        )
 
         if method == "Automatic":
             atlas_settings = {
@@ -1029,6 +1119,7 @@ class GenerateTabWidget(QWidget):
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
+                "trim_sprites": trim_sprites,
                 "atlas_size_method": "automatic",
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
@@ -1041,6 +1132,7 @@ class GenerateTabWidget(QWidget):
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
+                "trim_sprites": trim_sprites,
                 "atlas_size_method": "minmax",
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
@@ -1057,6 +1149,7 @@ class GenerateTabWidget(QWidget):
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
+                "trim_sprites": trim_sprites,
                 "atlas_size_method": "manual",
                 "forced_width": self.atlas_size_spinbox_1.value(),
                 "forced_height": self.atlas_size_spinbox_2.value(),
@@ -1070,6 +1163,7 @@ class GenerateTabWidget(QWidget):
                 "power_of_2": self.power_of_2_check.isChecked(),
                 "allow_rotation": allow_rotation,
                 "allow_vertical_flip": allow_vertical_flip,
+                "trim_sprites": trim_sprites,
                 "atlas_size_method": "automatic",
                 "preferred_algorithm": algorithm_hint,
                 "heuristic_hint": heuristic_hint,
