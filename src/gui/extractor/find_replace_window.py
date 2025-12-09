@@ -64,8 +64,10 @@ class FindReplaceWindow(QDialog):
         layout.addWidget(title_label)
 
         instructions = QLabel(
-            "Create rules to find and replace text in exported filenames. "
-            "Regular expressions are supported for advanced pattern matching."
+            self.tr(
+                "Create rules to find and replace text in exported filenames. "
+                "Regular expressions are supported for advanced pattern matching."
+            )
         )
         instructions.setWordWrap(True)
         instructions.setStyleSheet("color: #666666; margin-bottom: 10px;")
@@ -91,7 +93,7 @@ class FindReplaceWindow(QDialog):
 
         button_layout = QHBoxLayout()
 
-        ok_btn = QPushButton("OK")
+        ok_btn = QPushButton(self.tr("OK"))
         ok_btn.clicked.connect(self.accept_changes)
         ok_btn.setDefault(True)
 
@@ -139,7 +141,7 @@ class FindReplaceWindow(QDialog):
         find_label.setMinimumWidth(60)
         find_entry = QLineEdit()
         find_entry.setText(rule_data.get("find", ""))
-        find_entry.setPlaceholderText("Text to find...")
+        find_entry.setPlaceholderText(self.tr("Text to find..."))
         find_layout.addWidget(find_label)
         find_layout.addWidget(find_entry)
         rule_layout.addLayout(find_layout)
@@ -149,13 +151,13 @@ class FindReplaceWindow(QDialog):
         replace_label.setMinimumWidth(60)
         replace_entry = QLineEdit()
         replace_entry.setText(rule_data.get("replace", ""))
-        replace_entry.setPlaceholderText("Replacement text...")
+        replace_entry.setPlaceholderText(self.tr("Replacement text..."))
         replace_layout.addWidget(replace_label)
         replace_layout.addWidget(replace_entry)
         rule_layout.addLayout(replace_layout)
 
         options_layout = QHBoxLayout()
-        regex_checkbox = QCheckBox("Regular Expression")
+        regex_checkbox = QCheckBox(self.tr("Regular Expression"))
         regex_checkbox.setChecked(rule_data.get("regex", False))
 
         delete_btn = QPushButton(self.tr("Delete"))

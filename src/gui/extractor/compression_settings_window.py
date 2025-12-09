@@ -129,7 +129,7 @@ class CompressionSettingsWindow(QDialog):
         Args:
             layout: Parent QVBoxLayout for the settings group.
         """
-        group = QGroupBox("PNG Compression Settings")
+        group = QGroupBox(self.tr("PNG Compression Settings"))
         grid = QGridLayout(group)
 
         grid.addWidget(QLabel(self.tr("Compress Level (0-9):")), 0, 0)
@@ -146,7 +146,7 @@ class CompressionSettingsWindow(QDialog):
         )
         grid.addWidget(compress_level, 0, 1)
 
-        optimize = QCheckBox("Optimize PNG")
+        optimize = QCheckBox(self.tr("Optimize PNG"))
         optimize.setToolTip(
             "PNG optimize:\n"
             "• Enabled: Uses additional compression techniques for smaller files\n"
@@ -172,10 +172,10 @@ class CompressionSettingsWindow(QDialog):
         Args:
             layout: Parent QVBoxLayout for the settings group.
         """
-        group = QGroupBox("WebP Compression Settings")
+        group = QGroupBox(self.tr("WebP Compression Settings"))
         grid = QGridLayout(group)
 
-        lossless = QCheckBox("Lossless WebP")
+        lossless = QCheckBox(self.tr("Lossless WebP"))
         lossless.setToolTip(
             "WebP lossless mode:\n"
             "• Enabled: Perfect quality preservation, larger file size\n"
@@ -223,7 +223,7 @@ class CompressionSettingsWindow(QDialog):
         )
         grid.addWidget(alpha_quality, 3, 1)
 
-        exact = QCheckBox("Exact WebP")
+        exact = QCheckBox(self.tr("Exact WebP"))
         exact.setToolTip(
             "WebP exact mode:\n"
             "• Enabled: Preserves RGB values in transparent areas\n"
@@ -254,10 +254,10 @@ class CompressionSettingsWindow(QDialog):
         Args:
             layout: Parent QVBoxLayout for the settings group.
         """
-        group = QGroupBox("AVIF Compression Settings")
+        group = QGroupBox(self.tr("AVIF Compression Settings"))
         grid = QGridLayout(group)
 
-        lossless = QCheckBox("Lossless AVIF")
+        lossless = QCheckBox(self.tr("Lossless AVIF"))
         lossless.setToolTip(
             "AVIF lossless mode:\n"
             "• Enabled: Perfect quality preservation, larger file size\n"
@@ -310,7 +310,7 @@ class CompressionSettingsWindow(QDialog):
         Args:
             layout: Parent QVBoxLayout for the settings group.
         """
-        group = QGroupBox("TIFF Compression Settings")
+        group = QGroupBox(self.tr("TIFF Compression Settings"))
         grid = QGridLayout(group)
 
         grid.addWidget(QLabel(self.tr("Compression Type:")), 0, 0)
@@ -337,7 +337,7 @@ class CompressionSettingsWindow(QDialog):
         )
         grid.addWidget(quality, 1, 1)
 
-        optimize = QCheckBox("Optimize TIFF")
+        optimize = QCheckBox(self.tr("Optimize TIFF"))
         optimize.setToolTip(
             "TIFF optimize:\n"
             "• Enabled: Use additional optimization techniques\n"

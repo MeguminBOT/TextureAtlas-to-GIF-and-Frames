@@ -17,6 +17,7 @@ from parsers.parser_types import (
 )
 
 # Qt imports
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QMessageBox, QApplication
 
 
@@ -204,10 +205,17 @@ class UnknownParser(BaseParser):
 
             msg_box = QMessageBox(parent_window)
             msg_box.setIcon(QMessageBox.Icon.Question)
-            msg_box.setWindowTitle("Background Color Detected")
+            msg_box.setWindowTitle(
+                QCoreApplication.translate("UnknownParser", "Background Color Detected")
+            )
             msg_box.setText(
-                f"Detected background color: RGB{background_color}\n\n"
-                "Would you like to remove this background color and make it transparent?"
+                QCoreApplication.translate(
+                    "UnknownParser",
+                    (
+                        "Detected background color: RGB{color}\n\n"
+                        "Would you like to remove this background color and make it transparent?"
+                    ),
+                ).format(color=background_color)
             )
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No

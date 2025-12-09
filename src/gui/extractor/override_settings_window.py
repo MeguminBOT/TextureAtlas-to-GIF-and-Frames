@@ -284,11 +284,13 @@ class OverrideSettingsWindow(QDialog):
 
         layout.addWidget(QLabel(self.tr("Indices (comma-separated):")), row, 0)
         self.indices_edit = QLineEdit()
-        self.indices_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
+        self.indices_edit.setPlaceholderText(
+            self.tr("e.g., 0,1,2,3 or leave empty for all")
+        )
         layout.addWidget(self.indices_edit, row, 1)
         row += 1
 
-        self.var_delay_check = QCheckBox("Variable delay")
+        self.var_delay_check = QCheckBox(self.tr("Variable delay"))
         layout.addWidget(self.var_delay_check, row, 0, 1, 2)
         row += 1
 
@@ -300,14 +302,16 @@ class OverrideSettingsWindow(QDialog):
         Returns:
             QGroupBox containing frame format, scale, and selection controls.
         """
-        group = QGroupBox("Frame export settings")
+        group = QGroupBox(self.tr("Frame export settings"))
         layout = QGridLayout(group)
 
         row = 0
 
         layout.addWidget(QLabel(self.tr("Frames to keep:")), row, 0)
         self.frames_edit = QLineEdit()
-        self.frames_edit.setPlaceholderText("e.g., 0,1,2,3 or leave empty for all")
+        self.frames_edit.setPlaceholderText(
+            self.tr("e.g., 0,1,2,3 or leave empty for all")
+        )
         layout.addWidget(self.frames_edit, row, 1)
         row += 1
 

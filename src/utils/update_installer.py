@@ -84,7 +84,7 @@ if QT_AVAILABLE:
         def __init__(self, parent=None):
             """Initialize the dialog with log view, progress bar, and buttons."""
             super().__init__(parent)
-            self.setWindowTitle("TextureAtlas Toolbox Updater")
+            self.setWindowTitle(self.tr("TextureAtlas Toolbox Updater"))
             self.setModal(True)
             self.resize(680, 520)
             self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
@@ -100,18 +100,18 @@ if QT_AVAILABLE:
                 "}"
             )
 
-            self.progress_label = QLabel("Initializing...")
+            self.progress_label = QLabel(self.tr("Initializing..."))
             self.progress_label.setStyleSheet("color: #cccccc; font-size: 12px;")
 
             self.progress_bar = QProgressBar()
             self.progress_bar.setRange(0, 100)
             self.progress_bar.setValue(0)
 
-            self.restart_button = QPushButton("Restart Application")
+            self.restart_button = QPushButton(self.tr("Restart Application"))
             self.restart_button.setEnabled(False)
             self.restart_button.clicked.connect(self._handle_restart)
 
-            self.close_button = QPushButton("Close")
+            self.close_button = QPushButton(self.tr("Close"))
             self.close_button.setEnabled(False)
             self.close_button.clicked.connect(self.reject)
 

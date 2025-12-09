@@ -556,7 +556,7 @@ class AnimationPreviewWindow(QDialog):
 
     def init_ui(self):
         """Build the dialog layout and connect signals."""
-        self.setWindowTitle("Animation Preview")
+        self.setWindowTitle(self.tr("Animation Preview"))
         self.setMinimumSize(960, 480)
         self.resize(1366, 768)
 
@@ -591,11 +591,11 @@ class AnimationPreviewWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        close_button = QPushButton("Close")
+        close_button = QPushButton(self.tr("Close"))
         close_button.clicked.connect(self.reject)
         button_layout.addWidget(close_button)
 
-        close_save_button = QPushButton("Close and Save")
+        close_save_button = QPushButton(self.tr("Close and Save"))
         close_save_button.clicked.connect(self.close_and_save)
         button_layout.addWidget(close_save_button)
 
@@ -618,7 +618,7 @@ class AnimationPreviewWindow(QDialog):
             "period": self.period_spinbox.value(),
             "threshold": self.threshold_spinbox.value(),
             "var_delay": self.var_delay_checkbox.isChecked(),
-            "crop_option": self.crop_combo.currentText(),
+            "crop_option": self.crop_combo.currentData(),
         }
 
         if len(checked_frames) < len(self.frames) and checked_frames:
@@ -637,7 +637,7 @@ class AnimationPreviewWindow(QDialog):
         panel = QWidget()
         layout = QVBoxLayout(panel)
 
-        layout.addWidget(QLabel("Frames:"))
+        layout.addWidget(QLabel(self.tr("Frames:")))
 
         self.frame_list = FrameListWidget()
         self.frame_list.frame_selected.connect(self.goto_frame)
@@ -657,7 +657,7 @@ class AnimationPreviewWindow(QDialog):
 
         self.display = AnimationDisplay()
 
-        self.display.setToolTip("Hold Ctrl and use mouse wheel to zoom in/out")
+        self.display.setToolTip(self.tr("Hold Ctrl and use mouse wheel to zoom in/out"))
 
         self.display.scale_changed.connect(self.on_display_scale_changed)
 
@@ -665,7 +665,7 @@ class AnimationPreviewWindow(QDialog):
 
         info_layout = QHBoxLayout()
 
-        self.frame_info_label = QLabel("Frame 1 / 1")
+        self.frame_info_label = QLabel(self.tr("Frame 1 / 1"))
         self.frame_info_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         info_layout.addWidget(self.frame_info_label)
 
@@ -688,10 +688,10 @@ class AnimationPreviewWindow(QDialog):
         panel.setMaximumWidth(300)
         layout = QVBoxLayout(panel)
 
-        format_group = QGroupBox("Animation Format")
+        format_group = QGroupBox(self.tr("Animation Format"))
         format_layout = QGridLayout(format_group)
 
-        format_layout.addWidget(QLabel("Format:"), 0, 0)
+        format_layout.addWidget(QLabel(self.tr("Format:")), 0, 0)
         self.format_combo = QComboBox()
         self.format_combo.addItems(["GIF", "WebP", "APNG"])
         self.format_combo.setCurrentText(self.settings.get("animation_format", "GIF"))
@@ -700,36 +700,36 @@ class AnimationPreviewWindow(QDialog):
 
         layout.addWidget(format_group)
 
-        playback_group = QGroupBox("Animation Settings")
+        playback_group = QGroupBox(self.tr("Animation Settings"))
         playback_layout = QGridLayout(playback_group)
 
-        playback_layout.addWidget(QLabel("FPS:"), 0, 0)
+        playback_layout.addWidget(QLabel(self.tr("FPS:")), 0, 0)
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(1, 60)
         self.fps_spinbox.setValue(self.settings.get("fps", 24))
         self.fps_spinbox.valueChanged.connect(self.on_fps_changed)
         playback_layout.addWidget(self.fps_spinbox, 0, 1)
 
-        playback_layout.addWidget(QLabel("Loop Delay (ms):"), 1, 0)
+        playback_layout.addWidget(QLabel(self.tr("Loop Delay (ms):")), 1, 0)
         self.delay_spinbox = QSpinBox()
         self.delay_spinbox.setRange(0, 5000)
         self.delay_spinbox.setValue(self.settings.get("delay", 250))
         self.delay_spinbox.valueChanged.connect(self.on_delay_changed)
         playback_layout.addWidget(self.delay_spinbox, 1, 1)
 
-        playback_layout.addWidget(QLabel("Min Period (ms):"), 2, 0)
+        playback_layout.addWidget(QLabel(self.tr("Min Period (ms):")), 2, 0)
         self.period_spinbox = QSpinBox()
         self.period_spinbox.setRange(0, 10000)
         self.period_spinbox.setValue(self.settings.get("period", 0))
         self.period_spinbox.valueChanged.connect(self.on_period_changed)
         playback_layout.addWidget(self.period_spinbox, 2, 1)
 
-        self.var_delay_checkbox = QCheckBox("Variable delay")
+        self.var_delay_checkbox = QCheckBox(self.tr("Variable delay"))
         self.var_delay_checkbox.setChecked(self.settings.get("var_delay", False))
         self.var_delay_checkbox.toggled.connect(self.on_var_delay_changed)
         playback_layout.addWidget(self.var_delay_checkbox, 3, 0, 1, 2)
 
-        playback_layout.addWidget(QLabel("Scale:"), 4, 0)
+        playback_layout.addWidget(QLabel(self.tr("Scale:")), 4, 0)
         self.anim_scale_spinbox = QDoubleSpinBox()
         self.anim_scale_spinbox.setRange(0.1, 10.0)
         self.anim_scale_spinbox.setSingleStep(0.1)
@@ -737,22 +737,27 @@ class AnimationPreviewWindow(QDialog):
         self.anim_scale_spinbox.valueChanged.connect(self.on_anim_scale_changed)
         playback_layout.addWidget(self.anim_scale_spinbox, 4, 1)
 
-        playback_layout.addWidget(QLabel("Indices:"), 5, 0)
+        playback_layout.addWidget(QLabel(self.tr("Indices:")), 5, 0)
         self.indices_edit = QLineEdit()
         self.indices_edit.setPlaceholderText(
-            "e.g., 0,2,4 or 0-5 (leave empty for all frames)"
+            self.tr("e.g., 0,2,4 or 0-5 (leave empty for all frames)")
         )
         self.indices_edit.textChanged.connect(self.on_indices_changed)
         playback_layout.addWidget(self.indices_edit, 5, 1)
 
-        playback_layout.addWidget(QLabel("Crop Option:"), 6, 0)
+        playback_layout.addWidget(QLabel(self.tr("Crop Option:")), 6, 0)
         self.crop_combo = QComboBox()
-        self.crop_combo.addItems(["None", "Animation based", "Frame based"])
-        self.crop_combo.setCurrentText(self.settings.get("crop_option", "None"))
-        self.crop_combo.currentTextChanged.connect(self.on_crop_changed)
+        self.crop_combo.addItem(self.tr("None"), "None")
+        self.crop_combo.addItem(self.tr("Animation based"), "Animation based")
+        self.crop_combo.addItem(self.tr("Frame based"), "Frame based")
+        current_crop = self.settings.get("crop_option", "None")
+        current_index = self.crop_combo.findData(current_crop)
+        if current_index != -1:
+            self.crop_combo.setCurrentIndex(current_index)
+        self.crop_combo.currentIndexChanged.connect(self.on_crop_changed)
         playback_layout.addWidget(self.crop_combo, 6, 1)
 
-        playback_layout.addWidget(QLabel("Threshold:"), 7, 0)
+        playback_layout.addWidget(QLabel(self.tr("Threshold:")), 7, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
         self.threshold_spinbox.setSingleStep(0.1)
@@ -762,14 +767,14 @@ class AnimationPreviewWindow(QDialog):
 
         layout.addWidget(playback_group)
 
-        display_group = QGroupBox("Display")
+        display_group = QGroupBox(self.tr("Display"))
         display_layout = QGridLayout(display_group)
 
-        self.loop_checkbox = QCheckBox("Loop preview")
+        self.loop_checkbox = QCheckBox(self.tr("Loop preview"))
         self.loop_checkbox.setChecked(True)
         display_layout.addWidget(self.loop_checkbox, 0, 0, 1, 2)
 
-        display_layout.addWidget(QLabel("Preview Zoom:"), 1, 0)
+        display_layout.addWidget(QLabel(self.tr("Preview Zoom:")), 1, 0)
         self.scale_spinbox = QSpinBox()
         self.scale_spinbox.setRange(10, 500)
         self.scale_spinbox.setSingleStep(10)
@@ -781,13 +786,17 @@ class AnimationPreviewWindow(QDialog):
         self.scale_spinbox.valueChanged.connect(self.on_scale_percentage_changed)
         display_layout.addWidget(self.scale_spinbox, 1, 1)
 
-        display_layout.addWidget(QLabel("Background:"), 2, 0)
+        display_layout.addWidget(QLabel(self.tr("Background:")), 2, 0)
         bg_layout = QVBoxLayout()
 
         self.bg_mode_combo = QComboBox()
-        self.bg_mode_combo.addItems(["None", "Solid Color", "Transparency Pattern"])
-        self.bg_mode_combo.setCurrentText("None")
-        self.bg_mode_combo.currentTextChanged.connect(self.on_background_mode_changed)
+        self.bg_mode_combo.addItem(self.tr("None"), "None")
+        self.bg_mode_combo.addItem(self.tr("Solid Color"), "Solid Color")
+        self.bg_mode_combo.addItem(
+            self.tr("Transparency Pattern"), "Transparency Pattern"
+        )
+        self.bg_mode_combo.setCurrentIndex(self.bg_mode_combo.findData("None"))
+        self.bg_mode_combo.currentIndexChanged.connect(self.on_background_mode_changed)
         bg_layout.addWidget(self.bg_mode_combo)
 
         self.bg_color_button = QPushButton()
@@ -804,10 +813,10 @@ class AnimationPreviewWindow(QDialog):
 
         layout.addWidget(display_group)
 
-        export_group = QGroupBox("Export")
+        export_group = QGroupBox(self.tr("Export"))
         export_layout = QVBoxLayout(export_group)
 
-        self.regenerate_button = QPushButton("Force Regenerate Animation")
+        self.regenerate_button = QPushButton(self.tr("Force Regenerate Animation"))
         self.regenerate_button.clicked.connect(self.regenerate_animation)
         export_layout.addWidget(self.regenerate_button)
 
@@ -830,15 +839,15 @@ class AnimationPreviewWindow(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        self.play_button = QPushButton("Play")
+        self.play_button = QPushButton(self.tr("Play"))
         self.play_button.clicked.connect(self.toggle_playback)
         button_layout.addWidget(self.play_button)
 
-        prev_button = QPushButton("Previous")
+        prev_button = QPushButton(self.tr("Previous"))
         prev_button.clicked.connect(self.previous_frame)
         button_layout.addWidget(prev_button)
 
-        next_button = QPushButton("Next")
+        next_button = QPushButton(self.tr("Next"))
         next_button.clicked.connect(self.next_frame)
         button_layout.addWidget(next_button)
 
@@ -846,7 +855,7 @@ class AnimationPreviewWindow(QDialog):
         controls_layout.addLayout(button_layout)
 
         slider_layout = QHBoxLayout()
-        slider_layout.addWidget(QLabel("Position:"))
+        slider_layout.addWidget(QLabel(self.tr("Position:")))
         self.position_slider = QSlider(Qt.Orientation.Horizontal)
         self.position_slider.setMinimum(0)
         self.position_slider.valueChanged.connect(self.on_position_changed)
@@ -859,7 +868,11 @@ class AnimationPreviewWindow(QDialog):
         """Start loading animation frames in a background thread."""
         if not os.path.exists(self.animation_path):
             QMessageBox.warning(
-                self, "Error", f"Animation file not found: {self.animation_path}"
+                self,
+                self.tr("Error"),
+                self.tr("Animation file not found: {path}").format(
+                    path=self.animation_path
+                ),
             )
             return
 
@@ -871,7 +884,7 @@ class AnimationPreviewWindow(QDialog):
         self.frame_durations.clear()
 
         self.is_loading = True
-        self.progress_label.setText("Loading...")
+        self.progress_label.setText(self.tr("Loading..."))
 
         if self.play_button:
             self.play_button.setEnabled(False)
@@ -892,7 +905,11 @@ class AnimationPreviewWindow(QDialog):
         """
         if self.progress_label:
             percentage = int((current / total) * 100) if total > 0 else 0
-            self.progress_label.setText(f"Loading... {percentage}% ({current}/{total})")
+            self.progress_label.setText(
+                self.tr("Loading... {percent}% ({current}/{total})").format(
+                    percent=percentage, current=current, total=total
+                )
+            )
 
     def on_frame_processed(self, frame_index: int, pixmap: QPixmap):
         """Store a loaded frame and update the display if visible.
@@ -925,7 +942,9 @@ class AnimationPreviewWindow(QDialog):
         frame_count = len(self.frames)
 
         self.is_loading = False
-        self.progress_label.setText(f"Loaded {frame_count} frames")
+        self.progress_label.setText(
+            self.tr("Loaded {count} frames").format(count=frame_count)
+        )
 
         if self.play_button:
             self.play_button.setEnabled(True)
@@ -957,12 +976,12 @@ class AnimationPreviewWindow(QDialog):
             error_message: Description of the error that occurred.
         """
         self.is_loading = False
-        self.progress_label.setText("Error loading animation")
+        self.progress_label.setText(self.tr("Error loading animation"))
 
         if self.play_button:
             self.play_button.setEnabled(True)
 
-        QMessageBox.warning(self, "Error", error_message)
+        QMessageBox.warning(self, self.tr("Error"), error_message)
 
     def cleanup_resources(self):
         """Stop the processor thread, timer, and release frames."""
@@ -1000,11 +1019,13 @@ class AnimationPreviewWindow(QDialog):
             self.display.set_frame(pixmap)
 
             total_frames = len(self.frames)
-            frame_info = f"Frame {self.current_frame + 1} / {total_frames}"
+            frame_info = self.tr("Frame {index} / {total}").format(
+                index=self.current_frame + 1, total=total_frames
+            )
 
             if self.frame_durations and self.current_frame < len(self.frame_durations):
                 delay_ms = self.frame_durations[self.current_frame]
-                frame_info += f" ({delay_ms}ms)"
+                frame_info += self.tr(" ({delay}ms)").format(delay=delay_ms)
 
             self.frame_info_label.setText(frame_info)
 
@@ -1027,7 +1048,7 @@ class AnimationPreviewWindow(QDialog):
             return
 
         self.is_playing = True
-        self.play_button.setText("Pause")
+        self.play_button.setText(self.tr("Pause"))
 
         self._loop_delay_applied = False
         fps = self.settings.get("fps", 24)
@@ -1042,7 +1063,7 @@ class AnimationPreviewWindow(QDialog):
     def pause(self):
         """Stop playback and reset the button label."""
         self.is_playing = False
-        self.play_button.setText("Play")
+        self.play_button.setText(self.tr("Play"))
         self.timer.stop()
 
         self._loop_delay_applied = False
@@ -1292,21 +1313,24 @@ class AnimationPreviewWindow(QDialog):
     def choose_background_color(self):
         """Open a color dialog and apply the chosen background."""
         color = QColorDialog.getColor(
-            QColor(127, 127, 127), self, "Choose Background Color"
+            QColor(127, 127, 127), self, self.tr("Choose Background Color")
         )
         if color.isValid():
             self.display.set_background_color(color)
             self.bg_color_button.setStyleSheet(
                 f"background-color: {color.name()}; border: 1px solid gray;"
             )
-            self.bg_mode_combo.setCurrentText("Solid Color")
+            solid_index = self.bg_mode_combo.findData("Solid Color")
+            if solid_index != -1:
+                self.bg_mode_combo.setCurrentIndex(solid_index)
 
-    def on_background_mode_changed(self, mode: str):
+    def on_background_mode_changed(self, _index: int):
         """Switch the display background and show/hide the color button.
 
         Args:
             mode: One of 'None', 'Solid Color', or 'Transparency Pattern'.
         """
+        mode = self.bg_mode_combo.currentData()
         self.display.set_background_mode(mode)
         self.bg_color_button.setVisible(mode == "Solid Color")
 
@@ -1431,11 +1455,17 @@ class AnimationPreviewWindow(QDialog):
                 self.frame_durations.clear()
                 self.load_animation()
             else:
-                QMessageBox.warning(self, "Error", "Failed to regenerate animation.")
+                QMessageBox.warning(
+                    self,
+                    self.tr("Error"),
+                    self.tr("Failed to regenerate animation."),
+                )
 
         except Exception as e:
             QMessageBox.warning(
-                self, "Error", f"Failed to regenerate animation: {str(e)}"
+                self,
+                self.tr("Error"),
+                self.tr("Failed to regenerate animation: {error}").format(error=str(e)),
             )
 
     def update_format_settings(self):
@@ -1558,13 +1588,13 @@ class AnimationPreviewWindow(QDialog):
         self.settings["scale"] = scale
         self.regenerate_animation()
 
-    def on_crop_changed(self, crop_option):
+    def on_crop_changed(self, _index):
         """Update the crop option and regenerate.
 
         Args:
             crop_option: One of 'None', 'Animation based', or 'Frame based'.
         """
-        self.settings["crop_option"] = crop_option
+        self.settings["crop_option"] = self.crop_combo.currentData()
         self.regenerate_animation()
 
     def on_threshold_changed(self, threshold):

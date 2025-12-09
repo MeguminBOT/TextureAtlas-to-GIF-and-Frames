@@ -275,6 +275,40 @@ class GenerateTabWidget(QWidget):
         self.status_label = self.ui.status_label
         self.log_text = self.ui.log_text
 
+        self._setup_generator_tooltips()
+
+    def _setup_generator_tooltips(self):
+        """Set up tooltips for generator tab UI controls."""
+        atlas_size_method_tooltip = self.tr(
+            "Atlas sizing method:\n"
+            "• Automatic: Detects smallest needed pixel size\n"
+            "• MinMax: Limits size between min and max resolution\n"
+            "• Manual: Enter exact resolution manually\n\n"
+            "Automatic is recommended."
+        )
+        self.atlas_size_method_combobox.setToolTip(atlas_size_method_tooltip)
+        self.atlas_size_label_1.setToolTip(atlas_size_method_tooltip)
+
+        self.power_of_2_check.setToolTip(
+            self.tr(
+                "Force atlas dimensions to be powers of 2 (e.g., 512, 1024, 2048).\n\n"
+                "Power-of-two sizes may enable faster loading, better compression,\n"
+                "and full support for mipmaps and tiling.\n\n"
+                "• Older GPUs and WebGL 1 often require Po2 textures\n"
+                "• Modern GPUs and WebGL 2+ fully support non-Po2 textures\n\n"
+                "Use Po2 when targeting older devices or using mipmapping,\n"
+                "texture wrapping, or GPU compression."
+            )
+        )
+
+        self.padding_spin.setToolTip(
+            self.tr(
+                "Pixels of padding between sprites.\n\n"
+                "Padding helps prevent texture bleeding during rendering,\n"
+                "especially when using texture filtering or mipmaps."
+            )
+        )
+
     def setup_custom_widgets(self):
         """Set up custom widgets that need to replace placeholders."""
         self.animation_tree = AnimationTreeWidget()
@@ -958,7 +992,12 @@ class GenerateTabWidget(QWidget):
         if supports_flip:
             self.allow_flip_check.setToolTip(
                 self.tr(
-                    "Allow the packer to flip sprites for tighter packing.\n\n"
+                    "Detect and deduplicate flipped sprite variants.\n\n"
+                    "When enabled, sprites that are horizontally or vertically\n"
+                    "flipped versions of other sprites are stored only once,\n"
+                    "with flip metadata so engines can reconstruct them.\n\n"
+                    "This can significantly reduce atlas size when your sprites\n"
+                    "include mirrored variants (e.g., character facing left/right).\n\n"
                     "Warning: This is a non-standard extension only supported by HaxeFlixel.\n"
                     "Most Starling/Sparrow implementations will ignore flip attributes."
                 )

@@ -76,7 +76,7 @@ class ErrorDialogWithLinks(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        ok_button = QPushButton("OK")
+        ok_button = QPushButton(self.tr("OK"))
         ok_button.clicked.connect(self.accept)
         ok_button.setFixedWidth(80)
         button_layout.addWidget(ok_button)
@@ -117,7 +117,9 @@ class DependenciesChecker:
         if app is None:
             app = QApplication([])
 
-        QMessageBox.critical(parent, "Error", message)
+            QMessageBox.critical(
+                parent, translate("DependenciesChecker", "Error"), message
+            )
 
     @staticmethod
     def check_imagemagick():

@@ -949,7 +949,7 @@ class TextureAtlasExtractorApp(QMainWindow):
                     success_msg = QCoreApplication.translate(
                         "TextureAtlasExtractorApp", "Language changed successfully!"
                     )
-                    QMessageBox.information(self, "Success", success_msg)
+                    QMessageBox.information(self, self.tr("Success"), success_msg)
                 else:
                     # Show error message
                     QMessageBox.warning(

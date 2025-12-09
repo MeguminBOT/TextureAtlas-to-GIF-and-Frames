@@ -1141,19 +1141,9 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "Export as animations", None
             )
         )
-        self.animation_format_combobox.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "GIF", None)
-        )
-        self.animation_format_combobox.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "WebP", None)
-        )
-        self.animation_format_combobox.setItemText(
-            2, QCoreApplication.translate("TextureAtlasToolboxApp", "APNG", None)
-        )
-        self.animation_format_combobox.setItemText(
-            3,
-            QCoreApplication.translate("TextureAtlasToolboxApp", "Custom FFMPEG", None),
-        )
+        self.animation_format_combobox.setItemText(0, "GIF")
+        self.animation_format_combobox.setItemText(1, "WebP")
+        self.animation_format_combobox.setItemText(2, "APNG")
 
         # if QT_CONFIG(statustip)
         self.animation_format_combobox.setStatusTip(
@@ -1177,9 +1167,7 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.frame_rate_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " fps", None)
-        )
+        self.frame_rate_entry.setSuffix(" fps")
         self.frame_rate_entry.setPrefix("")
         # if QT_CONFIG(statustip)
         self.loop_delay_entry.setStatusTip(
@@ -1190,9 +1178,7 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.loop_delay_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " ms", None)
-        )
+        self.loop_delay_entry.setSuffix(" ms")
         # if QT_CONFIG(statustip)
         self.min_period_entry.setStatusTip(
             QCoreApplication.translate(
@@ -1202,9 +1188,7 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.min_period_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " ms", None)
-        )
+        self.min_period_entry.setSuffix(" ms")
         self.frame_rate_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Frame rate", None)
         )
@@ -1231,9 +1215,7 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.threshold_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " %", None)
-        )
+        self.threshold_entry.setSuffix(" %")
         # if QT_CONFIG(statustip)
         self.scale_entry.setStatusTip(
             QCoreApplication.translate(
@@ -1241,9 +1223,7 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.scale_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " \u00d7", None)
-        )
+        self.scale_entry.setSuffix(" \u00d7")
         # if QT_CONFIG(statustip)
         self.frame_export_group.setStatusTip(
             QCoreApplication.translate(
@@ -1256,27 +1236,13 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "Export as frames", None
             )
         )
-        self.frame_format_combobox.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "AVIF", None)
-        )
-        self.frame_format_combobox.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "BMP", None)
-        )
-        self.frame_format_combobox.setItemText(
-            2, QCoreApplication.translate("TextureAtlasToolboxApp", "DDS", None)
-        )
-        self.frame_format_combobox.setItemText(
-            3, QCoreApplication.translate("TextureAtlasToolboxApp", "PNG", None)
-        )
-        self.frame_format_combobox.setItemText(
-            4, QCoreApplication.translate("TextureAtlasToolboxApp", "TGA", None)
-        )
-        self.frame_format_combobox.setItemText(
-            5, QCoreApplication.translate("TextureAtlasToolboxApp", "TIFF", None)
-        )
-        self.frame_format_combobox.setItemText(
-            6, QCoreApplication.translate("TextureAtlasToolboxApp", "WebP", None)
-        )
+        self.frame_format_combobox.setItemText(0, "AVIF")
+        self.frame_format_combobox.setItemText(1, "BMP")
+        self.frame_format_combobox.setItemText(2, "DDS")
+        self.frame_format_combobox.setItemText(3, "PNG")
+        self.frame_format_combobox.setItemText(4, "TGA")
+        self.frame_format_combobox.setItemText(5, "TIFF")
+        self.frame_format_combobox.setItemText(6, "WebP")
 
         # if QT_CONFIG(statustip)
         self.frame_format_combobox.setStatusTip(
@@ -1299,28 +1265,16 @@ class Ui_TextureAtlasToolboxApp(object):
             )
         )
         # endif // QT_CONFIG(statustip)
-        self.frame_scale_entry.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " \u00d7", None)
-        )
-        self.frame_selection_combobox.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "All", None)
-        )
+        self.frame_scale_entry.setSuffix(" \u00d7")
+        self.frame_selection_combobox.setItemText(0, "All")
         self.frame_selection_combobox.setItemText(
             1,
             QCoreApplication.translate("TextureAtlasToolboxApp", "No duplicates", None),
         )
-        self.frame_selection_combobox.setItemText(
-            2, QCoreApplication.translate("TextureAtlasToolboxApp", "First", None)
-        )
-        self.frame_selection_combobox.setItemText(
-            3, QCoreApplication.translate("TextureAtlasToolboxApp", "Last", None)
-        )
-        self.frame_selection_combobox.setItemText(
-            4, QCoreApplication.translate("TextureAtlasToolboxApp", "First, Last", None)
-        )
-        self.frame_selection_combobox.setItemText(
-            5, QCoreApplication.translate("TextureAtlasToolboxApp", "Custom", None)
-        )
+        self.frame_selection_combobox.setItemText(2, "First")
+        self.frame_selection_combobox.setItemText(3, "Last")
+        self.frame_selection_combobox.setItemText(4, "First, Last")
+        self.frame_selection_combobox.setItemText(5, "Custom")
 
         # if QT_CONFIG(statustip)
         self.frame_selection_combobox.setStatusTip(
@@ -1355,18 +1309,14 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "Cropping method", None
             )
         )
-        self.cropping_method_combobox.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "None", None)
-        )
+        self.cropping_method_combobox.setItemText(0, "None")
         self.cropping_method_combobox.setItemText(
             1,
             QCoreApplication.translate(
                 "TextureAtlasToolboxApp", "Animation based", None
             ),
         )
-        self.cropping_method_combobox.setItemText(
-            2, QCoreApplication.translate("TextureAtlasToolboxApp", "Frame based", None)
-        )
+        self.cropping_method_combobox.setItemText(2, "Frame based")
 
         # if QT_CONFIG(statustip)
         self.cropping_method_combobox.setStatusTip(
@@ -1425,19 +1375,9 @@ class Ui_TextureAtlasToolboxApp(object):
         # endif // QT_CONFIG(statustip)
         self.filename_suffix_entry.setText("")
         self.filename_suffix_entry.setPlaceholderText("")
-        self.filename_format_combobox.setItemText(
-            0,
-            QCoreApplication.translate("TextureAtlasToolboxApp", "Standardized", None),
-        )
-        self.filename_format_combobox.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "No spaces", None)
-        )
-        self.filename_format_combobox.setItemText(
-            2,
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp", "No special characters", None
-            ),
-        )
+        self.filename_format_combobox.setItemText(0, "Standardized")
+        self.filename_format_combobox.setItemText(1, "No spaces")
+        self.filename_format_combobox.setItemText(2, "No special characters")
 
         # if QT_CONFIG(statustip)
         self.filename_format_combobox.setStatusTip(
@@ -1604,37 +1544,13 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "No frames loaded", None
             )
         )
-        # if QT_CONFIG(tooltip)
-        self.settings_panel.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                "This spritesheet uses 4096\u00d74096 dimensions, which are GPU-optimized. Power-of-two sizes enable faster loading, better compression, and full support for mipmaps and tiling.",
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
         self.atlas_group.setTitle(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Atlas Settings", None)
         )
-        self.atlas_size_method_combobox.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "Automatic", None)
-        )
-        self.atlas_size_method_combobox.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "MinMax", None)
-        )
-        self.atlas_size_method_combobox.setItemText(
-            2, QCoreApplication.translate("TextureAtlasToolboxApp", "Manual", None)
-        )
+        self.atlas_size_method_combobox.setItemText(0, "Automatic")
+        self.atlas_size_method_combobox.setItemText(1, "MinMax")
+        self.atlas_size_method_combobox.setItemText(2, "Manual")
 
-        # if QT_CONFIG(tooltip)
-        self.atlas_size_method_combobox.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                '<html><head/><body><p><span style=" font-weight:700;">Atlas sizing method:</span><br/>\u2022 <span style=" font-style:italic;">Automatic</span>: Detects smallest needed pixel size<br/>\u2022 <span style=" font-style:italic;">MinMax</span>: Limits size between min and max resolution<br/>\u2022 <span style=" font-style:italic;">Manual</span>: Enter exact resolution manually</p><p>Automatic is recommended.</p></body></html>',
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
         # if QT_CONFIG(statustip)
         self.atlas_size_method_combobox.setStatusTip(
             QCoreApplication.translate(
@@ -1647,28 +1563,13 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_type_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Atlas type", None)
         )
-        self.image_format_combo.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "PNG", None)
-        )
-        self.image_format_combo.setItemText(
-            1, QCoreApplication.translate("TextureAtlasToolboxApp", "JPEG", None)
-        )
+        self.image_format_combo.setItemText(0, "PNG")
+        self.image_format_combo.setItemText(1, "JPEG")
 
         # if QT_CONFIG(statustip)
         self.atlas_size_spinbox_1.setStatusTip("")
         # endif // QT_CONFIG(statustip)
-        self.atlas_size_spinbox_1.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
-        # if QT_CONFIG(tooltip)
-        self.atlas_size_method_label.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                '<html><head/><body><p><span style=" font-weight:700;">Atlas sizing method:</span><br/>\u2022 <span style=" font-style:italic;">Automatic</span>: Detects smallest needed pixel size<br/>\u2022 <span style=" font-style:italic;">MinMax</span>: Limits size between min and max resolution<br/>\u2022 <span style=" font-style:italic;">Manual</span>: Enter exact resolution manually</p><p>Automatic is recommended.</p></body></html>',
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
+        self.atlas_size_spinbox_1.setSuffix(" px")
         # if QT_CONFIG(statustip)
         self.atlas_size_method_label.setStatusTip(
             QCoreApplication.translate(
@@ -1683,16 +1584,6 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "Atlas size method", None
             )
         )
-        # if QT_CONFIG(tooltip)
-        self.power_of_2_check.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                '<html><head/><body><p>Power-of-two sizes <span style=" font-style:italic;">may</span> enable faster loading, better compression, and full support for mipmaps and tiling.</p><p><br/></p><p><span style=" font-weight:700; font-style:italic;">Older GPUs and WebGL 1</span><span style=" font-style:italic;"> often require Po2 textures for full compatibility or better performance<br/></span><span style=" font-weight:700; font-style:italic;">Modern GPUs and WebGL 2+</span><span style=" font-style:italic;"> fully support non-Po2 textures without penalty.</span></p><p><br/><span style=" font-weight:700;">Use Po2 textures when</span></p><p><span style=" font-style:italic;">Memory usage is important or you\'re not using </span><span style=" font-weight:700; font-style:italic;">mipmapping</span><span style=" font-style:italic;">, </span><span style=" font-weight:700; font-style:italic;">texture wrapping</span><span style=" font-style:italic;">, or </span><span style=" font-weight:700; font-style:italic'
-                ';">GPU compression.</span></p><p><br/></p><p><span style=" font-weight:700;">Use Po2 textures when</span></p><p><span style=" font-style:italic;">Targeting older devices or you\'re using </span><span style=" font-weight:700; font-style:italic;">mipmapping</span><span style=" font-style:italic;">, </span><span style=" font-weight:700; font-style:italic;">texture wrapping</span><span style=" font-style:italic;">, or </span><span style=" font-weight:700; font-style:italic;">GPU compression.</span></p></body></html>',
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
         # if QT_CONFIG(statustip)
         self.power_of_2_check.setStatusTip(
             QCoreApplication.translate(
@@ -1717,29 +1608,11 @@ class Ui_TextureAtlasToolboxApp(object):
             0, QCoreApplication.translate("TextureAtlasToolboxApp", "Sparrow", None)
         )
 
-        # if QT_CONFIG(tooltip)
-        self.allow_rotation_check.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                "<html><head/><body><p>Allow the packer to rotate sprites 90\u00b0 clockwise for tighter packing.</p><p>Only works with atlas formats that support rotation metadata.</p></body></html>",
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
         self.allow_rotation_check.setText(
             QCoreApplication.translate(
                 "TextureAtlasToolboxApp", "Allow rotation (90\u00b0)", None
             )
         )
-        # if QT_CONFIG(tooltip)
-        self.allow_flip_check.setToolTip(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                '<html><head/><body><p>Allow the packer to flip sprites vertically for tighter packing.</p><p><span style=" font-weight:700;">Warning:</span> This is a non-standard extension only supported by HaxeFlixel. Most Starling/Sparrow implementations will ignore flip attributes.</p></body></html>',
-                None,
-            )
-        )
-        # endif // QT_CONFIG(tooltip)
         self.allow_flip_check.setText(
             QCoreApplication.translate(
                 "TextureAtlasToolboxApp", "Allow flip X/Y (non-standard)", None
@@ -1748,9 +1621,7 @@ class Ui_TextureAtlasToolboxApp(object):
         # if QT_CONFIG(statustip)
         self.atlas_size_spinbox_2.setStatusTip("")
         # endif // QT_CONFIG(statustip)
-        self.atlas_size_spinbox_2.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.atlas_size_spinbox_2.setSuffix(" px")
         self.packer_method_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Packer method", None)
         )
@@ -1775,9 +1646,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.padding_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Padding:", None)
         )
-        self.padding_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.padding_spin.setSuffix(" px")
         self.generate_button.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Generate Atlas", None)
         )
@@ -1858,12 +1727,8 @@ class Ui_TextureAtlasToolboxApp(object):
         self.label_offset_y.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Frame offset Y", None)
         )
-        self.offset_x_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
-        self.offset_y_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.offset_x_spin.setSuffix(" px")
+        self.offset_y_spin.setSuffix(" px")
         self.reset_offset_button.setText(
             QCoreApplication.translate(
                 "TextureAtlasToolboxApp", "Reset to default", None
@@ -1887,15 +1752,11 @@ class Ui_TextureAtlasToolboxApp(object):
         self.label_canvas_width.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Canvas width", None)
         )
-        self.canvas_width_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.canvas_width_spin.setSuffix(" px")
         self.label_canvas_height.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Canvas height", None)
         )
-        self.canvas_height_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.canvas_height_spin.setSuffix(" px")
         self.label_canvas_origin.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Canvas origin", None)
         )
@@ -1908,9 +1769,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.snap_checkbox.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Enable", None)
         )
-        self.snap_step_spin.setSuffix(
-            QCoreApplication.translate("TextureAtlasToolboxApp", " px", None)
-        )
+        self.snap_step_spin.setSuffix(" px")
         self.label_ghost_frame.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Ghost frame", None)
         )
