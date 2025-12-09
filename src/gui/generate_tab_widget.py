@@ -185,6 +185,9 @@ class GenerateTabWidget(QWidget):
         # Initialize atlas sizing state
         self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
 
+        # Apply user's default settings from app config
+        self._apply_generator_defaults()
+
         # Initialize rotation/flip/trim checkboxes based on selected format
         self._update_rotation_flip_trim_state()
 
@@ -644,6 +647,90 @@ class GenerateTabWidget(QWidget):
             self.packer_method_combobox.addItem(label, key)
         self.packer_method_combobox.setCurrentIndex(0)
         self.packer_method_combobox.blockSignals(False)
+
+    def _apply_generator_defaults(self):
+        """Apply user's default generator settings from app config."""
+        if not hasattr(self.main_app, "app_config"):
+            return
+
+        app_config = self.main_app.app_config
+        defaults = app_config.get("generator_defaults", {})
+        if not defaults:
+            return
+
+        # Mapping from internal format keys to display names
+        export_format_display = {
+            "starling-xml": "Sparrow/Starling XML",
+            "json-hash": "JSON Hash",
+            "json-array": "JSON Array",
+            "aseprite": "Aseprite JSON",
+            "texture-packer-xml": "TexturePacker XML",
+            "spine": "Spine Atlas",
+            "phaser3": "Phaser 3 JSON",
+            "css": "CSS Spritesheet",
+            "txt": "Plain Text",
+            "plist": "Plist (Cocos2d)",
+            "uikit-plist": "UIKit Plist",
+            "godot": "Godot Atlas",
+            "egret2d": "Egret2D JSON",
+            "paper2d": "Paper2D (Unreal)",
+            "unity": "Unity TexturePacker",
+        }
+
+        algorithm_display = {
+            "auto": "Automatic (Best Fit)",
+            "maxrects": "MaxRects",
+            "guillotine": "Guillotine",
+            "shelf": "Shelf",
+        }
+
+        # Apply algorithm
+        if "algorithm" in defaults:
+            algo_key = defaults["algorithm"]
+            display_name = algorithm_display.get(algo_key)
+            if display_name:
+                idx = self.packer_method_combobox.findText(display_name)
+                if idx >= 0:
+                    self.packer_method_combobox.setCurrentIndex(idx)
+
+        # Apply export format
+        if "export_format" in defaults:
+            fmt_key = defaults["export_format"]
+            display_name = export_format_display.get(fmt_key)
+            if display_name:
+                idx = self.atlas_type_combo.findText(display_name)
+                if idx >= 0:
+                    self.atlas_type_combo.setCurrentIndex(idx)
+
+        # Apply image format
+        if "image_format" in defaults:
+            img_fmt = defaults["image_format"]
+            idx = self.image_format_combo.findText(img_fmt)
+            if idx >= 0:
+                self.image_format_combo.setCurrentIndex(idx)
+
+        # Apply max size - find value in atlas_size_spinbox_1
+        if "max_size" in defaults:
+            max_size = defaults["max_size"]
+            self.atlas_size_spinbox_1.setValue(max_size)
+            self.atlas_size_spinbox_2.setValue(max_size)
+
+        # Apply padding
+        if "padding" in defaults:
+            self.padding_spin.setValue(defaults["padding"])
+
+        # Apply checkboxes
+        if "power_of_two" in defaults:
+            self.power_of_2_check.setChecked(defaults["power_of_two"])
+
+        if "allow_rotation" in defaults:
+            self.allow_rotation_check.setChecked(defaults["allow_rotation"])
+
+        if "allow_flip" in defaults:
+            self.allow_flip_check.setChecked(defaults["allow_flip"])
+
+        if "trim_sprites" in defaults:
+            self.trim_sprites_check.setChecked(defaults["trim_sprites"])
 
     def _setup_heuristic_combo(self):
         """Create and insert the heuristic combo box and compression button."""

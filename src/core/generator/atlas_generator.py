@@ -241,6 +241,49 @@ class AtlasGenerator:
 
         return hasher.hexdigest()
 
+    @staticmethod
+    def _compute_flip_hashes(
+        img: Image.Image,
+    ) -> Dict[str, Tuple[str, bool, bool]]:
+        """Compute hashes for all flipped variants of an image.
+
+        Args:
+            img: PIL Image to compute flip hashes for.
+
+        Returns:
+            Dict mapping hash -> (variant_name, flip_x, flip_y) for each variant:
+            - "original": (hash, False, False)
+            - "flip_x": (hash, True, False) - horizontal flip
+            - "flip_y": (hash, False, True) - vertical flip
+            - "flip_xy": (hash, True, True) - both flips
+        """
+        from PIL import ImageOps
+
+        result = {}
+
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+
+        original_hash = AtlasGenerator._compute_image_hash(img)
+        result[original_hash] = ("original", False, False)
+
+        flip_x_img = ImageOps.mirror(img)
+        flip_x_hash = AtlasGenerator._compute_image_hash(flip_x_img)
+        if flip_x_hash not in result:
+            result[flip_x_hash] = ("flip_x", True, False)
+
+        flip_y_img = ImageOps.flip(img)
+        flip_y_hash = AtlasGenerator._compute_image_hash(flip_y_img)
+        if flip_y_hash not in result:
+            result[flip_y_hash] = ("flip_y", False, True)
+
+        flip_xy_img = ImageOps.mirror(ImageOps.flip(img))
+        flip_xy_hash = AtlasGenerator._compute_image_hash(flip_xy_img)
+        if flip_xy_hash not in result:
+            result[flip_xy_hash] = ("flip_xy", True, True)
+
+        return result
+
     def generate(
         self,
         animation_groups: Dict[str, List[str]],
@@ -264,7 +307,9 @@ class AtlasGenerator:
             # Step 1: Load all images and detect duplicates
             self._emit_progress(0, 4, "Loading images...")
             load_result = self._load_images_with_dedup(
-                animation_groups, trim_sprites=options.trim_sprites
+                animation_groups,
+                trim_sprites=options.trim_sprites,
+                allow_flip=options.allow_flip,
             )
             unique_frames = load_result["unique_frames"]
             images = load_result["images"]
@@ -339,6 +384,7 @@ class AtlasGenerator:
         self,
         animation_groups: Dict[str, List[str]],
         trim_sprites: bool = False,
+        allow_flip: bool = False,
     ) -> Dict[str, Any]:
         """Load images from animation groups with duplicate detection.
 
@@ -346,15 +392,21 @@ class AtlasGenerator:
         only unique images are packed. Duplicates are mapped to their
         canonical (first-seen) version.
 
+        When allow_flip is True, also detects images that are flipped
+        versions (horizontal, vertical, or both) of existing images.
+        These are deduplicated with flip metadata stored for export.
+
         Args:
             animation_groups: Dict mapping animation names to frame path lists.
             trim_sprites: If True, trim transparent edges from sprites.
+            allow_flip: If True, detect and deduplicate flipped variants.
 
         Returns:
             Dict with:
                 - unique_frames: List[FrameInput] for unique images only
                 - images: Dict[str, Image] mapping unique IDs to images
-                - duplicate_map: Dict[str, str] mapping duplicate IDs to canonical IDs
+                - duplicate_map: Dict mapping duplicate IDs to
+                  (canonical_id, flip_x, flip_y) tuples
                 - all_frame_data: List[FrameInput] for all frames (for metadata)
         """
         all_frame_data: List[FrameInput] = []
@@ -416,10 +468,35 @@ class AtlasGenerator:
                     img_hash = self._compute_image_hash(img)
 
                     if img_hash in hash_to_canonical:
-                        canonical_id = hash_to_canonical[img_hash]
-                        duplicate_map[frame_id] = canonical_id
+                        canonical_id, _, _ = hash_to_canonical[img_hash]
+                        duplicate_map[frame_id] = (canonical_id, False, False)
+                    elif allow_flip:
+                        found_flip_match = False
+                        flip_hashes = self._compute_flip_hashes(img)
+
+                        for existing_hash, (
+                            canonical_id,
+                            canonical_flip_x,
+                            canonical_flip_y,
+                        ) in hash_to_canonical.items():
+                            if existing_hash in flip_hashes:
+                                _, flip_x, flip_y = flip_hashes[existing_hash]
+                                final_flip_x = flip_x ^ canonical_flip_x
+                                final_flip_y = flip_y ^ canonical_flip_y
+                                duplicate_map[frame_id] = (
+                                    canonical_id,
+                                    final_flip_x,
+                                    final_flip_y,
+                                )
+                                found_flip_match = True
+                                break
+
+                        if not found_flip_match:
+                            hash_to_canonical[img_hash] = (frame_id, False, False)
+                            unique_frames.append(frame_input)
+                            images[frame_id] = img
                     else:
-                        hash_to_canonical[img_hash] = frame_id
+                        hash_to_canonical[img_hash] = (frame_id, False, False)
                         unique_frames.append(frame_input)
                         images[frame_id] = img
 
@@ -436,7 +513,7 @@ class AtlasGenerator:
     def _expand_packed_frames_with_duplicates(
         self,
         packed_frames: List[PackedFrame],
-        duplicate_map: Dict[str, str],
+        duplicate_map: Dict[str, Tuple[str, bool, bool]],
         all_frame_data: List[FrameInput],
     ) -> List[PackedFrame]:
         """Expand packed frames list to include duplicates.
@@ -446,7 +523,8 @@ class AtlasGenerator:
 
         Args:
             packed_frames: Packed frames for unique images only.
-            duplicate_map: Maps duplicate frame IDs to canonical frame IDs.
+            duplicate_map: Maps duplicate frame IDs to
+                (canonical_id, flip_x, flip_y) tuples.
             all_frame_data: All frame inputs including duplicates.
 
         Returns:
@@ -461,16 +539,19 @@ class AtlasGenerator:
 
         for frame in all_frame_data:
             if frame.id in duplicate_map:
-                canonical_id = duplicate_map[frame.id]
+                canonical_id, flip_x, flip_y = duplicate_map[frame.id]
                 canonical_packed = packed_lookup.get(canonical_id)
                 if canonical_packed:
+                    # Combine flip states: XOR canonical flip with detected flip
+                    final_flip_x = flip_x ^ canonical_packed.flipped_x
+                    final_flip_y = flip_y ^ canonical_packed.flipped_y
                     duplicate_packed = PackedFrame(
                         frame=frame,
                         x=canonical_packed.x,
                         y=canonical_packed.y,
                         rotated=canonical_packed.rotated,
-                        flipped_x=canonical_packed.flipped_x,
-                        flipped_y=canonical_packed.flipped_y,
+                        flipped_x=final_flip_x,
+                        flipped_y=final_flip_y,
                     )
                     expanded.append(duplicate_packed)
             else:
@@ -831,6 +912,7 @@ class AtlasGenerator:
             atlas_path.name,
             options.export_format,
             generator_metadata,
+            include_flip_attributes=options.allow_flip,
         )
 
         return str(atlas_path), metadata_path
@@ -844,6 +926,7 @@ class AtlasGenerator:
         image_name: str,
         export_format: str,
         generator_metadata: Optional[GeneratorMetadata] = None,
+        include_flip_attributes: bool = False,
     ) -> str:
         """Generate and save metadata file.
 
@@ -855,6 +938,8 @@ class AtlasGenerator:
             image_name: Name of the atlas image file.
             export_format: Format key for the exporter.
             generator_metadata: Optional metadata for watermarking comments.
+            include_flip_attributes: If True, include flipX/flipY in output
+                (only supported by some formats like starling-xml).
 
         Returns:
             Path to the metadata file.
@@ -927,6 +1012,8 @@ class AtlasGenerator:
                 "source_width": original_w,
                 "source_height": original_h,
                 "rotated": packed.rotated,
+                "flipX": packed.flipped_x,
+                "flipY": packed.flipped_y,
                 "animation": animation_name,
                 "index": user_data.get("index", 0),
             }
@@ -942,7 +1029,18 @@ class AtlasGenerator:
                 print(f"Warning: No exporter found for format: {export_format}")
                 return ""
 
-            exporter = exporter_cls()
+            from exporters.exporter_types import ExportOptions
+
+            export_options = ExportOptions(pretty_print=True)
+
+            if include_flip_attributes and export_format == "starling-xml":
+                from exporters.starling_xml_exporter import StarlingExportOptions
+
+                export_options.custom_properties["starling"] = StarlingExportOptions(
+                    include_flip_attributes=True,
+                )
+
+            exporter = exporter_cls(export_options)
             metadata_ext = exporter.FILE_EXTENSION
             metadata_path = output_base.with_suffix(metadata_ext)
 

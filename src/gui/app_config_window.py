@@ -136,6 +136,7 @@ class AppConfigWindow(QDialog):
         self.use_native_file_dialog_cb = None
         self.extraction_fields = {}
         self.compression_fields = {}
+        self.generator_fields = {}
 
     def setup_ui(self):
         """Build and configure all UI components for the dialog."""
@@ -149,6 +150,9 @@ class AppConfigWindow(QDialog):
 
         extraction_tab = self.create_extraction_tab()
         tab_widget.addTab(extraction_tab, "Extraction Defaults")
+
+        generator_tab = self.create_generator_tab()
+        tab_widget.addTab(generator_tab, "Generator Defaults")
 
         compression_tab = self.create_compression_tab()
         tab_widget.addTab(compression_tab, "Compression Defaults")
@@ -496,6 +500,195 @@ class AppConfigWindow(QDialog):
 
         return self._wrap_in_scroll_area(widget)
 
+    def create_generator_tab(self):
+        """Build the generator defaults tab with atlas packing settings.
+
+        Returns:
+            QWidget containing generator setting widgets.
+        """
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Packing algorithm group
+        algo_group = QGroupBox("Packing Algorithm")
+        algo_layout = QGridLayout(algo_group)
+
+        row = 0
+        algo_layout.addWidget(QLabel(self.tr("Algorithm:")), row, 0)
+        algorithm_combo = QComboBox()
+        algorithm_combo.addItems(
+            [
+                "Automatic (Best Fit)",
+                "MaxRects",
+                "Guillotine",
+                "Shelf",
+            ]
+        )
+        algorithm_combo.setCurrentText("Automatic (Best Fit)")
+        algorithm_combo.setToolTip(
+            self.tr(
+                "Packing algorithm to use for arranging sprites.\n"
+                "• Automatic: Tries multiple algorithms and picks the best result\n"
+                "• MaxRects: Good general-purpose algorithm\n"
+                "• Guillotine: Fast, good for similar-sized sprites\n"
+                "• Shelf: Simple and fast, less optimal packing"
+            )
+        )
+        self.generator_fields["algorithm"] = algorithm_combo
+        algo_layout.addWidget(algorithm_combo, row, 1)
+        row += 1
+
+        algo_layout.addWidget(QLabel(self.tr("Heuristic:")), row, 0)
+        heuristic_combo = QComboBox()
+        heuristic_combo.addItems(["Auto (Best Result)"])
+        heuristic_combo.setCurrentText("Auto (Best Result)")
+        heuristic_combo.setToolTip(
+            self.tr(
+                "Algorithm-specific heuristic for sprite placement.\n"
+                "Auto will try multiple heuristics and pick the best result."
+            )
+        )
+        self.generator_fields["heuristic"] = heuristic_combo
+        algo_layout.addWidget(heuristic_combo, row, 1)
+
+        layout.addWidget(algo_group)
+
+        # Atlas size group
+        size_group = QGroupBox("Atlas Size")
+        size_layout = QGridLayout(size_group)
+
+        row = 0
+        size_layout.addWidget(QLabel(self.tr("Maximum size:")), row, 0)
+        max_size_combo = QComboBox()
+        max_size_combo.addItems(["512", "1024", "2048", "4096", "8192", "16384"])
+        max_size_combo.setCurrentText("4096")
+        max_size_combo.setToolTip(
+            self.tr(
+                "Maximum width and height of the generated atlas.\n"
+                "Larger atlases can fit more sprites but may have\n"
+                "compatibility issues with older hardware."
+            )
+        )
+        self.generator_fields["max_size"] = max_size_combo
+        size_layout.addWidget(max_size_combo, row, 1)
+        row += 1
+
+        size_layout.addWidget(QLabel(self.tr("Padding (px):")), row, 0)
+        padding_spinbox = QSpinBox()
+        padding_spinbox.setRange(0, 32)
+        padding_spinbox.setValue(2)
+        padding_spinbox.setToolTip(
+            self.tr(
+                "Pixels of padding between sprites.\n"
+                "Helps prevent texture bleeding during rendering."
+            )
+        )
+        self.generator_fields["padding"] = padding_spinbox
+        size_layout.addWidget(padding_spinbox, row, 1)
+        row += 1
+
+        power_of_two_cb = QCheckBox(self.tr("Force power-of-two dimensions"))
+        power_of_two_cb.setChecked(False)
+        power_of_two_cb.setToolTip(
+            self.tr(
+                "Force atlas dimensions to be powers of 2 (e.g., 512, 1024, 2048).\n"
+                "Required by some older graphics hardware and game engines."
+            )
+        )
+        self.generator_fields["power_of_two"] = power_of_two_cb
+        size_layout.addWidget(power_of_two_cb, row, 0, 1, 2)
+
+        layout.addWidget(size_group)
+
+        # Sprite optimization group
+        optim_group = QGroupBox("Sprite Optimization")
+        optim_layout = QVBoxLayout(optim_group)
+
+        allow_rotation_cb = QCheckBox(self.tr("Allow 90° rotation"))
+        allow_rotation_cb.setChecked(False)
+        allow_rotation_cb.setToolTip(
+            self.tr(
+                "Allow sprites to be rotated 90° for tighter packing.\n"
+                "Only supported by some atlas formats."
+            )
+        )
+        self.generator_fields["allow_rotation"] = allow_rotation_cb
+        optim_layout.addWidget(allow_rotation_cb)
+
+        allow_flip_cb = QCheckBox(self.tr("Allow flip deduplication"))
+        allow_flip_cb.setChecked(False)
+        allow_flip_cb.setToolTip(
+            self.tr(
+                "Detect horizontally/vertically flipped sprite variants.\n"
+                "Stores only the canonical version with flip metadata,\n"
+                "reducing atlas size for mirrored sprites.\n"
+                "Only supported by Starling-XML format."
+            )
+        )
+        self.generator_fields["allow_flip"] = allow_flip_cb
+        optim_layout.addWidget(allow_flip_cb)
+
+        trim_sprites_cb = QCheckBox(self.tr("Trim transparent edges"))
+        trim_sprites_cb.setChecked(False)
+        trim_sprites_cb.setToolTip(
+            self.tr(
+                "Trim transparent pixels from sprite edges for tighter packing.\n"
+                "Offset metadata is stored so sprites render correctly.\n"
+                "Not all atlas formats support trim metadata."
+            )
+        )
+        self.generator_fields["trim_sprites"] = trim_sprites_cb
+        optim_layout.addWidget(trim_sprites_cb)
+
+        layout.addWidget(optim_group)
+
+        # Output format group
+        output_group = QGroupBox("Output Format")
+        output_layout = QGridLayout(output_group)
+
+        row = 0
+        output_layout.addWidget(QLabel(self.tr("Atlas format:")), row, 0)
+        export_format_combo = QComboBox()
+        export_format_combo.addItems(
+            [
+                "Sparrow/Starling XML",
+                "JSON Hash",
+                "JSON Array",
+                "Aseprite JSON",
+                "TexturePacker XML",
+                "Spine Atlas",
+                "Phaser 3 JSON",
+                "CSS Spritesheet",
+                "Plain Text",
+                "Plist (Cocos2d)",
+                "UIKit Plist",
+                "Godot Atlas",
+                "Egret2D JSON",
+                "Paper2D (Unreal)",
+                "Unity TexturePacker",
+            ]
+        )
+        export_format_combo.setCurrentText("Sparrow/Starling XML")
+        export_format_combo.setToolTip(
+            self.tr("Metadata format for the generated atlas.")
+        )
+        self.generator_fields["export_format"] = export_format_combo
+        output_layout.addWidget(export_format_combo, row, 1)
+        row += 1
+
+        output_layout.addWidget(QLabel(self.tr("Image format:")), row, 0)
+        image_format_combo = QComboBox()
+        image_format_combo.addItems(["PNG", "JPEG", "WebP", "BMP", "TIFF"])
+        image_format_combo.setCurrentText("PNG")
+        image_format_combo.setToolTip(self.tr("Image format for the atlas texture."))
+        self.generator_fields["image_format"] = image_format_combo
+        output_layout.addWidget(image_format_combo, row, 1)
+
+        layout.addWidget(output_group)
+        layout.addStretch()
+
+        return self._wrap_in_scroll_area(widget)
+
     def create_compression_tab(self):
         """Build the compression settings tab with per-format controls.
 
@@ -505,7 +698,7 @@ class AppConfigWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        png_group = QGroupBox("PNG Settings")
+        png_group = QGroupBox(self.tr("PNG Settings"))
         png_layout = QGridLayout(png_group)
 
         row = 0
@@ -525,7 +718,7 @@ class AppConfigWindow(QDialog):
         png_layout.addWidget(png_compress_spinbox, row, 1)
         row += 1
 
-        png_optimize_checkbox = QCheckBox("Optimize PNG")
+        png_optimize_checkbox = QCheckBox(self.tr("Optimize PNG"))
         png_optimize_checkbox.setChecked(True)
         png_optimize_checkbox.setToolTip(
             "PNG optimize:\n"
@@ -539,11 +732,11 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(png_group)
 
-        webp_group = QGroupBox("WebP Settings")
+        webp_group = QGroupBox(self.tr("WebP Settings"))
         webp_layout = QGridLayout(webp_group)
 
         row = 0
-        webp_lossless_checkbox = QCheckBox("Lossless WebP")
+        webp_lossless_checkbox = QCheckBox(self.tr("Lossless WebP"))
         webp_lossless_checkbox.setChecked(True)
         webp_lossless_checkbox.setToolTip(
             "WebP lossless mode:\n"
@@ -600,7 +793,7 @@ class AppConfigWindow(QDialog):
         webp_layout.addWidget(webp_alpha_quality_spinbox, row, 1)
         row += 1
 
-        webp_exact_checkbox = QCheckBox("Exact WebP")
+        webp_exact_checkbox = QCheckBox(self.tr("Exact WebP"))
         webp_exact_checkbox.setChecked(True)
         webp_exact_checkbox.setToolTip(
             "WebP exact mode:\n"
@@ -613,11 +806,11 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(webp_group)
 
-        avif_group = QGroupBox("AVIF Settings")
+        avif_group = QGroupBox(self.tr("AVIF Settings"))
         avif_layout = QGridLayout(avif_group)
 
         row = 0
-        avif_lossless_checkbox = QCheckBox("Lossless AVIF")
+        avif_lossless_checkbox = QCheckBox(self.tr("Lossless AVIF"))
         avif_lossless_checkbox.setChecked(True)
         self.compression_fields["avif_lossless"] = avif_lossless_checkbox
         avif_layout.addWidget(avif_lossless_checkbox, row, 0, 1, 2)
@@ -654,7 +847,7 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(avif_group)
 
-        tiff_group = QGroupBox("TIFF Settings")
+        tiff_group = QGroupBox(self.tr("TIFF Settings"))
         tiff_layout = QGridLayout(tiff_group)
 
         row = 0
@@ -688,7 +881,7 @@ class AppConfigWindow(QDialog):
         tiff_layout.addWidget(tiff_quality_spinbox, row, 1)
         row += 1
 
-        tiff_optimize_checkbox = QCheckBox("Optimize TIFF")
+        tiff_optimize_checkbox = QCheckBox(self.tr("Optimize TIFF"))
         tiff_optimize_checkbox.setChecked(True)
         tiff_optimize_checkbox.setToolTip(
             "TIFF optimization:\n"
@@ -714,14 +907,14 @@ class AppConfigWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        group = QGroupBox("Update Preferences")
+        group = QGroupBox(self.tr("Update Preferences"))
         group_layout = QVBoxLayout(group)
 
-        self.check_updates_cb = QCheckBox("Check for updates on startup")
+        self.check_updates_cb = QCheckBox(self.tr("Check for updates on startup"))
         self.check_updates_cb.stateChanged.connect(self.on_check_updates_change)
         group_layout.addWidget(self.check_updates_cb)
 
-        self.auto_update_cb = QCheckBox("Auto-download and install updates")
+        self.auto_update_cb = QCheckBox(self.tr("Auto-download and install updates"))
         group_layout.addWidget(self.auto_update_cb)
 
         note_label = QLabel(
@@ -829,6 +1022,10 @@ class AppConfigWindow(QDialog):
                 ui_state.get("use_native_file_dialog", False)
             )
 
+        # Load generator defaults
+        generator_defaults = self.app_config.get("generator_defaults", {})
+        self._load_generator_settings(generator_defaults)
+
         self.on_check_updates_change(self.check_updates_cb.checkState())
 
     def reset_to_defaults(self):
@@ -895,6 +1092,10 @@ class AppConfigWindow(QDialog):
             self.auto_update_cb.setChecked(
                 update_defaults.get("auto_download_updates", False)
             )
+
+            # Reset generator defaults
+            gen_defaults = self.app_config.DEFAULTS["generator_defaults"]
+            self._load_generator_settings(gen_defaults)
 
     def save_config(self):
         """Validate inputs, update the config object, and persist to disk."""
@@ -982,15 +1183,21 @@ class AppConfigWindow(QDialog):
                     self.use_native_file_dialog_cb.isChecked()
                 )
 
+            # Save generator defaults
+            generator_defaults = self._collect_generator_settings()
+
             self.app_config.settings["resource_limits"] = resource_limits
             self.app_config.settings["extraction_defaults"] = extraction_defaults
             self.app_config.settings["compression_defaults"] = compression_defaults
             self.app_config.settings["update_settings"] = update_settings
+            self.app_config.settings["generator_defaults"] = generator_defaults
 
             self.app_config.save()
 
             QMessageBox.information(
-                self, "Settings Saved", "Configuration has been saved successfully."
+                self,
+                self.tr("Settings Saved"),
+                self.tr("Configuration has been saved successfully."),
             )
             self.accept()
 
@@ -1042,10 +1249,12 @@ class AppConfigWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        dir_group = QGroupBox("Directory Memory")
+        dir_group = QGroupBox(self.tr("Directory Memory"))
         dir_layout = QVBoxLayout(dir_group)
 
-        self.remember_input_dir_cb = QCheckBox("Remember last used input directory")
+        self.remember_input_dir_cb = QCheckBox(
+            self.tr("Remember last used input directory")
+        )
         self.remember_input_dir_cb.setToolTip(
             self.tr(
                 "When enabled, the app will remember and restore the last used input directory on startup"
@@ -1053,7 +1262,9 @@ class AppConfigWindow(QDialog):
         )
         dir_layout.addWidget(self.remember_input_dir_cb)
 
-        self.remember_output_dir_cb = QCheckBox("Remember last used output directory")
+        self.remember_output_dir_cb = QCheckBox(
+            self.tr("Remember last used output directory")
+        )
         self.remember_output_dir_cb.setToolTip(
             self.tr(
                 "When enabled, the app will remember and restore the last used output directory on startup"
@@ -1064,11 +1275,11 @@ class AppConfigWindow(QDialog):
         layout.addWidget(dir_group)
 
         # Spritemap settings group
-        spritemap_group = QGroupBox("Spritemap Settings")
+        spritemap_group = QGroupBox(self.tr("Spritemap Settings"))
         spritemap_layout = QVBoxLayout(spritemap_group)
 
         self.filter_single_frame_spritemaps_cb = QCheckBox(
-            "Hide single-frame spritemap animations"
+            self.tr("Hide single-frame spritemap animations")
         )
         self.filter_single_frame_spritemaps_cb.setToolTip(
             self.tr(
@@ -1081,11 +1292,11 @@ class AppConfigWindow(QDialog):
 
         layout.addWidget(spritemap_group)
 
-        file_dialog_group = QGroupBox("File Picker")
+        file_dialog_group = QGroupBox(self.tr("File Picker"))
         file_dialog_layout = QVBoxLayout(file_dialog_group)
 
         self.use_native_file_dialog_cb = QCheckBox(
-            "Use native file picker when available"
+            self.tr("Use native file picker when available")
         )
         self.use_native_file_dialog_cb.setToolTip(
             self.tr(
@@ -1099,3 +1310,93 @@ class AppConfigWindow(QDialog):
         layout.addStretch()
 
         return self._wrap_in_scroll_area(widget)
+
+    # Mapping from display names to internal format keys
+    _EXPORT_FORMAT_MAP = {
+        "Sparrow/Starling XML": "starling-xml",
+        "JSON Hash": "json-hash",
+        "JSON Array": "json-array",
+        "Aseprite JSON": "aseprite",
+        "TexturePacker XML": "texture-packer-xml",
+        "Spine Atlas": "spine",
+        "Phaser 3 JSON": "phaser3",
+        "CSS Spritesheet": "css",
+        "Plain Text": "txt",
+        "Plist (Cocos2d)": "plist",
+        "UIKit Plist": "uikit-plist",
+        "Godot Atlas": "godot",
+        "Egret2D JSON": "egret2d",
+        "Paper2D (Unreal)": "paper2d",
+        "Unity TexturePacker": "unity",
+    }
+
+    _EXPORT_FORMAT_REVERSE = {v: k for k, v in _EXPORT_FORMAT_MAP.items()}
+
+    _ALGORITHM_MAP = {
+        "Automatic (Best Fit)": "auto",
+        "MaxRects": "maxrects",
+        "Guillotine": "guillotine",
+        "Shelf": "shelf",
+    }
+
+    _ALGORITHM_REVERSE = {v: k for k, v in _ALGORITHM_MAP.items()}
+
+    def _load_generator_settings(self, generator_defaults: dict):
+        """Populate generator controls from persisted configuration.
+
+        Args:
+            generator_defaults: Dictionary of generator settings.
+        """
+        for key, control in self.generator_fields.items():
+            value = generator_defaults.get(key)
+            if value is None:
+                continue
+
+            if isinstance(control, QComboBox):
+                if key == "algorithm":
+                    # Convert internal key to display name
+                    display_name = self._ALGORITHM_REVERSE.get(value, value)
+                    control.setCurrentText(display_name)
+                elif key == "export_format":
+                    display_name = self._EXPORT_FORMAT_REVERSE.get(value, value)
+                    control.setCurrentText(display_name)
+                elif key == "max_size":
+                    control.setCurrentText(str(value))
+                else:
+                    control.setCurrentText(str(value))
+            elif isinstance(control, QSpinBox):
+                control.setValue(int(value))
+            elif isinstance(control, QCheckBox):
+                control.setChecked(bool(value))
+
+    def _collect_generator_settings(self) -> dict:
+        """Collect generator settings from UI controls.
+
+        Returns:
+            Dictionary of generator settings for persistence.
+        """
+        generator_defaults = {}
+
+        for key, control in self.generator_fields.items():
+            if isinstance(control, QComboBox):
+                if key == "algorithm":
+                    # Convert display name to internal key
+                    display_text = control.currentText()
+                    generator_defaults[key] = self._ALGORITHM_MAP.get(
+                        display_text, display_text.lower()
+                    )
+                elif key == "export_format":
+                    display_text = control.currentText()
+                    generator_defaults[key] = self._EXPORT_FORMAT_MAP.get(
+                        display_text, display_text
+                    )
+                elif key == "max_size":
+                    generator_defaults[key] = int(control.currentText())
+                else:
+                    generator_defaults[key] = control.currentText()
+            elif isinstance(control, QSpinBox):
+                generator_defaults[key] = control.value()
+            elif isinstance(control, QCheckBox):
+                generator_defaults[key] = control.isChecked()
+
+        return generator_defaults
