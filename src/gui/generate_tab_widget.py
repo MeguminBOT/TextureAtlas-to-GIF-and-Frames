@@ -3,7 +3,6 @@
 
 from pathlib import Path
 from PySide6.QtWidgets import (
-    QWidget,
     QSpinBox,
     QFileDialog,
     QMessageBox,
@@ -13,6 +12,8 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 from PySide6.QtCore import QThread, Signal
+
+from gui.base_tab_widget import BaseTabWidget
 
 try:
     from PIL import Image
@@ -134,16 +135,55 @@ class GeneratorWorker(QThread):
         self.progress_updated.emit(current, total, message)
 
 
-class GenerateTabWidget(QWidget):
+class GenerateTabWidget(BaseTabWidget):
     """Widget containing all Generate tab functionality."""
 
     # Constants
     tr = translate
 
     def __init__(self, ui, parent=None):
-        super().__init__(parent)
-        self.main_app = parent
-        self.ui = ui
+        """Initialize the Generate tab as a UI controller.
+
+        Args:
+            ui: The compiled Qt Designer UI object to bind to.
+            parent: Main window providing config and signals.
+        """
+        # Store ui reference before super().__init__ since we always use existing UI
+        self._ui_ref = ui
+        super().__init__(parent, use_existing_ui=True)
+        self._init_state()
+        self._setup_ui()
+        self._configure_packer_combo()
+        self._configure_atlas_type_combo()
+        self.on_algorithm_changed(self.packer_method_combobox.currentText())
+        self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
+        self._apply_generator_defaults()
+        self._update_rotation_flip_trim_state()
+
+    @property
+    def main_app(self):
+        """Alias for parent_app for backward compatibility."""
+        return self.parent_app
+
+    @property
+    def ui(self):
+        """Return the UI reference."""
+        return self._ui_ref
+
+    def _should_use_existing_ui(self, parent_app, use_existing_ui):
+        """Return True unconditionally; this widget always uses existing UI.
+
+        Args:
+            parent_app: Ignored.
+            use_existing_ui: Ignored.
+
+        Returns:
+            Always True.
+        """
+        return True
+
+    def _init_state(self):
+        """Initialize instance state before UI setup."""
         self.input_frames = []
         self.output_path = ""
         self.worker = None
@@ -173,23 +213,22 @@ class GenerateTabWidget(QWidget):
         self.PNG_FORMAT_NAME = "PNG"
         self.JPEG_FORMAT_NAME = "JPEG"
 
+    def _setup_with_existing_ui(self):
+        """Bind to UI elements and configure custom widgets."""
         self.bind_ui_elements()
         self.setup_custom_widgets()
         self.setup_connections()
-        self._configure_packer_combo()
-        self._configure_atlas_type_combo()
 
-        # Initialize heuristic combo for current algorithm
-        self.on_algorithm_changed(self.packer_method_combobox.currentText())
+    def _build_ui(self):
+        """Not supported; GenerateTabWidget requires existing UI.
 
-        # Initialize atlas sizing state
-        self.on_atlas_size_method_changed(self.atlas_size_method_combobox.currentText())
-
-        # Apply user's default settings from app config
-        self._apply_generator_defaults()
-
-        # Initialize rotation/flip/trim checkboxes based on selected format
-        self._update_rotation_flip_trim_state()
+        Raises:
+            NotImplementedError: Always raised; standalone mode is not
+                supported for this widget.
+        """
+        raise NotImplementedError(
+            "GenerateTabWidget requires existing UI; standalone mode not supported."
+        )
 
     @property
     def INPUT_FORMATS(self):
@@ -207,31 +246,53 @@ class GenerateTabWidget(QWidget):
         return formats
 
     def get_image_file_filter(self):
-        """Generate file filter string for image files."""
+        """Generate file filter string for image files.
+
+        Returns:
+            Filter string suitable for QFileDialog.
+        """
         # Create the extensions string from the IMAGE_FORMATS constant
         extensions = " ".join(f"*{ext}" for ext in sorted(self.IMAGE_FORMATS.keys()))
         image_filter = self.tr("Image files ({0})").format(extensions)
         return f"{image_filter};;{self.ALL_FILES_FILTER}"
 
     def get_atlas_image_file_filter(self):
-        """Generate file filter string for atlas image files (all supported formats)."""
+        """Generate file filter string for atlas image files.
+
+        Returns:
+            Filter string suitable for QFileDialog.
+        """
         # Create the extensions string from the IMAGE_FORMATS constant
         extensions = " ".join(f"*{ext}" for ext in sorted(self.IMAGE_FORMATS.keys()))
         atlas_filter = self.tr("Atlas image files ({0})").format(extensions)
         return f"{atlas_filter};;{self.ALL_FILES_FILTER}"
 
     def get_data_file_filter(self):
-        """Generate file filter string for spritesheet data files."""
+        """Generate file filter string for spritesheet data files.
+
+        Returns:
+            Filter string suitable for QFileDialog.
+        """
         extensions = " ".join(f"*{ext}" for ext in sorted(self.DATA_FORMATS))
         data_filter = self.tr("Spritesheet data files ({0})").format(extensions)
         return f"{data_filter};;{self.ALL_FILES_FILTER}"
 
     def get_xml_file_filter(self):
-        """Generate file filter string for XML files (backward compatibility)."""
+        """Generate file filter string for XML files.
+
+        Provided for backward compatibility; returns the data file filter.
+
+        Returns:
+            Filter string suitable for QFileDialog.
+        """
         return self.get_data_file_filter()
 
     def get_output_file_filter(self):
-        """Generate file filter string for output formats."""
+        """Generate file filter string for output formats.
+
+        Returns:
+            Filter string suitable for QFileDialog.
+        """
         format_filters = []
         for format_name, pattern in self.OUTPUT_FORMATS:
             format_filters.append(f"{format_name} {self.tr('files')} ({pattern})")

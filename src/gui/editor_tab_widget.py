@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QMenu,
 )
 
+from gui.base_tab_widget import BaseTabWidget
 from utils.FNF.alignment import resolve_fnf_offset
 
 import numpy as np
@@ -558,7 +559,7 @@ class CanvasDetachWindow(QDialog):
         super().closeEvent(event)
 
 
-class EditorTabWidget(QWidget):
+class EditorTabWidget(BaseTabWidget):
     """High-level controller for the alignment editor tab UI and logic."""
 
     def __init__(self, parent_app, use_existing_ui: bool = False):
@@ -569,11 +570,17 @@ class EditorTabWidget(QWidget):
             use_existing_ui (bool): When ``True`` attach to widgets created by
                 Qt Designer instead of building them programmatically.
         """
-        super().__init__(parent_app)
-        self.parent_app = parent_app
-        self._using_existing_ui = bool(
-            use_existing_ui and getattr(parent_app, "ui", None)
-        )
+        super().__init__(parent_app, use_existing_ui)
+        self._init_state()
+        self._setup_ui()
+        self._configure_animation_tree_drag_reorder()
+        self._connect_signals()
+        self._update_zoom_label(self.canvas.zoom())
+        self._initialize_origin_mode()
+        self._reset_multi_drag_baselines()
+
+    def _init_state(self):
+        """Initialize instance state before UI setup."""
         self._animations: Dict[str, AlignmentAnimation] = {}
         self._current_animation_id: Optional[str] = None
         self._current_frame_index: int = -1
@@ -588,21 +595,16 @@ class EditorTabWidget(QWidget):
         self._default_status_text = self.tr(
             "Drag the frame, use arrow keys for fine adjustments, or type offsets manually."
         )
-        if self._using_existing_ui:
-            self._setup_with_existing_ui()
-        else:
-            self._build_ui()
-        self._configure_animation_tree_drag_reorder()
-        self._connect_signals()
-        self._update_zoom_label(self.canvas.zoom())
-        self._initialize_origin_mode()
-        self._reset_multi_drag_baselines()
 
     # ------------------------------------------------------------------
     # UI setup
     # ------------------------------------------------------------------
     def _setup_with_existing_ui(self):
-        """Bind to widgets exported by the main window's QtDesigner layout."""
+        """Bind to widgets exported by the main window's QtDesigner layout.
+
+        Raises:
+            RuntimeError: If ``parent_app.ui`` is not available.
+        """
         ui = getattr(self.parent_app, "ui", None)
         if ui is None:
             raise RuntimeError("Editor UI is not available on the parent application")

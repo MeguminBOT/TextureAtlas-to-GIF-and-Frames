@@ -7,6 +7,7 @@ generation, and sprite editing workflows.
 Modules:
     app_config_window: Application configuration editor dialog.
     app_ui: Auto-generated main window UI from Qt Designer.
+    base_tab_widget: Base class for tab widgets with controller/standalone modes.
     contributors_window: Dialog listing project contributors.
     editor_tab_widget: Tab widget for the editor.
     extract_tab_widget: Tab widget for the TextureAtlas extraction.

@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 
+from gui.base_tab_widget import BaseTabWidget
 from utils.translation_manager import tr as translate
 
 from gui.extractor.enhanced_list_widget import EnhancedListWidget
@@ -175,7 +176,7 @@ class SpritesheetFileDialog(QFileDialog):
         self._address_line.setText(str(path))
 
 
-class ExtractTabWidget(QWidget):
+class ExtractTabWidget(BaseTabWidget):
     """Widget for the Extract tab functionality."""
 
     tr = translate
@@ -190,28 +191,25 @@ class ExtractTabWidget(QWidget):
                 widgets that already exist on ``parent`` instead of building the
                 layout programmatically.
         """
-        super().__init__(parent)
-        self.parent_app = parent
-        self.use_existing_ui = use_existing_ui
+        super().__init__(parent, use_existing_ui)
+        self._init_state()
+        self._setup_ui()
+        self.setup_connections()
+        self.setup_default_values()
+
+    def _init_state(self):
+        """Initialize instance state before UI setup."""
         self.filter_single_frame_spritemaps = True
         self.use_native_file_dialog = False
-        if parent and hasattr(parent, "app_config"):
-            ui_state = parent.app_config.get("ui_state", {})
+        if self.parent_app and hasattr(self.parent_app, "app_config"):
+            ui_state = self.parent_app.app_config.get("ui_state", {})
             self.filter_single_frame_spritemaps = ui_state.get(
                 "filter_single_frame_spritemaps", True
             )
             self.use_native_file_dialog = ui_state.get("use_native_file_dialog", False)
         self.editor_composites = defaultdict(dict)
 
-        if use_existing_ui and parent:
-            self.setup_with_existing_ui()
-        else:
-            self.setup_ui()
-
-        self.setup_connections()
-        self.setup_default_values()
-
-    def setup_with_existing_ui(self):
+    def _setup_with_existing_ui(self):
         """Set up the widget using existing UI elements from the parent."""
         if not self.parent_app or not hasattr(self.parent_app, "ui"):
             return
@@ -289,7 +287,7 @@ class ExtractTabWidget(QWidget):
                 Qt.ContextMenuPolicy.CustomContextMenu
             )
 
-    def setup_ui(self):
+    def _build_ui(self):
         """Set up the UI components for the extract tab."""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
