@@ -368,25 +368,6 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(threshold_spinbox, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Resampling method:")), row, 0)
-        from utils.resampling import (
-            RESAMPLING_DISPLAY_NAMES,
-            get_resampling_tooltip,
-        )
-
-        resampling_combo = QComboBox()
-        resampling_combo.addItems(RESAMPLING_DISPLAY_NAMES)
-        resampling_combo.setCurrentText("Nearest")
-        resampling_combo.setToolTip(
-            "Resampling method for image scaling:\n\n"
-            + "\n\n".join(
-                f"• {name}: {get_resampling_tooltip(name).split(chr(10))[0]}"
-                for name in RESAMPLING_DISPLAY_NAMES
-            )
-        )
-        self.extraction_fields["resampling_method"] = resampling_combo
-        anim_layout.addWidget(resampling_combo, row, 1)
-
         layout.addWidget(anim_group)
 
         # Frame export group
@@ -462,6 +443,26 @@ class AppConfigWindow(QDialog):
         )
         self.extraction_fields["crop_option"] = crop_combo
         general_layout.addWidget(crop_combo, row, 1)
+        row += 1
+
+        general_layout.addWidget(QLabel(self.tr("Resampling method")), row, 0)
+        from utils.resampling import (
+            RESAMPLING_DISPLAY_NAMES,
+            get_resampling_tooltip,
+        )
+
+        resampling_combo = QComboBox()
+        resampling_combo.addItems(RESAMPLING_DISPLAY_NAMES)
+        resampling_combo.setCurrentText("Nearest")
+        resampling_combo.setToolTip(
+            "Resampling method for image scaling:\n\n"
+            + "\n\n".join(
+                f"• {name}: {get_resampling_tooltip(name).split(chr(10))[0]}"
+                for name in RESAMPLING_DISPLAY_NAMES
+            )
+        )
+        self.extraction_fields["resampling_method"] = resampling_combo
+        general_layout.addWidget(resampling_combo, row, 1)
         row += 1
 
         general_layout.addWidget(QLabel(self.tr("Filename format")), row, 0)

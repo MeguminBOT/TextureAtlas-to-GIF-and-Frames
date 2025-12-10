@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+################################################################################
+## WE WILL NO LONGER RELY ON USING QT DESIGNER, SO EDIT THIS FILE HOWEVER YOU WANT OR MOVE PARTS OF THE CODE INTO NEW FILES AS NEEDED.
+################################################################################
 
 ################################################################################
 ## Form generated from reading UI file 'app.ui'
-##
 ## Created by: Qt User Interface Compiler version 6.10.1
-##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
+##
 ################################################################################
 
 from PySide6.QtCore import (
@@ -148,7 +150,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.animation_export_group.setCheckable(True)
         self.animation_export_group.setChecked(False)
         self.animation_format_combobox = QComboBox(self.animation_export_group)
-        self.animation_format_combobox.addItem("")
         self.animation_format_combobox.addItem("")
         self.animation_format_combobox.addItem("")
         self.animation_format_combobox.addItem("")
@@ -1604,9 +1605,6 @@ class Ui_TextureAtlasToolboxApp(object):
         self.atlas_size_label_1.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Min atlas size", None)
         )
-        self.atlas_type_combo.setItemText(
-            0, QCoreApplication.translate("TextureAtlasToolboxApp", "Sparrow", None)
-        )
 
         self.allow_rotation_check.setText(
             QCoreApplication.translate(
@@ -1653,19 +1651,21 @@ class Ui_TextureAtlasToolboxApp(object):
         self.status_label.setText(
             QCoreApplication.translate("TextureAtlasToolboxApp", "Ready", None)
         )
+        placeholder_text = QCoreApplication.translate(
+            "TextureAtlasToolboxApp",
+            "Atlas generation log will appear here...",
+            None,
+        )
+
         self.log_text.setHtml(
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp",
-                '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n'
-                '<html><head><meta name="qrichtext" content="1" /><meta charset="utf-8" /><style type="text/css">\n'
-                "p, li { white-space: pre-wrap; }\n"
-                "hr { height: 1px; border-width: 0; }\n"
-                'li.unchecked::marker { content: "\\2610"; }\n'
-                'li.checked::marker { content: "\\2612"; }\n'
-                "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-                '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">Atlas generation log will appear here...</p></body></html>',
-                None,
-            )
+            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n'
+            '<html><head><meta name="qrichtext" content="1" /><meta charset="utf-8" /><style type="text/css">\n'
+            "p, li { white-space: pre-wrap; }\n"
+            "hr { height: 1px; border-width: 0; }\n"
+            'li.unchecked::marker { content: "\\2610"; }\n'
+            'li.checked::marker { content: "\\2612"; }\n'
+            "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+            f'<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">{placeholder_text}</p></body></html>'
         )
         self.tools_tab.setTabText(
             self.tools_tab.indexOf(self.tool_generate),
