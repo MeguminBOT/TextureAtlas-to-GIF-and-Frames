@@ -307,7 +307,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(anim_export_cb, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Animation format:")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Animation format")), row, 0)
         anim_format_combo = QComboBox()
         anim_format_combo.addItems(["GIF", "WebP", "APNG"])
         anim_format_combo.setCurrentText("GIF")
@@ -315,7 +315,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(anim_format_combo, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("FPS:")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Frame rate")), row, 0)
         fps_spinbox = QSpinBox()
         fps_spinbox.setRange(1, 120)
         fps_spinbox.setValue(24)
@@ -323,7 +323,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(fps_spinbox, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("End delay (ms):")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Loop delay")), row, 0)
         delay_spinbox = QSpinBox()
         delay_spinbox.setRange(0, 99999)
         delay_spinbox.setValue(250)
@@ -331,7 +331,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(delay_spinbox, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Period (ms):")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Minimum period")), row, 0)
         period_spinbox = QSpinBox()
         period_spinbox.setRange(0, 99999)
         period_spinbox.setValue(0)
@@ -339,7 +339,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(period_spinbox, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Scale:")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Scale")), row, 0)
         scale_spinbox = QDoubleSpinBox()
         scale_spinbox.setRange(0.01, 100.0)
         scale_spinbox.setDecimals(2)
@@ -350,7 +350,7 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(scale_spinbox, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Alpha threshold:")), row, 0)
+        anim_layout.addWidget(QLabel(self.tr("Alpha threshold")), row, 0)
         threshold_spinbox = QSpinBox()
         threshold_spinbox.setRange(0, 100)
         threshold_spinbox.setSingleStep(1)
@@ -401,7 +401,7 @@ class AppConfigWindow(QDialog):
         frame_layout.addWidget(frame_export_cb, row, 1)
         row += 1
 
-        frame_layout.addWidget(QLabel(self.tr("Frame format:")), row, 0)
+        frame_layout.addWidget(QLabel(self.tr("Frame format")), row, 0)
         frame_format_combo = QComboBox()
         frame_format_combo.addItems(
             ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
@@ -411,7 +411,7 @@ class AppConfigWindow(QDialog):
         frame_layout.addWidget(frame_format_combo, row, 1)
         row += 1
 
-        frame_layout.addWidget(QLabel(self.tr("Frame scale:")), row, 0)
+        frame_layout.addWidget(QLabel(self.tr("Frame scale")), row, 0)
         frame_scale_spinbox = QDoubleSpinBox()
         frame_scale_spinbox.setRange(0.01, 100.0)
         frame_scale_spinbox.setDecimals(2)
@@ -422,7 +422,7 @@ class AppConfigWindow(QDialog):
         frame_layout.addWidget(frame_scale_spinbox, row, 1)
         row += 1
 
-        frame_layout.addWidget(QLabel(self.tr("Frame selection:")), row, 0)
+        frame_layout.addWidget(QLabel(self.tr("Frame selection")), row, 0)
         frame_selection_combo = QComboBox()
         frame_selection_combo.addItems(
             ["All", "No duplicates", "First", "Last", "First, Last"]
@@ -448,7 +448,7 @@ class AppConfigWindow(QDialog):
         general_layout = QGridLayout(general_group)
 
         row = 0
-        general_layout.addWidget(QLabel(self.tr("Cropping method:")), row, 0)
+        general_layout.addWidget(QLabel(self.tr("Cropping method")), row, 0)
         crop_combo = QComboBox()
         crop_combo.addItems(["None", "Animation based", "Frame based"])
         crop_combo.setCurrentText("Animation based")
@@ -464,7 +464,7 @@ class AppConfigWindow(QDialog):
         general_layout.addWidget(crop_combo, row, 1)
         row += 1
 
-        general_layout.addWidget(QLabel(self.tr("Filename format:")), row, 0)
+        general_layout.addWidget(QLabel(self.tr("Filename format")), row, 0)
         filename_format_combo = QComboBox()
         filename_format_combo.addItems(
             ["Standardized", "No spaces", "No special characters"]
@@ -482,14 +482,14 @@ class AppConfigWindow(QDialog):
         general_layout.addWidget(filename_format_combo, row, 1)
         row += 1
 
-        general_layout.addWidget(QLabel(self.tr("Filename prefix:")), row, 0)
+        general_layout.addWidget(QLabel(self.tr("Filename prefix")), row, 0)
         prefix_entry = QLineEdit()
         prefix_entry.setPlaceholderText(self.tr("Optional prefix"))
         self.extraction_fields["filename_prefix"] = prefix_entry
         general_layout.addWidget(prefix_entry, row, 1)
         row += 1
 
-        general_layout.addWidget(QLabel(self.tr("Filename suffix:")), row, 0)
+        general_layout.addWidget(QLabel(self.tr("Filename suffix")), row, 0)
         suffix_entry = QLineEdit()
         suffix_entry.setPlaceholderText(self.tr("Optional suffix"))
         self.extraction_fields["filename_suffix"] = suffix_entry
@@ -509,12 +509,12 @@ class AppConfigWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        # Packing algorithm group
-        algo_group = QGroupBox("Packing Algorithm")
+        # Atlas settings group (match main Generate tab wording)
+        algo_group = QGroupBox(self.tr("Atlas Settings"))
         algo_layout = QGridLayout(algo_group)
 
         row = 0
-        algo_layout.addWidget(QLabel(self.tr("Algorithm:")), row, 0)
+        algo_layout.addWidget(QLabel(self.tr("Packer method")), row, 0)
         algorithm_combo = QComboBox()
         algorithm_combo.addItems(
             [
@@ -538,7 +538,7 @@ class AppConfigWindow(QDialog):
         algo_layout.addWidget(algorithm_combo, row, 1)
         row += 1
 
-        algo_layout.addWidget(QLabel(self.tr("Heuristic:")), row, 0)
+        algo_layout.addWidget(QLabel(self.tr("Heuristic")), row, 0)
         heuristic_combo = QComboBox()
         heuristic_combo.addItems(["Auto (Best Result)"])
         heuristic_combo.setCurrentText("Auto (Best Result)")
@@ -554,11 +554,11 @@ class AppConfigWindow(QDialog):
         layout.addWidget(algo_group)
 
         # Atlas size group
-        size_group = QGroupBox("Atlas Size")
+        size_group = QGroupBox(self.tr("Atlas Settings"))
         size_layout = QGridLayout(size_group)
 
         row = 0
-        size_layout.addWidget(QLabel(self.tr("Maximum size:")), row, 0)
+        size_layout.addWidget(QLabel(self.tr("Max atlas size")), row, 0)
         max_size_combo = QComboBox()
         max_size_combo.addItems(["512", "1024", "2048", "4096", "8192", "16384"])
         max_size_combo.setCurrentText("4096")
@@ -573,7 +573,7 @@ class AppConfigWindow(QDialog):
         size_layout.addWidget(max_size_combo, row, 1)
         row += 1
 
-        size_layout.addWidget(QLabel(self.tr("Padding (px):")), row, 0)
+        size_layout.addWidget(QLabel(self.tr("Padding:")), row, 0)
         padding_spinbox = QSpinBox()
         padding_spinbox.setRange(0, 32)
         padding_spinbox.setValue(2)
@@ -587,7 +587,7 @@ class AppConfigWindow(QDialog):
         size_layout.addWidget(padding_spinbox, row, 1)
         row += 1
 
-        power_of_two_cb = QCheckBox(self.tr("Force power-of-two dimensions"))
+        power_of_two_cb = QCheckBox(self.tr('Use "Power of 2" sizes'))
         power_of_two_cb.setChecked(False)
         power_of_two_cb.setToolTip(
             self.tr(
@@ -604,7 +604,7 @@ class AppConfigWindow(QDialog):
         optim_group = QGroupBox("Sprite Optimization")
         optim_layout = QVBoxLayout(optim_group)
 
-        allow_rotation_cb = QCheckBox(self.tr("Allow 90° rotation"))
+        allow_rotation_cb = QCheckBox(self.tr("Allow rotation (90°)"))
         allow_rotation_cb.setChecked(False)
         allow_rotation_cb.setToolTip(
             self.tr(
@@ -615,7 +615,7 @@ class AppConfigWindow(QDialog):
         self.generator_fields["allow_rotation"] = allow_rotation_cb
         optim_layout.addWidget(allow_rotation_cb)
 
-        allow_flip_cb = QCheckBox(self.tr("Allow flip deduplication"))
+        allow_flip_cb = QCheckBox(self.tr("Allow flip X/Y (non-standard)"))
         allow_flip_cb.setChecked(False)
         allow_flip_cb.setToolTip(
             self.tr(
@@ -647,7 +647,7 @@ class AppConfigWindow(QDialog):
         output_layout = QGridLayout(output_group)
 
         row = 0
-        output_layout.addWidget(QLabel(self.tr("Atlas format:")), row, 0)
+        output_layout.addWidget(QLabel(self.tr("Atlas type")), row, 0)
         export_format_combo = QComboBox()
         export_format_combo.addItems(
             [
@@ -676,7 +676,7 @@ class AppConfigWindow(QDialog):
         output_layout.addWidget(export_format_combo, row, 1)
         row += 1
 
-        output_layout.addWidget(QLabel(self.tr("Image format:")), row, 0)
+        output_layout.addWidget(QLabel(self.tr("Image format")), row, 0)
         image_format_combo = QComboBox()
         image_format_combo.addItems(["PNG", "JPEG", "WebP", "BMP", "TIFF"])
         image_format_combo.setCurrentText("PNG")

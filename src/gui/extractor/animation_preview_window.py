@@ -688,10 +688,10 @@ class AnimationPreviewWindow(QDialog):
         panel.setMaximumWidth(300)
         layout = QVBoxLayout(panel)
 
-        format_group = QGroupBox(self.tr("Animation Format"))
+        format_group = QGroupBox(self.tr("Animation format"))
         format_layout = QGridLayout(format_group)
 
-        format_layout.addWidget(QLabel(self.tr("Format:")), 0, 0)
+        format_layout.addWidget(QLabel(self.tr("Animation format")), 0, 0)
         self.format_combo = QComboBox()
         self.format_combo.addItems(["GIF", "WebP", "APNG"])
         self.format_combo.setCurrentText(self.settings.get("animation_format", "GIF"))
@@ -703,21 +703,21 @@ class AnimationPreviewWindow(QDialog):
         playback_group = QGroupBox(self.tr("Animation Settings"))
         playback_layout = QGridLayout(playback_group)
 
-        playback_layout.addWidget(QLabel(self.tr("FPS:")), 0, 0)
+        playback_layout.addWidget(QLabel(self.tr("Frame rate")), 0, 0)
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(1, 60)
         self.fps_spinbox.setValue(self.settings.get("fps", 24))
         self.fps_spinbox.valueChanged.connect(self.on_fps_changed)
         playback_layout.addWidget(self.fps_spinbox, 0, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Loop Delay (ms):")), 1, 0)
+        playback_layout.addWidget(QLabel(self.tr("Loop delay")), 1, 0)
         self.delay_spinbox = QSpinBox()
         self.delay_spinbox.setRange(0, 5000)
         self.delay_spinbox.setValue(self.settings.get("delay", 250))
         self.delay_spinbox.valueChanged.connect(self.on_delay_changed)
         playback_layout.addWidget(self.delay_spinbox, 1, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Min Period (ms):")), 2, 0)
+        playback_layout.addWidget(QLabel(self.tr("Minimum period")), 2, 0)
         self.period_spinbox = QSpinBox()
         self.period_spinbox.setRange(0, 10000)
         self.period_spinbox.setValue(self.settings.get("period", 0))
@@ -729,7 +729,7 @@ class AnimationPreviewWindow(QDialog):
         self.var_delay_checkbox.toggled.connect(self.on_var_delay_changed)
         playback_layout.addWidget(self.var_delay_checkbox, 3, 0, 1, 2)
 
-        playback_layout.addWidget(QLabel(self.tr("Scale:")), 4, 0)
+        playback_layout.addWidget(QLabel(self.tr("Scale")), 4, 0)
         self.anim_scale_spinbox = QDoubleSpinBox()
         self.anim_scale_spinbox.setRange(0.1, 10.0)
         self.anim_scale_spinbox.setSingleStep(0.1)
@@ -745,7 +745,7 @@ class AnimationPreviewWindow(QDialog):
         self.indices_edit.textChanged.connect(self.on_indices_changed)
         playback_layout.addWidget(self.indices_edit, 5, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Crop Option:")), 6, 0)
+        playback_layout.addWidget(QLabel(self.tr("Cropping method")), 6, 0)
         self.crop_combo = QComboBox()
         self.crop_combo.addItem(self.tr("None"), "None")
         self.crop_combo.addItem(self.tr("Animation based"), "Animation based")
@@ -757,7 +757,7 @@ class AnimationPreviewWindow(QDialog):
         self.crop_combo.currentIndexChanged.connect(self.on_crop_changed)
         playback_layout.addWidget(self.crop_combo, 6, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Threshold:")), 7, 0)
+        playback_layout.addWidget(QLabel(self.tr("Alpha threshold")), 7, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
         self.threshold_spinbox.setSingleStep(0.1)

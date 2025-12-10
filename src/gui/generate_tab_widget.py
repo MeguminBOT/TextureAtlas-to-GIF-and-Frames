@@ -275,6 +275,7 @@ class GenerateTabWidget(QWidget):
         self.status_label = self.ui.status_label
         self.log_text = self.ui.log_text
 
+        # Set tooltips for generator tab controls
         self._setup_generator_tooltips()
 
     def _setup_generator_tooltips(self):
@@ -774,9 +775,7 @@ class GenerateTabWidget(QWidget):
         self.heuristic_combobox.setMinimumWidth(140)
 
         # Create compression settings button
-        self.compression_settings_button = QPushButton(
-            self.tr("Compression Settings...")
-        )
+        self.compression_settings_button = QPushButton(self.tr("Compression settings"))
         self.compression_settings_button.setToolTip(
             self.tr(
                 "Configure format-specific compression options for the output image"

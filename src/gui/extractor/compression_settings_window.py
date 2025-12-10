@@ -59,7 +59,7 @@ class CompressionSettingsWindow(QDialog):
         self.original_values = {}
         self.compression_widgets = {}
 
-        self.setWindowTitle(self.tr("Compression Settings"))
+        self.setWindowTitle(self.tr("Compression settings"))
         self.setModal(True)
         self.resize(400, 500)
 
@@ -79,7 +79,7 @@ class CompressionSettingsWindow(QDialog):
         content_layout = QVBoxLayout(content_widget)
 
         format_label = QLabel(
-            self.tr("Compression Settings for {format}").format(
+            self.tr("Compression settings for {format}").format(
                 format=self.current_format
             )
         )

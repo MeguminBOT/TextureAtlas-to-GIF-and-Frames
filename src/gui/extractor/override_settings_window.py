@@ -236,7 +236,7 @@ class OverrideSettingsWindow(QDialog):
 
         row = 0
 
-        layout.addWidget(QLabel(self.tr("Animation format:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Animation format")), row, 0)
         self.animation_format_combo = QComboBox()
         self.animation_format_combo.addItems(["None", "GIF", "WebP", "APNG"])
         self.animation_format_combo.currentTextChanged.connect(
@@ -245,28 +245,28 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.animation_format_combo, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("FPS:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame rate")), row, 0)
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(1, 144)
         self.fps_spinbox.setSuffix(" fps")
         layout.addWidget(self.fps_spinbox, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("End delay (ms):")), row, 0)
+        layout.addWidget(QLabel(self.tr("Loop delay")), row, 0)
         self.delay_spinbox = QSpinBox()
         self.delay_spinbox.setRange(0, 10000)
         self.delay_spinbox.setSuffix(" ms")
         layout.addWidget(self.delay_spinbox, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Period (ms):")), row, 0)
+        layout.addWidget(QLabel(self.tr("Minimum period")), row, 0)
         self.period_spinbox = QSpinBox()
         self.period_spinbox.setRange(0, 10000)
         self.period_spinbox.setSuffix(" ms")
         layout.addWidget(self.period_spinbox, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Scale:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Scale")), row, 0)
         self.scale_spinbox = QDoubleSpinBox()
         self.scale_spinbox.setRange(-10.0, 10.0)
         self.scale_spinbox.setSingleStep(0.1)
@@ -274,7 +274,7 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.scale_spinbox, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Alpha threshold:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Alpha threshold")), row, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
         self.threshold_spinbox.setSingleStep(0.01)
@@ -307,7 +307,7 @@ class OverrideSettingsWindow(QDialog):
 
         row = 0
 
-        layout.addWidget(QLabel(self.tr("Frames to keep:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame selection")), row, 0)
         self.frames_edit = QLineEdit()
         self.frames_edit.setPlaceholderText(
             self.tr("e.g., 0,1,2,3 or leave empty for all")
@@ -315,13 +315,13 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.frames_edit, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Frame format:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame format")), row, 0)
         self.frame_format_combo = QComboBox()
         self.frame_format_combo.addItems(["PNG", "JPG", "JPEG", "BMP", "TIFF"])
         layout.addWidget(self.frame_format_combo, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Frame scale:")), row, 0)
+        layout.addWidget(QLabel(self.tr("Frame scale")), row, 0)
         self.frame_scale_spinbox = QDoubleSpinBox()
         self.frame_scale_spinbox.setRange(-10.0, 10.0)
         self.frame_scale_spinbox.setSingleStep(0.1)

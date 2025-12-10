@@ -542,19 +542,23 @@ class ExtractTabWidget(QWidget):
         buttons_widget = QWidget()
         layout = QHBoxLayout(buttons_widget)
 
-        self.advanced_filename_button = QPushButton(self.tr("Advanced filename"))
+        self.advanced_filename_button = QPushButton(
+            self.tr("Advanced filename options")
+        )
         layout.addWidget(self.advanced_filename_button)
 
-        self.show_override_settings_button = QPushButton(self.tr("Override settings"))
+        self.show_override_settings_button = QPushButton(
+            self.tr("Show override settings")
+        )
         layout.addWidget(self.show_override_settings_button)
 
         self.override_spritesheet_settings_button = QPushButton(
-            self.tr("Override spritesheet")
+            self.tr("Override spritesheet settings")
         )
         layout.addWidget(self.override_spritesheet_settings_button)
 
         self.override_animation_settings_button = QPushButton(
-            self.tr("Override animation")
+            self.tr("Override animation settings")
         )
         layout.addWidget(self.override_animation_settings_button)
 
