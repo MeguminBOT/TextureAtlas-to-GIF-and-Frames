@@ -28,7 +28,7 @@ SRC_DIR = Path(__file__).resolve().parents[1]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from version import (  # noqa: E402
+from utils.version import (  # noqa: E402
     APP_VERSION,
     GITHUB_LATEST_RELEASE_URL,
     GITHUB_RELEASE_BY_TAG_URL,

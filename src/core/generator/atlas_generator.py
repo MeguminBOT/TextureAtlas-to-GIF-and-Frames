@@ -41,7 +41,7 @@ from packers import (
 )
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import GeneratorMetadata
-from version import APP_VERSION
+from utils.version import APP_VERSION
 
 
 @dataclass

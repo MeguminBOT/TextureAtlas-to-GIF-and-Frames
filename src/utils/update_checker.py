@@ -23,7 +23,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QObject
 
 from utils.translation_manager import tr as translate
 
-from version import (
+from utils.version import (
     APP_VERSION,
     GITHUB_RELEASE_BY_TAG_URL,
     GITHUB_TAGS_URL,

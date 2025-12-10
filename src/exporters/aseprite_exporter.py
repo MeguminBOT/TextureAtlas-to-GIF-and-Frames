@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 from exporters.base_exporter import BaseExporter
 from exporters.exporter_registry import ExporterRegistry
 from exporters.exporter_types import ExportOptions, GeneratorMetadata, PackedSprite
-from version import APP_VERSION
+from utils.version import APP_VERSION
 
 
 @dataclass

@@ -14,7 +14,7 @@ from PySide6.QtGui import QIcon, QAction
 
 # Import our own modules
 from utils.dependencies_checker import DependenciesChecker
-from version import APP_VERSION
+from utils.version import APP_VERSION
 
 DependenciesChecker.check_and_configure_imagemagick()  # This function must be called before any other operations that require ImageMagick (DO NOT MOVE THIS IMPORT LINE)
 from utils.app_config import AppConfig  # noqa: E402
