@@ -466,6 +466,8 @@ class AppConfigWindow(QDialog):
         row += 1
 
         general_layout.addWidget(QLabel(self.tr("Filename format")), row, 0)
+        from utils.version import APP_NAME
+
         filename_format_combo = QComboBox()
         filename_format_combo.addItems(
             ["Standardized", "No spaces", "No special characters"]
@@ -474,10 +476,10 @@ class AppConfigWindow(QDialog):
         filename_format_combo.setToolTip(
             self.tr(
                 "How output filenames are formatted:\n"
-                "• Standardized: Keep original naming\n"
+                "• Standardized: Uses {app_name} standardized naming\n"
                 "• No spaces: Replace spaces with underscores\n"
                 "• No special characters: Remove special chars"
-            )
+            ).format(app_name=APP_NAME)
         )
         self.extraction_fields["filename_format"] = filename_format_combo
         general_layout.addWidget(filename_format_combo, row, 1)
@@ -523,6 +525,9 @@ class AppConfigWindow(QDialog):
                 "MaxRects",
                 "Guillotine",
                 "Shelf",
+                "Shelf FFDH",
+                "Skyline",
+                "Simple Row",
             ]
         )
         algorithm_combo.setCurrentText("Automatic (Best Fit)")
@@ -532,7 +537,10 @@ class AppConfigWindow(QDialog):
                 "• Automatic: Tries multiple algorithms and picks the best result\n"
                 "• MaxRects: Good general-purpose algorithm\n"
                 "• Guillotine: Fast, good for similar-sized sprites\n"
-                "• Shelf: Simple and fast, less optimal packing"
+                "• Shelf: Simple and fast, less optimal packing\n"
+                "• Shelf FFDH: Shelf with First Fit Decreasing Height (sorts by height)\n"
+                "• Skyline: Good for sprites with similar heights\n"
+                "• Simple Row: Basic left-to-right, row-by-row placement"
             )
         )
         self.generator_fields["algorithm"] = algorithm_combo
@@ -541,8 +549,7 @@ class AppConfigWindow(QDialog):
 
         algo_layout.addWidget(QLabel(self.tr("Heuristic")), row, 0)
         heuristic_combo = QComboBox()
-        heuristic_combo.addItems(["Auto (Best Result)"])
-        heuristic_combo.setCurrentText("Auto (Best Result)")
+        heuristic_combo.addItem("Auto (Best Result)", "auto")
         heuristic_combo.setToolTip(
             self.tr(
                 "Algorithm-specific heuristic for sprite placement.\n"
@@ -551,6 +558,9 @@ class AppConfigWindow(QDialog):
         )
         self.generator_fields["heuristic"] = heuristic_combo
         algo_layout.addWidget(heuristic_combo, row, 1)
+
+        algorithm_combo.currentTextChanged.connect(self._update_heuristic_options)
+        self._update_heuristic_options(algorithm_combo.currentText())
 
         layout.addWidget(algo_group)
 
@@ -679,7 +689,7 @@ class AppConfigWindow(QDialog):
 
         output_layout.addWidget(QLabel(self.tr("Image format")), row, 0)
         image_format_combo = QComboBox()
-        image_format_combo.addItems(["PNG", "JPEG", "WebP", "BMP", "TIFF"])
+        image_format_combo.addItems(["PNG", "JPEG", "WebP", "BMP", "TGA", "TIFF"])
         image_format_combo.setCurrentText("PNG")
         image_format_combo.setToolTip(self.tr("Image format for the atlas texture."))
         self.generator_fields["image_format"] = image_format_combo
@@ -1339,9 +1349,81 @@ class AppConfigWindow(QDialog):
         "MaxRects": "maxrects",
         "Guillotine": "guillotine",
         "Shelf": "shelf",
+        "Shelf FFDH": "shelf-ffdh",
+        "Skyline": "skyline",
+        "Simple Row": "simple",
     }
 
     _ALGORITHM_REVERSE = {v: k for k, v in _ALGORITHM_MAP.items()}
+
+    # Format: list of (key, display_name) tuples
+    _ALGORITHM_HEURISTICS = {
+        "auto": [],
+        "maxrects": [
+            ("bssf", "Best Short Side Fit (BSSF)"),
+            ("blsf", "Best Long Side Fit (BLSF)"),
+            ("baf", "Best Area Fit (BAF)"),
+            ("bl", "Bottom-Left (BL)"),
+            ("cp", "Contact Point (CP)"),
+        ],
+        "guillotine": [
+            ("bssf", "Best Short Side Fit (BSSF)"),
+            ("blsf", "Best Long Side Fit (BLSF)"),
+            ("baf", "Best Area Fit (BAF)"),
+            ("waf", "Worst Area Fit (WAF)"),
+        ],
+        "shelf": [
+            ("next_fit", "Next Fit"),
+            ("first_fit", "First Fit"),
+            ("best_width", "Best Width Fit"),
+            ("best_height", "Best Height Fit"),
+            ("worst_width", "Worst Width Fit"),
+        ],
+        "shelf-ffdh": [
+            ("next_fit", "Next Fit"),
+            ("first_fit", "First Fit"),
+            ("best_width", "Best Width Fit"),
+            ("best_height", "Best Height Fit"),
+            ("worst_width", "Worst Width Fit"),
+        ],
+        "skyline": [
+            ("bottom_left", "Bottom-Left (BL)"),
+            ("min_waste", "Minimum Waste"),
+            ("best_fit", "Best Fit"),
+        ],
+        "simple": [],
+    }
+
+    def _update_heuristic_options(self, algorithm_display_name: str = None):
+        """Update heuristic combobox options based on selected algorithm.
+
+        Args:
+            algorithm_display_name: Display name of the selected algorithm.
+                If None, reads from the algorithm combobox.
+        """
+        heuristic_combo = self.generator_fields.get("heuristic")
+        algorithm_combo = self.generator_fields.get("algorithm")
+        if not heuristic_combo or not algorithm_combo:
+            return
+
+        if algorithm_display_name is None:
+            algorithm_display_name = algorithm_combo.currentText()
+
+        algorithm_key = self._ALGORITHM_MAP.get(
+            algorithm_display_name, algorithm_display_name.lower()
+        )
+
+        heuristic_combo.blockSignals(True)
+        heuristic_combo.clear()
+
+        heuristic_combo.addItem("Auto (Best Result)", "auto")
+
+        heuristics = self._ALGORITHM_HEURISTICS.get(algorithm_key, [])
+        for key, display_name in heuristics:
+            heuristic_combo.addItem(display_name, key)
+
+        heuristic_combo.setCurrentIndex(0)
+        heuristic_combo.blockSignals(False)
 
     def _load_generator_settings(self, generator_defaults: dict):
         """Populate generator controls from persisted configuration.
@@ -1349,16 +1431,30 @@ class AppConfigWindow(QDialog):
         Args:
             generator_defaults: Dictionary of generator settings.
         """
+        algorithm_value = generator_defaults.get("algorithm")
+        if algorithm_value:
+            algorithm_combo = self.generator_fields.get("algorithm")
+            if algorithm_combo:
+                display_name = self._ALGORITHM_REVERSE.get(
+                    algorithm_value, algorithm_value
+                )
+                algorithm_combo.setCurrentText(display_name)
+
         for key, control in self.generator_fields.items():
+            if key == "algorithm":
+                continue
+
             value = generator_defaults.get(key)
             if value is None:
                 continue
 
             if isinstance(control, QComboBox):
-                if key == "algorithm":
-                    # Convert internal key to display name
-                    display_name = self._ALGORITHM_REVERSE.get(value, value)
-                    control.setCurrentText(display_name)
+                if key == "heuristic":
+                    index = control.findData(value)
+                    if index >= 0:
+                        control.setCurrentIndex(index)
+                    else:
+                        control.setCurrentIndex(0)
                 elif key == "export_format":
                     display_name = self._EXPORT_FORMAT_REVERSE.get(value, value)
                     control.setCurrentText(display_name)
@@ -1382,11 +1478,12 @@ class AppConfigWindow(QDialog):
         for key, control in self.generator_fields.items():
             if isinstance(control, QComboBox):
                 if key == "algorithm":
-                    # Convert display name to internal key
                     display_text = control.currentText()
                     generator_defaults[key] = self._ALGORITHM_MAP.get(
                         display_text, display_text.lower()
                     )
+                elif key == "heuristic":
+                    generator_defaults[key] = control.currentData() or "auto"
                 elif key == "export_format":
                     display_text = control.currentText()
                     generator_defaults[key] = self._EXPORT_FORMAT_MAP.get(
