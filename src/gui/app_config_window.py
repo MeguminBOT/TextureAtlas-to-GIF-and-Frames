@@ -148,6 +148,9 @@ class AppConfigWindow(QDialog):
         system_tab = self.create_system_tab()
         tab_widget.addTab(system_tab, "System Resources")
 
+        interface_tab = self.create_interface_tab()
+        tab_widget.addTab(interface_tab, "Interface")
+
         extraction_tab = self.create_extraction_tab()
         tab_widget.addTab(extraction_tab, "Extraction Defaults")
 
@@ -156,9 +159,6 @@ class AppConfigWindow(QDialog):
 
         compression_tab = self.create_compression_tab()
         tab_widget.addTab(compression_tab, "Compression Defaults")
-
-        ui_tab = self.create_ui_tab()
-        tab_widget.addTab(ui_tab, "UI Preferences")
 
         update_tab = self.create_update_tab()
         tab_widget.addTab(update_tab, "Updates")
@@ -1005,22 +1005,22 @@ class AppConfigWindow(QDialog):
             update_settings.get("auto_download_updates", False)
         )
 
-        ui_state = self.app_config.get("ui_state", {})
+        interface = self.app_config.get("interface", {})
         if self.remember_input_dir_cb:
             self.remember_input_dir_cb.setChecked(
-                ui_state.get("remember_input_directory", True)
+                interface.get("remember_input_directory", True)
             )
         if self.remember_output_dir_cb:
             self.remember_output_dir_cb.setChecked(
-                ui_state.get("remember_output_directory", True)
+                interface.get("remember_output_directory", True)
             )
         if self.filter_single_frame_spritemaps_cb:
             self.filter_single_frame_spritemaps_cb.setChecked(
-                ui_state.get("filter_single_frame_spritemaps", False)
+                interface.get("filter_single_frame_spritemaps", False)
             )
         if self.use_native_file_dialog_cb:
             self.use_native_file_dialog_cb.setChecked(
-                ui_state.get("use_native_file_dialog", False)
+                interface.get("use_native_file_dialog", False)
             )
 
         # Load generator defaults
@@ -1166,21 +1166,21 @@ class AppConfigWindow(QDialog):
                 "auto_download_updates": self.auto_update_cb.isChecked(),
             }
 
-            ui_state = self.app_config.settings.setdefault("ui_state", {})
+            interface = self.app_config.settings.setdefault("interface", {})
             if self.remember_input_dir_cb:
-                ui_state["remember_input_directory"] = (
+                interface["remember_input_directory"] = (
                     self.remember_input_dir_cb.isChecked()
                 )
             if self.remember_output_dir_cb:
-                ui_state["remember_output_directory"] = (
+                interface["remember_output_directory"] = (
                     self.remember_output_dir_cb.isChecked()
                 )
             if self.filter_single_frame_spritemaps_cb:
-                ui_state["filter_single_frame_spritemaps"] = (
+                interface["filter_single_frame_spritemaps"] = (
                     self.filter_single_frame_spritemaps_cb.isChecked()
                 )
             if self.use_native_file_dialog_cb:
-                ui_state["use_native_file_dialog"] = (
+                interface["use_native_file_dialog"] = (
                     self.use_native_file_dialog_cb.isChecked()
                 )
 
@@ -1192,6 +1192,7 @@ class AppConfigWindow(QDialog):
             self.app_config.settings["compression_defaults"] = compression_defaults
             self.app_config.settings["update_settings"] = update_settings
             self.app_config.settings["generator_defaults"] = generator_defaults
+            self.app_config.settings["interface"] = interface
 
             self.app_config.save()
 
@@ -1241,11 +1242,11 @@ class AppConfigWindow(QDialog):
         else:
             return str(val)
 
-    def create_ui_tab(self):
-        """Build the UI preferences tab with directory memory settings.
+    def create_interface_tab(self):
+        """Build the interface preferences tab with UI behavior settings.
 
         Returns:
-            QWidget containing UI preference controls.
+            QWidget containing interface preference controls.
         """
         widget = QWidget()
         layout = QVBoxLayout(widget)

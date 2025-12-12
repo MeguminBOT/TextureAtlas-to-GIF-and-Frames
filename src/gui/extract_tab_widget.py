@@ -202,11 +202,11 @@ class ExtractTabWidget(BaseTabWidget):
         self.filter_single_frame_spritemaps = True
         self.use_native_file_dialog = False
         if self.parent_app and hasattr(self.parent_app, "app_config"):
-            ui_state = self.parent_app.app_config.get("ui_state", {})
-            self.filter_single_frame_spritemaps = ui_state.get(
+            interface = self.parent_app.app_config.get("interface", {})
+            self.filter_single_frame_spritemaps = interface.get(
                 "filter_single_frame_spritemaps", True
             )
-            self.use_native_file_dialog = ui_state.get("use_native_file_dialog", False)
+            self.use_native_file_dialog = interface.get("use_native_file_dialog", False)
         self.editor_composites = defaultdict(dict)
 
     def _setup_with_existing_ui(self):
@@ -770,8 +770,8 @@ class ExtractTabWidget(BaseTabWidget):
             return
 
         start_directory = self.parent_app.app_config.get_last_input_directory()
-        ui_state = self.parent_app.app_config.get("ui_state", {})
-        use_native_dialog = ui_state.get("use_native_file_dialog", False)
+        interface = self.parent_app.app_config.get("interface", {})
+        use_native_dialog = interface.get("use_native_file_dialog", False)
 
         dialog = SpritesheetFileDialog(
             self,

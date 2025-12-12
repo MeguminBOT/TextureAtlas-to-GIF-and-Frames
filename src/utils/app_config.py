@@ -82,7 +82,7 @@ class AppConfig:
         "editor_settings": {
             "origin_mode": "center",
         },
-        "ui_state": {
+        "interface": {
             "last_input_directory": "",
             "last_output_directory": "",
             "remember_input_directory": True,
@@ -380,9 +380,9 @@ class AppConfig:
     def get_last_input_directory(self):
         """Return the last input directory if remembering is enabled."""
 
-        ui_state = self.settings.get("ui_state", {})
-        if ui_state.get("remember_input_directory", True):
-            return ui_state.get("last_input_directory", "")
+        interface = self.settings.get("interface", {})
+        if interface.get("remember_input_directory", True):
+            return interface.get("last_input_directory", "")
         return ""
 
     def set_last_input_directory(self, directory):
@@ -391,19 +391,19 @@ class AppConfig:
         Args:
             directory: Filesystem path to save.
         """
-        ui_state = self.settings.get("ui_state", {})
-        if ui_state.get("remember_input_directory", True):
-            if "ui_state" not in self.settings:
-                self.settings["ui_state"] = {}
-            self.settings["ui_state"]["last_input_directory"] = directory
+        interface = self.settings.get("interface", {})
+        if interface.get("remember_input_directory", True):
+            if "interface" not in self.settings:
+                self.settings["interface"] = {}
+            self.settings["interface"]["last_input_directory"] = directory
             self.save()
 
     def get_last_output_directory(self):
         """Return the last output directory if remembering is enabled."""
 
-        ui_state = self.settings.get("ui_state", {})
-        if ui_state.get("remember_output_directory", True):
-            return ui_state.get("last_output_directory", "")
+        interface = self.settings.get("interface", {})
+        if interface.get("remember_output_directory", True):
+            return interface.get("last_output_directory", "")
         return ""
 
     def set_last_output_directory(self, directory):
@@ -412,17 +412,17 @@ class AppConfig:
         Args:
             directory: Filesystem path to save.
         """
-        ui_state = self.settings.get("ui_state", {})
-        if ui_state.get("remember_output_directory", True):
-            if "ui_state" not in self.settings:
-                self.settings["ui_state"] = {}
-            self.settings["ui_state"]["last_output_directory"] = directory
+        interface = self.settings.get("interface", {})
+        if interface.get("remember_output_directory", True):
+            if "interface" not in self.settings:
+                self.settings["interface"] = {}
+            self.settings["interface"]["last_output_directory"] = directory
             self.save()
 
     def get_remember_input_directory(self):
         """Return True if the last input directory should be remembered."""
 
-        return self.settings.get("ui_state", {}).get("remember_input_directory", True)
+        return self.settings.get("interface", {}).get("remember_input_directory", True)
 
     def set_remember_input_directory(self, remember):
         """Set whether to remember the last input directory.
@@ -430,17 +430,17 @@ class AppConfig:
         Args:
             remember: If False, clears the stored directory.
         """
-        if "ui_state" not in self.settings:
-            self.settings["ui_state"] = {}
-        self.settings["ui_state"]["remember_input_directory"] = remember
+        if "interface" not in self.settings:
+            self.settings["interface"] = {}
+        self.settings["interface"]["remember_input_directory"] = remember
         if not remember:
-            self.settings["ui_state"]["last_input_directory"] = ""
+            self.settings["interface"]["last_input_directory"] = ""
         self.save()
 
     def get_remember_output_directory(self):
         """Return True if the last output directory should be remembered."""
 
-        return self.settings.get("ui_state", {}).get("remember_output_directory", True)
+        return self.settings.get("interface", {}).get("remember_output_directory", True)
 
     def set_remember_output_directory(self, remember):
         """Set whether to remember the last output directory.
@@ -448,11 +448,11 @@ class AppConfig:
         Args:
             remember: If False, clears the stored directory.
         """
-        if "ui_state" not in self.settings:
-            self.settings["ui_state"] = {}
-        self.settings["ui_state"]["remember_output_directory"] = remember
+        if "interface" not in self.settings:
+            self.settings["interface"] = {}
+        self.settings["interface"]["remember_output_directory"] = remember
         if not remember:
-            self.settings["ui_state"]["last_output_directory"] = ""
+            self.settings["interface"]["last_output_directory"] = ""
         self.save()
 
     def get_language(self):
