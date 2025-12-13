@@ -88,7 +88,9 @@ class EditorTab(QWidget):
         self.populate_language_combos()
         self.populate_provider_combo()
 
-    def load_translations(self, file_path: str, translations: List[TranslationItem]) -> None:
+    def load_translations(
+        self, file_path: str, translations: List[TranslationItem]
+    ) -> None:
         """Load translations from a .ts file into the editor.
 
         Args:
@@ -299,7 +301,9 @@ class EditorTab(QWidget):
             "Machine translation disabled. Configure an API key to enable providers."
         )
         self.provider_status_label.setWordWrap(True)
-        self.provider_status_label.setStyleSheet("font-size: 11px; padding: 2px 0; color: #666666;")
+        self.provider_status_label.setStyleSheet(
+            "font-size: 11px; padding: 2px 0; color: #666666;"
+        )
         translation_layout.addWidget(self.provider_status_label)
 
         self.translation_text = QTextEdit()
@@ -365,7 +369,9 @@ class EditorTab(QWidget):
                 continue
             list_item = QListWidgetItem()
             status = "✅" if item.is_translated else "❌"
-            group_indicator = f" 📎{len(item.contexts)}" if len(item.contexts) > 1 else ""
+            group_indicator = (
+                f" 📎{len(item.contexts)}" if len(item.contexts) > 1 else ""
+            )
             display_text = (
                 f"{status}{group_indicator} {item.source[:75]}"
                 f"{'...' if len(item.source) > 75 else ''}"
@@ -380,7 +386,9 @@ class EditorTab(QWidget):
         percentage = (translated / total * 100) if total else 0
         self.stats_label.setText(f"Progress: {translated}/{total} ({percentage:.1f}%)")
 
-    def on_translation_selected(self, current: QListWidgetItem, previous: QListWidgetItem) -> None:
+    def on_translation_selected(
+        self, current: QListWidgetItem, previous: QListWidgetItem
+    ) -> None:
         if current is None:
             self.current_item = None
             self.clear_editor()
@@ -406,7 +414,9 @@ class EditorTab(QWidget):
         self.translation_text.blockSignals(False)
         if len(self.current_item.contexts) == 1:
             context_info = f"Context: {self.current_item.contexts[0]}\n"
-            context_info += f"File: {self.current_item.filename}:{self.current_item.line}"
+            context_info += (
+                f"File: {self.current_item.filename}:{self.current_item.line}"
+            )
         else:
             context_info = f"Used in {len(self.current_item.contexts)} contexts:\n\n"
             context_info += self.current_item.get_all_contexts_info()
@@ -494,14 +504,22 @@ class EditorTab(QWidget):
     def populate_language_combos(self, provider_key: Optional[str] = None) -> None:
         if not self.source_lang_combo or not self.target_lang_combo:
             return
-        provider_choice = provider_key if provider_key is not None else self.selected_provider_key
+        provider_choice = (
+            provider_key if provider_key is not None else self.selected_provider_key
+        )
         previous_source = (
-            self.source_lang_combo.currentData() if self.source_lang_combo.count() else None
+            self.source_lang_combo.currentData()
+            if self.source_lang_combo.count()
+            else None
         )
         previous_target = (
-            self.target_lang_combo.currentData() if self.target_lang_combo.count() else None
+            self.target_lang_combo.currentData()
+            if self.target_lang_combo.count()
+            else None
         )
-        language_choices = self.translation_manager.get_provider_language_choices(provider_choice)
+        language_choices = self.translation_manager.get_provider_language_choices(
+            provider_choice
+        )
         available_codes = {code for code, _ in language_choices}
         self.source_lang_combo.blockSignals(True)
         self.target_lang_combo.blockSignals(True)
@@ -515,7 +533,9 @@ class EditorTab(QWidget):
             self.target_lang_combo.addItem(label, code)
         if previous_source and previous_source in available_codes:
             source_index = self.source_lang_combo.findData(previous_source)
-            self.source_lang_combo.setCurrentIndex(source_index if source_index >= 0 else 0)
+            self.source_lang_combo.setCurrentIndex(
+                source_index if source_index >= 0 else 0
+            )
         else:
             self.source_lang_combo.setCurrentIndex(0)
         preferred_target: Optional[str] = None
@@ -549,7 +569,9 @@ class EditorTab(QWidget):
         self.update_provider_status(None)
 
     def on_provider_changed(self) -> None:
-        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        provider_key = (
+            self.provider_combo.currentData() if self.provider_combo else None
+        )
         self.selected_provider_key = provider_key
         self.update_provider_status(provider_key)
 
@@ -566,7 +588,9 @@ class EditorTab(QWidget):
             self.selected_provider_key = None
             self.populate_language_combos(None)
             return
-        available, message = self.translation_manager.is_provider_available(provider_key)
+        available, message = self.translation_manager.is_provider_available(
+            provider_key
+        )
         provider_name = self.translation_manager.get_provider_name(provider_key)
         if available:
             self.provider_status_label.setText(f"{provider_name} ready: {message}")
@@ -574,15 +598,21 @@ class EditorTab(QWidget):
             self.provider_status_label.setText(message)
         self.translate_btn.setEnabled(available)
         if self.auto_translate_all_btn:
-            self.auto_translate_all_btn.setEnabled(available and bool(self.translations))
+            self.auto_translate_all_btn.setEnabled(
+                available and bool(self.translations)
+            )
         self.selected_provider_key = provider_key
         self.populate_language_combos(provider_key)
 
     def handle_auto_translate(self) -> None:
         if not self.current_item:
-            QMessageBox.information(self, "Auto-Translate", "Select a source string first.")
+            QMessageBox.information(
+                self, "Auto-Translate", "Select a source string first."
+            )
             return
-        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        provider_key = (
+            self.provider_combo.currentData() if self.provider_combo else None
+        )
         if not provider_key:
             QMessageBox.information(
                 self,
@@ -590,16 +620,24 @@ class EditorTab(QWidget):
                 "Select a translation provider and configure its API key before using auto-translate.",
             )
             return
-        target_lang = self.target_lang_combo.currentData() if self.target_lang_combo else None
+        target_lang = (
+            self.target_lang_combo.currentData() if self.target_lang_combo else None
+        )
         if not target_lang:
-            QMessageBox.warning(self, "Missing Target Language", "Please select a target language.")
+            QMessageBox.warning(
+                self, "Missing Target Language", "Please select a target language."
+            )
             return
-        source_lang = self.source_lang_combo.currentData() if self.source_lang_combo else None
+        source_lang = (
+            self.source_lang_combo.currentData() if self.source_lang_combo else None
+        )
         source_text = self.current_item.source
         if not source_text.strip():
             QMessageBox.information(self, "Auto-Translate", "Source text is empty.")
             return
-        protected_text, placeholder_map = self.translation_manager.protect_placeholders(source_text)
+        protected_text, placeholder_map = self.translation_manager.protect_placeholders(
+            source_text
+        )
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             translated = self.translation_manager.translate(
@@ -615,7 +653,9 @@ class EditorTab(QWidget):
             return
         finally:
             QApplication.restoreOverrideCursor()
-        restored = self.translation_manager.restore_placeholders(translated, placeholder_map)
+        restored = self.translation_manager.restore_placeholders(
+            translated, placeholder_map
+        )
         self.translation_text.setPlainText(restored)
         if self.status_bar:
             self.status_bar.showMessage(
@@ -625,10 +665,14 @@ class EditorTab(QWidget):
     def auto_translate_all_entries(self) -> None:
         if not self.translations:
             QMessageBox.information(
-                self, "Translate All Missing", "Load a translation file before running this action."
+                self,
+                "Translate All Missing",
+                "Load a translation file before running this action.",
             )
             return
-        provider_key = self.provider_combo.currentData() if self.provider_combo else None
+        provider_key = (
+            self.provider_combo.currentData() if self.provider_combo else None
+        )
         if not provider_key:
             QMessageBox.information(
                 self,
@@ -636,12 +680,20 @@ class EditorTab(QWidget):
                 "Select a translation provider and configure its API key before translating.",
             )
             return
-        target_lang = self.target_lang_combo.currentData() if self.target_lang_combo else None
+        target_lang = (
+            self.target_lang_combo.currentData() if self.target_lang_combo else None
+        )
         if not target_lang:
-            QMessageBox.warning(self, "Missing Target Language", "Please select a target language.")
+            QMessageBox.warning(
+                self, "Missing Target Language", "Please select a target language."
+            )
             return
-        source_lang = self.source_lang_combo.currentData() if self.source_lang_combo else None
-        items_to_translate = [item for item in self.translations if not item.translation.strip()]
+        source_lang = (
+            self.source_lang_combo.currentData() if self.source_lang_combo else None
+        )
+        items_to_translate = [
+            item for item in self.translations if not item.translation.strip()
+        ]
         if not items_to_translate:
             QMessageBox.information(
                 self, "Translate All Missing", "Every entry already has a translation."
@@ -667,7 +719,9 @@ class EditorTab(QWidget):
         errors: List[str] = []
         provider_name = self.translation_manager.get_provider_name(provider_key)
         for item in items_to_translate:
-            protected_text, mapping = self.translation_manager.protect_placeholders(item.source)
+            protected_text, mapping = self.translation_manager.protect_placeholders(
+                item.source
+            )
             try:
                 translated = self.translation_manager.translate(
                     provider_key,
@@ -678,7 +732,9 @@ class EditorTab(QWidget):
             except TranslationError as exc:
                 errors.append(f"{item.source[:40]}…: {exc}")
                 continue
-            restored = self.translation_manager.restore_placeholders(translated, mapping)
+            restored = self.translation_manager.restore_placeholders(
+                translated, mapping
+            )
             item.translation = restored
             item.is_translated = bool(restored.strip())
             translated_count += 1
@@ -721,7 +777,9 @@ class EditorTab(QWidget):
             return
         placeholder_values = self.get_placeholder_values()
         preview = self.current_item.preview_with_placeholders(placeholder_values)
-        self.preview_text.setPlainText(preview if preview else "(No translation provided)")
+        self.preview_text.setPlainText(
+            preview if preview else "(No translation provided)"
+        )
 
     def on_translation_changed(self) -> None:
         if not self.current_item:

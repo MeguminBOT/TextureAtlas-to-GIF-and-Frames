@@ -288,7 +288,9 @@ class TranslationEditor(QMainWindow):
 
             for context in root.findall("context"):
                 context_name_elem = context.find("name")
-                context_name = context_name_elem.text if context_name_elem is not None else ""
+                context_name = (
+                    context_name_elem.text if context_name_elem is not None else ""
+                )
 
                 for message in context.findall("message"):
                     source_elem = message.find("source")
@@ -302,7 +304,8 @@ class TranslationEditor(QMainWindow):
                     )
                     translation = (
                         translation_elem.text
-                        if translation_elem is not None and translation_elem.text is not None
+                        if translation_elem is not None
+                        and translation_elem.text is not None
                         else ""
                     )
 
@@ -316,7 +319,10 @@ class TranslationEditor(QMainWindow):
                         if source in translation_groups:
                             existing_item = translation_groups[source]
                             existing_item.add_context(context_name, filename, line)
-                            if translation.strip() and not existing_item.translation.strip():
+                            if (
+                                translation.strip()
+                                and not existing_item.translation.strip()
+                            ):
                                 existing_item.translation = translation
                                 existing_item.is_translated = True
                         else:
@@ -409,7 +415,9 @@ class TranslationEditor(QMainWindow):
             translations = self.editor_tab.get_translations()
             root = ET.Element("TS")
             root.set("version", "2.1")
-            language = self._infer_language_from_path(file_path) or self.current_ts_language
+            language = (
+                self._infer_language_from_path(file_path) or self.current_ts_language
+            )
             if language:
                 root.set("language", language)
                 self.current_ts_language = language
@@ -483,7 +491,9 @@ class TranslationEditor(QMainWindow):
         active_sources: set[str] = set()
         for message in root.iter("message"):
             translation_elem = message.find("translation")
-            trans_type = translation_elem.get("type", "") if translation_elem is not None else ""
+            trans_type = (
+                translation_elem.get("type", "") if translation_elem is not None else ""
+            )
             if trans_type not in ("vanished", "obsolete"):
                 source_elem = message.find("source")
                 if source_elem is not None and source_elem.text:
@@ -497,10 +507,16 @@ class TranslationEditor(QMainWindow):
                 trans_type = translation_elem.get("type", "")
                 if trans_type in ("vanished", "obsolete"):
                     source_elem = message.find("source")
-                    source = source_elem.text if source_elem is not None and source_elem.text else ""
+                    source = (
+                        source_elem.text
+                        if source_elem is not None and source_elem.text
+                        else ""
+                    )
                     # Skip if this string exists as an active entry (was moved)
                     if source and source not in active_sources:
-                        translation = translation_elem.text if translation_elem.text else ""
+                        translation = (
+                            translation_elem.text if translation_elem.text else ""
+                        )
                         vanished.append((source, translation))
         return vanished
 
@@ -560,7 +576,9 @@ class TranslationEditor(QMainWindow):
     def _open_ts_file_from_manage(self, ts_path: Path) -> None:
         """Open a .ts file from the ManageTab and switch to the Editor."""
         if not ts_path.exists():
-            QMessageBox.warning(self, "File Missing", f"Translation file not found:\n{ts_path}")
+            QMessageBox.warning(
+                self, "File Missing", f"Translation file not found:\n{ts_path}"
+            )
             return
         self.load_ts_file(str(ts_path))
         if self.tabs and self.editor_tab:

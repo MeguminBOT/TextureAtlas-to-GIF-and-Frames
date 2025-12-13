@@ -41,7 +41,9 @@ class TranslationProvider(ABC):
         """
 
     @abstractmethod
-    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    def translate(
+        self, text: str, target_lang: str, source_lang: Optional[str] = None
+    ) -> str:
         """Translate text to the target language.
 
         Args:

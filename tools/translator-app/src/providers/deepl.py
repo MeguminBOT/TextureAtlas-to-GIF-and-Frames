@@ -75,7 +75,10 @@ class DeepLTranslationProvider(TranslationProvider):
 
     def is_available(self) -> tuple[bool, str]:
         if requests is None:
-            return False, "Install the 'requests' package to enable machine translation."
+            return (
+                False,
+                "Install the 'requests' package to enable machine translation.",
+            )
         if not self._api_key():
             return False, "Set the DEEPL_API_KEY environment variable to enable DeepL."
         return True, "DeepL ready"
@@ -103,7 +106,9 @@ class DeepLTranslationProvider(TranslationProvider):
             "PT-BR",
             "PT-PT",
         }:
-            raise TranslationError(f"DeepL does not support the language code '{code}'.")
+            raise TranslationError(
+                f"DeepL does not support the language code '{code}'."
+            )
 
         if normalized == "EN" and is_target:
             return os.environ.get("DEEPL_TARGET_EN_VARIANT", "EN-US").upper()
@@ -115,7 +120,9 @@ class DeepLTranslationProvider(TranslationProvider):
             return "PT"
         return normalized
 
-    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    def translate(
+        self, text: str, target_lang: str, source_lang: Optional[str] = None
+    ) -> str:
         """Translate text using the DeepL API.
 
         Args:
@@ -135,7 +142,9 @@ class DeepLTranslationProvider(TranslationProvider):
         if not api_key:
             raise TranslationError("DEEPL_API_KEY is not configured.")
         if requests is None:
-            raise TranslationError("The 'requests' package is required for DeepL translations.")
+            raise TranslationError(
+                "The 'requests' package is required for DeepL translations."
+            )
 
         mapped_target = self._map_language(target_lang, is_target=True)
         mapped_source = self._map_language(source_lang, is_target=False)
@@ -147,12 +156,16 @@ class DeepLTranslationProvider(TranslationProvider):
         headers = {"Authorization": f"DeepL-Auth-Key {api_key}"}
 
         try:
-            response = requests.post(self._endpoint, data=payload, headers=headers, timeout=15)
+            response = requests.post(
+                self._endpoint, data=payload, headers=headers, timeout=15
+            )
         except Exception as exc:  # pragma: no cover - network error surface to user
             raise TranslationError(f"DeepL request failed: {exc}") from exc
 
         if response.status_code >= 400:
-            raise TranslationError(f"DeepL error {response.status_code}: {response.text}")
+            raise TranslationError(
+                f"DeepL error {response.status_code}: {response.text}"
+            )
 
         try:
             data = response.json()

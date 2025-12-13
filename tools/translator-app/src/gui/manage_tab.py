@@ -123,7 +123,9 @@ class ManageTab(QWidget):
         self.language_list_widget.setToolTip(
             "Click to select one language. Hold Shift for ranges or Ctrl for individual toggles."
         )
-        self.language_list_widget.itemDoubleClicked.connect(self._handle_language_double_click)
+        self.language_list_widget.itemDoubleClicked.connect(
+            self._handle_language_double_click
+        )
         language_layout.addWidget(self.language_list_widget)
 
         selector_row = QHBoxLayout()
@@ -136,7 +138,9 @@ class ManageTab(QWidget):
         clear_btn.clicked.connect(self.clear_language_selection)
         selector_row.addWidget(clear_btn)
         edit_btn = QPushButton("Edit Details...")
-        edit_btn.setToolTip("Update the display names or quality flag for the selected language.")
+        edit_btn.setToolTip(
+            "Update the display names or quality flag for the selected language."
+        )
         edit_btn.clicked.connect(self.prompt_edit_language)
         selector_row.addWidget(edit_btn)
         add_btn = QPushButton("Add Language...")
@@ -156,7 +160,11 @@ class ManageTab(QWidget):
         actions_group = QGroupBox("Actions")
         actions_layout = QGridLayout(actions_group)
         buttons = [
-            ("Update Source Files", "extract", "Run lupdate to refresh every .ts file."),
+            (
+                "Update Source Files",
+                "extract",
+                "Run lupdate to refresh every .ts file.",
+            ),
             (
                 "Build Compiled Files",
                 "compile",
@@ -182,7 +190,9 @@ class ManageTab(QWidget):
         for index, (label, action, tooltip) in enumerate(buttons):
             button = QPushButton(label)
             button.setToolTip(tooltip)
-            button.clicked.connect(lambda _=False, op=action: self.run_manage_operation(op))
+            button.clicked.connect(
+                lambda _=False, op=action: self.run_manage_operation(op)
+            )
             row = index // 2
             col = index % 2
             actions_layout.addWidget(button, row, col)
@@ -238,9 +248,7 @@ class ManageTab(QWidget):
             indicator = (
                 " 🤖"
                 if meta.get("quality") == "machine"
-                else " ✋"
-                if meta.get("quality") == "native"
-                else ""
+                else " ✋" if meta.get("quality") == "native" else ""
             )
             locale_label = self._format_locale_label(code)
             item = QListWidgetItem(f"{display_name} ({locale_label}){indicator}")
@@ -366,7 +374,9 @@ class ManageTab(QWidget):
             "Deleting also removes metadata. Choose whether to delete the corresponding"
             " .ts/.qm files."
         )
-        delete_files_btn = prompt.addButton("Delete and Remove Files", QMessageBox.DestructiveRole)
+        delete_files_btn = prompt.addButton(
+            "Delete and Remove Files", QMessageBox.DestructiveRole
+        )
         prompt.addButton("Delete (Keep Files)", QMessageBox.ActionRole)
         cancel_btn = prompt.addButton(QMessageBox.Cancel)
         prompt.setDefaultButton(cancel_btn)
@@ -508,7 +518,9 @@ class ManageTab(QWidget):
             self._pending_extract_languages = languages.copy()
             self._enqueue_operation(self._run_full_workflow, languages)
         else:
-            QMessageBox.warning(self, "Unknown Operation", f"Unsupported action: {op_name}")
+            QMessageBox.warning(
+                self, "Unknown Operation", f"Unsupported action: {op_name}"
+            )
 
     def _run_full_workflow(self, languages: List[str]) -> List[OperationResult]:
         results = [
@@ -670,7 +682,9 @@ class ManageTab(QWidget):
             )
 
         if self.manage_log_view:
-            header = "[DELETE] Removed languages: " + ", ".join(code.upper() for code in removed)
+            header = "[DELETE] Removed languages: " + ", ".join(
+                code.upper() for code in removed
+            )
             self.manage_log_view.appendPlainText(header + "\n")
             if deleted_files:
                 self.manage_log_view.appendPlainText(
@@ -680,7 +694,8 @@ class ManageTab(QWidget):
             QMessageBox.warning(
                 self,
                 "File Removal Issues",
-                "Some translation files could not be removed:\n" + "\n".join(failed_files),
+                "Some translation files could not be removed:\n"
+                + "\n".join(failed_files),
             )
 
     def append_manage_log(self, result: OperationResult) -> None:
@@ -709,7 +724,9 @@ class ManageTab(QWidget):
             return
         self.manage_table.setRowCount(len(entries))
         for row, entry in enumerate(entries):
-            lang_item = QTableWidgetItem(self._format_locale_label(entry.get("language", "")))
+            lang_item = QTableWidgetItem(
+                self._format_locale_label(entry.get("language", ""))
+            )
             ts_item = QTableWidgetItem("✅" if entry.get("ts_exists") else "❌")
             qm_item = QTableWidgetItem("✅" if entry.get("qm_exists") else "❌")
             total = entry.get("total_messages", 0)
@@ -724,7 +741,14 @@ class ManageTab(QWidget):
             if unfinished is not None:
                 needs_item.setToolTip(f"Unfinished strings: {unfinished}")
             quality_item = QTableWidgetItem(entry.get("quality", ""))
-            for item in (lang_item, ts_item, qm_item, progress_item, needs_item, quality_item):
+            for item in (
+                lang_item,
+                ts_item,
+                qm_item,
+                progress_item,
+                needs_item,
+                quality_item,
+            ):
                 item.setTextAlignment(Qt.AlignCenter)
             self.manage_table.setItem(row, 0, lang_item)
             self.manage_table.setItem(row, 1, ts_item)
@@ -810,7 +834,11 @@ class ManageTab(QWidget):
             active_sources: set[str] = set()
             for message in root.iter("message"):
                 translation_elem = message.find("translation")
-                trans_type = translation_elem.get("type", "") if translation_elem is not None else ""
+                trans_type = (
+                    translation_elem.get("type", "")
+                    if translation_elem is not None
+                    else ""
+                )
                 if trans_type not in ("vanished", "obsolete"):
                     source_elem = message.find("source")
                     if source_elem is not None and source_elem.text:
@@ -823,10 +851,16 @@ class ManageTab(QWidget):
                     trans_type = translation_elem.get("type", "")
                     if trans_type in ("vanished", "obsolete"):
                         source_elem = message.find("source")
-                        source = source_elem.text if source_elem is not None and source_elem.text else ""
+                        source = (
+                            source_elem.text
+                            if source_elem is not None and source_elem.text
+                            else ""
+                        )
                         # Skip if this string exists as an active entry (was moved)
                         if source and source not in active_sources:
-                            translation = translation_elem.text if translation_elem.text else ""
+                            translation = (
+                                translation_elem.text if translation_elem.text else ""
+                            )
                             vanished.append((source, translation))
         except Exception:
             pass

@@ -77,7 +77,7 @@ class BatchUnusedStringsDialog(QDialog):
         header = QLabel(
             f"<b>{total_strings} vanished string{'s' if total_strings != 1 else ''} "
             f"found across {file_count} file{'s' if file_count != 1 else ''}.</b><br>"
-            "These translations are marked as <code>type=\"vanished\"</code> by Qt's lupdate tool,<br>"
+            'These translations are marked as <code>type="vanished"</code> by Qt\'s lupdate tool,<br>'
             "meaning the source strings no longer exist in the code. They can be safely removed."
         )
         header.setWordWrap(True)
@@ -244,7 +244,9 @@ class BatchUnusedStringsDialog(QDialog):
         active_sources: set[str] = set()
         for message in root.iter("message"):
             translation_elem = message.find("translation")
-            trans_type = translation_elem.get("type", "") if translation_elem is not None else ""
+            trans_type = (
+                translation_elem.get("type", "") if translation_elem is not None else ""
+            )
             if trans_type not in ("vanished", "obsolete"):
                 source_elem = message.find("source")
                 if source_elem is not None and source_elem.text:
@@ -259,7 +261,11 @@ class BatchUnusedStringsDialog(QDialog):
                     trans_type = translation_elem.get("type", "")
                     if trans_type in ("vanished", "obsolete"):
                         source_elem = message.find("source")
-                        source = source_elem.text if source_elem is not None and source_elem.text else ""
+                        source = (
+                            source_elem.text
+                            if source_elem is not None and source_elem.text
+                            else ""
+                        )
                         # Only remove if the string doesn't exist as an active entry
                         if source not in active_sources:
                             messages_to_remove.append(message)

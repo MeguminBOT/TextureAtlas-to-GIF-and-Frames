@@ -40,7 +40,9 @@ class TranslationManager:
             "libretranslate": LibreTranslationProvider(),
         }
 
-    def get_provider_language_choices(self, provider_key: Optional[str]) -> List[Tuple[str, str]]:
+    def get_provider_language_choices(
+        self, provider_key: Optional[str]
+    ) -> List[Tuple[str, str]]:
         """Return Qt language tuples limited to what the provider reports.
 
         Args:

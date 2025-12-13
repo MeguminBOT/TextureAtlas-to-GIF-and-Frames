@@ -55,7 +55,10 @@ class GoogleTranslationProvider(TranslationProvider):
 
     def is_available(self) -> tuple[bool, str]:
         if requests is None:
-            return False, "Install the 'requests' package to enable machine translation."
+            return (
+                False,
+                "Install the 'requests' package to enable machine translation.",
+            )
         if not self._api_key():
             return False, "Set GOOGLE_TRANSLATE_API_KEY to enable Google Translate."
         return True, "Google Translate ready"
@@ -79,7 +82,9 @@ class GoogleTranslationProvider(TranslationProvider):
             raise TranslationError(f"Google Translate does not support '{code}'.")
         return normalized.lower()
 
-    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    def translate(
+        self, text: str, target_lang: str, source_lang: Optional[str] = None
+    ) -> str:
         """Translate text using the Google Cloud Translation API.
 
         Args:
@@ -99,7 +104,9 @@ class GoogleTranslationProvider(TranslationProvider):
         if not api_key:
             raise TranslationError("GOOGLE_TRANSLATE_API_KEY is not configured.")
         if requests is None:
-            raise TranslationError("The 'requests' package is required for Google Translate.")
+            raise TranslationError(
+                "The 'requests' package is required for Google Translate."
+            )
 
         mapped_target = self._map_language(target_lang)
         mapped_source = self._map_language(source_lang)
@@ -115,7 +122,9 @@ class GoogleTranslationProvider(TranslationProvider):
         params = {"key": api_key}
 
         try:
-            response = requests.post(self._ENDPOINT, params=params, json=payload, timeout=15)
+            response = requests.post(
+                self._ENDPOINT, params=params, json=payload, timeout=15
+            )
         except Exception as exc:  # pragma: no cover - network issues surface to user
             raise TranslationError(f"Google Translate request failed: {exc}") from exc
 
@@ -127,7 +136,9 @@ class GoogleTranslationProvider(TranslationProvider):
         try:
             data = response.json()
         except ValueError as exc:
-            raise TranslationError("Failed to decode Google Translate response.") from exc
+            raise TranslationError(
+                "Failed to decode Google Translate response."
+            ) from exc
 
         translations = data.get("data", {}).get("translations") or []
         if not translations:

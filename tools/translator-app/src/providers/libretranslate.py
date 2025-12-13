@@ -53,10 +53,15 @@ class LibreTranslationProvider(TranslationProvider):
 
     def is_available(self) -> tuple[bool, str]:
         if requests is None:
-            return False, "Install the 'requests' package to enable machine translation."
+            return (
+                False,
+                "Install the 'requests' package to enable machine translation.",
+            )
         return True, f"Endpoint: {self._endpoint}"
 
-    def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    def translate(
+        self, text: str, target_lang: str, source_lang: Optional[str] = None
+    ) -> str:
         """Translate text using the LibreTranslate API.
 
         Args:
@@ -73,7 +78,9 @@ class LibreTranslationProvider(TranslationProvider):
         if not text.strip():
             return ""
         if requests is None:
-            raise TranslationError("The 'requests' package is required for LibreTranslate.")
+            raise TranslationError(
+                "The 'requests' package is required for LibreTranslate."
+            )
 
         mapped_target = self._map_language(target_lang, is_target=True)
         mapped_source = self._map_language(source_lang, is_target=False)
@@ -93,7 +100,9 @@ class LibreTranslationProvider(TranslationProvider):
             raise TranslationError(f"LibreTranslate request failed: {exc}") from exc
 
         if response.status_code >= 400:
-            raise TranslationError(f"LibreTranslate error {response.status_code}: {response.text}")
+            raise TranslationError(
+                f"LibreTranslate error {response.status_code}: {response.text}"
+            )
 
         try:
             data = response.json()

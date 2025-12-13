@@ -250,7 +250,9 @@ class LocalizationOperations:
     """
 
     def __init__(
-        self, paths: Optional[TranslationPaths] = None, runner: Optional[CommandRunner] = None
+        self,
+        paths: Optional[TranslationPaths] = None,
+        runner: Optional[CommandRunner] = None,
     ):
         """Initialize the localization operations helper.
 
@@ -280,7 +282,9 @@ class LocalizationOperations:
         self._tool_cache.clear()
         return self.paths
 
-    def _build_paths_from_translations(self, translations_dir: Path | str) -> TranslationPaths:
+    def _build_paths_from_translations(
+        self, translations_dir: Path | str
+    ) -> TranslationPaths:
         """Construct TranslationPaths from a given translations folder."""
         candidate = Path(translations_dir).expanduser().resolve()
         if not candidate.exists() or not candidate.is_dir():
@@ -430,7 +434,9 @@ class LocalizationOperations:
                 result.add_log(f"Skipping {lang}: missing {ts_file}")
                 continue
             qm_file = ts_file.with_suffix(".qm")
-            cmd = self._build_tool_command("lrelease", [str(ts_file), "-qm", str(qm_file)])
+            cmd = self._build_tool_command(
+                "lrelease", [str(ts_file), "-qm", str(qm_file)]
+            )
             run_result = self.runner.run(cmd, cwd=self.paths.project_root)
             per_language.append(
                 {
@@ -479,7 +485,9 @@ class LocalizationOperations:
         result.details["qrc"] = str(qrc_path)
         return result
 
-    def status_report(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+    def status_report(
+        self, languages: Optional[Sequence[str]] = None
+    ) -> OperationResult:
         """Generate a translation progress report for the given languages.
 
         Args:
@@ -521,7 +529,9 @@ class LocalizationOperations:
         result.details["entries"] = entries
         return result
 
-    def inject_disclaimers(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+    def inject_disclaimers(
+        self, languages: Optional[Sequence[str]] = None
+    ) -> OperationResult:
         """Insert machine-translation disclaimer contexts into .ts files.
 
         Only applies to languages marked with quality="machine" in the registry.

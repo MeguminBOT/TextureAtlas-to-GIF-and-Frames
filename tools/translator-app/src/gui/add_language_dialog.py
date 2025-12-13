@@ -77,7 +77,9 @@ class AddLanguageDialog(QDialog):
 
         layout.addLayout(form)
 
-        helper = QLabel("Language codes should match Qt expectations (e.g. en, es_mx, fr_ca).")
+        helper = QLabel(
+            "Language codes should match Qt expectations (e.g. en, es_mx, fr_ca)."
+        )
         helper.setWordWrap(True)
         layout.addWidget(helper)
 
@@ -96,11 +98,15 @@ class AddLanguageDialog(QDialog):
         """Validate inputs and store result data on acceptance."""
         code = self.code_edit.text().strip().lower()
         if not code:
-            QMessageBox.warning(self, "Missing Code", "Enter a language code before continuing.")
+            QMessageBox.warning(
+                self, "Missing Code", "Enter a language code before continuing."
+            )
             return
         if self._code_editable and not re.fullmatch(r"[a-z0-9_\-]+", code):
             QMessageBox.warning(
-                self, "Invalid Code", "Language codes may use letters, numbers, '_' or '-'."
+                self,
+                "Invalid Code",
+                "Language codes may use letters, numbers, '_' or '-'.",
             )
             return
 

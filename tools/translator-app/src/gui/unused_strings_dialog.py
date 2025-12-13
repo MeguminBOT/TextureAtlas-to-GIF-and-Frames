@@ -65,7 +65,7 @@ class UnusedStringsDialog(QDialog):
         count = len(self.unused_strings)
         header = QLabel(
             f"<b>{count} vanished translation string{'s' if count != 1 else ''} found.</b><br>"
-            "These are marked <code>type=\"vanished\"</code> by Qt's lupdate tool,<br>"
+            'These are marked <code>type="vanished"</code> by Qt\'s lupdate tool,<br>'
             "meaning the source strings no longer exist in the code."
         )
         header.setWordWrap(True)
@@ -85,7 +85,9 @@ class UnusedStringsDialog(QDialog):
                     trans_preview += "..."
                 display += f"  →  {trans_preview}"
             item = QListWidgetItem(display)
-            item.setToolTip(f"Source: {source}\n\nTranslation: {translation or '(empty)'}")
+            item.setToolTip(
+                f"Source: {source}\n\nTranslation: {translation or '(empty)'}"
+            )
             self.string_list.addItem(item)
         layout.addWidget(self.string_list, 1)
 
@@ -100,7 +102,9 @@ class UnusedStringsDialog(QDialog):
         button_layout = QHBoxLayout()
 
         save_btn = QPushButton("Save to File && Remove")
-        save_btn.setToolTip("Save vanished strings to a .txt file, then remove them from the editor")
+        save_btn.setToolTip(
+            "Save vanished strings to a .txt file, then remove them from the editor"
+        )
         save_btn.clicked.connect(self._save_and_accept)
         button_layout.addWidget(save_btn)
 

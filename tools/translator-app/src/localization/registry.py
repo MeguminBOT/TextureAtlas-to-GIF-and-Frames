@@ -87,7 +87,9 @@ def _read_registry_from_disk() -> RegistryDict:
         try:
             raw = json.loads(_REGISTRY_PATH.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
-                sanitized = _sanitize_registry(raw) or _sanitize_registry(_FALLBACK_REGISTRY)
+                sanitized = _sanitize_registry(raw) or _sanitize_registry(
+                    _FALLBACK_REGISTRY
+                )
                 return sanitized
         except Exception:
             pass
