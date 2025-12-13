@@ -1,7 +1,7 @@
 """User preferences persistence for the translator application.
 
-Stores user settings (dark mode, last translations folder, etc.) in a JSON
-file under the user's home directory.
+Stores user settings (dark mode, last translations folder, keyboard shortcuts,
+etc.) in a JSON file under the user's home directory.
 """
 
 from __future__ import annotations
@@ -11,6 +11,33 @@ from pathlib import Path
 from typing import Any, Dict
 
 _PREFERENCES_PATH = Path.home() / ".textureatlastoolbox_translator.json"
+
+# Default keyboard shortcuts for editor actions
+DEFAULT_SHORTCUTS: Dict[str, str] = {
+    "copy_source": "Ctrl+Shift+C",
+    "auto_translate": "Ctrl+T",
+    "search": "Ctrl+F",
+    "next_item": "Ctrl+Down",
+    "prev_item": "Ctrl+Up",
+}
+
+
+def get_shortcuts(preferences: Dict[str, Any]) -> Dict[str, str]:
+    """Retrieve keyboard shortcuts from preferences with defaults.
+
+    Args:
+        preferences: The loaded preferences dictionary.
+
+    Returns:
+        A dictionary mapping shortcut keys to their key sequence strings.
+    """
+    stored = preferences.get("shortcuts", {})
+    if not isinstance(stored, dict):
+        stored = {}
+    # Merge with defaults to ensure all keys exist
+    result = DEFAULT_SHORTCUTS.copy()
+    result.update(stored)
+    return result
 
 
 def load_preferences() -> Dict[str, Any]:
@@ -37,4 +64,4 @@ def save_preferences(preferences: Dict[str, Any]) -> None:
         pass
 
 
-__all__ = ["load_preferences", "save_preferences"]
+__all__ = ["load_preferences", "save_preferences", "get_shortcuts", "DEFAULT_SHORTCUTS"]

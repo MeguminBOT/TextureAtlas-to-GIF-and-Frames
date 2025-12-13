@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -82,6 +82,7 @@ class EditorTab(QWidget):
 
         self.source_highlighter: Optional[PlaceholderHighlighter] = None
         self.translation_highlighter: Optional[PlaceholderHighlighter] = None
+        self._shortcuts: Dict[str, QShortcut] = {}
 
         self._build_ui()
         self._setup_connections()
@@ -820,8 +821,67 @@ class EditorTab(QWidget):
         self.update_translation_list()
 
     def copy_source_to_translation(self) -> None:
+        """Copy source text to translation field and focus the input."""
         if self.current_item:
             self.translation_text.setPlainText(self.current_item.source)
+            self.translation_text.setFocus()
+
+    def focus_search(self) -> None:
+        """Focus the search/filter input field."""
+        if self.filter_input:
+            self.filter_input.setFocus()
+            self.filter_input.selectAll()
+
+    def select_next_item(self) -> None:
+        """Move to the next item in the translation list."""
+        if not self.translation_list:
+            return
+        current_row = self.translation_list.currentRow()
+        if current_row < self.translation_list.count() - 1:
+            self.translation_list.setCurrentRow(current_row + 1)
+            self.translation_text.setFocus()
+
+    def select_prev_item(self) -> None:
+        """Move to the previous item in the translation list."""
+        if not self.translation_list:
+            return
+        current_row = self.translation_list.currentRow()
+        if current_row > 0:
+            self.translation_list.setCurrentRow(current_row - 1)
+            self.translation_text.setFocus()
+
+    def handle_auto_translate_with_focus(self) -> None:
+        """Run auto-translate and focus the translation input afterwards."""
+        self.handle_auto_translate()
+        if self.current_item and self.current_item.translation:
+            self.translation_text.setFocus()
+
+    def setup_shortcuts(self, shortcuts: Dict[str, str]) -> None:
+        """Configure keyboard shortcuts for editor actions.
+
+        Args:
+            shortcuts: Dictionary mapping shortcut keys to key sequences.
+        """
+        # Clear existing shortcuts
+        for shortcut in self._shortcuts.values():
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._shortcuts.clear()
+
+        shortcut_actions = {
+            "copy_source": self.copy_source_to_translation,
+            "auto_translate": self.handle_auto_translate_with_focus,
+            "search": self.focus_search,
+            "next_item": self.select_next_item,
+            "prev_item": self.select_prev_item,
+        }
+
+        for key, action in shortcut_actions.items():
+            sequence = shortcuts.get(key, "")
+            if sequence:
+                shortcut = QShortcut(QKeySequence(sequence), self)
+                shortcut.activated.connect(action)
+                self._shortcuts[key] = shortcut
 
     def update_provider_state_after_load(self) -> None:
         if self.provider_combo:

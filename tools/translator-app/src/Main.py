@@ -44,9 +44,10 @@ from core.translation_manager import TranslationManager
 from gui import apply_app_theme
 from gui.editor_tab import EditorTab
 from gui.manage_tab import ManageTab
+from gui.shortcuts_dialog import ShortcutsDialog
 from gui.unused_strings_dialog import UnusedStringsDialog
 from localization import LocalizationOperations
-from utils.preferences import load_preferences, save_preferences
+from utils.preferences import load_preferences, save_preferences, get_shortcuts
 
 
 class TranslationEditor(QMainWindow):
@@ -85,6 +86,7 @@ class TranslationEditor(QMainWindow):
         self.apply_theme()
         if self.editor_tab:
             self.editor_tab.set_dark_mode(self.dark_mode)
+            self._apply_shortcuts()
 
     @staticmethod
     def _find_asset(relative_path: str) -> Optional[Path]:
@@ -194,6 +196,10 @@ class TranslationEditor(QMainWindow):
         self.dark_mode_action.setCheckable(True)
         self.dark_mode_action.setChecked(self.dark_mode)
         self.dark_mode_action.toggled.connect(self.toggle_dark_mode)
+
+        options_menu.addSeparator()
+        shortcuts_action = options_menu.addAction("Keyboard Shortcuts...")
+        shortcuts_action.triggered.connect(self.show_shortcuts_dialog)
 
         help_menu = menubar.addMenu("Help")
 
@@ -609,6 +615,25 @@ class TranslationEditor(QMainWindow):
         prefs["translations_folder"] = str(self.localization_ops.paths.translations_dir)
         save_preferences(prefs)
         self.preferences = prefs
+
+    def _apply_shortcuts(self) -> None:
+        """Apply keyboard shortcuts from preferences to the editor tab."""
+        if not self.editor_tab:
+            return
+        shortcuts = get_shortcuts(self.preferences)
+        self.editor_tab.setup_shortcuts(shortcuts)
+
+    def show_shortcuts_dialog(self) -> None:
+        """Display the keyboard shortcuts configuration dialog."""
+        current_shortcuts = get_shortcuts(self.preferences)
+        dialog = ShortcutsDialog(self, current_shortcuts)
+        if dialog.exec() == QDialog.Accepted:
+            new_shortcuts = dialog.get_shortcuts()
+            self.preferences["shortcuts"] = new_shortcuts
+            self._persist_preferences()
+            self._apply_shortcuts()
+            if self.status_bar:
+                self.status_bar.showMessage("Keyboard shortcuts updated", 3000)
 
 
 def main() -> None:
