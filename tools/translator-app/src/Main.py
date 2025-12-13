@@ -274,8 +274,37 @@ class TranslationEditor(QMainWindow):
         dialog.resize(520, 380)
         dialog.exec()
 
+    def _check_unsaved_changes(self) -> bool:
+        """Check for unsaved changes and prompt user if needed.
+
+        Returns:
+            True if it's safe to proceed (saved, discarded, or no changes).
+            False if the user cancelled the operation.
+        """
+        if not self.editor_tab or not self.editor_tab.has_unsaved_changes():
+            return True
+
+        result = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            "You have unsaved changes. Do you want to save before continuing?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+
+        if result == QMessageBox.Save:
+            self.save_file()
+            # Check if save was successful (no longer modified)
+            return not self.editor_tab.has_unsaved_changes()
+        elif result == QMessageBox.Discard:
+            return True
+        else:  # Cancel
+            return False
+
     def open_file(self) -> None:
         """Prompt the user to select and open a .ts file."""
+        if not self._check_unsaved_changes():
+            return
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Translation File",
@@ -285,13 +314,16 @@ class TranslationEditor(QMainWindow):
         if file_path:
             self.load_ts_file(file_path)
 
-    def load_ts_file(self, file_path: str) -> None:
+    def load_ts_file(self, file_path: str, check_unsaved: bool = True) -> None:
         """Parse a .ts file and load its translations into the editor.
 
         Args:
             file_path: Path to the Qt translation file.
+            check_unsaved: Whether to check for unsaved changes before loading.
         """
         if not self.editor_tab:
+            return
+        if check_unsaved and not self._check_unsaved_changes():
             return
         try:
             from core import TranslationMarker
@@ -639,7 +671,10 @@ class TranslationEditor(QMainWindow):
                 self, "File Missing", f"Translation file not found:\n{ts_path}"
             )
             return
-        self.load_ts_file(str(ts_path))
+        # Check unsaved changes first - if cancelled, don't proceed
+        if not self._check_unsaved_changes():
+            return
+        self.load_ts_file(str(ts_path), check_unsaved=False)
         if self.tabs and self.editor_tab:
             editor_index = self.tabs.indexOf(self.editor_tab)
             if editor_index != -1:

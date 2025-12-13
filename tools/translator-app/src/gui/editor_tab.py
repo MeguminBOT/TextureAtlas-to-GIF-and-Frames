@@ -99,6 +99,8 @@ class EditorTab(QWidget):
             file_path: Path to the .ts file.
             translations: Parsed TranslationItem entries.
         """
+        # Clear current item before updating to avoid accessing deleted objects
+        self.current_item = None
         self.translations = translations
         self.current_file = file_path
         self.is_modified = False
@@ -377,7 +379,10 @@ class EditorTab(QWidget):
         self.provider_combo.currentIndexChanged.connect(self.on_provider_changed)
 
     def update_translation_list(self) -> None:
+        # Block signals during clear to prevent accessing deleted items
+        self.translation_list.blockSignals(True)
         self.translation_list.clear()
+        self.translation_list.blockSignals(False)
         filter_text = self.filter_input.text().lower()
         icon_provider = IconProvider.instance()
         for item in self.translations:
@@ -888,7 +893,19 @@ class EditorTab(QWidget):
                 self.status_bar.showMessage("Ready")
 
     def filter_translations(self) -> None:
+        # Save current item reference before filtering
+        saved_item = self.current_item
         self.update_translation_list()
+        # Try to re-select the previously selected item if it's still in the filtered list
+        if saved_item:
+            for i in range(self.translation_list.count()):
+                list_item = self.translation_list.item(i)
+                if list_item and list_item.data(Qt.UserRole) is saved_item:
+                    self.translation_list.setCurrentItem(list_item)
+                    return
+        # If item not found in filtered list, clear editor
+        self.current_item = None
+        self.clear_editor()
 
     def _on_marker_changed(self) -> None:
         """Handle marker combo box selection change."""
