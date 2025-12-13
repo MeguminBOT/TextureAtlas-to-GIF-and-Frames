@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -84,6 +84,13 @@ class EditorTab(QWidget):
         self.source_highlighter: Optional[PlaceholderHighlighter] = None
         self.translation_highlighter: Optional[PlaceholderHighlighter] = None
         self._shortcuts: Dict[str, QShortcut] = {}
+
+        # Debounce timer for search input
+        self._filter_timer = QTimer(self)
+        self._filter_timer.setSingleShot(True)
+        self._filter_timer.setInterval(150)  # 150ms debounce
+        self._filter_timer.timeout.connect(self._do_filter)
+        self._filter_in_progress = False
 
         self._build_ui()
         self._setup_connections()
@@ -893,19 +900,63 @@ class EditorTab(QWidget):
                 self.status_bar.showMessage("Ready")
 
     def filter_translations(self) -> None:
-        # Save current item reference before filtering
-        saved_item = self.current_item
-        self.update_translation_list()
-        # Try to re-select the previously selected item if it's still in the filtered list
-        if saved_item:
-            for i in range(self.translation_list.count()):
-                list_item = self.translation_list.item(i)
-                if list_item and list_item.data(Qt.UserRole) is saved_item:
-                    self.translation_list.setCurrentItem(list_item)
-                    return
-        # If item not found in filtered list, clear editor
-        self.current_item = None
-        self.clear_editor()
+        """Schedule a debounced filter operation.
+
+        This prevents rapid filter operations during fast typing,
+        which can cause Qt widget access issues.
+        """
+        # Restart the debounce timer on each keystroke
+        self._filter_timer.start()
+
+    def _do_filter(self) -> None:
+        """Perform the actual filtering operation (called after debounce delay)."""
+        # Prevent re-entry if a filter is already in progress
+        if self._filter_in_progress:
+            return
+        self._filter_in_progress = True
+
+        try:
+            # Save current item DATA (not the QListWidgetItem which will be deleted)
+            saved_item_data = self.current_item
+
+            # Clear current item reference BEFORE modifying the list
+            self.current_item = None
+
+            # Block signals on the list during the entire operation
+            self.translation_list.blockSignals(True)
+            try:
+                self.translation_list.clear()
+
+                filter_text = self.filter_input.text().lower()
+                icon_provider = IconProvider.instance()
+                found_saved_row = -1
+
+                for item in self.translations:
+                    if (
+                        filter_text
+                        and filter_text not in item.source.lower()
+                        and filter_text not in item.translation.lower()
+                    ):
+                        continue
+                    list_item = QListWidgetItem()
+                    self._set_translation_item_display(list_item, item, icon_provider)
+                    list_item.setData(Qt.UserRole, item)
+                    self.translation_list.addItem(list_item)
+
+                    # Track if we found the previously selected item
+                    if saved_item_data is not None and item is saved_item_data:
+                        found_saved_row = self.translation_list.count() - 1
+            finally:
+                self.translation_list.blockSignals(False)
+
+            # Now restore selection (signals unblocked so this triggers on_translation_selected)
+            if found_saved_row >= 0:
+                self.translation_list.setCurrentRow(found_saved_row)
+            else:
+                # Item not in filtered list - clear the editor
+                self.clear_editor()
+        finally:
+            self._filter_in_progress = False
 
     def _on_marker_changed(self) -> None:
         """Handle marker combo box selection change."""
