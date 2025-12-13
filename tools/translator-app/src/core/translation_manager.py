@@ -9,7 +9,6 @@ survive round-trips through external APIs.
 from __future__ import annotations
 
 import re
-import uuid
 from typing import Dict, List, Optional, Tuple
 
 from localization import QT_LANGUAGE_CHOICES
@@ -128,13 +127,39 @@ class TranslationManager:
             raise TranslationError(reason)
         return provider.translate(text, target_lang, source_lang)
 
+    # Regex patterns for different placeholder types
+    # Order matters - more specific patterns should come first
+    PLACEHOLDER_PATTERNS = [
+        # Qt numbered arguments: %1, %2, %L1, %Ln, etc.
+        r"%L?n?\d+",
+        # printf-style: %s, %d, %f, %x, %.2f, %03d, etc.
+        r"%[-+0 #]*\d*\.?\d*[hlL]?[diouxXeEfFgGaAcspn%]",
+        # Brace placeholders: {value}, {0}, {name_here}
+        r"\{[^}]*\}",
+        # HTML/XML tags: <b>, </b>, <br/>, <a href="...">, etc.
+        r"<[^>]+>",
+        # Keyboard accelerators: &File, &Save (but not &&)
+        r"(?<!&)&(?!&)(?=[a-zA-Z])",
+    ]
+
+    # Regex to find our placeholder tokens in translated text (case-insensitive)
+    _TOKEN_PATTERN = re.compile(r"<x\s*id\s*=\s*[\"']?(\d+)[\"']?\s*/?>", re.IGNORECASE)
+
     @staticmethod
     def protect_placeholders(text: str) -> tuple[str, Dict[str, str]]:
-        """Replace brace-delimited placeholders with unique tokens.
+        """Replace placeholders with unique tokens to survive translation.
 
-        Machine translation APIs may corrupt placeholders like ``{value}``.
-        This method replaces them with alphanumeric tokens that survive
-        translation, returning a mapping to restore them afterward.
+        Machine translation APIs may corrupt placeholders like ``{value}``,
+        ``%1``, ``%s``, or HTML tags. This method replaces them with
+        XML-style tokens that translation APIs preserve, returning a mapping
+        to attempt restoring them afterward.
+
+        Supported placeholder types:
+            - Qt numbered arguments: %1, %2, %L1, %Ln
+            - printf-style: %s, %d, %f, %.2f, %03d
+            - Brace placeholders: {value}, {0}, {name}
+            - HTML/XML tags: <b>, </b>, <br/>, <a href="...">
+            - Qt keyboard accelerators: &F in "&File"
 
         Args:
             text: The source string containing placeholders.
@@ -144,29 +169,45 @@ class TranslationManager:
             back to their original placeholder strings.
         """
         mapping: Dict[str, str] = {}
+        protected_text = text
 
-        def repl(match):
-            token = f"PH{len(mapping)}{uuid.uuid4().hex[:8].upper()}"
-            mapping[token] = match.group(0)
+        # Build combined pattern from all placeholder types
+        combined_pattern = "|".join(
+            f"({pattern})" for pattern in TranslationManager.PLACEHOLDER_PATTERNS
+        )
+
+        def repl(match: re.Match) -> str:
+            original = match.group(0)
+            # Use XLIFF-style placeholder tags - translation APIs preserve these
+            token_id = len(mapping)
+            token = f'<x id="{token_id}"/>'
+            mapping[token_id] = original
             return token
 
-        protected_text = re.sub(r"\{[^}]*\}", repl, text)
+        protected_text = re.sub(combined_pattern, repl, text)
         return protected_text, mapping
 
-    @staticmethod
-    def restore_placeholders(text: str, mapping: Dict[str, str]) -> str:
-        """Replace tokens back to their original brace-wrapped placeholders.
+    @classmethod
+    def restore_placeholders(cls, text: str, mapping: Dict[int, str]) -> str:
+        """Replace tokens back to their original placeholders.
+
+        Uses regex matching to handle variations in how translation APIs
+        return the placeholder tokens (whitespace changes, quote changes, etc.).
 
         Args:
             text: Translated text containing placeholder tokens.
-            mapping: Token-to-placeholder mapping produced by protect_placeholders.
+            mapping: ID-to-placeholder mapping produced by protect_placeholders.
 
         Returns:
-            The text with tokens replaced by their original placeholders.
+            The text with tokens replaced by their original placeholders
+            (Qt arguments, printf specifiers, braces, HTML tags, etc.).
         """
-        restored = text
-        for token, original in mapping.items():
-            restored = restored.replace(token, original)
+
+        def repl(match: re.Match) -> str:
+            token_id = int(match.group(1))
+            return mapping.get(token_id, match.group(0))
+
+        restored = cls._TOKEN_PATTERN.sub(repl, text)
         return restored
 
 
