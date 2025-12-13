@@ -199,15 +199,15 @@ class OperationResult:
         self.success = False
 
 
-def _count_messages(ts_path: Path) -> Tuple[int, int]:
-    """Return (total_messages, finished_messages) for a TS file.
+def _count_messages(ts_path: Path) -> Tuple[int, int, int]:
+    """Return (total_messages, finished_messages, machine_translated) for a TS file.
 
     Excludes vanished/obsolete strings from the count since they
     no longer exist in the source code.
     """
 
     if not ts_path.exists():
-        return 0, 0
+        return 0, 0, 0
 
     content = ts_path.read_text(encoding="utf-8", errors="ignore")
     total = content.count("<message>")
@@ -215,11 +215,13 @@ def _count_messages(ts_path: Path) -> Tuple[int, int]:
     # Qt uses both "vanished" (newer) and "obsolete" (older) for removed strings
     vanished = content.count('type="vanished"')
     obsolete = content.count('type="obsolete"')
+    # Count machine translated strings (marked with [machine] in comments)
+    machine_translated = content.count("[machine]")
     # Exclude vanished/obsolete strings from total count
     active_total = max(total - vanished - obsolete, 0)
     # Finished = active strings that are neither unfinished nor vanished/obsolete
     finished = max(active_total - unfinished, 0)
-    return active_total, finished
+    return active_total, finished, machine_translated
 
 
 DISCLAIMER_BLOCK = """<context>
@@ -406,7 +408,9 @@ class LocalizationOperations:
                     "exit_code": run_result.exit_code,
                 }
             )
-            log_line = f"{'✅' if run_result.success else '❌'} {lang}: wrote {ts_file}"
+            log_line = (
+                f"{'[OK]' if run_result.success else '[FAIL]'} {lang}: wrote {ts_file}"
+            )
             result.add_log(log_line)
             if not run_result.success:
                 result.add_error(f"Failed to update {ts_file}")
@@ -449,7 +453,7 @@ class LocalizationOperations:
                     "exit_code": run_result.exit_code,
                 }
             )
-            log_line = f"{'✅' if run_result.success else '❌'} {lang}: compiled {qm_file.name}"
+            log_line = f"{'[OK]' if run_result.success else '[FAIL]'} {lang}: compiled {qm_file.name}"
             result.add_log(log_line)
             if not run_result.success:
                 result.add_error(f"Failed to compile {ts_file}")
@@ -505,7 +509,7 @@ class LocalizationOperations:
             qm_file = ts_file.with_suffix(".qm")
             ts_exists = ts_file.exists()
             qm_exists = qm_file.exists()
-            total, finished = _count_messages(ts_file)
+            total, finished, machine_translated = _count_messages(ts_file)
             unfinished = max(total - finished, 0)
             entry = {
                 "language": lang,
@@ -519,12 +523,13 @@ class LocalizationOperations:
                 "total_messages": total,
                 "finished_messages": finished,
                 "unfinished_messages": unfinished,
+                "machine_translated": machine_translated,
                 "needs_update": (not ts_exists) or unfinished > 0,
             }
             entries.append(entry)
             progress = f"{finished}/{total}" if total else "0/0"
             result.add_log(
-                f"{lang.upper()} | .ts {'✅' if entry['ts_exists'] else '❌'} | .qm {'✅' if entry['qm_exists'] else '❌'} | {progress}"
+                f"{lang.upper()} | .ts {'[Y]' if entry['ts_exists'] else '[N]'} | .qm {'[Y]' if entry['qm_exists'] else '[N]'} | {progress}"
             )
         result.details["entries"] = entries
         return result

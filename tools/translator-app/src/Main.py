@@ -43,8 +43,10 @@ from core import TranslationItem
 from core.translation_manager import TranslationManager
 from gui import apply_app_theme
 from gui.editor_tab import EditorTab
+from gui.icon_provider import IconProvider, IconStyle
 from gui.manage_tab import ManageTab
 from gui.shortcuts_dialog import ShortcutsDialog
+from gui.theme_options_dialog import ThemeOptionsDialog
 from gui.unused_strings_dialog import UnusedStringsDialog
 from localization import LocalizationOperations
 from utils.preferences import load_preferences, save_preferences, get_shortcuts
@@ -75,6 +77,7 @@ class TranslationEditor(QMainWindow):
         self.preferences: Dict[str, Any] = load_preferences()
         self.dark_mode = bool(self.preferences.get("dark_mode", False))
         self._apply_saved_translations_dir()
+        self._init_icon_provider()
 
         self.tabs: Optional[QTabWidget] = None
         self.status_bar: Optional[QStatusBar] = None
@@ -192,10 +195,16 @@ class TranslationEditor(QMainWindow):
         exit_action.triggered.connect(self.close)
 
         options_menu = menubar.addMenu("Options")
-        self.dark_mode_action = options_menu.addAction("Dark Mode")
+
+        # Theme submenu
+        theme_menu = options_menu.addMenu("Theme")
+        self.dark_mode_action = theme_menu.addAction("Dark Mode")
         self.dark_mode_action.setCheckable(True)
         self.dark_mode_action.setChecked(self.dark_mode)
         self.dark_mode_action.toggled.connect(self.toggle_dark_mode)
+        theme_menu.addSeparator()
+        theme_options_action = theme_menu.addAction("Theme Options...")
+        theme_options_action.triggered.connect(self.show_theme_options)
 
         options_menu.addSeparator()
         shortcuts_action = options_menu.addAction("Keyboard Shortcuts...")
@@ -285,6 +294,9 @@ class TranslationEditor(QMainWindow):
         if not self.editor_tab:
             return
         try:
+            from core import TranslationMarker
+            import re
+
             tree = ET.parse(file_path)
             root = tree.getroot()
             self.current_ts_language = self._extract_language_from_root(root)
@@ -302,6 +314,7 @@ class TranslationEditor(QMainWindow):
                     source_elem = message.find("source")
                     translation_elem = message.find("translation")
                     location_elem = message.find("location")
+                    comment_elem = message.find("comment")
 
                     source = (
                         source_elem.text
@@ -314,6 +327,19 @@ class TranslationEditor(QMainWindow):
                         and translation_elem.text is not None
                         else ""
                     )
+
+                    # Extract marker from comment if present
+                    marker = TranslationMarker.NONE
+                    is_machine_translated = False
+                    if comment_elem is not None and comment_elem.text:
+                        marker_match = re.search(r"\[marker:(\w+)\]", comment_elem.text)
+                        if marker_match:
+                            marker = TranslationMarker.from_string(
+                                marker_match.group(1)
+                            )
+                        # Check for machine translated flag
+                        if "[machine]" in comment_elem.text:
+                            is_machine_translated = True
 
                     filename = ""
                     line = 0
@@ -331,9 +357,21 @@ class TranslationEditor(QMainWindow):
                             ):
                                 existing_item.translation = translation
                                 existing_item.is_translated = True
+                            # Keep marker if existing item doesn't have one
+                            if (
+                                existing_item.marker == TranslationMarker.NONE
+                                and marker != TranslationMarker.NONE
+                            ):
+                                existing_item.marker = marker
                         else:
                             translation_groups[source] = TranslationItem(
-                                source, translation, context_name, filename, line
+                                source,
+                                translation,
+                                context_name,
+                                filename,
+                                line,
+                                marker=marker,
+                                is_machine_translated=is_machine_translated,
                             )
 
             # Detect vanished (obsolete) strings marked by lupdate
@@ -418,6 +456,8 @@ class TranslationEditor(QMainWindow):
         if not self.editor_tab:
             return
         try:
+            from core import TranslationMarker
+
             translations = self.editor_tab.get_translations()
             root = ET.Element("TS")
             root.set("version", "2.1")
@@ -454,6 +494,16 @@ class TranslationEditor(QMainWindow):
                     source_elem = ET.SubElement(message_elem, "source")
                     source_elem.text = item.source
 
+                    # Save translation marker and machine flag as comment with prefixes
+                    comment_parts = []
+                    if item.marker and item.marker != TranslationMarker.NONE:
+                        comment_parts.append(f"[marker:{item.marker.value}]")
+                    if item.is_machine_translated:
+                        comment_parts.append("[machine]")
+                    if comment_parts:
+                        comment_elem = ET.SubElement(message_elem, "comment")
+                        comment_elem.text = " ".join(comment_parts)
+
                     translation_elem = ET.SubElement(message_elem, "translation")
                     if item.translation:
                         translation_elem.text = item.translation
@@ -465,6 +515,9 @@ class TranslationEditor(QMainWindow):
             tree.write(file_path, encoding="utf-8", xml_declaration=True)
 
             self.editor_tab.mark_saved(file_path)
+            # Refresh the manage tab status table to reflect updated progress
+            if self.manage_tab:
+                self.manage_tab.refresh_status_table()
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{exc}")
 
@@ -613,8 +666,88 @@ class TranslationEditor(QMainWindow):
         prefs = dict(self.preferences)
         prefs["dark_mode"] = self.dark_mode
         prefs["translations_folder"] = str(self.localization_ops.paths.translations_dir)
+        # Save icon style settings
+        icon_provider = IconProvider.instance()
+        prefs["icon_style"] = icon_provider.style.value
+        if icon_provider.custom_assets_path:
+            prefs["custom_icons_path"] = str(icon_provider.custom_assets_path)
         save_preferences(prefs)
         self.preferences = prefs
+
+    def _init_icon_provider(self) -> None:
+        """Initialize the icon provider from saved preferences."""
+        style_str = self.preferences.get("icon_style", "simplified")
+        try:
+            style = IconStyle(style_str)
+        except ValueError:
+            style = IconStyle.SIMPLIFIED
+
+        custom_path_str = self.preferences.get("custom_icons_path", "")
+        custom_path = Path(custom_path_str) if custom_path_str else None
+
+        provider = IconProvider(style=style, custom_assets_path=custom_path)
+        IconProvider.set_instance(provider)
+
+    def show_theme_options(self) -> None:
+        """Display the theme options configuration dialog."""
+        icon_provider = IconProvider.instance()
+        custom_path = (
+            str(icon_provider.custom_assets_path)
+            if icon_provider.custom_assets_path
+            else ""
+        )
+        dialog = ThemeOptionsDialog(
+            self,
+            dark_mode=self.dark_mode,
+            icon_style=icon_provider.style.value,
+            custom_icons_path=custom_path,
+        )
+        dialog.settings_changed.connect(self._apply_theme_settings)
+        dialog.exec()
+
+    def _apply_theme_settings(self, settings: Dict[str, Any]) -> None:
+        """Apply theme settings from the options dialog.
+
+        Args:
+            settings: Dictionary with 'dark_mode', 'icon_style', 'custom_icons_path'.
+        """
+        # Apply dark mode
+        new_dark_mode = settings.get("dark_mode", self.dark_mode)
+        if new_dark_mode != self.dark_mode:
+            self.toggle_dark_mode(new_dark_mode)
+
+        # Apply icon style
+        icon_style_str = settings.get("icon_style", "simplified")
+        custom_path_str = settings.get("custom_icons_path", "")
+
+        try:
+            icon_style = IconStyle(icon_style_str)
+        except ValueError:
+            icon_style = IconStyle.SIMPLIFIED
+
+        custom_path = Path(custom_path_str) if custom_path_str else None
+
+        provider = IconProvider.instance()
+        provider.style = icon_style
+        provider.custom_assets_path = custom_path
+
+        # Persist and refresh UI
+        self._persist_preferences()
+        self._refresh_ui_icons()
+
+        if self.status_bar:
+            self.status_bar.showMessage("Theme settings updated", 3000)
+
+    def _refresh_ui_icons(self) -> None:
+        """Refresh UI elements that display icons after style change."""
+        # Refresh manage tab language list and status table
+        if self.manage_tab:
+            self.manage_tab.populate_language_list(preserve_selection=True)
+            self.manage_tab.refresh_status_table()
+
+        # Refresh editor tab translation list
+        if self.editor_tab:
+            self.editor_tab.update_translation_list()
 
     def _apply_shortcuts(self) -> None:
         """Apply keyboard shortcuts from preferences to the editor tab."""

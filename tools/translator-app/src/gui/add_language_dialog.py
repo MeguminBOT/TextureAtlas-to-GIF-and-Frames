@@ -70,9 +70,19 @@ class AddLanguageDialog(QDialog):
         form.addRow("English Name", self.english_name_edit)
 
         self.quality_combo = QComboBox()
-        self.quality_combo.addItem("Machine (auto)", "machine")
-        self.quality_combo.addItem("Native (human)", "native")
+        self.quality_combo.addItem("Machine (auto-translated)", "machine")
+        self.quality_combo.addItem("Unreviewed (human, not reviewed)", "unreviewed")
+        self.quality_combo.addItem("Reviewed (checked by reviewer)", "reviewed")
+        self.quality_combo.addItem("Native (approved by native speakers)", "native")
         self.quality_combo.addItem("Unknown", "unknown")
+        self.quality_combo.setToolTip(
+            "Translation quality level:\\n"
+            "• Machine: Auto-translated, no human review\\n"
+            "• Unreviewed: Human translated but not yet reviewed\\n"
+            "• Reviewed: Checked by at least one reviewer\\n"
+            "• Native: Approved by multiple native speakers\\n"
+            "• Unknown: Quality status not determined"
+        )
         form.addRow("Quality", self.quality_combo)
 
         layout.addLayout(form)

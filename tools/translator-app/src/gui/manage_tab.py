@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from .add_language_dialog import AddLanguageDialog
 from .batch_unused_dialog import BatchUnusedStringsDialog
+from .icon_provider import IconProvider, IconStyle, IconType
 from localization import (
     LANGUAGE_REGISTRY,
     LocalizationOperations,
@@ -204,9 +205,9 @@ class ManageTab(QWidget):
         self.manage_status_label = QLabel("Idle")
         layout.addWidget(self.manage_status_label)
 
-        self.manage_table = QTableWidget(0, 6)
+        self.manage_table = QTableWidget(0, 7)
         self.manage_table.setHorizontalHeaderLabels(
-            ["Locale", ".ts", ".qm", "Progress", "Needs Update", "Quality"]
+            ["Locale", ".ts", ".qm", "Progress", "Machine", "Needs Update", "Quality"]
         )
         self.manage_table.verticalHeader().setVisible(False)
         self.manage_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -239,19 +240,22 @@ class ManageTab(QWidget):
         else:
             selected_codes = {code.lower() for code in ensure_selected or []}
         self.language_list_widget.clear()
+        icon_provider = IconProvider.instance()
         for code in sorted(LANGUAGE_REGISTRY.keys()):
             meta = LANGUAGE_REGISTRY[code]
             display_name = meta.get("name", code)
             english = meta.get("english_name")
             if english and english != display_name:
                 display_name = f"{display_name} ({english})"
-            indicator = (
-                " 🤖"
-                if meta.get("quality") == "machine"
-                else " ✋" if meta.get("quality") == "native" else ""
+
+            quality = meta.get("quality", "")
+            indicator_text, indicator_icon = icon_provider.get_quality_indicator(
+                quality
             )
             locale_label = self._format_locale_label(code)
-            item = QListWidgetItem(f"{display_name} ({locale_label}){indicator}")
+            item = QListWidgetItem(f"{display_name} ({locale_label}){indicator_text}")
+            if indicator_icon:
+                item.setIcon(indicator_icon)
             item.setData(Qt.UserRole, code)
             self.language_list_widget.addItem(item)
             if code in selected_codes:
@@ -723,18 +727,56 @@ class ManageTab(QWidget):
         if not self.manage_table:
             return
         self.manage_table.setRowCount(len(entries))
+        icon_provider = IconProvider.instance()
         for row, entry in enumerate(entries):
             lang_item = QTableWidgetItem(
                 self._format_locale_label(entry.get("language", ""))
             )
-            ts_item = QTableWidgetItem("✅" if entry.get("ts_exists") else "❌")
-            qm_item = QTableWidgetItem("✅" if entry.get("qm_exists") else "❌")
+            # Create status items with icons or text based on provider style
+            ts_exists = entry.get("ts_exists", False)
+            qm_exists = entry.get("qm_exists", False)
+
+            if icon_provider.style == IconStyle.EMOJI:
+                ts_text = icon_provider.get_text(
+                    IconType.SUCCESS if ts_exists else IconType.ERROR
+                )
+                qm_text = icon_provider.get_text(
+                    IconType.SUCCESS if qm_exists else IconType.ERROR
+                )
+                ts_item = QTableWidgetItem(ts_text)
+                qm_item = QTableWidgetItem(qm_text)
+            else:
+                ts_item = QTableWidgetItem()
+                ts_item.setIcon(
+                    icon_provider.get_icon(
+                        IconType.SUCCESS if ts_exists else IconType.ERROR
+                    )
+                )
+                qm_item = QTableWidgetItem()
+                qm_item.setIcon(
+                    icon_provider.get_icon(
+                        IconType.SUCCESS if qm_exists else IconType.ERROR
+                    )
+                )
             total = entry.get("total_messages", 0)
             finished = entry.get("finished_messages", 0)
             progress = f"{finished}/{total}" if total else "0/0"
             if total:
                 progress += f" ({finished / total * 100:.0f}%)"
             progress_item = QTableWidgetItem(progress)
+            machine_count = entry.get("machine_translated", 0)
+            if machine_count and total:
+                machine_pct = machine_count / total * 100
+                machine_text = f"{machine_count} ({machine_pct:.0f}%)"
+            elif machine_count:
+                machine_text = str(machine_count)
+            else:
+                machine_text = "-"
+            machine_item = QTableWidgetItem(machine_text)
+            if machine_count:
+                machine_item.setToolTip(
+                    f"{machine_count} string(s) translated by machine and not yet reviewed"
+                )
             needs_update = entry.get("needs_update", False)
             needs_item = QTableWidgetItem("Yes" if needs_update else "No")
             unfinished = entry.get("unfinished_messages")
@@ -746,6 +788,7 @@ class ManageTab(QWidget):
                 ts_item,
                 qm_item,
                 progress_item,
+                machine_item,
                 needs_item,
                 quality_item,
             ):
@@ -754,11 +797,19 @@ class ManageTab(QWidget):
             self.manage_table.setItem(row, 1, ts_item)
             self.manage_table.setItem(row, 2, qm_item)
             self.manage_table.setItem(row, 3, progress_item)
-            self.manage_table.setItem(row, 4, needs_item)
-            self.manage_table.setItem(row, 5, quality_item)
+            self.manage_table.setItem(row, 4, machine_item)
+            self.manage_table.setItem(row, 5, needs_item)
+            self.manage_table.setItem(row, 6, quality_item)
 
     def refresh_language_list(self) -> None:
         self.populate_language_list(preserve_selection=True)
+
+    def refresh_status_table(self) -> None:
+        """Public method to refresh the status table.
+
+        Call this after saving a .ts file to update the progress display.
+        """
+        self._refresh_status_table()
 
     def _refresh_status_table(self) -> None:
         """Refresh the status table with current translation progress for all languages."""

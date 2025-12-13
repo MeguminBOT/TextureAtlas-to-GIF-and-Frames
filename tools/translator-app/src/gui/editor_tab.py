@@ -33,8 +33,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core import TranslationError, TranslationItem
+from core import TranslationError, TranslationItem, TranslationMarker, MARKER_LABELS
 from core.translation_manager import TranslationManager
+from .icon_provider import IconProvider, IconStyle, IconType
 from .placeholder_highlighter import PlaceholderHighlighter
 
 
@@ -294,6 +295,23 @@ class EditorTab(QWidget):
         self.target_lang_combo = QComboBox()
         controls.addWidget(self.target_lang_combo, 1, 3)
 
+        # Marker control for translation quality feedback
+        marker_label = QLabel("Mark as:")
+        controls.addWidget(marker_label, 1, 4, alignment=Qt.AlignRight)
+        self.marker_combo = QComboBox()
+        self.marker_combo.setToolTip(
+            "Mark this translation with a quality indicator:\n"
+            "• None: No marker\n"
+            "• Unsure: You're not confident about this translation\n"
+            "• Needs Review: Should be reviewed by others\n"
+            "• Could Be Improved: Works but could be better"
+        )
+        for marker in TranslationMarker:
+            self.marker_combo.addItem(MARKER_LABELS[marker], marker)
+        self.marker_combo.setEnabled(False)
+        self.marker_combo.currentIndexChanged.connect(self._on_marker_changed)
+        controls.addWidget(self.marker_combo, 1, 5)
+
         controls.setColumnStretch(1, 1)
         controls.setColumnStretch(3, 1)
         translation_layout.addLayout(controls)
@@ -361,6 +379,7 @@ class EditorTab(QWidget):
     def update_translation_list(self) -> None:
         self.translation_list.clear()
         filter_text = self.filter_input.text().lower()
+        icon_provider = IconProvider.instance()
         for item in self.translations:
             if (
                 filter_text
@@ -369,17 +388,57 @@ class EditorTab(QWidget):
             ):
                 continue
             list_item = QListWidgetItem()
-            status = "✅" if item.is_translated else "❌"
-            group_indicator = (
-                f" 📎{len(item.contexts)}" if len(item.contexts) > 1 else ""
-            )
-            display_text = (
-                f"{status}{group_indicator} {item.source[:75]}"
-                f"{'...' if len(item.source) > 75 else ''}"
-            )
-            list_item.setText(display_text)
+            self._set_translation_item_display(list_item, item, icon_provider)
             list_item.setData(Qt.UserRole, item)
             self.translation_list.addItem(list_item)
+
+    def _set_translation_item_display(
+        self,
+        list_item: QListWidgetItem,
+        item: TranslationItem,
+        icon_provider: IconProvider,
+    ) -> None:
+        """Set the display text and icon for a translation list item.
+
+        Args:
+            list_item: The QListWidgetItem to configure.
+            item: The TranslationItem data.
+            icon_provider: The icon provider instance.
+        """
+        # Determine the icon to show based on translation status and marker
+        # Priority: not translated > unsure marker > machine translated > success
+        if not item.is_translated:
+            icon_type = IconType.ERROR
+        elif item.marker == TranslationMarker.UNSURE:
+            icon_type = IconType.MARKER_UNSURE
+        elif item.is_machine_translated:
+            icon_type = IconType.MACHINE_TRANSLATED
+        else:
+            icon_type = IconType.SUCCESS
+
+        if icon_provider.style == IconStyle.EMOJI:
+            status_text = icon_provider.get_text(icon_type)
+            group_text = (
+                f" {icon_provider.get_text(IconType.GROUP)}{len(item.contexts)}"
+                if len(item.contexts) > 1
+                else ""
+            )
+            display_text = (
+                f"{status_text}{group_text} {item.source[:70]}"
+                f"{'...' if len(item.source) > 70 else ''}"
+            )
+            list_item.setText(display_text)
+        else:
+            # Icon mode - icon reflects both status and marker
+            list_item.setIcon(icon_provider.get_icon(icon_type))
+            group_indicator = (
+                f" [{len(item.contexts)}]" if len(item.contexts) > 1 else ""
+            )
+            display_text = (
+                f"{group_indicator} {item.source[:70]}"
+                f"{'...' if len(item.source) > 70 else ''}"
+            ).strip()
+            list_item.setText(display_text)
 
     def update_stats(self) -> None:
         total = len(self.translations)
@@ -404,15 +463,27 @@ class EditorTab(QWidget):
         self.context_label.setPlainText("No translation selected")
         self.placeholder_group.setVisible(False)
         self.copy_source_btn.setEnabled(False)
+        self.marker_combo.setEnabled(False)
+        self.marker_combo.blockSignals(True)
+        self.marker_combo.setCurrentIndex(0)
+        self.marker_combo.blockSignals(False)
 
     def load_translation_in_editor(self) -> None:
         if not self.current_item:
             return
         self.copy_source_btn.setEnabled(True)
+        self.marker_combo.setEnabled(True)
         self.source_text.setPlainText(self.current_item.source)
         self.translation_text.blockSignals(True)
         self.translation_text.setPlainText(self.current_item.translation)
         self.translation_text.blockSignals(False)
+        # Load the current marker
+        self.marker_combo.blockSignals(True)
+        for i in range(self.marker_combo.count()):
+            if self.marker_combo.itemData(i) == self.current_item.marker:
+                self.marker_combo.setCurrentIndex(i)
+                break
+        self.marker_combo.blockSignals(False)
         if len(self.current_item.contexts) == 1:
             context_info = f"Context: {self.current_item.contexts[0]}\n"
             context_info += (
@@ -660,6 +731,9 @@ class EditorTab(QWidget):
             translated, placeholder_map
         )
         self.translation_text.setPlainText(restored)
+        # Mark as machine translated so the icon reflects this
+        if self.current_item:
+            self.current_item.is_machine_translated = True
         if self.status_bar:
             self.status_bar.showMessage(
                 f"Translated using {self.translation_manager.get_provider_name(provider_key)}"
@@ -740,6 +814,7 @@ class EditorTab(QWidget):
             )
             item.translation = restored
             item.is_translated = bool(restored.strip())
+            item.is_machine_translated = True
             translated_count += 1
         QApplication.restoreOverrideCursor()
         if self.provider_combo:
@@ -794,17 +869,10 @@ class EditorTab(QWidget):
             self.is_modified = True
             current_list_item = self.translation_list.currentItem()
             if current_list_item:
-                status = "✅" if self.current_item.is_translated else "❌"
-                group_indicator = (
-                    f" 📎{len(self.current_item.contexts)}"
-                    if len(self.current_item.contexts) > 1
-                    else ""
+                icon_provider = IconProvider.instance()
+                self._set_translation_item_display(
+                    current_list_item, self.current_item, icon_provider
                 )
-                display_text = (
-                    f"{status}{group_indicator} {self.current_item.source[:75]}"
-                    f"{'...' if len(self.current_item.source) > 75 else ''}"
-                )
-                current_list_item.setText(display_text)
             self.update_stats()
             self.update_preview()
             if self.current_file and hasattr(self.window, "setWindowTitle"):
@@ -821,6 +889,33 @@ class EditorTab(QWidget):
 
     def filter_translations(self) -> None:
         self.update_translation_list()
+
+    def _on_marker_changed(self) -> None:
+        """Handle marker combo box selection change."""
+        if not self.current_item:
+            return
+        new_marker = self.marker_combo.currentData()
+        if new_marker != self.current_item.marker:
+            self.current_item.marker = new_marker
+            # Clear machine translated flag - user has reviewed/interacted with this
+            self.current_item.is_machine_translated = False
+            self.is_modified = True
+            # Update the list item to show the marker indicator
+            current_list_item = self.translation_list.currentItem()
+            if current_list_item:
+                icon_provider = IconProvider.instance()
+                self._set_translation_item_display(
+                    current_list_item, self.current_item, icon_provider
+                )
+            if self.current_file and hasattr(self.window, "setWindowTitle"):
+                filename = Path(self.current_file).name
+                self.window.setWindowTitle(f"Translation Editor - {filename} *")
+            if self.status_bar:
+                marker_label = MARKER_LABELS.get(new_marker, "")
+                if new_marker == TranslationMarker.NONE:
+                    self.status_bar.showMessage("Marker removed")
+                else:
+                    self.status_bar.showMessage(f"Marked as: {marker_label}")
 
     def copy_source_to_translation(self) -> None:
         """Copy source text to translation field and focus the input."""

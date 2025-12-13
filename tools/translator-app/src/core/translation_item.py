@@ -8,7 +8,43 @@ from Qt .ts files.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Tuple
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+
+class TranslationMarker(Enum):
+    """Quality markers that translators can apply to translations.
+
+    These markers help track the confidence level of translations and
+    flag items that may need additional review or improvement.
+    """
+
+    NONE = ""  # No marker (default)
+    UNSURE = "unsure"  # Translator is unsure about this translation
+
+    @classmethod
+    def from_string(cls, value: Optional[str]) -> "TranslationMarker":
+        """Convert a string to a TranslationMarker.
+
+        Args:
+            value: The marker string, or None.
+
+        Returns:
+            The corresponding TranslationMarker, or NONE if not found.
+        """
+        if not value:
+            return cls.NONE
+        for member in cls:
+            if member.value == value:
+                return member
+        return cls.NONE
+
+
+# Human-readable labels for markers
+MARKER_LABELS: Dict[TranslationMarker, str] = {
+    TranslationMarker.NONE: "None",
+    TranslationMarker.UNSURE: "Unsure",
+}
 
 
 class TranslationItem:
@@ -24,6 +60,8 @@ class TranslationItem:
         contexts: Context names where this string appears.
         locations: List of (filename, line) tuples for each context.
         is_translated: True if translation is non-empty.
+        is_machine_translated: True if translated by machine and not yet reviewed.
+        marker: Quality marker for this translation (unsure, needs review, etc.).
     """
 
     def __init__(
@@ -33,6 +71,8 @@ class TranslationItem:
         context: str = "",
         filename: str = "",
         line: int = 0,
+        marker: Optional[TranslationMarker] = None,
+        is_machine_translated: bool = False,
     ) -> None:
         """Initialize a translation entry.
 
@@ -42,12 +82,16 @@ class TranslationItem:
             context: Qt context name (e.g., class name) where the string appears.
             filename: Source file where the string is defined.
             line: Line number in the source file.
+            marker: Quality marker for the translation.
+            is_machine_translated: True if translated by machine translation.
         """
         self.source = source
         self.translation = translation or ""
         self.contexts = [context] if context else []
         self.locations: List[Tuple[str, int]] = [(filename, line)] if filename else []
         self.is_translated = bool(self.translation.strip())
+        self.is_machine_translated = is_machine_translated
+        self.marker = marker if marker else TranslationMarker.NONE
 
     def add_context(self, context: str, filename: str = "", line: int = 0) -> None:
         """Track another context that reuses this string.
