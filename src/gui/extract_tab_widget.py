@@ -478,8 +478,19 @@ class ExtractTabWidget(BaseTabWidget):
         self.frame_scale_entry.setDecimals(2)
         self.frame_scale_entry.setSingleStep(0.01)
 
+        resampling_label = QLabel(self.tr("Resampling"))
+        resampling_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        resampling_label.setGeometry(40, 180, 111, 16)
+        resampling_label.setParent(group)
+
+        self.resampling_method_combobox = QComboBox(group)
+        self.resampling_method_combobox.setGeometry(10, 200, 171, 24)
+        self.resampling_method_combobox.addItems(
+            ["Nearest", "Bilinear", "Bicubic", "Lanczos", "Box", "Hamming"]
+        )
+
         self.compression_settings_button = QPushButton(self.tr("Compression settings"))
-        self.compression_settings_button.setGeometry(10, 200, 171, 24)
+        self.compression_settings_button.setGeometry(10, 240, 171, 24)
         self.compression_settings_button.setParent(group)
 
         return group
