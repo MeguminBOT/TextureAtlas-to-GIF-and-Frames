@@ -143,16 +143,20 @@ class TranslationManager:
     ]
 
     # Regex to find our placeholder tokens in translated text (case-insensitive)
-    _TOKEN_PATTERN = re.compile(r"<x\s*id\s*=\s*[\"']?(\d+)[\"']?\s*/?>", re.IGNORECASE)
+    # Token formats we accept (MT engines sometimes drop a bracket or add spaces):
+    #   [[PH0]], [[PH 0]], [[ ph0 ]], [PH0]], [[PH], PH0, ph0
+    _TOKEN_PATTERN = re.compile(
+        r"\[\[?\s*PH\s*(\d+)\s*\]?\]?|PH\s*(\d+)", re.IGNORECASE
+    )
 
     @staticmethod
-    def protect_placeholders(text: str) -> tuple[str, Dict[str, str]]:
+    def protect_placeholders(text: str) -> tuple[str, Dict[int, str]]:
         """Replace placeholders with unique tokens to survive translation.
 
         Machine translation APIs may corrupt placeholders like ``{value}``,
         ``%1``, ``%s``, or HTML tags. This method replaces them with
-        XML-style tokens that translation APIs preserve, returning a mapping
-        to attempt restoring them afterward.
+        neutral tokens ([[PH0]], [[PH1]]...) that engines generally leave alone,
+        returning a mapping to restore them afterward.
 
         Supported placeholder types:
             - Qt numbered arguments: %1, %2, %L1, %Ln
@@ -168,7 +172,7 @@ class TranslationManager:
             A tuple of (protected_text, mapping) where mapping maps tokens
             back to their original placeholder strings.
         """
-        mapping: Dict[str, str] = {}
+        mapping: Dict[int, str] = {}
         protected_text = text
 
         # Build combined pattern from all placeholder types
@@ -178,9 +182,8 @@ class TranslationManager:
 
         def repl(match: re.Match) -> str:
             original = match.group(0)
-            # Use XLIFF-style placeholder tags - translation APIs preserve these
             token_id = len(mapping)
-            token = f'<x id="{token_id}"/>'
+            token = f"[[PH{token_id}]]"
             mapping[token_id] = original
             return token
 
@@ -204,7 +207,9 @@ class TranslationManager:
         """
 
         def repl(match: re.Match) -> str:
-            token_id = int(match.group(1))
+            # group(1) for bracketed/partial bracket tokens, group(2) for bare PHn
+            token_group = match.group(1) or match.group(2)
+            token_id = int(token_group)
             return mapping.get(token_id, match.group(0))
 
         restored = cls._TOKEN_PATTERN.sub(repl, text)
