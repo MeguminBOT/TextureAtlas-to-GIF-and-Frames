@@ -1,3 +1,9 @@
+"""Syntax highlighter for brace-delimited placeholder tokens.
+
+Provides visual emphasis for placeholders like ``{value}`` in text edit
+widgets, helping translators identify tokens that must remain unchanged.
+"""
+
 from __future__ import annotations
 
 import re
@@ -6,9 +12,23 @@ from PySide6.QtGui import QColor, QFont, QTextCharFormat, QSyntaxHighlighter
 
 
 class PlaceholderHighlighter(QSyntaxHighlighter):
-    """Highlight brace-based placeholder tokens in Qt text widgets."""
+    """Highlight brace-delimited placeholders in Qt text widgets.
+
+    Placeholders matching the pattern ``{...}`` are rendered in bold with a
+    distinct color that adapts to dark or light themes.
+
+    Attributes:
+        dark_mode: Whether the dark theme palette is active.
+        placeholder_format: Text format applied to placeholder tokens.
+    """
 
     def __init__(self, parent=None, dark_mode: bool = False) -> None:
+        """Initialize the highlighter.
+
+        Args:
+            parent: The QTextDocument or QTextEdit to highlight.
+            dark_mode: Use dark-theme colors if True.
+        """
         super().__init__(parent)
         self.dark_mode = dark_mode
         self.placeholder_format = QTextCharFormat()
@@ -23,6 +43,7 @@ class PlaceholderHighlighter(QSyntaxHighlighter):
         self.placeholder_format.setFontWeight(QFont.Bold)
 
     def highlightBlock(self, text: str) -> None:  # pragma: no cover - Qt painting
+        """Apply formatting to placeholder tokens in a text block."""
         pattern = r"\{[^}]*\}"
         for match in re.finditer(pattern, text):
             start = match.start()

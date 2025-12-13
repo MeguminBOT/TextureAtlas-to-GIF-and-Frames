@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Shared translation workflow backend for CLI and GUI clients."""
+"""Backend for running Qt translation commands and managing .ts/.qm files.
+
+This module provides LocalizationOperations, the main engine that wraps
+lupdate/lrelease commands, generates resource files, injects machine-translation
+disclaimers, and reports progress. It is used by both the GUI and CLI.
+"""
 
 from __future__ import annotations
 
@@ -50,7 +55,13 @@ def normalize_languages(languages: Optional[Sequence[str]]) -> List[str]:
 
 @dataclass
 class TranslationPaths:
-    """Resolved directories used by translation tooling."""
+    """Resolved filesystem paths used by the localization workflow.
+
+    Attributes:
+        project_root: Root directory of the main application.
+        src_dir: The primary source folder containing Python/UI files.
+        translations_dir: Folder where .ts and .qm files are stored.
+    """
 
     project_root: Path
     src_dir: Path
@@ -58,7 +69,17 @@ class TranslationPaths:
 
     @classmethod
     def discover(cls, start: Optional[Path] = None) -> "TranslationPaths":
-        """Discover repo root by walking parents until the primary src/ folder exists."""
+        """Discover paths by walking parent directories.
+
+        Searches for a src/ folder containing known sentinel files that mark
+        the project root.
+
+        Args:
+            start: Starting path for the search; defaults to this file's location.
+
+        Returns:
+            A TranslationPaths instance with discovered paths.
+        """
 
         start_path = (start or Path(__file__)).resolve()
         if start_path.is_file():
@@ -87,14 +108,22 @@ class TranslationPaths:
 
     @staticmethod
     def _looks_like_project_root(src_dir: Path) -> bool:
-        """Return True when the src folder appears to belong to the main app."""
+        """Return True if the src folder contains known project markers."""
 
         return any((src_dir / marker).exists() for marker in ROOT_SENTINELS)
 
 
 @dataclass
 class CommandResult:
-    """Result of a subprocess run."""
+    """Outcome of a subprocess invocation.
+
+    Attributes:
+        command: The command-line arguments executed.
+        success: True if the process returned exit code 0.
+        stdout: Standard output captured from the process.
+        stderr: Standard error captured from the process.
+        exit_code: Numeric exit code returned by the process.
+    """
 
     command: Sequence[str]
     success: bool
@@ -104,9 +133,18 @@ class CommandResult:
 
 
 class CommandRunner:
-    """Thin wrapper around subprocess.run so we can swap it during tests."""
+    """Thin wrapper around subprocess.run for easier test mocking."""
 
     def run(self, command: Sequence[str], cwd: Optional[Path] = None) -> CommandResult:
+        """Execute a command and capture its output.
+
+        Args:
+            command: Sequence of command-line arguments.
+            cwd: Working directory for the command.
+
+        Returns:
+            A CommandResult with captured stdout, stderr, and exit code.
+        """
         try:
             process = subprocess.run(
                 command,
@@ -135,7 +173,15 @@ class CommandRunner:
 
 @dataclass
 class OperationResult:
-    """Canonical response for every translation workflow action."""
+    """Standard response for translation workflow actions.
+
+    Attributes:
+        name: Short identifier for the operation (e.g., 'extract', 'compile').
+        success: True if the operation completed without errors.
+        logs: Informational log messages produced during the operation.
+        errors: Error messages encountered during the operation.
+        details: Arbitrary metadata (per-language results, file counts, etc.).
+    """
 
     name: str
     success: bool
@@ -144,15 +190,21 @@ class OperationResult:
     details: Dict[str, object] = field(default_factory=dict)
 
     def add_log(self, message: str) -> None:
+        """Append an informational message to the logs."""
         self.logs.append(message)
 
     def add_error(self, message: str) -> None:
+        """Record an error message and mark the operation as failed."""
         self.errors.append(message)
         self.success = False
 
 
 def _count_messages(ts_path: Path) -> Tuple[int, int]:
-    """Return (total_messages, finished_messages) for a TS file."""
+    """Return (total_messages, finished_messages) for a TS file.
+
+    Excludes vanished/obsolete strings from the count since they
+    no longer exist in the source code.
+    """
 
     if not ts_path.exists():
         return 0, 0
@@ -160,8 +212,14 @@ def _count_messages(ts_path: Path) -> Tuple[int, int]:
     content = ts_path.read_text(encoding="utf-8", errors="ignore")
     total = content.count("<message>")
     unfinished = content.count('type="unfinished"')
-    finished = max(total - unfinished, 0)
-    return total, finished
+    # Qt uses both "vanished" (newer) and "obsolete" (older) for removed strings
+    vanished = content.count('type="vanished"')
+    obsolete = content.count('type="obsolete"')
+    # Exclude vanished/obsolete strings from total count
+    active_total = max(total - vanished - obsolete, 0)
+    # Finished = active strings that are neither unfinished nor vanished/obsolete
+    finished = max(active_total - unfinished, 0)
+    return active_total, finished
 
 
 DISCLAIMER_BLOCK = """<context>
@@ -181,24 +239,49 @@ DISCLAIMER_BLOCK = """<context>
 
 
 class LocalizationOperations:
-    """High-level operations reused by CLI and GUI."""
+    """High-level operations for managing Qt translation files.
+
+    Wraps lupdate and lrelease commands, generates .qrc resource files,
+    injects machine-translation disclaimers, and produces status reports.
+
+    Attributes:
+        paths: Resolved project paths for locating source and translation files.
+        runner: Command executor (defaults to subprocess-based runner).
+    """
 
     def __init__(
         self, paths: Optional[TranslationPaths] = None, runner: Optional[CommandRunner] = None
     ):
+        """Initialize the localization operations helper.
+
+        Args:
+            paths: Pre-resolved translation paths; auto-discovered if omitted.
+            runner: Command runner for subprocess execution; defaults to
+                standard subprocess if omitted.
+        """
         self.paths = paths or TranslationPaths.discover()
         self.runner = runner or CommandRunner()
         self._tool_cache: Dict[str, List[str]] = {}
 
     def set_translations_dir(self, translations_dir: Path | str) -> TranslationPaths:
-        """Override the discovered translations directory at runtime."""
+        """Override the translations directory at runtime.
 
+        Args:
+            translations_dir: New path to the translations folder.
+
+        Returns:
+            The updated TranslationPaths instance.
+
+        Raises:
+            ValueError: If the path does not exist or is not valid.
+        """
         new_paths = self._build_paths_from_translations(translations_dir)
         self.paths = new_paths
         self._tool_cache.clear()
         return self.paths
 
     def _build_paths_from_translations(self, translations_dir: Path | str) -> TranslationPaths:
+        """Construct TranslationPaths from a given translations folder."""
         candidate = Path(translations_dir).expanduser().resolve()
         if not candidate.exists() or not candidate.is_dir():
             raise ValueError("Translations directory does not exist.")
@@ -216,9 +299,11 @@ class LocalizationOperations:
         return TranslationPaths(project_root, src_dir, candidate)
 
     def _ensure_translations_dir(self) -> None:
+        """Create the translations directory if it does not exist."""
         self.paths.translations_dir.mkdir(parents=True, exist_ok=True)
 
     def _collect_source_files(self) -> List[Path]:
+        """Return all .py and .ui files under the src directory."""
         if not self.paths.src_dir.exists():
             return []
 
@@ -230,6 +315,7 @@ class LocalizationOperations:
         return sorted(unique_files)
 
     def _build_tool_command(self, tool: str, extra_args: Sequence[str]) -> List[str]:
+        """Construct a command list for a Qt translation tool."""
         base = self._tool_cache.get(tool)
         if base is None:
             base = self._resolve_tool(tool)
@@ -237,6 +323,7 @@ class LocalizationOperations:
         return base + list(extra_args)
 
     def _resolve_tool(self, tool: str) -> List[str]:
+        """Locate the lupdate or lrelease executable."""
         env_key = {"lupdate": "QT_LUPDATE", "lrelease": "QT_LRELEASE"}.get(tool)
         if env_key:
             env_value = os.environ.get(env_key)
@@ -276,6 +363,14 @@ class LocalizationOperations:
         return [exe_name]
 
     def extract(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+        """Run lupdate to refresh .ts files from source code.
+
+        Args:
+            languages: Subset of language codes to update; all if omitted.
+
+        Returns:
+            An OperationResult summarizing success and per-language details.
+        """
         self._ensure_translations_dir()
         result = OperationResult("extract", True)
         selected = normalize_languages(languages)
@@ -316,6 +411,14 @@ class LocalizationOperations:
         return result
 
     def compile(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+        """Run lrelease to compile .ts files into .qm binaries.
+
+        Args:
+            languages: Subset of language codes to compile; all if omitted.
+
+        Returns:
+            An OperationResult summarizing success and per-language details.
+        """
         self._ensure_translations_dir()
         result = OperationResult("compile", True)
         selected = normalize_languages(languages)
@@ -348,6 +451,11 @@ class LocalizationOperations:
         return result
 
     def create_resource_file(self) -> OperationResult:
+        """Generate a translations.qrc file listing compiled .qm files.
+
+        Returns:
+            An OperationResult indicating success or missing .qm files.
+        """
         self._ensure_translations_dir()
         result = OperationResult("resource", True)
         qm_files = sorted(self.paths.translations_dir.glob("app_*.qm"))
@@ -372,6 +480,14 @@ class LocalizationOperations:
         return result
 
     def status_report(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+        """Generate a translation progress report for the given languages.
+
+        Args:
+            languages: Subset of language codes to report; all if omitted.
+
+        Returns:
+            An OperationResult with detailed entries per language.
+        """
         result = OperationResult("status", True)
         selected = normalize_languages(languages)
         entries = []
@@ -406,6 +522,16 @@ class LocalizationOperations:
         return result
 
     def inject_disclaimers(self, languages: Optional[Sequence[str]] = None) -> OperationResult:
+        """Insert machine-translation disclaimer contexts into .ts files.
+
+        Only applies to languages marked with quality="machine" in the registry.
+
+        Args:
+            languages: Subset of language codes to process; all if omitted.
+
+        Returns:
+            An OperationResult summarizing which files were modified.
+        """
         self._ensure_translations_dir()
         result = OperationResult("disclaimer", True)
         selected = normalize_languages(languages)

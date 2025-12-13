@@ -1,3 +1,10 @@
+"""DeepL Translation API provider implementation.
+
+Supports both the free (500k chars/month) and Pro plans. Configure via
+the DEEPL_API_KEY environment variable; optionally set DEEPL_API_ENDPOINT
+for custom or Pro endpoints.
+"""
+
 from __future__ import annotations
 
 import os
@@ -12,7 +19,15 @@ from core import TranslationError, TranslationProvider
 
 
 class DeepLTranslationProvider(TranslationProvider):
-    """DeepL Translation API provider; works with free (500k chars/month cap) or Pro plans via the DEEPL_API_KEY secret and optional custom endpoint."""
+    """DeepL Translation API provider.
+
+    Requires the DEEPL_API_KEY environment variable. Works with both the
+    free-tier and Pro endpoints. Supports language-variant overrides via
+    DEEPL_TARGET_EN_VARIANT and DEEPL_TARGET_PT_VARIANT.
+
+    Attributes:
+        name: Display name shown in the provider dropdown.
+    """
 
     name = "DeepL"
     _SUPPORTED_CODES = {
@@ -48,12 +63,14 @@ class DeepLTranslationProvider(TranslationProvider):
     }
 
     def __init__(self):
+        """Initialize the provider with the configured endpoint."""
         self._endpoint = os.environ.get(
             "DEEPL_API_ENDPOINT", "https://api-free.deepl.com/v2/translate"
         )
 
     @staticmethod
     def _api_key() -> Optional[str]:
+        """Return the DEEPL_API_KEY value from the environment."""
         return os.environ.get("DEEPL_API_KEY")
 
     def is_available(self) -> tuple[bool, str]:
@@ -64,6 +81,18 @@ class DeepLTranslationProvider(TranslationProvider):
         return True, "DeepL ready"
 
     def _map_language(self, code: Optional[str], *, is_target: bool) -> Optional[str]:
+        """Normalize a language code to DeepL's expected format.
+
+        Args:
+            code: ISO language code.
+            is_target: True if this is the target language (affects variants).
+
+        Returns:
+            The normalized code, or None if code is empty.
+
+        Raises:
+            TranslationError: If the code is not supported by DeepL.
+        """
         if not code:
             return None
         normalized = code.upper()
@@ -87,6 +116,19 @@ class DeepLTranslationProvider(TranslationProvider):
         return normalized
 
     def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        """Translate text using the DeepL API.
+
+        Args:
+            text: Source text to translate.
+            target_lang: Target language code.
+            source_lang: Optional source language code.
+
+        Returns:
+            The translated string.
+
+        Raises:
+            TranslationError: On API errors or misconfiguration.
+        """
         if not text.strip():
             return ""
         api_key = self._api_key()
@@ -124,6 +166,7 @@ class DeepLTranslationProvider(TranslationProvider):
         return translations[0].get("text", "")
 
     def supported_codes(self) -> Optional[Sequence[str]]:
+        """Return the list of language codes DeepL supports."""
         return sorted(self._SUPPORTED_CODES)
 
 

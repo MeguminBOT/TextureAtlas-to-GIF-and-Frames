@@ -1,3 +1,9 @@
+"""Google Cloud Translation API provider implementation.
+
+Requires a Google Cloud project with billing enabled. Configure via the
+GOOGLE_TRANSLATE_API_KEY environment variable.
+"""
+
 from __future__ import annotations
 
 import html
@@ -13,12 +19,20 @@ from core import TranslationError, TranslationProvider
 
 
 class GoogleTranslationProvider(TranslationProvider):
-    """Google Cloud Translation API provider; requires a paid Cloud project and the GOOGLE_TRANSLATE_API_KEY secret."""
+    """Google Cloud Translation API provider.
+
+    Requires GOOGLE_TRANSLATE_API_KEY. This uses the Cloud Translation
+    Basic (v2) endpoint and bills per character.
+
+    Attributes:
+        name: Display name shown in the provider dropdown.
+    """
 
     name = "Google Translate"
     _ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
 
     def __init__(self):
+        """Initialize the provider with supported language codes."""
         self._supported_codes = {
             "EN",
             "ES",
@@ -36,6 +50,7 @@ class GoogleTranslationProvider(TranslationProvider):
 
     @staticmethod
     def _api_key() -> Optional[str]:
+        """Return the GOOGLE_TRANSLATE_API_KEY value from the environment."""
         return os.environ.get("GOOGLE_TRANSLATE_API_KEY")
 
     def is_available(self) -> tuple[bool, str]:
@@ -46,6 +61,17 @@ class GoogleTranslationProvider(TranslationProvider):
         return True, "Google Translate ready"
 
     def _map_language(self, code: Optional[str]) -> Optional[str]:
+        """Normalize a language code to Google's expected lowercase format.
+
+        Args:
+            code: ISO language code.
+
+        Returns:
+            The normalized lowercase code, or None if code is empty.
+
+        Raises:
+            TranslationError: If the code is not in the supported set.
+        """
         if not code:
             return None
         normalized = code.upper()
@@ -54,6 +80,19 @@ class GoogleTranslationProvider(TranslationProvider):
         return normalized.lower()
 
     def translate(self, text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+        """Translate text using the Google Cloud Translation API.
+
+        Args:
+            text: Source text to translate.
+            target_lang: Target language code.
+            source_lang: Optional source language code.
+
+        Returns:
+            The translated string.
+
+        Raises:
+            TranslationError: On API errors or misconfiguration.
+        """
         if not text.strip():
             return ""
         api_key = self._api_key()
@@ -98,6 +137,7 @@ class GoogleTranslationProvider(TranslationProvider):
         return html.unescape(translated_text)
 
     def supported_codes(self) -> Optional[Sequence[str]]:
+        """Return the list of language codes supported by this provider."""
         return sorted(self._supported_codes)
 
 

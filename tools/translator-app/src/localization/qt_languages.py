@@ -1,4 +1,9 @@
-"""List of Qt-supported languages for translation dropdowns."""
+"""Qt-supported language codes for translation provider dropdowns.
+
+The QT_LANGUAGE_CHOICES list contains (code, name) tuples derived from
+PySide6 QLocale metadata. It is used to populate source/target language
+combo boxes in the editor UI.
+"""
 
 from typing import List, Tuple
 

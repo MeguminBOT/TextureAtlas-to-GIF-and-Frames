@@ -1,3 +1,5 @@
+"""Dialog for adding or editing language metadata in the translator registry."""
+
 from __future__ import annotations
 
 import re
@@ -17,7 +19,18 @@ from PySide6.QtWidgets import (
 
 
 class AddLanguageDialog(QDialog):
-    """Dialog for adding or editing language metadata."""
+    """Dialog for adding or editing language metadata.
+
+    Prompts the user for a language code, native name, English name, and
+    quality flag (machine/native/unknown). When editing, the language code
+    field can be locked to prevent accidental renames.
+
+    Attributes:
+        code_edit: Line edit for the language code.
+        native_name_edit: Line edit for the native language name.
+        english_name_edit: Line edit for the English name.
+        quality_combo: Combo box for quality flag selection.
+    """
 
     def __init__(
         self,
@@ -26,6 +39,13 @@ class AddLanguageDialog(QDialog):
         initial_data: Optional[Dict[str, str]] = None,
         code_editable: bool = True,
     ) -> None:
+        """Initialize the dialog.
+
+        Args:
+            parent: Parent widget.
+            initial_data: Existing language metadata to populate fields.
+            code_editable: If False, the code field is read-only (edit mode).
+        """
         super().__init__(parent)
         self._data: Optional[Dict[str, str]] = None
         self._code_editable = code_editable
@@ -73,6 +93,7 @@ class AddLanguageDialog(QDialog):
             self.code_edit.setFocus()
 
     def _handle_accept(self) -> None:
+        """Validate inputs and store result data on acceptance."""
         code = self.code_edit.text().strip().lower()
         if not code:
             QMessageBox.warning(self, "Missing Code", "Enter a language code before continuing.")
@@ -96,9 +117,11 @@ class AddLanguageDialog(QDialog):
         self.accept()
 
     def get_data(self) -> Optional[Dict[str, str]]:
+        """Return the entered language data, or None if cancelled."""
         return self._data
 
     def _apply_initial_data(self) -> None:
+        """Populate form fields with initial data if provided."""
         if not self._initial:
             return
         self.code_edit.setText(self._initial.get("code", ""))

@@ -1,7 +1,15 @@
+"""Manage tab widget for translation file operations.
+
+Provides a UI for running Qt localization commands (lupdate, lrelease),
+managing the language registry, checking translation progress, and cleaning
+up vanished strings across multiple .ts files.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+import xml.etree.ElementTree as ET
 
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtWidgets import (
@@ -25,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from .add_language_dialog import AddLanguageDialog
+from .batch_unused_dialog import BatchUnusedStringsDialog
 from localization import (
     LANGUAGE_REGISTRY,
     LocalizationOperations,
@@ -35,7 +44,18 @@ from utils import BackgroundTaskWorker
 
 
 class ManageTab(QWidget):
-    """UI Tab for managing translation files"""
+    """Widget tab for managing translation files and running localization tasks.
+
+    Provides controls to select languages, run lupdate/lrelease, regenerate
+    resource files, and view translation progress in a status table.
+
+    Attributes:
+        localization_ops: Backend helper for running translation commands.
+        thread_pool: Qt thread pool for background task execution.
+        language_list_widget: List widget displaying registered languages.
+        manage_table: Table showing translation progress per language.
+        manage_log_view: Text area displaying command output.
+    """
 
     def __init__(
         self,
@@ -47,6 +67,16 @@ class ManageTab(QWidget):
         on_translations_dir_changed: Optional[Callable[[Path], None]] = None,
         open_ts_callback: Optional[Callable[[Path], None]] = None,
     ) -> None:
+        """Initialize the manage tab.
+
+        Args:
+            parent: Parent widget.
+            localization_ops: Backend for running translation commands.
+            thread_pool: Pool for background task execution.
+            status_bar: Optional status bar for messages.
+            on_translations_dir_changed: Callback when translations folder changes.
+            open_ts_callback: Callback to open a .ts file in the editor tab.
+        """
         super().__init__(parent)
         self.localization_ops = localization_ops
         self.thread_pool = thread_pool
@@ -61,11 +91,14 @@ class ManageTab(QWidget):
         self.manage_action_buttons: List[QPushButton] = []
         self.manage_task_running = False
         self.translations_path_label: Optional[QLabel] = None
+        self._pending_extract_languages: List[str] = []
 
         self._build_ui()
         self.populate_language_list(preserve_selection=False)
+        self._refresh_status_table()
 
     def _build_ui(self) -> None:
+        """Construct the tab layout with language list, action buttons, and status table."""
         layout = QVBoxLayout(self)
 
         path_row = QHBoxLayout()
@@ -134,7 +167,6 @@ class ManageTab(QWidget):
                 "resource",
                 "Write translations.qrc referencing the current .qm files.",
             ),
-            ("Check Progress", "status", "Show completion stats along with missing files."),
             (
                 "Add MT Disclaimers",
                 "disclaimer",
@@ -184,6 +216,12 @@ class ManageTab(QWidget):
         preserve_selection: bool = True,
         ensure_selected: Optional[Sequence[str]] = None,
     ) -> None:
+        """Refresh the language list widget from the registry.
+
+        Args:
+            preserve_selection: Keep previously selected items selected.
+            ensure_selected: If provided, select these language codes.
+        """
         if not self.language_list_widget:
             return
         if preserve_selection and ensure_selected is None:
@@ -212,14 +250,17 @@ class ManageTab(QWidget):
                 item.setSelected(True)
 
     def select_all_languages(self) -> None:
+        """Select all languages in the list widget."""
         if self.language_list_widget:
             self.language_list_widget.selectAll()
 
     def clear_language_selection(self) -> None:
+        """Clear the current language selection."""
         if self.language_list_widget:
             self.language_list_widget.clearSelection()
 
     def _handle_language_double_click(self, item: QListWidgetItem) -> None:
+        """Open the corresponding .ts file when a language is double-clicked."""
         if not item:
             return
         code = item.data(Qt.UserRole)
@@ -242,6 +283,7 @@ class ManageTab(QWidget):
                 pass
 
     def prompt_add_language(self) -> None:
+        """Show dialog to register a new language in the registry."""
         dialog = AddLanguageDialog(self)
         if dialog.exec() != QDialog.Accepted:
             return
@@ -287,6 +329,7 @@ class ManageTab(QWidget):
             self._enqueue_operation(self.localization_ops.extract, [code])
 
     def prompt_delete_languages(self) -> None:
+        """Prompt to delete selected languages from the registry."""
         if self.manage_task_running:
             QMessageBox.information(
                 self,
@@ -335,6 +378,7 @@ class ManageTab(QWidget):
         self._delete_languages(deletable, delete_files)
 
     def prompt_translations_folder(self) -> None:
+        """Prompt user to select a different translations directory."""
         if self.manage_task_running:
             QMessageBox.information(
                 self,
@@ -361,8 +405,10 @@ class ManageTab(QWidget):
         if self.status_bar:
             self.status_bar.showMessage(f"Translations folder set to {new_dir}")
         self.refresh_language_list()
+        self._refresh_status_table()
 
     def prompt_edit_language(self) -> None:
+        """Show dialog to edit metadata for the selected language."""
         languages = self.get_selected_languages()
         if len(languages) != 1:
             QMessageBox.information(
@@ -406,6 +452,11 @@ class ManageTab(QWidget):
             self.status_bar.showMessage(f"Updated metadata for {code.upper()}.")
 
     def get_selected_languages(self) -> List[str]:
+        """Retrieve language codes for the currently selected list items.
+
+        Returns:
+            A list of lowercase language codes for each selected item.
+        """
         if not self.language_list_widget:
             return []
         return [
@@ -415,6 +466,11 @@ class ManageTab(QWidget):
         ]
 
     def run_manage_operation(self, op_name: str) -> None:
+        """Dispatch a localization operation by name (extract, compile, etc.).
+
+        Args:
+            op_name: Operation key such as 'extract', 'compile', 'resource', 'all'.
+        """
         if self.manage_task_running:
             QMessageBox.information(
                 self, "Task Running", "Please wait for the current operation to finish."
@@ -438,6 +494,7 @@ class ManageTab(QWidget):
             else:
                 self.status_bar.showMessage(f"Running {op_name} task...")
         if op_name == "extract":
+            self._pending_extract_languages = languages.copy()
             self._enqueue_operation(self.localization_ops.extract, languages)
         elif op_name == "compile":
             self._enqueue_operation(self.localization_ops.compile, languages)
@@ -448,6 +505,7 @@ class ManageTab(QWidget):
         elif op_name == "disclaimer":
             self._enqueue_operation(self.localization_ops.inject_disclaimers, languages)
         elif op_name == "all":
+            self._pending_extract_languages = languages.copy()
             self._enqueue_operation(self._run_full_workflow, languages)
         else:
             QMessageBox.warning(self, "Unknown Operation", f"Unsupported action: {op_name}")
@@ -478,6 +536,7 @@ class ManageTab(QWidget):
         else:
             results = [payload]
         overall_success = True
+        has_extract = False
         for result in results:
             if not isinstance(result, OperationResult):
                 continue
@@ -486,8 +545,24 @@ class ManageTab(QWidget):
                 entries = result.details.get("entries", []) if result.details else []
                 if isinstance(entries, list):
                     self._update_status_table(entries)
+            if result.name == "extract" and result.success:
+                has_extract = True
             if not result.success:
                 overall_success = False
+
+        # Check for unused strings after successful extract
+        if has_extract and self._pending_extract_languages:
+            self._check_for_unused_strings(self._pending_extract_languages)
+            self._pending_extract_languages = []
+
+        # Refresh the status table after any operation completes
+        # (unless status was already run as part of the operation)
+        has_status = any(
+            isinstance(r, OperationResult) and r.name == "status" for r in results
+        )
+        if not has_status:
+            self._refresh_status_table()
+
         status_text = "Completed" if overall_success else "Completed with issues"
         if self.manage_status_label:
             self.manage_status_label.setText(status_text)
@@ -507,6 +582,11 @@ class ManageTab(QWidget):
         self.manage_task_running = False
 
     def set_manage_buttons_enabled(self, enabled: bool) -> None:
+        """Enable or disable the action buttons.
+
+        Args:
+            enabled: True to enable buttons, False to disable.
+        """
         for button in self.manage_action_buttons:
             button.setEnabled(enabled)
 
@@ -520,16 +600,38 @@ class ManageTab(QWidget):
 
     @staticmethod
     def _format_locale_label(code: str) -> str:
+        """Format a language code as a locale label.
+
+        Args:
+            code: A language code like "en" or "pt-BR".
+
+        Returns:
+            The lowercased, underscore-separated locale string (e.g., "pt_br").
+        """
         return code.lower().replace("-", "_") if code else ""
 
     @staticmethod
     def _format_path(path: Path) -> str:
+        """Truncate a path for display if too long.
+
+        Args:
+            path: The filesystem path to format.
+
+        Returns:
+            A string representation of the path, truncated with "..." if needed.
+        """
         text = str(path)
         if len(text) <= 60:
             return text
         return "..." + text[-57:]
 
     def _delete_languages(self, languages: List[str], delete_files: bool) -> None:
+        """Remove languages from the registry and optionally delete files.
+
+        Args:
+            languages: List of language codes to remove.
+            delete_files: If True, also delete .ts and .qm files.
+        """
         removed: List[str] = []
         for code in languages:
             if code in LANGUAGE_REGISTRY:
@@ -582,6 +684,11 @@ class ManageTab(QWidget):
             )
 
     def append_manage_log(self, result: OperationResult) -> None:
+        """Append an operation result to the log view.
+
+        Args:
+            result: The OperationResult to display in the log.
+        """
         if not self.manage_log_view:
             return
         header = f"[{result.name.upper()}] {'OK' if result.success else 'FAILED'}"
@@ -593,6 +700,11 @@ class ManageTab(QWidget):
         self.manage_log_view.appendPlainText("\n".join(lines) + "\n")
 
     def _update_status_table(self, entries: List[Dict[str, Any]]) -> None:
+        """Populate the status table with translation progress entries.
+
+        Args:
+            entries: List of dictionaries containing language status details.
+        """
         if not self.manage_table:
             return
         self.manage_table.setRowCount(len(entries))
@@ -623,6 +735,102 @@ class ManageTab(QWidget):
 
     def refresh_language_list(self) -> None:
         self.populate_language_list(preserve_selection=True)
+
+    def _refresh_status_table(self) -> None:
+        """Refresh the status table with current translation progress for all languages."""
+        result = self.localization_ops.status_report()
+        if result.success:
+            entries = result.details.get("entries", []) if result.details else []
+            if isinstance(entries, list):
+                self._update_status_table(entries)
+
+    def _check_for_unused_strings(self, languages: List[str]) -> None:
+        """Check extracted .ts files for vanished (obsolete) strings and prompt for cleanup.
+
+        Qt's lupdate marks strings that no longer exist in source code with
+        type="vanished". This method finds those strings and offers to remove them.
+
+        Args:
+            languages: List of language codes that were just extracted.
+        """
+        translations_dir = self.localization_ops.paths.translations_dir
+        unused_by_file: Dict[Path, List[Tuple[str, str]]] = {}
+
+        for lang in languages:
+            ts_file = translations_dir / f"app_{lang}.ts"
+            if not ts_file.exists():
+                continue
+
+            vanished = self._extract_vanished_strings(ts_file)
+            if vanished:
+                unused_by_file[ts_file] = vanished
+
+        if not unused_by_file:
+            return
+
+        # Show batch cleanup dialog
+        dialog = BatchUnusedStringsDialog(
+            self,
+            unused_by_file,
+            translations_dir,
+        )
+        result = dialog.exec()
+
+        if result == QDialog.Accepted:
+            cleaned_count = len(dialog.files_cleaned)
+            total_removed = sum(len(strings) for strings in unused_by_file.values())
+            msg = f"Removed {total_removed} vanished string(s) from {cleaned_count} file(s)"
+            if dialog.save_requested and dialog.saved_path:
+                msg += f" (saved to {Path(dialog.saved_path).name})"
+            if self.manage_log_view:
+                self.manage_log_view.appendPlainText(f"[CLEANUP] {msg}\n")
+            if self.status_bar:
+                self.status_bar.showMessage(msg, 5000)
+
+    def _extract_vanished_strings(self, file_path: Path) -> List[Tuple[str, str]]:
+        """Extract vanished/obsolete strings from a .ts file.
+
+        Qt's lupdate marks strings that no longer exist in the source code
+        with type="vanished" (newer Qt) or type="obsolete" (older Qt).
+        Strings that exist as active entries elsewhere (moved to another context)
+        are excluded since they're not truly unused.
+
+        Args:
+            file_path: Path to the .ts file.
+
+        Returns:
+            List of (source, translation) tuples for vanished/obsolete strings.
+        """
+        vanished: List[Tuple[str, str]] = []
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+
+            # First, collect all active (non-vanished/obsolete) source strings
+            active_sources: set[str] = set()
+            for message in root.iter("message"):
+                translation_elem = message.find("translation")
+                trans_type = translation_elem.get("type", "") if translation_elem is not None else ""
+                if trans_type not in ("vanished", "obsolete"):
+                    source_elem = message.find("source")
+                    if source_elem is not None and source_elem.text:
+                        active_sources.add(source_elem.text)
+
+            # Now collect vanished/obsolete strings that don't exist elsewhere
+            for message in root.iter("message"):
+                translation_elem = message.find("translation")
+                if translation_elem is not None:
+                    trans_type = translation_elem.get("type", "")
+                    if trans_type in ("vanished", "obsolete"):
+                        source_elem = message.find("source")
+                        source = source_elem.text if source_elem is not None and source_elem.text else ""
+                        # Skip if this string exists as an active entry (was moved)
+                        if source and source not in active_sources:
+                            translation = translation_elem.text if translation_elem.text else ""
+                            vanished.append((source, translation))
+        except Exception:
+            pass
+        return vanished
 
 
 __all__ = ["ManageTab"]

@@ -1,4 +1,8 @@
-"""Application-wide theme helpers for the translator GUI."""
+"""Application-wide Qt stylesheets for dark and light themes.
+
+Provides ready-to-apply stylesheets that give the translator application a
+consistent look in either dark or light mode.
+"""
 
 from __future__ import annotations
 
@@ -189,14 +193,24 @@ _LIGHT_THEME_QSS = """
 
 
 def apply_app_theme(widget: QWidget, *, dark_mode: bool) -> None:
-    """Apply the shared translator stylesheet to the given widget."""
+    """Apply the dark or light stylesheet to the given widget.
 
+    Args:
+        widget: The top-level widget (usually QMainWindow) to style.
+        dark_mode: If True, apply the dark theme; otherwise light.
+    """
     widget.setStyleSheet(_DARK_THEME_QSS if dark_mode else _LIGHT_THEME_QSS)
 
 
 def theme_stylesheet(*, dark_mode: bool) -> str:
-    """Return the stylesheet string for the requested theme."""
+    """Return the raw stylesheet string for the requested theme.
 
+    Args:
+        dark_mode: If True, return the dark stylesheet; otherwise light.
+
+    Returns:
+        The complete QSS stylesheet as a string.
+    """
     return _DARK_THEME_QSS if dark_mode else _LIGHT_THEME_QSS
 
 

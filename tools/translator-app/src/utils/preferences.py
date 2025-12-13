@@ -1,3 +1,9 @@
+"""User preferences persistence for the translator application.
+
+Stores user settings (dark mode, last translations folder, etc.) in a JSON
+file under the user's home directory.
+"""
+
 from __future__ import annotations
 
 import json

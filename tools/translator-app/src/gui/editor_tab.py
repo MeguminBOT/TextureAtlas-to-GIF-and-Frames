@@ -1,3 +1,10 @@
+"""Editor tab widget for viewing and translating strings.
+
+Provides the main translation editing interface: a list of source strings,
+a translation text area with placeholder highlighting, machine translation
+controls, and a live preview panel.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,6 +27,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QStatusBar,
+    QTextBrowser,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -31,7 +39,19 @@ from .placeholder_highlighter import PlaceholderHighlighter
 
 
 class EditorTab(QWidget):
-    """UI Tab for editing translations with support for automatic translation."""
+    """Widget tab for editing translation entries.
+
+    Displays a filterable list of source strings, allows editing translations,
+    validates placeholder consistency, and integrates with machine translation
+    providers for automatic translation.
+
+    Attributes:
+        translations: List of TranslationItem entries currently loaded.
+        current_item: The TranslationItem selected for editing.
+        current_file: Path to the currently open .ts file.
+        is_modified: True if unsaved changes exist.
+        dark_mode: Whether dark-mode styling is active.
+    """
 
     def __init__(
         self,
@@ -40,6 +60,13 @@ class EditorTab(QWidget):
         translation_manager: TranslationManager,
         status_bar: Optional[QStatusBar] = None,
     ) -> None:
+        """Initialize the editor tab.
+
+        Args:
+            parent: Parent widget (typically the main window).
+            translation_manager: Manager for translation providers.
+            status_bar: Optional status bar to display messages.
+        """
         super().__init__(parent)
         self.window = parent
         self.translation_manager = translation_manager
@@ -62,6 +89,12 @@ class EditorTab(QWidget):
         self.populate_provider_combo()
 
     def load_translations(self, file_path: str, translations: List[TranslationItem]) -> None:
+        """Load translations from a .ts file into the editor.
+
+        Args:
+            file_path: Path to the .ts file.
+            translations: Parsed TranslationItem entries.
+        """
         self.translations = translations
         self.current_file = file_path
         self.is_modified = False
@@ -82,6 +115,11 @@ class EditorTab(QWidget):
             self.update_provider_status(self.provider_combo.currentData())
 
     def mark_saved(self, file_path: str) -> None:
+        """Update state after a successful file save.
+
+        Args:
+            file_path: Path where the file was saved.
+        """
         self.current_file = file_path
         self.is_modified = False
         total_entries = sum(len(item.contexts) for item in self.translations)
@@ -95,6 +133,12 @@ class EditorTab(QWidget):
             self.window.setWindowTitle(f"Translation Editor - {filename}")
 
     def validate_all_translations(self) -> tuple[bool, List[str]]:
+        """Check all translations for placeholder mismatches.
+
+        Returns:
+            A tuple (all_valid, error_messages) where all_valid is True if
+            every entry passes validation.
+        """
         errors: List[str] = []
         for i, item in enumerate(self.translations):
             if item.translation.strip():
@@ -107,15 +151,31 @@ class EditorTab(QWidget):
         return len(errors) == 0, errors
 
     def has_unsaved_changes(self) -> bool:
+        """Check for unsaved modifications.
+
+        Returns:
+            True if there are unsaved changes in the current session.
+        """
         return self.is_modified
 
     def get_current_file(self) -> Optional[str]:
+        """Retrieve the path to the currently loaded .ts file.
+
+        Returns:
+            The file path as a string, or None if no file is loaded.
+        """
         return self.current_file
 
     def get_translations(self) -> List[TranslationItem]:
+        """Retrieve the list of translation entries currently loaded.
+
+        Returns:
+            A list of TranslationItem objects for the current session.
+        """
         return self.translations
 
     def clear_translations(self) -> None:
+        """Reset the editor to an empty state."""
         self.translations.clear()
         self.current_item = None
         self.current_file = None
@@ -129,6 +189,11 @@ class EditorTab(QWidget):
             self.status_bar.showMessage("Ready - Open a .ts file to start editing")
 
     def set_dark_mode(self, enabled: bool) -> None:
+        """Toggle dark-mode styling for this tab.
+
+        Args:
+            enabled: True to enable dark mode, False for light mode.
+        """
         self.dark_mode = enabled
         if self.source_highlighter:
             self.source_highlighter.set_dark_mode(enabled)
@@ -270,8 +335,9 @@ class EditorTab(QWidget):
 
         context_group = QGroupBox("Context Information")
         context_layout = QVBoxLayout(context_group)
-        self.context_label = QLabel("No translation selected")
-        self.context_label.setWordWrap(True)
+        self.context_label = QTextBrowser()
+        self.context_label.setOpenExternalLinks(False)
+        self.context_label.setMaximumHeight(120)
         self.context_label.setStyleSheet("padding: 5px;")
         context_layout.addWidget(self.context_label)
         right_layout.addWidget(context_group)
@@ -326,7 +392,7 @@ class EditorTab(QWidget):
         self.source_text.clear()
         self.translation_text.clear()
         self.preview_text.clear()
-        self.context_label.setText("No translation selected")
+        self.context_label.setPlainText("No translation selected")
         self.placeholder_group.setVisible(False)
         self.copy_source_btn.setEnabled(False)
 
@@ -344,7 +410,7 @@ class EditorTab(QWidget):
         else:
             context_info = f"Used in {len(self.current_item.contexts)} contexts:\n\n"
             context_info += self.current_item.get_all_contexts_info()
-        self.context_label.setText(context_info)
+        self.context_label.setPlainText(context_info)
         self.setup_placeholders()
         self.update_preview()
 
@@ -405,6 +471,11 @@ class EditorTab(QWidget):
             )
 
     def get_placeholder_values(self) -> Dict[str, str]:
+        """Collect sample values for placeholders from the input fields.
+
+        Returns:
+            A dictionary mapping placeholder keys to their sample values.
+        """
         values: Dict[str, str] = {}
         for i in range(0, self.placeholder_layout.count(), 2):
             label_item = self.placeholder_layout.itemAt(i)
