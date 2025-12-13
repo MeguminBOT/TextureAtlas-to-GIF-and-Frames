@@ -27,6 +27,13 @@ from PySide6.QtGui import QFont
 
 from utils.utilities import Utilities
 from utils.translation_manager import tr as translate
+from utils.duration_utils import (
+    DURATION_FPS,
+    DURATION_NATIVE,
+    duration_to_milliseconds,
+    get_duration_display_meta,
+    milliseconds_to_duration,
+)
 
 
 class OverrideSettingsWindow(QDialog):
@@ -70,6 +77,13 @@ class OverrideSettingsWindow(QDialog):
         self.on_store_callback = on_store_callback
         self.app = app
 
+        self.duration_input_type = DURATION_FPS
+        if self.app and hasattr(self.app, "app_config"):
+            interface = self.app.app_config.get("interface", {})
+            self.duration_input_type = interface.get(
+                "duration_input_type", DURATION_FPS
+            )
+
         title_prefix = "Animation" if settings_type == "animation" else "Spritesheet"
         self.setWindowTitle(
             self.tr("{prefix} Settings Override - {name}").format(
@@ -81,6 +95,7 @@ class OverrideSettingsWindow(QDialog):
 
         self.animation_format_combo = None
         self.fps_spinbox = None
+        self.fps_label = None
         self.delay_spinbox = None
         self.period_spinbox = None
         self.scale_spinbox = None
@@ -245,10 +260,10 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.animation_format_combo, row, 1)
         row += 1
 
-        layout.addWidget(QLabel(self.tr("Frame rate")), row, 0)
+        self.fps_label = QLabel(self._get_duration_label())
+        layout.addWidget(self.fps_label, row, 0)
         self.fps_spinbox = QSpinBox()
-        self.fps_spinbox.setRange(1, 144)
-        self.fps_spinbox.setSuffix(" fps")
+        self._configure_fps_spinbox()
         layout.addWidget(self.fps_spinbox, row, 1)
         row += 1
 
@@ -331,6 +346,99 @@ class OverrideSettingsWindow(QDialog):
 
         return group
 
+    def _get_animation_format(self) -> str:
+        """Return the currently selected animation format in uppercase."""
+
+        if self.animation_format_combo:
+            return self.animation_format_combo.currentText().upper()
+        return "GIF"
+
+    def _get_duration_display_meta(self):
+        """Return display metadata for the current duration configuration."""
+
+        return get_duration_display_meta(
+            self.duration_input_type, self._get_animation_format()
+        )
+
+    def _get_effective_duration_type(self):
+        """Get the effective duration type, resolving 'native' to actual type."""
+
+        return self._get_duration_display_meta().resolved_type
+
+    def _get_duration_label(self):
+        """Get the label text for the frame rate/duration spinbox.
+
+        Returns:
+            Translated label string based on duration_input_type.
+        """
+        display_meta = self._get_duration_display_meta()
+        return self.tr(display_meta.label)
+
+    def _configure_fps_spinbox(self):
+        """Configure the FPS spinbox range, suffix, and tooltip.
+
+        Uses the current duration display metadata to set appropriate
+        limits and user-facing text for the spinbox.
+        """
+        display_meta = self._get_duration_display_meta()
+        self.fps_spinbox.setRange(display_meta.min_value, display_meta.max_value)
+        self.fps_spinbox.setSuffix(self.tr(display_meta.suffix))
+        self.fps_spinbox.setToolTip(self.tr(display_meta.tooltip))
+
+    def _duration_ms_to_display(self, duration_ms: int) -> int:
+        """Convert a millisecond duration to the current display unit.
+
+        Args:
+            duration_ms: Frame duration in milliseconds.
+
+        Returns:
+            The equivalent value in the user's configured duration unit.
+        """
+        duration_type = self._get_effective_duration_type()
+        anim_format = self._get_animation_format()
+        return milliseconds_to_duration(
+            duration_ms if duration_ms is not None else 42,
+            duration_type,
+            anim_format,
+        )
+
+    def _display_value_to_duration_ms(self, display_value: int) -> int:
+        """Convert a display-unit value back to milliseconds.
+
+        Args:
+            display_value: Duration in the user's configured unit.
+
+        Returns:
+            The equivalent value in milliseconds.
+        """
+        duration_type = self._get_effective_duration_type()
+        anim_format = self._get_animation_format()
+        return duration_to_milliseconds(
+            max(1, display_value),
+            duration_type,
+            anim_format,
+        )
+
+    @staticmethod
+    def _legacy_fps_to_ms(fps_value) -> int:
+        """Convert a legacy FPS value to milliseconds.
+
+        Used when migrating old settings that stored frame rate as FPS
+        instead of the canonical millisecond duration.
+
+        Args:
+            fps_value: Frames-per-second value (numeric or string).
+
+        Returns:
+            Frame duration in milliseconds.
+        """
+        try:
+            fps_numeric = float(fps_value)
+        except (TypeError, ValueError):
+            fps_numeric = 24.0
+        fps_numeric = max(1.0, fps_numeric)
+        return max(1, round(1000 / fps_numeric))
+
     def load_current_values(self):
         """Populate UI controls with current settings values."""
 
@@ -345,9 +453,21 @@ class OverrideSettingsWindow(QDialog):
                 self.settings.get("animation_format", "GIF")
             )
 
-        self.fps_spinbox.setValue(
-            self.local_settings.get("fps", self.settings.get("fps", 24))
-        )
+        duration_ms = self.local_settings.get("duration")
+        if duration_ms is None and "fps" in self.local_settings:
+            fps_value = self.local_settings.pop("fps", None)
+            duration_ms = self._legacy_fps_to_ms(fps_value)
+            self.local_settings["duration"] = duration_ms
+
+        if duration_ms is None:
+            duration_ms = self.settings.get("duration")
+            if duration_ms is None and "fps" in self.settings:
+                duration_ms = self._legacy_fps_to_ms(self.settings.get("fps"))
+
+        if duration_ms is None:
+            duration_ms = 42
+
+        self.fps_spinbox.setValue(self._duration_ms_to_display(int(duration_ms)))
         self.delay_spinbox.setValue(
             self.local_settings.get("delay", self.settings.get("delay", 250))
         )
@@ -392,6 +512,7 @@ class OverrideSettingsWindow(QDialog):
 
         Disables animation-specific controls when format is "None" and
         updates the filename placeholder to reflect current settings.
+        Also updates the FPS spinbox label and range when in native mode.
         """
         format_value = self.animation_format_combo.currentText()
         is_animation = format_value not in ["None", ""]
@@ -400,6 +521,15 @@ class OverrideSettingsWindow(QDialog):
         self.delay_spinbox.setEnabled(is_animation)
         self.period_spinbox.setEnabled(is_animation)
         self.var_delay_check.setEnabled(is_animation)
+
+        if self.duration_input_type == DURATION_NATIVE:
+            current_ms = self._display_value_to_duration_ms(self.fps_spinbox.value())
+            if self.fps_label:
+                self.fps_label.setText(self._get_duration_label())
+            self._configure_fps_spinbox()
+            self.fps_spinbox.blockSignals(True)
+            self.fps_spinbox.setValue(self._duration_ms_to_display(current_ms))
+            self.fps_spinbox.blockSignals(False)
 
         if self.filename_edit and self.filename_edit.text() == "":
             if self.settings_type == "animation" and "/" in self.name:
@@ -519,7 +649,8 @@ class OverrideSettingsWindow(QDialog):
         if anim_format != "None":
             settings["animation_format"] = anim_format
 
-        settings["fps"] = self.fps_spinbox.value()
+        duration_ms = self._display_value_to_duration_ms(self.fps_spinbox.value())
+        settings["duration"] = duration_ms
         settings["delay"] = self.delay_spinbox.value()
         settings["period"] = self.period_spinbox.value()
         settings["scale"] = self.scale_spinbox.value()

@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QScrollArea,
 )
-from PySide6.QtCore import Qt, QTimer, QThread, Signal, QSize, QRect
+from PySide6.QtCore import Qt, QTimer, QThread, Signal, QSize
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
 
 try:
@@ -41,6 +41,13 @@ try:
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
+
+from utils.duration_utils import (
+    convert_duration,
+    duration_to_milliseconds,
+    get_duration_display_meta,
+    milliseconds_to_duration,
+)
 
 MAX_FRAMES_IN_MEMORY = 100
 FRAME_CACHE_SIZE = 20
@@ -531,6 +538,7 @@ class AnimationPreviewWindow(QDialog):
 
         self.frames: List[QPixmap] = []
         self.frame_durations: List[int] = []
+        self.custom_frame_durations: List[int] = []
         self.current_frame = 0
         self.is_playing = False
         self.is_loading = False
@@ -548,8 +556,10 @@ class AnimationPreviewWindow(QDialog):
         self.progress_label = None
 
         self.fps_spinbox = None
+        self.fps_label = None  # Label for FPS/delay switching
         self.scale_spinbox = None
         self.loop_checkbox = None
+        self.per_frame_mode_checkbox = None
 
         self.init_ui()
         self.load_animation()
@@ -610,8 +620,10 @@ class AnimationPreviewWindow(QDialog):
         """Emit settings_saved with current settings and close the dialog."""
         checked_frames = self.get_checked_frame_indices()
 
+        duration_ms = self._get_spinbox_duration_ms()
+
         save_settings = {
-            "fps": self.fps_spinbox.value(),
+            "duration": duration_ms,
             "scale": self.anim_scale_spinbox.value(),
             "animation_format": self.format_combo.currentText(),
             "delay": self.delay_spinbox.value(),
@@ -623,6 +635,13 @@ class AnimationPreviewWindow(QDialog):
 
         if len(checked_frames) < len(self.frames) and checked_frames:
             save_settings["indices"] = checked_frames
+
+        if (
+            self.per_frame_mode_checkbox.isChecked()
+            and self.custom_frame_durations
+            and len(self.custom_frame_durations) == len(self.frames)
+        ):
+            save_settings["custom_frame_durations"] = self.custom_frame_durations.copy()
 
         self.settings_saved.emit(save_settings)
 
@@ -703,12 +722,15 @@ class AnimationPreviewWindow(QDialog):
         playback_group = QGroupBox(self.tr("Animation Settings"))
         playback_layout = QGridLayout(playback_group)
 
-        playback_layout.addWidget(QLabel(self.tr("Frame rate")), 0, 0)
+        self.fps_label = QLabel(self.tr("Frame rate"))
+        playback_layout.addWidget(self.fps_label, 0, 0)
         self.fps_spinbox = QSpinBox()
-        self.fps_spinbox.setRange(1, 60)
-        self.fps_spinbox.setValue(self.settings.get("fps", 24))
+        self.fps_spinbox.setRange(1, 100000)
         self.fps_spinbox.valueChanged.connect(self.on_fps_changed)
         playback_layout.addWidget(self.fps_spinbox, 0, 1)
+
+        self._set_duration_spinbox_from_ms(self.settings.get("duration", 42))
+        self.update_frame_rate_display()
 
         playback_layout.addWidget(QLabel(self.tr("Loop delay")), 1, 0)
         self.delay_spinbox = QSpinBox()
@@ -764,6 +786,34 @@ class AnimationPreviewWindow(QDialog):
         self.threshold_spinbox.setValue(self.settings.get("threshold", 0.5))
         self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
         playback_layout.addWidget(self.threshold_spinbox, 7, 1)
+
+        self.per_frame_mode_checkbox = QCheckBox(self.tr("Edit selected frame only"))
+        self.per_frame_mode_checkbox.setChecked(False)
+        self.per_frame_mode_checkbox.setToolTip(
+            self.tr(
+                "When enabled, the 'Frame rate' control switches to show\n"
+                "the delay (in ms) for the currently selected frame.\n"
+                "Other settings still affect the entire animation."
+            )
+        )
+        self.per_frame_mode_checkbox.toggled.connect(self.on_per_frame_mode_changed)
+        playback_layout.addWidget(self.per_frame_mode_checkbox, 8, 0, 1, 2)
+
+        self.apply_to_all_button = QPushButton(self.tr("Apply to All"))
+        self.apply_to_all_button.setVisible(False)
+        self.apply_to_all_button.setToolTip(
+            self.tr("Apply the current frame delay to all frames")
+        )
+        self.apply_to_all_button.clicked.connect(self.apply_delay_to_all_frames)
+        playback_layout.addWidget(self.apply_to_all_button, 9, 0)
+
+        self.reset_timing_button = QPushButton(self.tr("Reset Timing"))
+        self.reset_timing_button.setVisible(False)
+        self.reset_timing_button.setToolTip(
+            self.tr("Reset all frame delays to values calculated from FPS")
+        )
+        self.reset_timing_button.clicked.connect(self.reset_frame_timing)
+        playback_layout.addWidget(self.reset_timing_button, 9, 1)
 
         layout.addWidget(playback_group)
 
@@ -997,6 +1047,7 @@ class AnimationPreviewWindow(QDialog):
 
         self.frames.clear()
         self.frame_durations.clear()
+        self.custom_frame_durations.clear()
 
         self.current_frame = 0
         self.is_playing = False
@@ -1023,7 +1074,14 @@ class AnimationPreviewWindow(QDialog):
                 index=self.current_frame + 1, total=total_frames
             )
 
-            if self.frame_durations and self.current_frame < len(self.frame_durations):
+            if self.custom_frame_durations and self.current_frame < len(
+                self.custom_frame_durations
+            ):
+                delay_ms = self.custom_frame_durations[self.current_frame]
+                frame_info += self.tr(" ({delay}ms)").format(delay=delay_ms)
+            elif self.frame_durations and self.current_frame < len(
+                self.frame_durations
+            ):
                 delay_ms = self.frame_durations[self.current_frame]
                 frame_info += self.tr(" ({delay}ms)").format(delay=delay_ms)
 
@@ -1035,6 +1093,8 @@ class AnimationPreviewWindow(QDialog):
 
             self.frame_list.select_frame(self.current_frame)
 
+            self._update_frame_delay_spinbox()
+
     def toggle_playback(self):
         """Start or pause animation playback."""
         if self.is_playing:
@@ -1043,7 +1103,7 @@ class AnimationPreviewWindow(QDialog):
             self.play()
 
     def play(self):
-        """Begin frame-by-frame playback at the configured FPS."""
+        """Begin frame-by-frame playback at the configured duration."""
         if not self.frames:
             return
 
@@ -1051,14 +1111,14 @@ class AnimationPreviewWindow(QDialog):
         self.play_button.setText(self.tr("Pause"))
 
         self._loop_delay_applied = False
-        fps = self.settings.get("fps", 24)
 
-        interval = int(1000 / fps)
+        interval = self._get_duration_ms()
+
         min_period = self.settings.get("period", 0)
         if min_period > 0:
             interval = max(interval, min_period)
 
-        self.timer.start(interval)
+        self.timer.start(max(1, interval))
 
     def pause(self):
         """Stop playback and reset the button label."""
@@ -1095,12 +1155,11 @@ class AnimationPreviewWindow(QDialog):
             self.update_display()
 
             if self.is_playing:
-                fps = self.settings.get("fps", 24)
-                interval = int(1000 / fps)
+                interval = self._get_duration_ms()
                 min_period = self.settings.get("period", 0)
                 if min_period > 0:
                     interval = max(interval, min_period)
-                self.timer.start(interval)
+                self.timer.start(max(1, interval))
 
     def previous_frame(self):
         """Step back to the previous frame."""
@@ -1240,15 +1299,32 @@ class AnimationPreviewWindow(QDialog):
         """
         self.goto_frame(position)
 
-    def on_fps_changed(self, fps: int):
-        """Update playback speed and regenerate the animation.
+    def on_fps_changed(self, value: int):
+        """Handle duration spinbox value changes.
+
+        In normal mode, this updates the duration setting.
+        In per-frame mode, this updates the delay for the current frame.
+
+        The spinbox value is in the current display unit (fps, ms, cs, ds).
+        Internally we convert to milliseconds for timer calculations.
 
         Args:
-            fps: New frames per second value.
+            value: New duration value in the current display unit.
         """
-        self.settings["fps"] = fps
+        if self.per_frame_mode_checkbox and self.per_frame_mode_checkbox.isChecked():
+            self._on_frame_delay_changed(value)
+            return
+
+        duration_type = self._get_current_duration_type()
+        anim_format = (
+            self.format_combo.currentText().upper() if self.format_combo else "GIF"
+        )
+
+        delay_ms = duration_to_milliseconds(value, duration_type, anim_format)
+        self.settings["duration"] = delay_ms
 
         if self.settings.get("var_delay", False) and self.frame_durations:
+            fps = max(1, round(1000 / delay_ms)) if delay_ms > 0 else 24
             new_durations = []
             for index in range(len(self.frame_durations)):
                 duration = round((index + 1) * 1000 / fps, -1) - round(
@@ -1272,13 +1348,63 @@ class AnimationPreviewWindow(QDialog):
             self._update_frame_delay_display()
 
         if self.is_playing:
-            interval = int(1000 / fps)
+            interval = max(1, delay_ms)
             min_period = self.settings.get("period", 0)
             if min_period > 0:
                 interval = max(interval, min_period)
             self.timer.start(interval)
 
         self.regenerate_animation()
+
+    def _get_current_duration_type(self) -> str:
+        """Get the resolved duration type from app_config.
+
+        Returns:
+            The duration type string (fps, milliseconds, centiseconds, etc.)
+        """
+        duration_type = "fps"
+        parent = self.parent()
+        if parent and hasattr(parent, "app_config"):
+            interface = parent.app_config.get("interface", {})
+            duration_type = interface.get("duration_input_type", "fps")
+
+        # Resolve 'native' to format-specific type
+        if duration_type == "native":
+            anim_format = self._get_animation_format()
+            if anim_format == "GIF":
+                duration_type = "centiseconds"
+            else:
+                duration_type = "milliseconds"
+
+        return duration_type
+
+    def _get_animation_format(self) -> str:
+        return self.format_combo.currentText().upper() if self.format_combo else "GIF"
+
+    def _set_duration_spinbox_from_ms(self, duration_ms: int) -> None:
+        duration_type = self._get_current_duration_type()
+        anim_format = self._get_animation_format()
+        display_value = milliseconds_to_duration(
+            max(1, duration_ms), duration_type, anim_format
+        )
+        self._prev_duration_type = duration_type
+        if self.fps_spinbox:
+            self.fps_spinbox.blockSignals(True)
+            self.fps_spinbox.setValue(display_value)
+            self.fps_spinbox.blockSignals(False)
+
+    def _get_spinbox_duration_ms(self) -> int:
+        duration_type = self._get_current_duration_type()
+        anim_format = self._get_animation_format()
+        return duration_to_milliseconds(
+            max(1, self.fps_spinbox.value()), duration_type, anim_format
+        )
+
+    def _get_duration_ms(self) -> int:
+        duration = self.settings.get("duration")
+        if duration is None:
+            duration = getattr(self, "_stored_duration_ms", 42)
+        return max(1, int(duration))
 
     def on_display_scale_changed(self, scale: float):
         """Sync the zoom spinbox when the display is scrolled.
@@ -1346,6 +1472,9 @@ class AnimationPreviewWindow(QDialog):
 
     def regenerate_animation(self):
         """Re-export the animation with current settings and reload it."""
+        if not self.play_button or not self.progress_label:
+            return
+
         try:
             from core.extractor import Extractor
 
@@ -1409,7 +1538,7 @@ class AnimationPreviewWindow(QDialog):
             complete_settings.update(
                 {
                     "animation_format": self.settings.get("animation_format", "GIF"),
-                    "fps": self.fps_spinbox.value(),
+                    "duration": self._get_spinbox_duration_ms(),
                     "scale": self.anim_scale_spinbox.value(),
                     "crop_option": self.settings.get("crop_option", "None"),
                     "delay": self.settings.get("delay", 250),
@@ -1472,6 +1601,50 @@ class AnimationPreviewWindow(QDialog):
         """Show or hide controls depending on the selected format."""
         pass
 
+    def update_frame_rate_display(self):
+        """Update frame rate label and spinbox based on duration input type setting.
+
+        Reads the duration_input_type from app_config and configures the
+        fps_label text, spinbox range, suffix, value, and tooltip accordingly.
+        When the duration type changes, the current value is converted to
+        the new unit.
+        """
+        if not self.fps_spinbox or not self.fps_label:
+            return
+
+        duration_type = "fps"
+        parent = self.parent()
+        if parent and hasattr(parent, "app_config"):
+            interface = parent.app_config.get("interface", {})
+            duration_type = interface.get("duration_input_type", "fps")
+
+        anim_format = (
+            self.format_combo.currentText().upper() if self.format_combo else "GIF"
+        )
+        display_meta = get_duration_display_meta(duration_type, anim_format)
+        resolved_type = display_meta.resolved_type
+        duration_tooltip = self.tr(display_meta.tooltip)
+
+        prev_type = getattr(self, "_prev_duration_type", resolved_type)
+        current_value = self.fps_spinbox.value()
+
+        if prev_type != resolved_type:
+            converted_value = convert_duration(
+                current_value, prev_type, resolved_type, anim_format
+            )
+        else:
+            converted_value = current_value
+
+        self._prev_duration_type = resolved_type
+
+        self.fps_label.setText(self.tr(display_meta.label))
+        self.fps_spinbox.setRange(display_meta.min_value, display_meta.max_value)
+        self.fps_spinbox.setSuffix(self.tr(display_meta.suffix))
+
+        self.fps_spinbox.setValue(converted_value)
+        self.fps_label.setToolTip(duration_tooltip)
+        self.fps_spinbox.setToolTip(duration_tooltip)
+
     def on_format_changed(self, format_type):
         """Update the animation format and regenerate.
 
@@ -1480,7 +1653,7 @@ class AnimationPreviewWindow(QDialog):
         """
         self.settings["animation_format"] = format_type
         self.update_format_settings()
-
+        self.update_frame_rate_display()
         self.regenerate_animation()
 
     def on_delay_changed(self, delay):
@@ -1506,12 +1679,10 @@ class AnimationPreviewWindow(QDialog):
         self._update_frame_delay_display()
 
         if self.is_playing:
-            fps = self.settings.get("fps", 24)
-            interval = int(1000 / fps)
-
+            interval = self._get_duration_ms()
             if period > 0:
                 interval = max(interval, period)
-            self.timer.start(interval)
+            self.timer.start(max(1, interval))
 
     def on_var_delay_changed(self, enabled):
         """Toggle variable per-frame delay and regenerate.
@@ -1522,7 +1693,8 @@ class AnimationPreviewWindow(QDialog):
         self.settings["var_delay"] = enabled
 
         if enabled and self.frame_durations:
-            fps = self.settings.get("fps", 24)
+            delay_ms = self._get_duration_ms()
+            fps = max(1, round(1000 / delay_ms)) if delay_ms > 0 else 24
 
             new_durations = []
             for index in range(len(self.frame_durations)):
@@ -1607,14 +1779,13 @@ class AnimationPreviewWindow(QDialog):
         self.regenerate_animation()
 
     def _restart_normal_timer(self):
-        """Resume playback with the configured FPS interval."""
+        """Resume playback with the configured duration interval."""
         if self.is_playing:
-            fps = self.settings.get("fps", 24)
-            interval = int(1000 / fps)
+            interval = self._get_duration_ms()
             min_period = self.settings.get("period", 0)
             if min_period > 0:
                 interval = max(interval, min_period)
-            self.timer.start(interval)
+            self.timer.start(max(1, interval))
 
     def _loop_to_first_frame(self):
         """Jump to the first checked frame and resume playback."""
@@ -1629,17 +1800,22 @@ class AnimationPreviewWindow(QDialog):
         if not self.frame_durations or not hasattr(self, "frame_list"):
             return
 
-        fps = self.settings.get("fps", 24)
+        delay_ms = self._get_duration_ms()
+
         loop_delay = self.settings.get("delay", 250)
         var_delay = self.settings.get("var_delay", False)
         period = self.settings.get("period", 0)
 
         display_delays = []
 
-        if var_delay:
+        if self.custom_frame_durations and len(self.custom_frame_durations) == len(
+            self.frame_durations
+        ):
+            display_delays = self.custom_frame_durations.copy()
+        elif var_delay:
             display_delays = self.frame_durations.copy()
         else:
-            fixed_delay = round(1000 / fps, -1)
+            fixed_delay = round(delay_ms, -1)
             display_delays = [int(fixed_delay)] * len(self.frame_durations)
 
             display_delays[-1] += loop_delay
@@ -1649,3 +1825,188 @@ class AnimationPreviewWindow(QDialog):
             self.frame_list.update_frame_delays(display_delays, True)
 
         self.update_display()
+
+    def on_per_frame_mode_changed(self, enabled: bool):
+        """Toggle per-frame timing edit mode.
+
+        When enabled, the FPS spinbox switches to show delay in the configured
+        duration input type for the currently selected frame.
+
+        Args:
+            enabled: True to enable editing individual frame delays.
+        """
+        if enabled:
+            self._stored_duration_ms = self._get_spinbox_duration_ms()
+
+        self.apply_to_all_button.setVisible(enabled)
+        self.reset_timing_button.setVisible(enabled)
+
+        self.fps_spinbox.blockSignals(True)
+        if enabled:
+            duration_type = self.settings.get("duration_input_type", "fps")
+            anim_format = (
+                self.format_combo.currentText().upper() if self.format_combo else "GIF"
+            )
+            display_meta = get_duration_display_meta(duration_type, anim_format)
+            resolved_type = display_meta.resolved_type
+
+            if resolved_type == "fps":
+                resolved_type = "milliseconds"
+                display_meta = get_duration_display_meta(resolved_type, anim_format)
+
+            min_value = display_meta.min_value
+            max_value = display_meta.max_value
+            single_step = 1
+            if resolved_type == "milliseconds":
+                min_value = max(10, min_value)
+                max_value = min(10000, max_value)
+                single_step = 10
+
+            self.fps_label.setText(self.tr(display_meta.label))
+            self.fps_spinbox.setRange(min_value, max_value)
+            self.fps_spinbox.setSuffix(self.tr(display_meta.suffix))
+            self.fps_spinbox.setToolTip(self.tr(display_meta.tooltip))
+            self.fps_spinbox.setSingleStep(single_step)
+
+            self._per_frame_duration_type = resolved_type
+
+            if not self.custom_frame_durations or len(
+                self.custom_frame_durations
+            ) != len(self.frame_durations):
+                self._initialize_custom_durations()
+
+            if self.custom_frame_durations and 0 <= self.current_frame < len(
+                self.custom_frame_durations
+            ):
+                delay_ms = self.custom_frame_durations[self.current_frame]
+                display_value = self._ms_to_display_unit(delay_ms, duration_type)
+                self.fps_spinbox.setValue(display_value)
+            else:
+                base_ms = self._get_duration_ms()
+                fallback_value = self._ms_to_display_unit(base_ms, duration_type)
+                self.fps_spinbox.setValue(fallback_value)
+        else:
+            self.update_frame_rate_display()
+            duration_ms = getattr(
+                self, "_stored_duration_ms", self.settings.get("duration", 42)
+            )
+            self._set_duration_spinbox_from_ms(duration_ms)
+            self._per_frame_duration_type = None
+
+        self.fps_spinbox.blockSignals(False)
+
+    def _ms_to_display_unit(self, ms: int, duration_type: str) -> int:
+        """Convert milliseconds to the specified display unit.
+
+        Args:
+            ms: Delay in milliseconds.
+            duration_type: One of 'deciseconds', 'centiseconds', or 'milliseconds'.
+
+        Returns:
+            The delay value in the specified unit.
+        """
+        if duration_type == "deciseconds":
+            return max(1, round(ms / 100))
+        elif duration_type == "centiseconds":
+            return max(1, round(ms / 10))
+        else:
+            return max(1, ms)
+
+    def _display_unit_to_ms(self, value: int, duration_type: str) -> int:
+        """Convert a display unit value to milliseconds.
+
+        Args:
+            value: The delay value in the display unit.
+            duration_type: One of 'deciseconds', 'centiseconds', or 'milliseconds'.
+
+        Returns:
+            The delay in milliseconds.
+        """
+        if duration_type == "deciseconds":
+            return value * 100
+        elif duration_type == "centiseconds":
+            return value * 10
+        else:
+            return value
+
+    def _initialize_custom_durations(self):
+        """Initialize custom frame durations from duration-based calculations."""
+        if not self.frame_durations:
+            return
+
+        delay_ms = getattr(
+            self, "_stored_duration_ms", self.settings.get("duration", 42)
+        )
+        delay_ms = max(1, int(delay_ms))
+        var_delay = self.settings.get("var_delay", False)
+
+        if var_delay:
+            self.custom_frame_durations = self.frame_durations.copy()
+        else:
+            fixed_delay = max(10, round(delay_ms, -1))
+            self.custom_frame_durations = [int(fixed_delay)] * len(self.frame_durations)
+
+    def _update_frame_delay_spinbox(self):
+        """Update the FPS spinbox to show the current frame's delay when in per-frame mode."""
+        if (
+            not self.per_frame_mode_checkbox
+            or not self.per_frame_mode_checkbox.isChecked()
+        ):
+            return
+
+        if self.custom_frame_durations and 0 <= self.current_frame < len(
+            self.custom_frame_durations
+        ):
+            delay_ms = self.custom_frame_durations[self.current_frame]
+            duration_type = getattr(self, "_per_frame_duration_type", "milliseconds")
+            display_value = self._ms_to_display_unit(delay_ms, duration_type)
+            self.fps_spinbox.blockSignals(True)
+            self.fps_spinbox.setValue(display_value)
+            self.fps_spinbox.blockSignals(False)
+
+    def _on_frame_delay_changed(self, value: int):
+        """Update the delay for the currently selected frame.
+
+        Args:
+            value: New delay in the current display unit for the current frame.
+        """
+        if not self.per_frame_mode_checkbox.isChecked():
+            return
+
+        if not self.custom_frame_durations:
+            self._initialize_custom_durations()
+
+        duration_type = getattr(self, "_per_frame_duration_type", "milliseconds")
+        delay_ms = self._display_unit_to_ms(value, duration_type)
+
+        if 0 <= self.current_frame < len(self.custom_frame_durations):
+            self.custom_frame_durations[self.current_frame] = delay_ms
+
+            if hasattr(self.frame_list, "update_frame_delays"):
+                self.frame_list.update_frame_delays(self.custom_frame_durations, True)
+
+            self.update_display()
+
+    def apply_delay_to_all_frames(self):
+        """Apply the current frame's delay to all frames."""
+        if not self.custom_frame_durations:
+            self._initialize_custom_durations()
+
+        duration_type = getattr(self, "_per_frame_duration_type", "milliseconds")
+        display_value = self.fps_spinbox.value()
+        delay_ms = self._display_unit_to_ms(display_value, duration_type)
+
+        self.custom_frame_durations = [delay_ms] * len(self.frame_durations)
+
+        if hasattr(self.frame_list, "update_frame_delays"):
+            self.frame_list.update_frame_delays(self.custom_frame_durations, True)
+
+        self.update_display()
+
+    def reset_frame_timing(self):
+        """Reset all frame delays to FPS-based calculated values."""
+        self.custom_frame_durations.clear()
+        self._initialize_custom_durations()
+
+        self._update_frame_delay_spinbox()
+        self._update_frame_delay_display()

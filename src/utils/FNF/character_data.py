@@ -258,7 +258,7 @@ class CharacterData:
             settings_manager: Manager to receive animation settings.
             png_filename: Spritesheet filename prefix.
             anim_name: Animation name within the spritesheet.
-            fps: Frame rate for the animation.
+            fps: Frame rate for the animation (converted to duration in ms).
             indices: Optional list of frame indices.
             loop: Whether the animation loops continuously.
             scale: Sprite scale factor.
@@ -269,7 +269,9 @@ class CharacterData:
             return
 
         full_anim_name = f"{png_filename}/{anim_name}"
-        settings = {"fps": fps}
+        # Convert fps to duration in milliseconds
+        duration_ms = max(1, round(1000 / fps)) if fps > 0 else 42
+        settings = {"duration": duration_ms}
 
         if scale not in (None, 1):
             settings["scale"] = scale

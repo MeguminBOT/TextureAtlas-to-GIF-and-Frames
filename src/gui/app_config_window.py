@@ -33,6 +33,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from utils.translation_manager import tr as translate
+from utils.duration_utils import (
+    DURATION_NATIVE,
+    duration_to_milliseconds,
+    get_duration_display_meta,
+    milliseconds_to_duration,
+    resolve_native_duration_type,
+)
 
 
 class AppConfigWindow(QDialog):
@@ -134,6 +141,12 @@ class AppConfigWindow(QDialog):
         self.remember_output_dir_cb = None
         self.filter_single_frame_spritemaps_cb = None
         self.use_native_file_dialog_cb = None
+        self.merge_duplicates_cb = None
+        self.duration_input_type_combo = None
+        self.duration_label = None
+        self.duration_spinbox = None
+        self._duration_display_type = None
+        self._duration_value_ms = 42
         self.extraction_fields = {}
         self.compression_fields = {}
         self.generator_fields = {}
@@ -311,16 +324,22 @@ class AppConfigWindow(QDialog):
         anim_format_combo = QComboBox()
         anim_format_combo.addItems(["GIF", "WebP", "APNG"])
         anim_format_combo.setCurrentText("GIF")
+        anim_format_combo.currentTextChanged.connect(self._on_animation_format_changed)
         self.extraction_fields["animation_format"] = anim_format_combo
         anim_layout.addWidget(anim_format_combo, row, 1)
         row += 1
 
-        anim_layout.addWidget(QLabel(self.tr("Frame rate")), row, 0)
-        fps_spinbox = QSpinBox()
-        fps_spinbox.setRange(1, 120)
-        fps_spinbox.setValue(24)
-        self.extraction_fields["fps"] = fps_spinbox
-        anim_layout.addWidget(fps_spinbox, row, 1)
+        duration_label = QLabel(self.tr("Duration"))
+        self.duration_label = duration_label
+        anim_layout.addWidget(duration_label, row, 0)
+        duration_spinbox = QSpinBox()
+        duration_spinbox.setRange(1, 10000)
+        duration_spinbox.setValue(42)
+        self.duration_spinbox = duration_spinbox
+        self.extraction_fields["duration"] = duration_spinbox
+        anim_layout.addWidget(duration_spinbox, row, 1)
+        self._update_duration_controls(duration_ms=42)
+        duration_spinbox.valueChanged.connect(self._on_duration_spinbox_changed)
         row += 1
 
         anim_layout.addWidget(QLabel(self.tr("Loop delay")), row, 0)
@@ -502,6 +521,122 @@ class AppConfigWindow(QDialog):
         layout.addStretch()
 
         return self._wrap_in_scroll_area(widget)
+
+    def _get_animation_format(self) -> str:
+        """Return the currently selected animation format in uppercase.
+
+        Falls back to the persisted default if no combobox selection exists.
+        """
+        control = self.extraction_fields.get("animation_format")
+        if isinstance(control, QComboBox):
+            current_text = control.currentText()
+            if current_text:
+                return current_text.upper()
+        defaults = self.app_config.settings.get("extraction_defaults", {})
+        return str(defaults.get("animation_format", "GIF")).upper()
+
+    def _get_interface_duration_type(self) -> str:
+        """Return the user's preferred duration input type.
+
+        Reads from the combobox if available, otherwise falls back to
+        persisted interface settings. Defaults to ``"fps"``.
+        """
+        if self.duration_input_type_combo:
+            current_type = self.duration_input_type_combo.currentData()
+            if current_type:
+                return current_type
+        interface_defaults = self.app_config.settings.get("interface", {})
+        return interface_defaults.get("duration_input_type", "fps")
+
+    def _resolve_duration_type(self, animation_format: str) -> str:
+        """Resolve 'native' to the format-specific duration type.
+
+        Args:
+            animation_format: Current animation format (GIF, WebP, APNG).
+
+        Returns:
+            The resolved duration type (e.g., centiseconds for GIF).
+        """
+        duration_type = self._get_interface_duration_type()
+        if duration_type == DURATION_NATIVE:
+            return resolve_native_duration_type(animation_format)
+        return duration_type
+
+    def _get_duration_spinbox_value_ms(self) -> int:
+        """Return the cached duration value in milliseconds."""
+
+        return max(1, int(getattr(self, "_duration_value_ms", 42)))
+
+    def _update_duration_controls(self, duration_ms: int | None = None) -> None:
+        """Refresh the duration spinbox label, range, and value.
+
+        Converts the canonical millisecond value to the current display
+        unit and updates the spinbox without triggering change signals.
+
+        Args:
+            duration_ms: Authoritative duration in milliseconds. When
+                ``None``, uses the cached ``_duration_value_ms``.
+        """
+        if not self.duration_spinbox or not self.duration_label:
+            return
+
+        anim_format = self._get_animation_format()
+        duration_type = self._get_interface_duration_type()
+        display_meta = get_duration_display_meta(duration_type, anim_format)
+
+        if duration_ms is None:
+            duration_ms = self._get_duration_spinbox_value_ms()
+        duration_ms = max(1, int(duration_ms))
+        self._duration_value_ms = duration_ms
+
+        label_text = self.tr(display_meta.label)
+        if not label_text.endswith(":"):
+            label_text = f"{label_text}:"
+        self.duration_label.setText(label_text)
+
+        tooltip = self.tr(display_meta.tooltip)
+        self.duration_label.setToolTip(tooltip)
+        self.duration_spinbox.setToolTip(tooltip)
+
+        self.duration_spinbox.blockSignals(True)
+        self.duration_spinbox.setRange(display_meta.min_value, display_meta.max_value)
+        self.duration_spinbox.setSuffix(self.tr(display_meta.suffix))
+
+        display_value = milliseconds_to_duration(
+            duration_ms, display_meta.resolved_type, anim_format
+        )
+        clamped_value = max(
+            display_meta.min_value,
+            min(display_value, display_meta.max_value),
+        )
+        self.duration_spinbox.setValue(clamped_value)
+        self.duration_spinbox.blockSignals(False)
+
+        self._duration_display_type = display_meta.resolved_type
+
+    def _on_duration_spinbox_changed(self, value: int) -> None:
+        """Cache the spinbox value converted to milliseconds.
+
+        Called when the user edits the duration spinbox so that the
+        canonical millisecond value stays in sync with the display.
+        """
+        if not self.duration_spinbox or not self._duration_display_type:
+            return
+
+        anim_format = self._get_animation_format()
+        self._duration_value_ms = duration_to_milliseconds(
+            max(1, value), self._duration_display_type, anim_format
+        )
+
+    def _on_duration_input_type_changed(self, _index: int = 0) -> None:
+        """Slot invoked when the duration input type combobox changes."""
+
+        self._update_duration_controls()
+
+    def _on_animation_format_changed(self, _format: str = "") -> None:
+        """Slot invoked when the animation format combobox changes."""
+
+        self._update_duration_controls()
 
     def create_generator_tab(self):
         """Build the generator defaults tab with atlas packing settings.
@@ -980,6 +1115,8 @@ class AppConfigWindow(QDialog):
                     # Threshold is stored as 0.0-1.0 but displayed as 0-100%
                     if key == "threshold":
                         control.setValue(int(float(value) * 100))
+                    elif key == "duration":
+                        self._update_duration_controls(int(value))
                     else:
                         control.setValue(int(value))
                 elif isinstance(control, QDoubleSpinBox):
@@ -1032,6 +1169,15 @@ class AppConfigWindow(QDialog):
             self.use_native_file_dialog_cb.setChecked(
                 interface.get("use_native_file_dialog", False)
             )
+        if self.merge_duplicates_cb:
+            self.merge_duplicates_cb.setChecked(
+                interface.get("merge_duplicate_frames", True)
+            )
+        if self.duration_input_type_combo:
+            duration_type = interface.get("duration_input_type", "fps")
+            index = self.duration_input_type_combo.findData(duration_type)
+            if index >= 0:
+                self.duration_input_type_combo.setCurrentIndex(index)
 
         # Load generator defaults
         generator_defaults = self.app_config.get("generator_defaults", {})
@@ -1067,6 +1213,8 @@ class AppConfigWindow(QDialog):
                         # Threshold is stored as 0.0-1.0 but displayed as 0-100%
                         if key == "threshold":
                             control.setValue(int(float(default_value) * 100))
+                        elif key == "duration":
+                            self._update_duration_controls(int(default_value))
                         else:
                             control.setValue(int(default_value))
                     elif isinstance(control, QDoubleSpinBox):
@@ -1104,7 +1252,16 @@ class AppConfigWindow(QDialog):
                 update_defaults.get("auto_download_updates", False)
             )
 
-            # Reset generator defaults
+            if self.merge_duplicates_cb:
+                self.merge_duplicates_cb.setChecked(True)
+            if self.duration_input_type_combo:
+                default_type = self.app_config.DEFAULTS.get("interface", {}).get(
+                    "duration_input_type", "fps"
+                )
+                index = self.duration_input_type_combo.findData(default_type)
+                if index >= 0:
+                    self.duration_input_type_combo.setCurrentIndex(index)
+
             gen_defaults = self.app_config.DEFAULTS["generator_defaults"]
             self._load_generator_settings(gen_defaults)
 
@@ -1140,6 +1297,8 @@ class AppConfigWindow(QDialog):
                     # Threshold is displayed as 0-100% but stored as 0.0-1.0
                     if key == "threshold":
                         extraction_defaults[key] = control.value() / 100.0
+                    elif key == "duration":
+                        extraction_defaults[key] = self._get_duration_spinbox_value_ms()
                     else:
                         extraction_defaults[key] = control.value()
                 elif isinstance(control, QDoubleSpinBox):
@@ -1192,6 +1351,14 @@ class AppConfigWindow(QDialog):
             if self.use_native_file_dialog_cb:
                 interface["use_native_file_dialog"] = (
                     self.use_native_file_dialog_cb.isChecked()
+                )
+            if self.merge_duplicates_cb:
+                interface["merge_duplicate_frames"] = (
+                    self.merge_duplicates_cb.isChecked()
+                )
+            if self.duration_input_type_combo:
+                interface["duration_input_type"] = (
+                    self.duration_input_type_combo.currentData()
                 )
 
             # Save generator defaults
@@ -1319,6 +1486,54 @@ class AppConfigWindow(QDialog):
         file_dialog_layout.addWidget(self.use_native_file_dialog_cb)
 
         layout.addWidget(file_dialog_group)
+
+        # Animation behavior group
+        anim_behavior_group = QGroupBox(self.tr("Animation Behavior"))
+        anim_behavior_layout = QVBoxLayout(anim_behavior_group)
+
+        self.merge_duplicates_cb = QCheckBox(self.tr("Merge duplicate frames"))
+        self.merge_duplicates_cb.setChecked(True)
+        self.merge_duplicates_cb.setToolTip(
+            self.tr(
+                "When enabled, consecutive duplicate frames are merged into a\n"
+                "single frame with combined duration. Disable if you want to\n"
+                "keep all frames individually for manual timing adjustments."
+            )
+        )
+        anim_behavior_layout.addWidget(self.merge_duplicates_cb)
+
+        duration_layout = QHBoxLayout()
+        duration_label = QLabel(self.tr("Duration input type:"))
+        duration_tooltip = self.tr(
+            "Choose how frame timing is entered in the UI:\n\n"
+            "• Format Native: Uses each format's native unit:\n"
+            "    - GIF: Centiseconds (10ms increments)\n"
+            "    - APNG/WebP: Milliseconds\n"
+            "• FPS: Traditional frames-per-second (converted to delays)\n"
+            "• Deciseconds: 1/10th of a second\n"
+            "• Centiseconds: 1/100th of a second\n"
+            "• Milliseconds: 1/1000th of a second"
+        )
+        duration_label.setToolTip(duration_tooltip)
+        duration_layout.addWidget(duration_label)
+
+        self.duration_input_type_combo = QComboBox()
+        self.duration_input_type_combo.addItem(self.tr("Format Native"), "native")
+        self.duration_input_type_combo.addItem(
+            self.tr("FPS (frames per second)"), "fps"
+        )
+        self.duration_input_type_combo.addItem(self.tr("Deciseconds"), "deciseconds")
+        self.duration_input_type_combo.addItem(self.tr("Centiseconds"), "centiseconds")
+        self.duration_input_type_combo.addItem(self.tr("Milliseconds"), "milliseconds")
+        self.duration_input_type_combo.setToolTip(duration_tooltip)
+        self.duration_input_type_combo.currentIndexChanged.connect(
+            self._on_duration_input_type_changed
+        )
+        duration_layout.addWidget(self.duration_input_type_combo)
+        duration_layout.addStretch()
+        anim_behavior_layout.addLayout(duration_layout)
+
+        layout.addWidget(anim_behavior_group)
         layout.addStretch()
 
         return self._wrap_in_scroll_area(widget)

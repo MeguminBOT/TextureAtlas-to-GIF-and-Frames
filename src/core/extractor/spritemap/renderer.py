@@ -235,16 +235,20 @@ class AdobeSpritemapRenderer:
         return rendered_frames
 
     def ensure_animation_defaults(self, settings_manager, spritesheet_name):
-        """Populate animation FPS defaults in the settings manager if missing.
+        """Populate animation duration defaults in the settings manager if missing.
 
         Iterates over all symbols and timeline labels and ensures each has an
-        entry in ``settings_manager.animation_settings`` with at least an
-        ``fps`` key.
+        entry in ``settings_manager.animation_settings`` with at least a
+        ``duration`` key (in milliseconds).
 
         Args:
             settings_manager: A settings manager exposing ``animation_settings``.
             spritesheet_name: Base name used to construct full setting keys.
         """
+        # Convert fps to milliseconds for default duration
+        default_duration_ms = (
+            max(1, round(1000 / self.frame_rate)) if self.frame_rate > 0 else 42
+        )
 
         for animation_name in self.list_symbol_names():
             folder_name = Utilities.strip_trailing_digits(animation_name)
@@ -252,7 +256,7 @@ class AdobeSpritemapRenderer:
             sprite_settings = settings_manager.animation_settings.setdefault(
                 full_name, {}
             )
-            sprite_settings.setdefault("fps", self.frame_rate)
+            sprite_settings.setdefault("duration", default_duration_ms)
 
         for label in self.symbols.get_label_ranges(None):
             label_name = label["name"]
@@ -260,7 +264,7 @@ class AdobeSpritemapRenderer:
             sprite_settings = settings_manager.animation_settings.setdefault(
                 full_name, {}
             )
-            sprite_settings.setdefault("fps", self.frame_rate)
+            sprite_settings.setdefault("duration", default_duration_ms)
 
     def render_animation(self, target):
         """Render frames for a symbol or timeline label.

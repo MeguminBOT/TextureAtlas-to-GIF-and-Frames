@@ -149,6 +149,11 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.setup_editor_tab()
         self.setup_connections()
         self.ui.retranslateUi(self)
+
+        # Re-apply duration input type, retranslateUi resets some labels.
+        if hasattr(self, "extract_tab_widget"):
+            self.extract_tab_widget.update_frame_rate_display()
+
         self.update_dynamic_tab_labels()
         self.ui.tools_tab.currentChanged.connect(self._on_tools_tab_changed)
         self._on_tools_tab_changed(self.ui.tools_tab.currentIndex())
@@ -421,7 +426,12 @@ class TextureAtlasExtractorApp(QMainWindow):
         """Creates the preferences/app config window."""
         try:
             dialog = AppConfigWindow(self, self.app_config)
-            dialog.exec()
+            if dialog.exec():
+                # Update extract tab's frame rate display after settings change
+                if hasattr(self, "extract_tab_widget") and hasattr(
+                    self.extract_tab_widget, "update_frame_rate_display"
+                ):
+                    self.extract_tab_widget.update_frame_rate_display()
         except Exception as e:
             QMessageBox.warning(
                 self,

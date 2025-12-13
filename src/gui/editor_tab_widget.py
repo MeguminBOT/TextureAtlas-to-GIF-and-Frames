@@ -1422,13 +1422,17 @@ class EditorTabWidget(BaseTabWidget):
         """Assemble an animation from atlas metadata or spritemap exports."""
         try:
             frames: List[AlignmentFrame] = []
-            fps = 24
+            frame_duration = 42  # Default 42ms (~24fps)
             if hasattr(self.parent_app, "settings_manager"):
                 settings = self.parent_app.settings_manager.get_settings(
                     spritesheet_name, f"{spritesheet_name}/{animation_name}"
                 )
-                fps = settings.get("fps", fps)
-            frame_duration = int(round(1000 / max(1, fps)))
+                # Support both legacy 'fps' and new 'duration' keys
+                if "duration" in settings:
+                    frame_duration = settings.get("duration", 42)
+                elif "fps" in settings:
+                    fps = settings.get("fps", 24)
+                    frame_duration = int(round(1000 / max(1, fps)))
 
             if spritemap_info:
                 from core.extractor.spritemap import AdobeSpritemapRenderer

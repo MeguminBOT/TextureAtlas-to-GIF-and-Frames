@@ -34,6 +34,13 @@ from utils.translation_manager import tr as translate
 
 from gui.extractor.enhanced_list_widget import EnhancedListWidget
 from utils.utilities import Utilities
+from utils.duration_utils import (
+    convert_duration,
+    duration_to_milliseconds,
+    get_duration_display_meta,
+    milliseconds_to_duration,
+    resolve_native_duration_type,
+)
 from core.extractor.spritemap.metadata import (
     compute_symbol_lengths,
     extract_label_ranges,
@@ -224,6 +231,7 @@ class ExtractTabWidget(BaseTabWidget):
         self.frame_export_group = self.parent_app.ui.frame_export_group
         self.animation_format_combobox = self.parent_app.ui.animation_format_combobox
         self.frame_format_combobox = self.parent_app.ui.frame_format_combobox
+        self.frame_rate_label = self.parent_app.ui.frame_rate_label
         self.frame_rate_entry = self.parent_app.ui.frame_rate_entry
         self.loop_delay_entry = self.parent_app.ui.loop_delay_entry
         self.min_period_entry = self.parent_app.ui.min_period_entry
@@ -382,10 +390,10 @@ class ExtractTabWidget(BaseTabWidget):
         self.animation_format_combobox.setGeometry(10, 50, 171, 24)
         self.animation_format_combobox.addItems(["GIF", "WebP", "APNG"])
 
-        frame_rate_label = QLabel(self.tr("Frame rate"))
-        frame_rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        frame_rate_label.setGeometry(40, 80, 111, 16)
-        frame_rate_label.setParent(group)
+        self.frame_rate_label = QLabel(self.tr("Frame rate"))
+        self.frame_rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.frame_rate_label.setGeometry(40, 80, 111, 16)
+        self.frame_rate_label.setParent(group)
 
         self.frame_rate_entry = QSpinBox(group)
         self.frame_rate_entry.setGeometry(10, 100, 171, 24)
@@ -652,9 +660,9 @@ class ExtractTabWidget(BaseTabWidget):
                 else {}
             )
 
-            self.frame_rate_entry.setValue(defaults.get("frame_rate", 24))
-            self.loop_delay_entry.setValue(defaults.get("loop_delay", 250))
-            self.min_period_entry.setValue(defaults.get("min_period", 0))
+            duration_ms = defaults.get("duration", 42)
+            self.loop_delay_entry.setValue(defaults.get("delay", 250))
+            self.min_period_entry.setValue(defaults.get("period", 0))
             self.scale_entry.setValue(defaults.get("scale", 1.0))
             self.threshold_entry.setValue(defaults.get("threshold", 0.5) * 100.0)
             self.frame_scale_entry.setValue(defaults.get("frame_scale", 1.0))
@@ -679,6 +687,46 @@ class ExtractTabWidget(BaseTabWidget):
                 defaults.get("resampling_method", "Nearest")
             )
             self.resampling_method_combobox.setCurrentIndex(resampling_index)
+
+            self._set_duration_spinbox_from_ms(duration_ms)
+
+        self.update_frame_rate_display()
+
+    def update_frame_rate_display(self):
+        """Update frame rate label and spinbox based on duration input type setting.
+
+        Configures the spinbox label, range, value, and tooltip according to the
+        selected duration input type (fps, native, deciseconds, centiseconds,
+        or milliseconds). When the duration type changes, the current value is
+        converted to the new unit.
+        """
+        duration_type = self._get_duration_input_type()
+        anim_format = self._get_animation_format()
+        display_meta = get_duration_display_meta(duration_type, anim_format)
+        resolved_type = display_meta.resolved_type
+        duration_tooltip = self.tr(display_meta.tooltip)
+
+        prev_type = getattr(self, "_prev_duration_type", resolved_type)
+        current_value = self.frame_rate_entry.value()
+
+        # Convert current value to new duration type
+        if prev_type != resolved_type:
+            converted_value = convert_duration(
+                current_value, prev_type, resolved_type, anim_format
+            )
+        else:
+            converted_value = current_value
+
+        # Store the current resolved type for next conversion
+        self._prev_duration_type = resolved_type
+
+        self.frame_rate_label.setText(self.tr(display_meta.label))
+        self.frame_rate_entry.setRange(display_meta.min_value, display_meta.max_value)
+        self.frame_rate_entry.setSuffix(self.tr(display_meta.suffix))
+
+        self.frame_rate_entry.setValue(converted_value)
+        self.frame_rate_label.setToolTip(duration_tooltip)
+        self.frame_rate_entry.setToolTip(duration_tooltip)
 
     def get_resampling_method_index(self, method_name):
         """Map a resampling method name to its combobox index.
@@ -2115,6 +2163,8 @@ class ExtractTabWidget(BaseTabWidget):
                 ):
                     child.setEnabled(False)
 
+        self.update_frame_rate_display()
+
     def on_frame_format_change(self):
         """Handles frame format selection changes."""
         if not self.parent_app:
@@ -2173,12 +2223,20 @@ class ExtractTabWidget(BaseTabWidget):
         animation_export = self.animation_export_group.isChecked()
         frame_export = self.frame_export_group.isChecked()
 
+        duration_type = self._get_duration_input_type()
+        anim_format = self._get_animation_format()
+        resolved_type = self._resolve_duration_type(duration_type, anim_format)
+
+        duration_ms = duration_to_milliseconds(
+            self.frame_rate_entry.value(), resolved_type, anim_format
+        )
+
         settings = {
             "animation_format": animation_format,
             "frame_format": frame_format,
             "animation_export": animation_export,
             "frame_export": frame_export,
-            "fps": self.frame_rate_entry.value(),
+            "duration": duration_ms,
             "delay": self.loop_delay_entry.value(),
             "period": self.min_period_entry.value(),
             "scale": self.scale_entry.value(),
@@ -2196,7 +2254,70 @@ class ExtractTabWidget(BaseTabWidget):
             "filter_single_frame_spritemaps": self.filter_single_frame_spritemaps,
         }
 
+        if hasattr(self.parent_app, "app_config"):
+            interface = self.parent_app.app_config.get("interface", {})
+            settings["merge_duplicate_frames"] = interface.get(
+                "merge_duplicate_frames", True
+            )
+            settings["duration_input_type"] = interface.get(
+                "duration_input_type", "fps"
+            )
+        else:
+            settings["merge_duplicate_frames"] = True
+            settings["duration_input_type"] = "fps"
+
         return settings
+
+    def _get_duration_input_type(self) -> str:
+        """Return the user's preferred duration input type from config."""
+
+        if self.parent_app and hasattr(self.parent_app, "app_config"):
+            interface = self.parent_app.app_config.get("interface", {})
+            return interface.get("duration_input_type", "fps")
+        return "fps"
+
+    def _get_animation_format(self) -> str:
+        """Return the currently selected animation format in uppercase."""
+
+        if (
+            hasattr(self, "animation_format_combobox")
+            and self.animation_format_combobox
+        ):
+            return self.animation_format_combobox.currentText().upper()
+        return "GIF"
+
+    def _resolve_duration_type(self, duration_type: str, anim_format: str) -> str:
+        """Resolve 'native' to the format-specific duration type.
+
+        Args:
+            duration_type: Configured duration input type.
+            anim_format: Current animation format (GIF, WebP, APNG).
+
+        Returns:
+            The resolved duration type (e.g., centiseconds for GIF).
+        """
+        if duration_type == "native":
+            return resolve_native_duration_type(anim_format)
+        return duration_type
+
+    def _set_duration_spinbox_from_ms(self, duration_ms: int) -> None:
+        """Set the frame rate spinbox from a canonical millisecond value.
+
+        Converts the duration to the current display unit and updates the
+        spinbox accordingly, also caching the resolved type for later
+        conversions.
+
+        Args:
+            duration_ms: Frame duration in milliseconds.
+        """
+        duration_type = self._get_duration_input_type()
+        anim_format = self._get_animation_format()
+        resolved_type = self._resolve_duration_type(duration_type, anim_format)
+        display_value = milliseconds_to_duration(
+            duration_ms, resolved_type, anim_format
+        )
+        self._prev_duration_type = resolved_type
+        self.frame_rate_entry.setValue(display_value)
 
     def update_global_settings(self):
         """Updates the global settings from the GUI."""

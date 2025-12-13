@@ -74,12 +74,17 @@ class AnimationExporter:
             )
             return anims_generated
 
-        fps = settings.get("fps")
+        animation_format = settings.get("animation_format", "GIF")
+
+        # Duration is stored in milliseconds internally
+        delay_ms = settings.get("duration", 42)
+        # Convert milliseconds to fps for frame duration calculations
+        fps = max(1, round(1000 / delay_ms)) if delay_ms > 0 else 24
+
         delay = settings.get("delay")
         period = settings.get("period")
         scale = settings.get("scale")
         threshold = settings.get("threshold")
-        animation_format = settings.get("animation_format")
 
         images = pad_frames_to_canvas([img[1] for img in image_tuples])
 
@@ -137,13 +142,17 @@ class AnimationExporter:
         if not final_images:
             return
 
-        durations = build_frame_durations(
-            len(final_images),
-            fps,
-            delay,
-            period,
-            settings.get("var_delay", False),
-        )
+        custom_durations = settings.get("custom_frame_durations")
+        if custom_durations and len(custom_durations) == len(final_images):
+            durations = list(custom_durations)
+        else:
+            durations = build_frame_durations(
+                len(final_images),
+                fps,
+                delay,
+                period,
+                settings.get("var_delay", False),
+            )
         if not durations:
             return
 
@@ -215,14 +224,19 @@ class AnimationExporter:
             threshold: Alpha threshold for edge cleanup, or ``None``.
             settings: Additional options such as ``crop_option``.
         """
-        durations = build_frame_durations(
-            len(images),
-            fps,
-            delay,
-            period,
-            settings.get("var_delay", False),
-            round_to_ten=True,
-        )
+        custom_durations = settings.get("custom_frame_durations")
+        if custom_durations and len(custom_durations) == len(images):
+            # Round to 10ms for GIF compatibility
+            durations = [max(10, (d // 10) * 10) for d in custom_durations]
+        else:
+            durations = build_frame_durations(
+                len(images),
+                fps,
+                delay,
+                period,
+                settings.get("var_delay", False),
+                round_to_ten=True,
+            )
         if not durations:
             return
 
@@ -253,8 +267,11 @@ class AnimationExporter:
                     for array in frame_arrays
                 ]
 
+        merge_duplicates = settings.get("merge_duplicate_frames", True)
         dedupe_required = False
-        signature_cache: Optional[Set[int]] = set() if len(images) > 1 else None
+        signature_cache: Optional[Set[int]] = (
+            set() if len(images) > 1 and merge_duplicates else None
+        )
 
         with WandImg(width=width, height=height) as animation:
             animation.image_remove()
@@ -281,16 +298,15 @@ class AnimationExporter:
                     wand_frame.dispose = "background"
                     animation.sequence.append(wand_frame)
             signature_cache = None
-            if dedupe_required:
+            if dedupe_required and merge_duplicates:
                 self.remove_dups(animation)
             animation.quantize(
                 number_colors=256, colorspace_type="undefined", dither=False
             )
-            # Removing duplicates after quantization ensures palette changes are accounted for once.
-            if dedupe_required:
+
+            if dedupe_required and merge_duplicates:
                 self.remove_dups(animation)
 
-            # Apply scaling with the configured resampling method
             resampling_method = settings.get("resampling_method", "Lanczos")
             wand_filter = get_wand_resampling_filter(resampling_method, abs(scale))
 
@@ -299,7 +315,6 @@ class AnimationExporter:
                 new_width = int(animation.width * abs(scale))
                 new_height = int(animation.height * abs(scale))
 
-                # Use resize with filter for quality scaling, or sample for Nearest
                 if resampling_method == "Nearest":
                     animation.sample(width=new_width, height=new_height)
                 else:
@@ -395,13 +410,17 @@ class AnimationExporter:
         if not final_images:
             return
 
-        durations = build_frame_durations(
-            len(final_images),
-            fps,
-            delay,
-            period,
-            settings.get("var_delay", False),
-        )
+        custom_durations = settings.get("custom_frame_durations")
+        if custom_durations and len(custom_durations) == len(final_images):
+            durations = list(custom_durations)
+        else:
+            durations = build_frame_durations(
+                len(final_images),
+                fps,
+                delay,
+                period,
+                settings.get("var_delay", False),
+            )
         if not durations:
             return
 

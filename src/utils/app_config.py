@@ -23,7 +23,7 @@ class AppConfig:
         "extraction_defaults": {
             "animation_format": "GIF",
             "animation_export": False,
-            "fps": 24,
+            "duration": 42,
             "delay": 250,
             "period": 0,
             "scale": 1.0,
@@ -89,6 +89,8 @@ class AppConfig:
             "remember_output_directory": True,
             "filter_single_frame_spritemaps": True,
             "use_native_file_dialog": False,
+            "merge_duplicate_frames": True,
+            "duration_input_type": "fps",
         },
     }
 
@@ -96,7 +98,7 @@ class AppConfig:
         "language": str,
         "animation_format": str,
         "animation_export": bool,
-        "fps": int,
+        "duration": int,
         "delay": int,
         "period": int,
         "scale": float,
@@ -237,6 +239,18 @@ class AppConfig:
         """Add missing defaults and remove obsolete keys, then save if changed."""
 
         needs_migration = False
+
+        # Migrate fps -> duration (convert fps value to milliseconds)
+        extraction = self.settings.get("extraction_defaults", {})
+        if "fps" in extraction and "duration" not in extraction:
+            fps_value = extraction.pop("fps")
+            # Convert fps to milliseconds: 1000 / fps
+            duration_ms = max(1, round(1000 / fps_value)) if fps_value > 0 else 42
+            extraction["duration"] = duration_ms
+            needs_migration = True
+            print(
+                f"[Config] Migrated 'fps: {fps_value}' to 'duration: {duration_ms}' (milliseconds)"
+            )
 
         def merge_defaults(current, defaults):
             nonlocal needs_migration
