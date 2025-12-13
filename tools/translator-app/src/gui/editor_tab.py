@@ -521,6 +521,8 @@ class EditorTab(QWidget):
         language_choices = self.translation_manager.get_provider_language_choices(
             provider_choice
         )
+        # Sort by language name (second element of tuple)
+        language_choices = sorted(language_choices, key=lambda x: x[1].lower())
         available_codes = {code for code, _ in language_choices}
         self.source_lang_combo.blockSignals(True)
         self.target_lang_combo.blockSignals(True)
