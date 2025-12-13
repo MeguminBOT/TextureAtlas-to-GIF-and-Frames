@@ -446,13 +446,20 @@ class TranslationEditor(QMainWindow):
             return
         is_valid, errors = self.editor_tab.validate_all_translations()
         if not is_valid:
-            error_msg = "Cannot save: Found placeholder validation errors:\n\n"
+            error_msg = "Found placeholder validation warnings:\n\n"
             error_msg += "\n\n".join(errors[:5])
             if len(errors) > 5:
-                error_msg += f"\n\n... and {len(errors) - 5} more errors."
-            error_msg += "\n\nPlease fix these issues before saving."
-            QMessageBox.warning(self, "Validation Errors", error_msg)
-            return
+                error_msg += f"\n\n... and {len(errors) - 5} more warnings."
+            error_msg += "\n\nSave anyway?"
+            result = QMessageBox.warning(
+                self,
+                "Validation Warnings",
+                error_msg,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if result != QMessageBox.Yes:
+                return
         self.save_ts_file(current_file)
 
     def save_file_as(self) -> None:
@@ -462,13 +469,20 @@ class TranslationEditor(QMainWindow):
             return
         is_valid, errors = self.editor_tab.validate_all_translations()
         if not is_valid:
-            error_msg = "Cannot save: Found placeholder validation errors:\n\n"
+            error_msg = "Found placeholder validation warnings:\n\n"
             error_msg += "\n\n".join(errors[:5])
             if len(errors) > 5:
-                error_msg += f"\n\n... and {len(errors) - 5} more errors."
-            error_msg += "\n\nPlease fix these issues before saving."
-            QMessageBox.warning(self, "Validation Errors", error_msg)
-            return
+                error_msg += f"\n\n... and {len(errors) - 5} more warnings."
+            error_msg += "\n\nSave anyway?"
+            result = QMessageBox.warning(
+                self,
+                "Validation Warnings",
+                error_msg,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if result != QMessageBox.Yes:
+                return
         current_file = self.editor_tab.get_current_file()
         file_path, _ = QFileDialog.getSaveFileName(
             self,
