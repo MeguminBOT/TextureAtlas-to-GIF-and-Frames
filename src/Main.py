@@ -39,6 +39,7 @@ from gui.extractor.compression_settings_window import (  # noqa: E402
 from gui.machine_translation_disclaimer_dialog import (  # noqa: E402
     MachineTranslationDisclaimerDialog,
 )
+from gui.first_start_dialog import show_first_start_dialog  # noqa: E402
 
 
 class ExtractorWorker(QThread):
@@ -157,6 +158,9 @@ class TextureAtlasExtractorApp(QMainWindow):
         self.update_dynamic_tab_labels()
         self.ui.tools_tab.currentChanged.connect(self._on_tools_tab_changed)
         self._on_tools_tab_changed(self.ui.tools_tab.currentIndex())
+
+        # Show first-start dialog for new users
+        show_first_start_dialog(self, self.translation_manager, self.app_config)
 
         QTimer.singleShot(250, self.check_version)
 
