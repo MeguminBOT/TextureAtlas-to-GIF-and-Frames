@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/icons/quality">
+    <file>icons/material/quality_native.svg</file>
+    <file>icons/material/quality_reviewed.svg</file>
+    <file>icons/material/quality_unreviewed.svg</file>
+    <file>icons/material/quality_machine.svg</file>
+    <file>icons/material/quality_unknown.svg</file>
+  </qresource>
+</RCC>

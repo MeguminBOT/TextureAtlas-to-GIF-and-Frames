@@ -31,6 +31,13 @@ from PySide6.QtGui import QAction
 
 from gui.base_tab_widget import BaseTabWidget
 from utils.translation_manager import tr as translate
+from utils.combo_options import (
+    FRAME_SELECTION_OPTIONS,
+    CROPPING_METHOD_OPTIONS,
+    FILENAME_FORMAT_OPTIONS,
+    populate_combobox,
+    get_internal_by_index,
+)
 
 from gui.extractor.enhanced_list_widget import EnhancedListWidget
 from utils.utilities import Utilities
@@ -470,8 +477,8 @@ class ExtractTabWidget(BaseTabWidget):
 
         self.frame_selection_combobox = QComboBox(group)
         self.frame_selection_combobox.setGeometry(10, 100, 171, 24)
-        self.frame_selection_combobox.addItems(
-            ["All", "No duplicates", "First", "Last", "First, Last"]
+        populate_combobox(
+            self.frame_selection_combobox, FRAME_SELECTION_OPTIONS, self.tr
         )
 
         scale_label = QLabel(self.tr("Frame scale"))
@@ -526,8 +533,8 @@ class ExtractTabWidget(BaseTabWidget):
         layout.addWidget(cropping_label)
 
         self.cropping_method_combobox = QComboBox()
-        self.cropping_method_combobox.addItems(
-            ["None", "Animation based", "Frame based"]
+        populate_combobox(
+            self.cropping_method_combobox, CROPPING_METHOD_OPTIONS, self.tr
         )
         layout.addWidget(self.cropping_method_combobox)
 
@@ -535,8 +542,8 @@ class ExtractTabWidget(BaseTabWidget):
         layout.addWidget(format_label)
 
         self.filename_format_combobox = QComboBox()
-        self.filename_format_combobox.addItems(
-            ["Standardized", "No spaces", "No special characters"]
+        populate_combobox(
+            self.filename_format_combobox, FILENAME_FORMAT_OPTIONS, self.tr
         )
         layout.addWidget(self.filename_format_combobox)
 
@@ -2187,15 +2194,6 @@ class ExtractTabWidget(BaseTabWidget):
 
         animation_format_map = ["GIF", "WebP", "APNG"]
         frame_format_map = ["AVIF", "BMP", "DDS", "PNG", "TGA", "TIFF", "WebP"]
-        frame_selection_map = [
-            "All",
-            "No duplicates",
-            "First",
-            "Last",
-            "First, Last",
-        ]
-        crop_option_map = ["None", "Animation based", "Frame based"]
-        filename_format_map = ["Standardized", "No spaces", "No special characters"]
         resampling_method_map = [
             "Nearest",
             "Bilinear",
@@ -2209,13 +2207,15 @@ class ExtractTabWidget(BaseTabWidget):
             self.animation_format_combobox.currentIndex()
         ]
         frame_format = frame_format_map[self.frame_format_combobox.currentIndex()]
-        frame_selection = frame_selection_map[
-            self.frame_selection_combobox.currentIndex()
-        ]
-        crop_option = crop_option_map[self.cropping_method_combobox.currentIndex()]
-        filename_format = filename_format_map[
-            self.filename_format_combobox.currentIndex()
-        ]
+        frame_selection = get_internal_by_index(
+            FRAME_SELECTION_OPTIONS, self.frame_selection_combobox.currentIndex()
+        )
+        crop_option = get_internal_by_index(
+            CROPPING_METHOD_OPTIONS, self.cropping_method_combobox.currentIndex()
+        )
+        filename_format = get_internal_by_index(
+            FILENAME_FORMAT_OPTIONS, self.filename_format_combobox.currentIndex()
+        )
         resampling_method = resampling_method_map[
             self.resampling_method_combobox.currentIndex()
         ]

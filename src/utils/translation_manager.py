@@ -6,19 +6,64 @@ Qt's `.qm` (compiled) and `.ts` (source) formats located in
 ``src/translations/`` with the naming scheme ``app_{language_code}``.
 
 Quality levels:
-    native: Human-reviewed by native speakers.
-    community: Human-translated community contributions.
+    native: Approved by multiple native speakers.
+    reviewed: Checked by at least one reviewer.
+    unreviewed: Human translated but not yet reviewed.
     machine: Auto-generated machine translation.
-    partial: Incomplete translation with some English strings.
+    unknown: Fallback when quality is not specified.
 
-To add a new language, add its metadata to the ``language_info`` dict in
-:meth:`TranslationManager.get_available_languages` and create the
-corresponding translation files.
+To add a new language, add its metadata to the ``LANGUAGE_METADATA`` dict
+at module level and create the corresponding translation files.
 """
 
 from pathlib import Path
 from PySide6.QtCore import QTranslator, QLocale, QCoreApplication
 from PySide6.QtWidgets import QApplication
+
+
+# Single source of truth for all known language metadata.
+# Languages are included in get_available_languages() if their .ts/.qm file exists.
+# English is always available (no file required).
+LANGUAGE_METADATA: dict[str, dict[str, str]] = {
+    "en": {"name": "English", "english_name": "English", "quality": "native"},
+    "de_de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
+    "es_es": {"name": "Español", "english_name": "Spanish", "quality": "machine"},
+    "fr_fr": {"name": "Français", "english_name": "French", "quality": "machine"},
+    "it_it": {"name": "Italiano", "english_name": "Italian", "quality": "machine"},
+    "ko_kr": {"name": "한국어", "english_name": "Korean", "quality": "machine"},
+    "nl_nl": {"name": "Nederlands", "english_name": "Dutch", "quality": "machine"},
+    "pl_pl": {"name": "Polski", "english_name": "Polish", "quality": "machine"},
+    "pt_br": {
+        "name": "Português (Brasil)",
+        "english_name": "Portuguese (Brazil)",
+        "quality": "unknown",
+    },
+    "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "machine"},
+    "zh_cn": {
+        "name": "简体中文",
+        "english_name": "Chinese (Simplified)",
+        "quality": "machine",
+    },
+    # Uncomment to enable when translation files are added:
+    # "ar": {"name": "العربية", "english_name": "Arabic", "quality": "machine"},
+    # "bg": {"name": "Български", "english_name": "Bulgarian", "quality": "machine"},
+    # "cs": {"name": "Čeština", "english_name": "Czech", "quality": "machine"},
+    # "da": {"name": "Dansk", "english_name": "Danish", "quality": "machine"},
+    # "el": {"name": "Ελληνικά", "english_name": "Greek", "quality": "machine"},
+    # "fi": {"name": "Suomi", "english_name": "Finnish", "quality": "machine"},
+    # "he": {"name": "עברית", "english_name": "Hebrew", "quality": "machine"},
+    # "hi": {"name": "हिन्दी", "english_name": "Hindi", "quality": "machine"},
+    # "hu": {"name": "Magyar", "english_name": "Hungarian", "quality": "machine"},
+    # "ja": {"name": "日本語", "english_name": "Japanese", "quality": "machine"},
+    # "pt": {"name": "Português", "english_name": "Portuguese", "quality": "machine"},
+    # "ro": {"name": "Română", "english_name": "Romanian", "quality": "machine"},
+    # "ru": {"name": "Русский", "english_name": "Russian", "quality": "machine"},
+    # "th": {"name": "ไทย", "english_name": "Thai", "quality": "machine"},
+    # "tr": {"name": "Türkçe", "english_name": "Turkish", "quality": "machine"},
+    # "uk": {"name": "Українська", "english_name": "Ukrainian", "quality": "machine"},
+    # "vi": {"name": "Tiếng Việt", "english_name": "Vietnamese", "quality": "machine"},
+    # "zh_tw": {"name": "繁體中文", "english_name": "Chinese (Traditional)", "quality": "machine"},
+}
 
 
 class TranslationManager:
@@ -41,82 +86,42 @@ class TranslationManager:
             app_instance: QApplication to install translators on. Defaults to
                 the current application instance.
         """
-
         self.app_instance = app_instance or QApplication.instance()
         self.current_translator: QTranslator | None = None
         self.current_locale: str | None = None
         self.translations_dir = Path(__file__).parent.parent / "translations"
+        self._available_languages_cache: dict[str, dict] | None = None
+
+    def _has_translation_file(self, lang_code: str) -> bool:
+        """Check if a translation file exists for the given language code."""
+        ts_file = self.translations_dir / f"app_{lang_code}.ts"
+        qm_file = self.translations_dir / f"app_{lang_code}.qm"
+        return ts_file.exists() or qm_file.exists()
 
     def get_available_languages(self) -> dict[str, dict]:
         """Return languages that have translation files available.
+
+        Results are cached since translation files don't change at runtime.
 
         Returns:
             Dictionary mapping language codes to info dicts containing:
             ``name`` (native display name), ``english_name``, and ``quality``.
         """
+        if self._available_languages_cache is not None:
+            return self._available_languages_cache
 
-        available = {
-            "en": {"name": "English", "english_name": "English", "quality": "native"},
-            "pt_br": {
-                "name": "Português (Brasil)",
-                "english_name": "Portuguese (Brazil)",
-                "quality": "native",
-            },
-            "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
-        }
+        available: dict[str, dict] = {}
+        for lang_code, info in LANGUAGE_METADATA.items():
+            # English is always available; others need a translation file.
+            if lang_code == "en" or self._has_translation_file(lang_code):
+                available[lang_code] = info
 
-        language_info = {
-            # "ar": {"name": "العربية", "english_name": "Arabic", "quality": "machine"},
-            # "bg": {"name": "Български", "english_name": "Bulgarian", "quality": "machine"},
-            # "zh_CN": {"name": "简体中文", "english_name": "Chinese (Simplified)", "quality": "machine"},
-            # "zh_TW": {"name": "繁體中文", "english_name": "Chinese (Traditional)", "quality": "machine"},
-            # "hr": {"name": "Hrvatski", "english_name": "Croatian", "quality": "machine"},
-            # "cs": {"name": "Čeština", "english_name": "Czech", "quality": "machine"},
-            "da": {"name": "Dansk", "english_name": "Danish", "quality": "machine"},
-            # "nl": {"name": "Nederlands", "english_name": "Dutch", "quality": "machine"},
-            # "en": {"name": "English", "english_name": "English", "quality": "machine"},
-            # "et": {"name": "Eesti", "english_name": "Estonian", "quality": "machine"},
-            # "fi": {"name": "Suomi", "english_name": "Finnish", "quality": "machine"},
-            # "fr": {"name": "Français", "english_name": "French", "quality": "machine"},
-            # "fr_CA": {"name": "Français canadien", "english_name": "French (Canadian)",
-            # "de": {"name": "Deutsch", "english_name": "German", "quality": "machine"},
-            # "el": {"name": "Ελληνικά", "english_name": "Greek", "quality": "machine"},
-            # "he": {"name": "עברית", "english_name": "Hebrew", "quality": "machine"},
-            # "hi": {"name": "हिन्दी", "english_name": "Hindi", "quality": "machine"},
-            # "hu": {"name": "Magyar", "english_name": "Hungarian", "quality": "machine"},
-            # "is": {"name": "Íslenska", "english_name": "Icelandic", "quality": "machine"},
-            # "it": {"name": "Italiano", "english_name": "Italian", "quality": "machine"},
-            # "ja": {"name": "日本語", "english_name": "Japanese", "quality": "machine"},
-            # "ko": {"name": "한국어", "english_name": "Korean", "quality": "machine"},
-            # "lv": {"name": "Latviešu", "english_name": "Latvian", "quality": "machine"},
-            # "lt": {"name": "Lietuvių", "english_name": "Lithuanian", "quality": "machine"},
-            # "no": {"name": "Norsk bokmål", "english_name": "Norwegian (Bokmål)", "quality": "machine"},
-            # "nn": {"name": "Norsk nynorsk", "english_name": "Norwegian (Nynorsk)", "quality": "machine"},
-            # "pl": {"name": "Polski", "english_name": "Polish", "quality": "machine"},
-            # "pt": {"name": "Português", "english_name": "Portuguese", "quality": "machine"},
-            "pt_br": {
-                "name": "Português (Brasil)",
-                "english_name": "Portuguese (Brazil)",
-                "quality": "native",
-            },
-            # "ro": {"name": "Română", "english_name": "Romanian", "quality": "machine"},
-            # "ru": {"name": "Русский", "english_name": "Russian", "quality": "machine"},
-            # "sk": {"name": "Slovenčina", "english_name": "Slovak", "quality": "machine"},
-            # "sl": {"name": "Slovenščina", "english_name": "Slovenian", "quality": "machine"},
-            "sv": {"name": "Svenska", "english_name": "Swedish", "quality": "native"},
-            # "es": {"name": "Español", "english_name": "Spanish", "quality": "machine"},
-            # "th": {"name": "ไทย", "english_name": "Thai", "quality": "machine"},
-            # "tr": {"name": "Türkçe", "english_name": "Turkish", "quality": "machine"},
-            # "uk": {"name": "Українська", "english_name": "Ukrainian", "quality": "machine"},
-            # "vi": {"name": "Tiếng Việt", "english_name": "Vietnamese", "quality": "machine"},
-        }
-
-        for lang_code, lang_info in language_info.items():
-            patterns = [f"app_{lang_code}.ts", f"app_{lang_code}.qm"]
-            if any((self.translations_dir / pattern).exists() for pattern in patterns):
-                available[lang_code] = lang_info
-
+        self._available_languages_cache = available
         return available
+
+    def invalidate_cache(self) -> None:
+        """Clear the cached available languages (e.g., after adding new files)."""
+        self._available_languages_cache = None
 
     def get_system_locale(self) -> str:
         """Get the system's default locale as a language code.
@@ -215,6 +220,10 @@ class TranslationManager:
         if hasattr(main_window, "language_changed"):
             main_window.language_changed.emit(self.current_locale or "en")
 
+    def _get_lang_info(self, language_code: str) -> dict | None:
+        """Return cached language info dict, or None if unavailable."""
+        return self.get_available_languages().get(language_code)
+
     def is_machine_translated(self, language_code: str) -> bool:
         """Check if a language uses machine translation.
 
@@ -224,13 +233,8 @@ class TranslationManager:
         Returns:
             True if the language quality is ``machine``, False otherwise.
         """
-
-        available_languages = self.get_available_languages()
-        if language_code in available_languages:
-            lang_info = available_languages[language_code]
-            if isinstance(lang_info, dict):
-                return lang_info.get("quality") == "machine"
-        return False
+        info = self._get_lang_info(language_code)
+        return info.get("quality") == "machine" if info else False
 
     def get_quality_level(self, language_code: str) -> str:
         """Get the quality level of a translation.
@@ -239,16 +243,11 @@ class TranslationManager:
             language_code: The language code to check.
 
         Returns:
-            Quality level (``native``, ``community``, ``machine``, ``partial``)
+            Quality level (``native``, ``reviewed``, ``unreviewed``, ``machine``)
             or ``unknown`` if not found.
         """
-
-        available_languages = self.get_available_languages()
-        if language_code in available_languages:
-            lang_info = available_languages[language_code]
-            if isinstance(lang_info, dict):
-                return lang_info.get("quality", "unknown")
-        return "unknown"
+        info = self._get_lang_info(language_code)
+        return info.get("quality", "unknown") if info else "unknown"
 
     def get_english_name(self, language_code: str) -> str:
         """Get the English name of a language.
@@ -259,13 +258,8 @@ class TranslationManager:
         Returns:
             English name of the language, or ``Unknown`` if not found.
         """
-
-        available_languages = self.get_available_languages()
-        if language_code in available_languages:
-            lang_info = available_languages[language_code]
-            if isinstance(lang_info, dict):
-                return lang_info.get("english_name", "Unknown")
-        return "Unknown"
+        info = self._get_lang_info(language_code)
+        return info.get("english_name", "Unknown") if info else "Unknown"
 
     def get_display_name(self, language_code: str, show_english: bool = False) -> str:
         """Get the display name for a language.
@@ -278,17 +272,15 @@ class TranslationManager:
         Returns:
             Display name in the native script, optionally with English.
         """
+        info = self._get_lang_info(language_code)
+        if not info:
+            return "Unknown"
 
-        available_languages = self.get_available_languages()
-        if language_code in available_languages:
-            lang_info = available_languages[language_code]
-            if isinstance(lang_info, dict):
-                native_name = lang_info.get("name", "Unknown")
-                if show_english and language_code != "en":
-                    english_name = lang_info.get("english_name", "Unknown")
-                    return self._format_language_display_name(native_name, english_name)
-                return native_name
-        return "Unknown"
+        native_name = info.get("name", "Unknown")
+        if show_english and language_code != "en":
+            english_name = info.get("english_name", "Unknown")
+            return self._format_language_display_name(native_name, english_name)
+        return native_name
 
     def _format_language_display_name(self, native_name: str, english_name: str) -> str:
         """Format a bilingual language display name.

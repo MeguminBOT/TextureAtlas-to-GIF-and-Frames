@@ -33,6 +33,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from utils.translation_manager import tr as translate
+from utils.combo_options import (
+    FRAME_SELECTION_OPTIONS,
+    CROPPING_METHOD_OPTIONS,
+    FILENAME_FORMAT_OPTIONS,
+    populate_combobox,
+)
 from utils.duration_utils import (
     DURATION_NATIVE,
     duration_to_milliseconds,
@@ -424,10 +430,8 @@ class AppConfigWindow(QDialog):
 
         frame_layout.addWidget(QLabel(self.tr("Frame selection")), row, 0)
         frame_selection_combo = QComboBox()
-        frame_selection_combo.addItems(
-            ["All", "No duplicates", "First", "Last", "First, Last"]
-        )
-        frame_selection_combo.setCurrentText("All")
+        populate_combobox(frame_selection_combo, FRAME_SELECTION_OPTIONS, self.tr)
+        frame_selection_combo.setCurrentIndex(0)
         frame_selection_combo.setToolTip(
             self.tr(
                 "Which frames to export:\n"
@@ -450,8 +454,8 @@ class AppConfigWindow(QDialog):
         row = 0
         general_layout.addWidget(QLabel(self.tr("Cropping method")), row, 0)
         crop_combo = QComboBox()
-        crop_combo.addItems(["None", "Animation based", "Frame based"])
-        crop_combo.setCurrentText("Animation based")
+        populate_combobox(crop_combo, CROPPING_METHOD_OPTIONS, self.tr)
+        crop_combo.setCurrentIndex(1)  # Default to "Animation based"
         crop_combo.setToolTip(
             self.tr(
                 "How cropping should be done:\n"
@@ -488,10 +492,8 @@ class AppConfigWindow(QDialog):
         from utils.version import APP_NAME
 
         filename_format_combo = QComboBox()
-        filename_format_combo.addItems(
-            ["Standardized", "No spaces", "No special characters"]
-        )
-        filename_format_combo.setCurrentText("Standardized")
+        populate_combobox(filename_format_combo, FILENAME_FORMAT_OPTIONS, self.tr)
+        filename_format_combo.setCurrentIndex(0)
         filename_format_combo.setToolTip(
             self.tr(
                 "How output filenames are formatted:\n"
@@ -1106,11 +1108,19 @@ class AppConfigWindow(QDialog):
         self.memory_limit_edit.setValue(int(mem_default))
 
         extraction_defaults = self.app_config.get("extraction_defaults", {})
+        # Keys that use internal values with data stored in item data
+        combo_data_keys = {"frame_selection", "crop_option", "filename_format"}
         for key, control in self.extraction_fields.items():
             value = extraction_defaults.get(key)
             if value is not None:
                 if isinstance(control, QComboBox):
-                    control.setCurrentText(str(value))
+                    if key in combo_data_keys:
+                        # Find index by item data (internal value)
+                        idx = control.findData(str(value))
+                        if idx >= 0:
+                            control.setCurrentIndex(idx)
+                    else:
+                        control.setCurrentText(str(value))
                 elif isinstance(control, QSpinBox):
                     # Threshold is stored as 0.0-1.0 but displayed as 0-100%
                     if key == "threshold":
@@ -1290,9 +1300,15 @@ class AppConfigWindow(QDialog):
             resource_limits["memory_limit_mb"] = memory_limit
 
             extraction_defaults = {}
+            # Keys that use internal values stored in item data
+            combo_data_keys = {"frame_selection", "crop_option", "filename_format"}
             for key, control in self.extraction_fields.items():
                 if isinstance(control, QComboBox):
-                    extraction_defaults[key] = control.currentText()
+                    if key in combo_data_keys:
+                        # Use item data (internal value) instead of display text
+                        extraction_defaults[key] = control.currentData()
+                    else:
+                        extraction_defaults[key] = control.currentText()
                 elif isinstance(control, QSpinBox):
                     # Threshold is displayed as 0-100% but stored as 0.0-1.0
                     if key == "threshold":

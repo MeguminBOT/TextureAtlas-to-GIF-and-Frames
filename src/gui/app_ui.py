@@ -12,40 +12,14 @@
 
 from PySide6.QtCore import (
     QCoreApplication,
-    QDate,
-    QDateTime,
-    QLocale,
     QMetaObject,
-    QObject,
-    QPoint,
     QRect,
     QSize,
-    QTime,
-    QUrl,
     Qt,
 )
-from PySide6.QtGui import (
-    QAction,
-    QBrush,
-    QColor,
-    QConicalGradient,
-    QCursor,
-    QFont,
-    QFontDatabase,
-    QGradient,
-    QIcon,
-    QImage,
-    QKeySequence,
-    QLinearGradient,
-    QPainter,
-    QPalette,
-    QPixmap,
-    QRadialGradient,
-    QTransform,
-)
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -54,19 +28,16 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLayout,
     QLineEdit,
     QListView,
-    QMainWindow,
     QMenu,
     QMenuBar,
     QProgressBar,
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QSlider,
     QSpacerItem,
     QSpinBox,
     QSplitter,
@@ -78,6 +49,18 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from utils.combo_options import (
+    FRAME_SELECTION_OPTIONS,
+    CROPPING_METHOD_OPTIONS,
+    FILENAME_FORMAT_OPTIONS,
+    update_combobox_texts,
+)
+
+
+def _tr(source: str) -> str:
+    """Translate a string using the TextureAtlasToolboxApp context."""
+    return QCoreApplication.translate("TextureAtlasToolboxApp", source, None)
 
 
 class Ui_TextureAtlasToolboxApp(object):
@@ -1267,15 +1250,9 @@ class Ui_TextureAtlasToolboxApp(object):
         )
         # endif // QT_CONFIG(statustip)
         self.frame_scale_entry.setSuffix(" \u00d7")
-        self.frame_selection_combobox.setItemText(0, "All")
-        self.frame_selection_combobox.setItemText(
-            1,
-            QCoreApplication.translate("TextureAtlasToolboxApp", "No duplicates", None),
+        update_combobox_texts(
+            self.frame_selection_combobox, FRAME_SELECTION_OPTIONS, _tr
         )
-        self.frame_selection_combobox.setItemText(2, "First")
-        self.frame_selection_combobox.setItemText(3, "Last")
-        self.frame_selection_combobox.setItemText(4, "First, Last")
-        self.frame_selection_combobox.setItemText(5, "Custom")
 
         # if QT_CONFIG(statustip)
         self.frame_selection_combobox.setStatusTip(
@@ -1310,14 +1287,9 @@ class Ui_TextureAtlasToolboxApp(object):
                 "TextureAtlasToolboxApp", "Cropping method", None
             )
         )
-        self.cropping_method_combobox.setItemText(0, "None")
-        self.cropping_method_combobox.setItemText(
-            1,
-            QCoreApplication.translate(
-                "TextureAtlasToolboxApp", "Animation based", None
-            ),
+        update_combobox_texts(
+            self.cropping_method_combobox, CROPPING_METHOD_OPTIONS, _tr
         )
-        self.cropping_method_combobox.setItemText(2, "Frame based")
 
         # if QT_CONFIG(statustip)
         self.cropping_method_combobox.setStatusTip(
@@ -1376,9 +1348,9 @@ class Ui_TextureAtlasToolboxApp(object):
         # endif // QT_CONFIG(statustip)
         self.filename_suffix_entry.setText("")
         self.filename_suffix_entry.setPlaceholderText("")
-        self.filename_format_combobox.setItemText(0, "Standardized")
-        self.filename_format_combobox.setItemText(1, "No spaces")
-        self.filename_format_combobox.setItemText(2, "No special characters")
+        update_combobox_texts(
+            self.filename_format_combobox, FILENAME_FORMAT_OPTIONS, _tr
+        )
 
         # if QT_CONFIG(statustip)
         self.filename_format_combobox.setStatusTip(

@@ -88,8 +88,11 @@ class FrameExporter:
         }
         file_extension = format_extensions.get(frame_format, ".png")
 
+        # Normalize crop_option to lowercase for comparison (supports legacy values)
+        crop_option_lower = crop_option.lower() if crop_option else ""
+
         animation_bbox = None
-        if crop_option == "Animation based":
+        if crop_option_lower in ("animation based", "animation"):
             animation_bbox = self._compute_animation_bbox(
                 image_tuples, kept_frame_indices
             )
@@ -142,7 +145,8 @@ class FrameExporter:
 
         Args:
             frame_image: PIL image to process.
-            crop_option: ``"Frame based"``, ``"Animation based"``, or ``None``.
+            crop_option: ``"frame"``, ``"animation"``, or ``None``.
+                Also accepts legacy values ``"Frame based"``, ``"Animation based"``.
             animation_bbox: Precomputed bounding box for animation-based crop.
             frame_scale: Scale factor to apply after cropping.
             is_unknown_spritesheet: When ``True``, runs an extra crop pass.
@@ -154,10 +158,16 @@ class FrameExporter:
         if bbox is None:
             return None
 
+        # Normalize crop_option for comparison (supports legacy values)
+        crop_option_lower = crop_option.lower() if crop_option else ""
+
         working = frame_image
-        if crop_option == "Frame based" and bbox is not None:
+        if crop_option_lower in ("frame based", "frame") and bbox is not None:
             working = working.crop(bbox)
-        elif crop_option == "Animation based" and animation_bbox is not None:
+        elif (
+            crop_option_lower in ("animation based", "animation")
+            and animation_bbox is not None
+        ):
             working = working.crop(animation_bbox)
 
         if is_unknown_spritesheet:

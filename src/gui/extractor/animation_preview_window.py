@@ -48,6 +48,11 @@ from utils.duration_utils import (
     get_duration_display_meta,
     milliseconds_to_duration,
 )
+from utils.combo_options import (
+    CROPPING_METHOD_OPTIONS,
+    populate_combobox,
+    get_index_by_internal,
+)
 
 MAX_FRAMES_IN_MEMORY = 100
 FRAME_CACHE_SIZE = 20
@@ -769,13 +774,10 @@ class AnimationPreviewWindow(QDialog):
 
         playback_layout.addWidget(QLabel(self.tr("Cropping method")), 6, 0)
         self.crop_combo = QComboBox()
-        self.crop_combo.addItem(self.tr("None"), "None")
-        self.crop_combo.addItem(self.tr("Animation based"), "Animation based")
-        self.crop_combo.addItem(self.tr("Frame based"), "Frame based")
-        current_crop = self.settings.get("crop_option", "None")
-        current_index = self.crop_combo.findData(current_crop)
-        if current_index != -1:
-            self.crop_combo.setCurrentIndex(current_index)
+        populate_combobox(self.crop_combo, CROPPING_METHOD_OPTIONS, self.tr)
+        current_crop = self.settings.get("crop_option", "none")
+        current_index = get_index_by_internal(CROPPING_METHOD_OPTIONS, current_crop)
+        self.crop_combo.setCurrentIndex(current_index)
         self.crop_combo.currentIndexChanged.connect(self.on_crop_changed)
         playback_layout.addWidget(self.crop_combo, 6, 1)
 
@@ -1540,7 +1542,7 @@ class AnimationPreviewWindow(QDialog):
                     "animation_format": self.settings.get("animation_format", "GIF"),
                     "duration": self._get_spinbox_duration_ms(),
                     "scale": self.anim_scale_spinbox.value(),
-                    "crop_option": self.settings.get("crop_option", "None"),
+                    "crop_option": self.settings.get("crop_option", "none"),
                     "delay": self.settings.get("delay", 250),
                     "period": self.settings.get("period", 0),
                     "var_delay": self.settings.get("var_delay", False),

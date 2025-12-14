@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Dialog for selecting the application display language."""
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -11,16 +12,20 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
-from PySide6.QtCore import QCoreApplication
-
 from utils.translation_manager import tr as translate
+
+# Optional: compiled Qt resources for icons (generated via pyside6-rcc).
+try:
+    import resources.icons_rc  # type: ignore  # noqa: F401
+except ImportError:
+    pass
 
 
 class LanguageSelectionWindow(QDialog):
     """Modal dialog for choosing the application language.
 
     Displays available languages with native names, English names, and
-    quality indicators (✅ Native, 👥 Community, 🤖 Machine, ⚠️ Partial).
+    quality indicators (Native, Reviewed, Unreviewed, Machine, Unknown).
 
     Attributes:
         parent_window: Reference to the parent widget.
@@ -41,6 +46,27 @@ class LanguageSelectionWindow(QDialog):
         self.parent_window = parent
         self.current_language = current_language
         self.new_language = current_language
+
+        # Markers are text fallbacks (no emoji) in case icons fail to load.
+        self.QUALITY_MARKERS = {
+            "native": "[✔]",
+            "reviewed": "[~]",
+            "unreviewed": "[ ]",
+            "machine": "[BOT]",
+            "unknown": "[?]",
+        }
+
+        # Resource prefix is /icons/quality, files live under icons/material in the qrc.
+        self.QUALITY_ICON_PATHS = {
+            "native": ":/icons/quality/icons/material/quality_native.svg",
+            "reviewed": ":/icons/quality/icons/material/quality_reviewed.svg",
+            "unreviewed": ":/icons/quality/icons/material/quality_unreviewed.svg",
+            "machine": ":/icons/quality/icons/material/quality_machine.svg",
+            "unknown": ":/icons/quality/icons/material/quality_unknown.svg",
+        }
+        self.QUALITY_ICONS = {
+            key: QIcon(path) for key, path in self.QUALITY_ICON_PATHS.items()
+        }
 
         self.setup_ui()
         self.setup_connections()
@@ -131,8 +157,14 @@ class LanguageSelectionWindow(QDialog):
             self.tr(
                 "Note: The application may need to be restarted to fully apply the language change.\n"
                 "Auto detects your system language and falls back to English if unavailable.\n"
-                "Quality indicators: {native} Native, {community} Community, {machine} Machine, {partial} Partial"
-            ).format(native="✅", community="👥", machine="🤖", partial="⚠️")
+                "Quality indicators: {native} Native, {reviewed} Reviewed, {unreviewed} Unreviewed, {machine} Machine, {unknown} Unknown"
+            ).format(
+                native=self.QUALITY_MARKERS["native"],
+                reviewed=self.QUALITY_MARKERS["reviewed"],
+                unreviewed=self.QUALITY_MARKERS["unreviewed"],
+                machine=self.QUALITY_MARKERS["machine"],
+                unknown=self.QUALITY_MARKERS["unknown"],
+            )
         )
         self.info_label.setStyleSheet("color: #666; font-size: 10px;")
         self.info_label.setWordWrap(True)
@@ -162,29 +194,6 @@ class LanguageSelectionWindow(QDialog):
     def populate_languages(self):
         """Fill the combo box with available language options."""
 
-        if self.parent_window and hasattr(
-            self.parent_window, "get_available_languages"
-        ):
-            available_languages = self.parent_window.get_available_languages()
-        else:
-            available_languages = {
-                "en": {
-                    "name": "English",
-                    "english_name": "English",
-                    "quality": "native",
-                },
-                "pt_br": {
-                    "name": "Portuguese (Brazil)",
-                    "english_name": "Portuguese (Brazil)",
-                    "quality": "native",
-                },
-                "sv": {
-                    "name": "Svenska",
-                    "english_name": "Swedish",
-                    "quality": "native",
-                },
-            }
-
         translation_manager = None
         if self.parent_window and hasattr(self.parent_window, "translation_manager"):
             translation_manager = self.parent_window.translation_manager
@@ -194,7 +203,19 @@ class LanguageSelectionWindow(QDialog):
 
                 translation_manager = get_translation_manager()
             except ImportError:
-                pass
+                translation_manager = None
+
+        if translation_manager:
+            available_languages = translation_manager.get_available_languages()
+        else:
+            # Minimal fallback to avoid duplication when translation manager is unavailable.
+            available_languages = {
+                "en": {
+                    "name": "English",
+                    "english_name": "English",
+                    "quality": "native",
+                }
+            }
 
         self.language_combo.clear()
 
@@ -237,17 +258,30 @@ class LanguageSelectionWindow(QDialog):
                         display_name = native_name
 
                 if quality == "native":
-                    display_name = f"✅ {display_name}"
-                elif quality == "community":
-                    display_name = f"👥 {display_name}"
+                    icon = self.QUALITY_ICONS.get("native")
+                    marker = self.QUALITY_MARKERS["native"]
+                elif quality == "reviewed":
+                    icon = self.QUALITY_ICONS.get("reviewed")
+                    marker = self.QUALITY_MARKERS["reviewed"]
+                elif quality == "unreviewed":
+                    icon = self.QUALITY_ICONS.get("unreviewed")
+                    marker = self.QUALITY_MARKERS["unreviewed"]
                 elif quality == "machine":
-                    display_name = f"🤖 {display_name}"
-                elif quality == "partial":
-                    display_name = f"⚠️ {display_name}"
+                    icon = self.QUALITY_ICONS.get("machine")
+                    marker = self.QUALITY_MARKERS["machine"]
+                else:
+                    icon = self.QUALITY_ICONS.get("unknown")
+                    marker = self.QUALITY_MARKERS["unknown"]
+
+                if icon is None or icon.isNull():
+                    # Fall back to text marker prefix if the resource icon is missing.
+                    display_name = f"{marker} {display_name}"
+                    self.language_combo.addItem(display_name, lang_code)
+                else:
+                    self.language_combo.addItem(icon, display_name, lang_code)
             else:
                 display_name = lang_info
-
-            self.language_combo.addItem(display_name, lang_code)
+                self.language_combo.addItem(display_name, lang_code)
 
         selection_index = 0
         for i in range(self.language_combo.count()):

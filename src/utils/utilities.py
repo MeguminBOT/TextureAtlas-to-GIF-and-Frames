@@ -121,12 +121,21 @@ class Utilities:
         """
 
         if filename_format is None:
-            filename_format = "Standardized"
+            filename_format = "standardized"
         if not replace_rules:
             replace_rules = []
 
+        # Normalize to lowercase for comparison (supports legacy values)
+        format_lower = filename_format.lower() if filename_format else "standardized"
+
         sprite_name = os.path.splitext(sprite_name)[0]
-        if filename_format in ("Standardized", "No spaces", "No special characters"):
+        if format_lower in (
+            "standardized",
+            "no_spaces",
+            "no_special",
+            "no spaces",
+            "no special characters",
+        ):
             if prefix and suffix:
                 base_name = f"{prefix} - {sprite_name} - {animation_name} - {suffix}"
             elif prefix:
@@ -136,9 +145,9 @@ class Utilities:
             else:
                 base_name = f"{sprite_name} - {animation_name}"
 
-            if filename_format == "No spaces":
+            if format_lower in ("no_spaces", "no spaces"):
                 base_name = base_name.replace(" ", "")
-            elif filename_format == "No special characters":
+            elif format_lower in ("no_special", "no special characters"):
                 base_name = base_name.replace(" ", "").replace("-", "").replace("_", "")
         else:
             base_name = Template(filename_format).safe_substitute(

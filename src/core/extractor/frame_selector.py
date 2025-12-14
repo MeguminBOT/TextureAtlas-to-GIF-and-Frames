@@ -82,17 +82,20 @@ class FrameSelector:
 
         kept_frames = settings.get("frame_selection")
         if kept_frames is None:
-            kept_frames = "All"
+            kept_frames = "all"
 
-        if kept_frames == "All":
+        # Support both new internal values and legacy display text values
+        kept_frames_lower = kept_frames.lower() if isinstance(kept_frames, str) else ""
+
+        if kept_frames_lower in ("all", ""):
             return [str(i) for i in range(len(image_tuples))]
-        elif kept_frames == "First":
+        elif kept_frames_lower == "first":
             return ["0"]
-        elif kept_frames == "Last":
+        elif kept_frames_lower == "last":
             return ["-1"]
-        elif kept_frames == "First, Last":
+        elif kept_frames_lower in ("first_last", "first, last"):
             return ["0", "-1"]
-        elif kept_frames == "No duplicates":
+        elif kept_frames_lower in ("no_duplicates", "no duplicates"):
             unique_indices = []
             seen_signatures = set()
             for i, frame in enumerate(image_tuples):
