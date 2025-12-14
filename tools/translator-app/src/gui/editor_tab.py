@@ -189,6 +189,7 @@ class EditorTab(QWidget):
 
     def clear_translations(self) -> None:
         """Reset the editor to an empty state."""
+        self._filter_timer.stop()
         self.translations.clear()
         self.current_item = None
         self.current_file = None
@@ -460,12 +461,25 @@ class EditorTab(QWidget):
     def on_translation_selected(
         self, current: QListWidgetItem, previous: QListWidgetItem
     ) -> None:
+        # Defensive guard: ignore invalid selections
         if current is None:
             self.current_item = None
             self.clear_editor()
             return
-        self.current_item = current.data(Qt.UserRole)
-        self.load_translation_in_editor()
+
+        data = current.data(Qt.UserRole)
+        if not isinstance(data, TranslationItem):
+            self.current_item = None
+            self.clear_editor()
+            return
+
+        self.current_item = data
+        try:
+            self.load_translation_in_editor()
+        except Exception:
+            # Never crash the UI from a selection; just clear if something is off
+            self.current_item = None
+            self.clear_editor()
 
     def clear_editor(self) -> None:
         self.source_text.clear()
@@ -820,11 +834,20 @@ class EditorTab(QWidget):
             except TranslationError as exc:
                 errors.append(f"{item.source[:40]}…: {exc}")
                 continue
-            restored = self.translation_manager.restore_placeholders(
-                translated, mapping
-            )
-            item.translation = restored
-            item.is_translated = bool(restored.strip())
+            except (
+                Exception
+            ) as exc:  # Defensive: catch any unexpected provider/requests issues
+                errors.append(f"{item.source[:40]}…: {exc}")
+                continue
+            try:
+                restored = self.translation_manager.restore_placeholders(
+                    translated, mapping
+                )
+            except Exception as exc:  # Defensive: never crash on placeholder restore
+                errors.append(f"{item.source[:40]}…: restore failed ({exc})")
+                continue
+            item.translation = restored or ""
+            item.is_translated = bool(item.translation.strip())
             item.is_machine_translated = True
             translated_count += 1
         QApplication.restoreOverrideCursor()
@@ -833,14 +856,30 @@ class EditorTab(QWidget):
         if translated_count:
             self.is_modified = True
             current_row = self.translation_list.currentRow()
-            self.update_translation_list()
-            self.update_stats()
-            if 0 <= current_row < self.translation_list.count():
-                self.translation_list.setCurrentRow(current_row)
-            if self.current_item:
-                self.translation_text.blockSignals(True)
-                self.translation_text.setPlainText(self.current_item.translation)
-                self.translation_text.blockSignals(False)
+            self.translation_list.blockSignals(True)
+            try:
+                self.update_translation_list()
+                self.update_stats()
+                if 0 <= current_row < self.translation_list.count():
+                    self.translation_list.setCurrentRow(current_row)
+                    # Manually load to avoid relying on signals during blocked state
+                    current_item = self.translation_list.item(current_row)
+                    data = current_item.data(Qt.UserRole) if current_item else None
+                    if isinstance(data, TranslationItem):
+                        self.current_item = data
+                        self.translation_text.blockSignals(True)
+                        self.translation_text.setPlainText(
+                            self.current_item.translation
+                        )
+                        self.translation_text.blockSignals(False)
+                    else:
+                        self.current_item = None
+                        self.clear_editor()
+                else:
+                    self.current_item = None
+                    self.clear_editor()
+            finally:
+                self.translation_list.blockSignals(False)
             if self.status_bar:
                 self.status_bar.showMessage(
                     f"Auto-translated {translated_count} entries using {provider_name}."
@@ -905,6 +944,7 @@ class EditorTab(QWidget):
         which can cause Qt widget access issues.
         """
         # Restart the debounce timer on each keystroke
+        self._filter_timer.stop()
         self._filter_timer.start()
 
     def _do_filter(self) -> None:
@@ -913,6 +953,7 @@ class EditorTab(QWidget):
         if self._filter_in_progress:
             return
         self._filter_in_progress = True
+        self._filter_timer.stop()
 
         try:
             # Save current item DATA (not the QListWidgetItem which will be deleted)
@@ -921,21 +962,21 @@ class EditorTab(QWidget):
             # Clear current item reference BEFORE modifying the list
             self.current_item = None
 
+            if not self.translation_list:
+                return
+
             # Block signals on the list during the entire operation
             self.translation_list.blockSignals(True)
+            self.translation_list.setUpdatesEnabled(False)
             try:
                 self.translation_list.clear()
 
-                filter_text = self.filter_input.text().lower()
+                filter_text = self.filter_input.text()
                 icon_provider = IconProvider.instance()
                 found_saved_row = -1
 
                 for item in self.translations:
-                    if (
-                        filter_text
-                        and filter_text not in item.source.lower()
-                        and filter_text not in item.translation.lower()
-                    ):
+                    if not self._matches_filter(item, filter_text):
                         continue
                     list_item = QListWidgetItem()
                     self._set_translation_item_display(list_item, item, icon_provider)
@@ -945,15 +986,25 @@ class EditorTab(QWidget):
                     # Track if we found the previously selected item
                     if saved_item_data is not None and item is saved_item_data:
                         found_saved_row = self.translation_list.count() - 1
-            finally:
-                self.translation_list.blockSignals(False)
 
-            # Now restore selection (signals unblocked so this triggers on_translation_selected)
-            if found_saved_row >= 0:
-                self.translation_list.setCurrentRow(found_saved_row)
-            else:
-                # Item not in filtered list - clear the editor
-                self.clear_editor()
+                # Restore selection while signals are blocked to avoid re-entrancy
+                if found_saved_row >= 0:
+                    self.translation_list.setCurrentRow(found_saved_row)
+                    current_item = self.translation_list.item(found_saved_row)
+                    data = current_item.data(Qt.UserRole) if current_item else None
+                    self.current_item = (
+                        data if isinstance(data, TranslationItem) else None
+                    )
+                    if self.current_item:
+                        self.load_translation_in_editor()
+                    else:
+                        self.clear_editor()
+                else:
+                    # Item not in filtered list - clear the editor
+                    self.clear_editor()
+            finally:
+                self.translation_list.setUpdatesEnabled(True)
+                self.translation_list.blockSignals(False)
         finally:
             self._filter_in_progress = False
 

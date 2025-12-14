@@ -93,6 +93,7 @@ class ManageTab(QWidget):
         self.manage_task_running = False
         self.translations_path_label: Optional[QLabel] = None
         self._pending_extract_languages: List[str] = []
+        self._current_worker: Optional[BackgroundTaskWorker] = None
 
         self._build_ui()
         self.populate_language_list(preserve_selection=False)
@@ -543,9 +544,11 @@ class ManageTab(QWidget):
         worker = BackgroundTaskWorker(fn, *args)
         worker.signals.completed.connect(self._handle_operation_completed)
         worker.signals.failed.connect(self._handle_operation_failed)
+        self._current_worker = worker  # Keep reference to prevent premature GC
         self.thread_pool.start(worker)
 
     def _handle_operation_completed(self, payload: object) -> None:
+        self._current_worker = None
         results: List[OperationResult]
         if isinstance(payload, list):
             results = payload
@@ -588,6 +591,7 @@ class ManageTab(QWidget):
         self.manage_task_running = False
 
     def _handle_operation_failed(self, message: str) -> None:
+        self._current_worker = None
         if self.manage_log_view:
             self.manage_log_view.appendPlainText(f"[ERROR] {message}\n")
         if self.status_bar:

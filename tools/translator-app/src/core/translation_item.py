@@ -73,6 +73,7 @@ class TranslationItem:
         line: int = 0,
         marker: Optional[TranslationMarker] = None,
         is_machine_translated: bool = False,
+        is_vanished: bool = False,
     ) -> None:
         """Initialize a translation entry.
 
@@ -92,6 +93,7 @@ class TranslationItem:
         self.is_translated = bool(self.translation.strip())
         self.is_machine_translated = is_machine_translated
         self.marker = marker if marker else TranslationMarker.NONE
+        self.is_vanished = is_vanished
 
     def add_context(self, context: str, filename: str = "", line: int = 0) -> None:
         """Track another context that reuses this string.
