@@ -233,6 +233,9 @@ class EditorTab(QWidget):
         filter_label = QLabel("Filter:")
         self.filter_input = QLineEdit()
         self.filter_input.setPlaceholderText("Search translations...")
+        self.filter_input.setToolTip(
+            "Use text to search contents. Keywords: <ph>/<placeholders>/<keys> (has placeholders); <machine>/<mt> (machine translated); <translated>/<done>; <untranslated>/<missing>; <unsure>; <vanished>/<obsolete>; context:<name> / ctx:<name> to match context names."
+        )
         filter_layout.addWidget(filter_label)
         filter_layout.addWidget(self.filter_input)
         left_layout.addLayout(filter_layout)
@@ -390,14 +393,10 @@ class EditorTab(QWidget):
         self.translation_list.blockSignals(True)
         self.translation_list.clear()
         self.translation_list.blockSignals(False)
-        filter_text = self.filter_input.text().lower()
+        filter_text = self.filter_input.text()
         icon_provider = IconProvider.instance()
         for item in self.translations:
-            if (
-                filter_text
-                and filter_text not in item.source.lower()
-                and filter_text not in item.translation.lower()
-            ):
+            if not self._matches_filter(item, filter_text):
                 continue
             list_item = QListWidgetItem()
             self._set_translation_item_display(list_item, item, icon_provider)
@@ -957,6 +956,99 @@ class EditorTab(QWidget):
                 self.clear_editor()
         finally:
             self._filter_in_progress = False
+
+    def _matches_filter(self, item: TranslationItem, raw_filter: str) -> bool:
+        """Return True if the item matches the current filter string."""
+        if not raw_filter.strip():
+            return True
+
+        tokens = [tok for tok in raw_filter.strip().lower().split() if tok]
+        placeholder_keywords = {"ph", "placeholder", "placeholders", "key", "keys"}
+        machine_keywords = {"machine", "mt", "auto", "autotranslate", "autotranslated"}
+        translated_keywords = {
+            "translated",
+            "done",
+            "finished",
+            "complete",
+            "completed",
+        }
+        untranslated_keywords = {
+            "untranslated",
+            "missing",
+            "todo",
+            "blank",
+            "empty",
+            "unfinished",
+        }
+        unsure_keywords = {"unsure", "review", "needsreview", "needs_review"}
+        vanished_keywords = {"vanished", "obsolete", "unused"}
+
+        context_terms: List[str] = []
+
+        require_placeholders = False
+        require_machine = False
+        require_translated = False
+        require_untranslated = False
+        require_unsure = False
+        require_vanished = False
+        remaining_parts: List[str] = []
+
+        for token in tokens:
+            normalized = token.strip("<>")
+            if normalized in placeholder_keywords:
+                require_placeholders = True
+                continue
+            if normalized in machine_keywords:
+                require_machine = True
+                continue
+            if normalized in translated_keywords:
+                require_translated = True
+                continue
+            if normalized in untranslated_keywords:
+                require_untranslated = True
+                continue
+            if normalized in unsure_keywords:
+                require_unsure = True
+                continue
+            if normalized in vanished_keywords:
+                require_vanished = True
+                continue
+            if normalized.startswith("context:") or normalized.startswith("ctx:"):
+                term = normalized.split(":", 1)[1].strip()
+                if term:
+                    context_terms.append(term)
+                continue
+            remaining_parts.append(token)
+
+        if require_translated and require_untranslated:
+            return False
+
+        if require_placeholders and not item.has_placeholders():
+            return False
+        if require_machine and not item.is_machine_translated:
+            return False
+        if require_translated and not item.is_translated:
+            return False
+        if require_untranslated and item.is_translated:
+            return False
+        if require_unsure and item.marker != TranslationMarker.UNSURE:
+            return False
+        if require_vanished and not getattr(item, "is_vanished", False):
+            return False
+        if context_terms:
+            context_values = [ctx.lower() for ctx in item.contexts]
+            if not any(
+                any(term in ctx for term in context_terms) for ctx in context_values
+            ):
+                return False
+
+        remaining_text = " ".join(remaining_parts).strip()
+        if not remaining_text:
+            return True
+
+        source_text = item.source.lower()
+        translation_text = item.translation.lower()
+        return remaining_text in source_text or remaining_text in translation_text
 
     def _on_marker_changed(self) -> None:
         """Handle marker combo box selection change."""

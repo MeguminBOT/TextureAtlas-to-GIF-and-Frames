@@ -359,6 +359,11 @@ class TranslationEditor(QMainWindow):
                         and translation_elem.text is not None
                         else ""
                     )
+                    trans_type = (
+                        translation_elem.get("type", "")
+                        if translation_elem is not None
+                        else ""
+                    )
 
                     # Extract marker from comment if present
                     marker = TranslationMarker.NONE
@@ -372,6 +377,7 @@ class TranslationEditor(QMainWindow):
                         # Check for machine translated flag
                         if "[machine]" in comment_elem.text:
                             is_machine_translated = True
+                    is_vanished = trans_type in ("vanished", "obsolete")
 
                     filename = ""
                     line = 0
@@ -395,6 +401,9 @@ class TranslationEditor(QMainWindow):
                                 and marker != TranslationMarker.NONE
                             ):
                                 existing_item.marker = marker
+                            existing_item.is_vanished = (
+                                existing_item.is_vanished or is_vanished
+                            )
                         else:
                             translation_groups[source] = TranslationItem(
                                 source,
@@ -404,6 +413,7 @@ class TranslationEditor(QMainWindow):
                                 line,
                                 marker=marker,
                                 is_machine_translated=is_machine_translated,
+                                is_vanished=is_vanished,
                             )
 
             # Detect vanished (obsolete) strings marked by lupdate
@@ -551,7 +561,11 @@ class TranslationEditor(QMainWindow):
                         comment_elem.text = " ".join(comment_parts)
 
                     translation_elem = ET.SubElement(message_elem, "translation")
-                    if item.translation:
+                    if item.is_vanished:
+                        translation_elem.set("type", "vanished")
+                        if item.translation:
+                            translation_elem.text = item.translation
+                    elif item.translation:
                         translation_elem.text = item.translation
                     else:
                         translation_elem.set("type", "unfinished")
