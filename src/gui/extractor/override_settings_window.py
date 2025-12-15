@@ -118,6 +118,24 @@ class OverrideSettingsWindow(QDialog):
         self.setup_ui()
         self.load_current_values()
 
+        # Connect to app's preview_settings_saved signal to auto-close
+        # when user saves from preview window (avoids overwriting saved settings)
+        if self.app and hasattr(self.app, "preview_settings_saved"):
+            self.app.preview_settings_saved.connect(self._on_preview_settings_saved)
+
+    def _on_preview_settings_saved(self, animation_name: str):
+        """Handle preview settings being saved by closing this dialog.
+
+        When the user saves settings from the animation preview window,
+        this dialog should close without saving to avoid overwriting
+        those settings with stale values.
+
+        Args:
+            animation_name: The full animation name that was saved.
+        """
+        if animation_name == self.name:
+            self.reject()
+
     def get_current_settings(self):
         """Load current settings for the animation or spritesheet.
 

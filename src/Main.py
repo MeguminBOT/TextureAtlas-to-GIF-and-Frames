@@ -100,6 +100,9 @@ class TextureAtlasExtractorApp(QMainWindow):
     tr = translate
     TRANSLATION_CONTEXT = "TextureAtlasExtractorApp"
 
+    # Signal emitted when animation preview settings are saved
+    preview_settings_saved = Signal(str)  # animation_name
+
     def __init__(self):
         super().__init__()
 
@@ -1053,6 +1056,9 @@ class TextureAtlasExtractorApp(QMainWindow):
 
         # Save the preview settings using the settings manager
         self.settings_manager.animation_settings[full_anim_name] = preview_settings
+
+        # Emit signal so any listening dialogs (like override settings) can close
+        self.preview_settings_saved.emit(full_anim_name)
 
         # Show confirmation message
         QMessageBox.information(
