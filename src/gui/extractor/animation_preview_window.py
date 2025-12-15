@@ -53,6 +53,12 @@ from utils.combo_options import (
     populate_combobox,
     get_index_by_internal,
 )
+from utils.resampling import (
+    RESAMPLING_DISPLAY_NAMES,
+    get_resampling_index,
+    get_resampling_name,
+    DEFAULT_RESAMPLING_METHOD,
+)
 
 MAX_FRAMES_IN_MEMORY = 100
 FRAME_CACHE_SIZE = 20
@@ -630,6 +636,9 @@ class AnimationPreviewWindow(QDialog):
         save_settings = {
             "duration": duration_ms,
             "scale": self.anim_scale_spinbox.value(),
+            "resampling_method": get_resampling_name(
+                self.resampling_combo.currentIndex()
+            ),
             "animation_format": self.format_combo.currentText(),
             "delay": self.delay_spinbox.value(),
             "period": self.period_spinbox.value(),
@@ -764,30 +773,43 @@ class AnimationPreviewWindow(QDialog):
         self.anim_scale_spinbox.valueChanged.connect(self.on_anim_scale_changed)
         playback_layout.addWidget(self.anim_scale_spinbox, 4, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Indices:")), 5, 0)
+        playback_layout.addWidget(QLabel(self.tr("Resampling")), 5, 0)
+        self.resampling_combo = QComboBox()
+        self.resampling_combo.addItems(RESAMPLING_DISPLAY_NAMES)
+        current_resampling = self.settings.get(
+            "resampling_method", DEFAULT_RESAMPLING_METHOD
+        )
+        self.resampling_combo.setCurrentIndex(get_resampling_index(current_resampling))
+        self.resampling_combo.setToolTip(
+            self.tr("Resampling algorithm for scaling images.")
+        )
+        self.resampling_combo.currentIndexChanged.connect(self.on_resampling_changed)
+        playback_layout.addWidget(self.resampling_combo, 5, 1)
+
+        playback_layout.addWidget(QLabel(self.tr("Indices:")), 6, 0)
         self.indices_edit = QLineEdit()
         self.indices_edit.setPlaceholderText(
             self.tr("e.g., 0,2,4 or 0-5 (leave empty for all frames)")
         )
         self.indices_edit.textChanged.connect(self.on_indices_changed)
-        playback_layout.addWidget(self.indices_edit, 5, 1)
+        playback_layout.addWidget(self.indices_edit, 6, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Cropping method")), 6, 0)
+        playback_layout.addWidget(QLabel(self.tr("Cropping method")), 7, 0)
         self.crop_combo = QComboBox()
         populate_combobox(self.crop_combo, CROPPING_METHOD_OPTIONS, self.tr)
         current_crop = self.settings.get("crop_option", "none")
         current_index = get_index_by_internal(CROPPING_METHOD_OPTIONS, current_crop)
         self.crop_combo.setCurrentIndex(current_index)
         self.crop_combo.currentIndexChanged.connect(self.on_crop_changed)
-        playback_layout.addWidget(self.crop_combo, 6, 1)
+        playback_layout.addWidget(self.crop_combo, 7, 1)
 
-        playback_layout.addWidget(QLabel(self.tr("Alpha threshold")), 7, 0)
+        playback_layout.addWidget(QLabel(self.tr("Alpha threshold")), 8, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
         self.threshold_spinbox.setSingleStep(0.1)
         self.threshold_spinbox.setValue(self.settings.get("threshold", 0.5))
         self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
-        playback_layout.addWidget(self.threshold_spinbox, 7, 1)
+        playback_layout.addWidget(self.threshold_spinbox, 8, 1)
 
         self.per_frame_mode_checkbox = QCheckBox(self.tr("Edit selected frame only"))
         self.per_frame_mode_checkbox.setChecked(False)
@@ -799,7 +821,7 @@ class AnimationPreviewWindow(QDialog):
             )
         )
         self.per_frame_mode_checkbox.toggled.connect(self.on_per_frame_mode_changed)
-        playback_layout.addWidget(self.per_frame_mode_checkbox, 8, 0, 1, 2)
+        playback_layout.addWidget(self.per_frame_mode_checkbox, 9, 0, 1, 2)
 
         self.apply_to_all_button = QPushButton(self.tr("Apply to All"))
         self.apply_to_all_button.setVisible(False)
@@ -807,15 +829,15 @@ class AnimationPreviewWindow(QDialog):
             self.tr("Apply the current frame delay to all frames")
         )
         self.apply_to_all_button.clicked.connect(self.apply_delay_to_all_frames)
-        playback_layout.addWidget(self.apply_to_all_button, 9, 0)
+        playback_layout.addWidget(self.apply_to_all_button, 10, 0)
 
         self.reset_timing_button = QPushButton(self.tr("Reset Timing"))
         self.reset_timing_button.setVisible(False)
         self.reset_timing_button.setToolTip(
-            self.tr("Reset all frame delays to values calculated from FPS")
+            self.tr("Reset all frame delays back to original values")
         )
         self.reset_timing_button.clicked.connect(self.reset_frame_timing)
-        playback_layout.addWidget(self.reset_timing_button, 9, 1)
+        playback_layout.addWidget(self.reset_timing_button, 10, 1)
 
         layout.addWidget(playback_group)
 
@@ -1580,6 +1602,9 @@ class AnimationPreviewWindow(QDialog):
                     "animation_format": self.settings.get("animation_format", "GIF"),
                     "duration": self._get_spinbox_duration_ms(),
                     "scale": self.anim_scale_spinbox.value(),
+                    "resampling_method": self.settings.get(
+                        "resampling_method", DEFAULT_RESAMPLING_METHOD
+                    ),
                     "crop_option": self.settings.get("crop_option", "none"),
                     "delay": self.settings.get("delay", 250),
                     "period": self.settings.get("period", 0),
@@ -1813,6 +1838,15 @@ class AnimationPreviewWindow(QDialog):
             threshold: Quantization threshold for GIF exports.
         """
         self.settings["threshold"] = threshold
+        self.regenerate_animation()
+
+    def on_resampling_changed(self, index: int):
+        """Update the resampling method and regenerate.
+
+        Args:
+            index: Index of the selected resampling method.
+        """
+        self.settings["resampling_method"] = get_resampling_name(index)
         self.regenerate_animation()
 
     def _restart_normal_timer(self):

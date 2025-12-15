@@ -34,6 +34,12 @@ from utils.duration_utils import (
     get_duration_display_meta,
     milliseconds_to_duration,
 )
+from utils.resampling import (
+    DEFAULT_RESAMPLING_METHOD,
+    RESAMPLING_DISPLAY_NAMES,
+    get_resampling_index,
+    get_resampling_name,
+)
 
 
 class OverrideSettingsWindow(QDialog):
@@ -99,6 +105,7 @@ class OverrideSettingsWindow(QDialog):
         self.delay_spinbox = None
         self.period_spinbox = None
         self.scale_spinbox = None
+        self.resampling_combo = None
         self.threshold_spinbox = None
         self.indices_edit = None
         self.frames_edit = None
@@ -289,6 +296,15 @@ class OverrideSettingsWindow(QDialog):
         layout.addWidget(self.scale_spinbox, row, 1)
         row += 1
 
+        layout.addWidget(QLabel(self.tr("Resampling")), row, 0)
+        self.resampling_combo = QComboBox()
+        self.resampling_combo.addItems(RESAMPLING_DISPLAY_NAMES)
+        self.resampling_combo.setToolTip(
+            self.tr("Resampling filter used when scaling the animation")
+        )
+        layout.addWidget(self.resampling_combo, row, 1)
+        row += 1
+
         layout.addWidget(QLabel(self.tr("Alpha threshold")), row, 0)
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setRange(0.0, 1.0)
@@ -477,6 +493,13 @@ class OverrideSettingsWindow(QDialog):
         self.scale_spinbox.setValue(
             self.local_settings.get("scale", self.settings.get("scale", 1.0))
         )
+
+        resampling_method = self.local_settings.get(
+            "resampling_method",
+            self.settings.get("resampling_method", DEFAULT_RESAMPLING_METHOD),
+        )
+        self.resampling_combo.setCurrentIndex(get_resampling_index(resampling_method))
+
         self.threshold_spinbox.setValue(
             self.local_settings.get("threshold", self.settings.get("threshold", 0.1))
         )
@@ -654,6 +677,9 @@ class OverrideSettingsWindow(QDialog):
         settings["delay"] = self.delay_spinbox.value()
         settings["period"] = self.period_spinbox.value()
         settings["scale"] = self.scale_spinbox.value()
+        settings["resampling_method"] = get_resampling_name(
+            self.resampling_combo.currentIndex()
+        )
         settings["threshold"] = self.threshold_spinbox.value()
         settings["var_delay"] = self.var_delay_check.isChecked()
 

@@ -1316,7 +1316,7 @@ class Ui_TextureAtlasToolboxApp(object):
         self.resampling_method_combobox.setStatusTip(
             QCoreApplication.translate(
                 "TextureAtlasToolboxApp",
-                "Resampling algorithm for scaling images. Bicubic auto-selects smooth/sharp based on scale direction.",
+                "Resampling algorithm for scaling images.",
                 None,
             )
         )
