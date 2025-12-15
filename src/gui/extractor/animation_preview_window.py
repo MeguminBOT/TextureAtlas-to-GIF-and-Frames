@@ -1109,6 +1109,11 @@ class AnimationPreviewWindow(QDialog):
         if not self.frames:
             return
 
+        if not self.loop_checkbox.isChecked():
+            checked_frames = self.get_checked_frame_indices()
+            if checked_frames and self.current_frame == checked_frames[-1]:
+                self.goto_frame(checked_frames[0])
+
         self.is_playing = True
         self.play_button.setText(self.tr("Pause"))
 
@@ -1275,11 +1280,11 @@ class AnimationPreviewWindow(QDialog):
             if self.is_playing:
                 self._restart_timer_for_current_frame()
         else:
-            if (
-                self.is_playing
-                and self.loop_checkbox.isChecked()
-                and not self._loop_delay_applied
-            ):
+            if not self.loop_checkbox.isChecked():
+                self.pause()
+                return
+
+            if self.is_playing and not self._loop_delay_applied:
                 loop_delay = self.settings.get("delay", 250)
                 if loop_delay > 0:
                     self.timer.stop()
@@ -1290,7 +1295,6 @@ class AnimationPreviewWindow(QDialog):
             self.goto_frame(checked_frames[0])
             if self.is_playing:
                 self._restart_timer_for_current_frame()
-            if self.is_playing and self.loop_checkbox.isChecked():
                 self._loop_delay_applied = True
 
     def goto_previous_checked_frame(self):
