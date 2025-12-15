@@ -1114,7 +1114,7 @@ class AnimationPreviewWindow(QDialog):
 
         self._loop_delay_applied = False
 
-        interval = self._get_duration_ms()
+        interval = self._get_frame_duration_ms(self.current_frame)
 
         min_period = self.settings.get("period", 0)
         if min_period > 0:
@@ -1129,6 +1129,14 @@ class AnimationPreviewWindow(QDialog):
         self.timer.stop()
 
         self._loop_delay_applied = False
+
+    def _restart_timer_for_current_frame(self):
+        """Restart the playback timer using the current frame's duration."""
+        interval = self._get_frame_duration_ms(self.current_frame)
+        min_period = self.settings.get("period", 0)
+        if min_period > 0:
+            interval = max(interval, min_period)
+        self.timer.start(max(1, interval))
 
     def next_frame(self):
         """Advance to the next frame, skipping unchecked frames during playback."""
@@ -1157,7 +1165,7 @@ class AnimationPreviewWindow(QDialog):
             self.update_display()
 
             if self.is_playing:
-                interval = self._get_duration_ms()
+                interval = self._get_frame_duration_ms(self.current_frame)
                 min_period = self.settings.get("period", 0)
                 if min_period > 0:
                     interval = max(interval, min_period)
@@ -1264,6 +1272,8 @@ class AnimationPreviewWindow(QDialog):
         if next_frames:
             self.goto_frame(next_frames[0])
             self._loop_delay_applied = False
+            if self.is_playing:
+                self._restart_timer_for_current_frame()
         else:
             if (
                 self.is_playing
@@ -1278,6 +1288,8 @@ class AnimationPreviewWindow(QDialog):
                     return
 
             self.goto_frame(checked_frames[0])
+            if self.is_playing:
+                self._restart_timer_for_current_frame()
             if self.is_playing and self.loop_checkbox.isChecked():
                 self._loop_delay_applied = True
 
@@ -1350,11 +1362,7 @@ class AnimationPreviewWindow(QDialog):
             self._update_frame_delay_display()
 
         if self.is_playing:
-            interval = max(1, delay_ms)
-            min_period = self.settings.get("period", 0)
-            if min_period > 0:
-                interval = max(interval, min_period)
-            self.timer.start(interval)
+            self._restart_timer_for_current_frame()
 
         self.regenerate_animation()
 
@@ -1407,6 +1415,27 @@ class AnimationPreviewWindow(QDialog):
         if duration is None:
             duration = getattr(self, "_stored_duration_ms", 42)
         return max(1, int(duration))
+
+    def _get_frame_duration_ms(self, frame_index: int) -> int:
+        """Return the duration in milliseconds for a specific frame.
+
+        Checks custom_frame_durations first (user overrides), then
+        frame_durations (read from the GIF file), and finally falls back
+        to the global duration setting.
+
+        Args:
+            frame_index: Zero-based index of the frame.
+
+        Returns:
+            Duration in milliseconds for the requested frame.
+        """
+        if self.custom_frame_durations and 0 <= frame_index < len(
+            self.custom_frame_durations
+        ):
+            return max(1, self.custom_frame_durations[frame_index])
+        if self.frame_durations and 0 <= frame_index < len(self.frame_durations):
+            return max(1, self.frame_durations[frame_index])
+        return self._get_duration_ms()
 
     def on_display_scale_changed(self, scale: float):
         """Sync the zoom spinbox when the display is scrolled.
@@ -1681,10 +1710,7 @@ class AnimationPreviewWindow(QDialog):
         self._update_frame_delay_display()
 
         if self.is_playing:
-            interval = self._get_duration_ms()
-            if period > 0:
-                interval = max(interval, period)
-            self.timer.start(max(1, interval))
+            self._restart_timer_for_current_frame()
 
     def on_var_delay_changed(self, enabled):
         """Toggle variable per-frame delay and regenerate.
@@ -1781,13 +1807,9 @@ class AnimationPreviewWindow(QDialog):
         self.regenerate_animation()
 
     def _restart_normal_timer(self):
-        """Resume playback with the configured duration interval."""
+        """Resume playback with the current frame's duration interval."""
         if self.is_playing:
-            interval = self._get_duration_ms()
-            min_period = self.settings.get("period", 0)
-            if min_period > 0:
-                interval = max(interval, min_period)
-            self.timer.start(max(1, interval))
+            self._restart_timer_for_current_frame()
 
     def _loop_to_first_frame(self):
         """Jump to the first checked frame and resume playback."""
