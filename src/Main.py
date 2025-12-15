@@ -1016,6 +1016,16 @@ class TextureAtlasExtractorApp(QMainWindow):
 
     def show_animation_preview_window(self, animation_path, settings):
         """Shows the animation preview window for the given animation file."""
+        # APNG preview is disabled due to a bug
+        if settings.get("animation_format", "GIF").upper() == "APNG":
+            QMessageBox.warning(
+                self,
+                "Preview Unavailable",
+                "APNG preview is currently disabled due to a bug.\n\n"
+                "Please use GIF or WebP format for preview.",
+            )
+            return
+
         try:
             from gui.extractor.animation_preview_window import (
                 AnimationPreviewWindow,

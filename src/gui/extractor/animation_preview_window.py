@@ -726,7 +726,7 @@ class AnimationPreviewWindow(QDialog):
 
         format_layout.addWidget(QLabel(self.tr("Animation format")), 0, 0)
         self.format_combo = QComboBox()
-        self.format_combo.addItems(["GIF", "WebP", "APNG"])
+        self.format_combo.addItems(["GIF", "WebP"])  # APNG disabled due to preview bug
         self.format_combo.setCurrentText(self.settings.get("animation_format", "GIF"))
         self.format_combo.currentTextChanged.connect(self.on_format_changed)
         format_layout.addWidget(self.format_combo, 0, 1)
