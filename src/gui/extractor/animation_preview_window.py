@@ -1004,7 +1004,12 @@ class AnimationPreviewWindow(QDialog):
         if self.processor and hasattr(self.processor, "frame_durations"):
             self.frame_durations = self.processor.frame_durations.copy()
 
-        if self.frame_durations:
+        if (
+            self.custom_frame_durations
+            and len(self.custom_frame_durations) == frame_count
+        ):
+            self.frame_list.set_frame_count(frame_count, self.custom_frame_durations)
+        elif self.frame_durations:
             self.frame_list.set_frame_count(frame_count, self.frame_durations)
         else:
             self.frame_list.set_frame_count(frame_count)
@@ -1958,21 +1963,11 @@ class AnimationPreviewWindow(QDialog):
             return value
 
     def _initialize_custom_durations(self):
-        """Initialize custom frame durations from duration-based calculations."""
+        """Initialize custom frame durations from the animation's per-frame durations."""
         if not self.frame_durations:
             return
 
-        delay_ms = getattr(
-            self, "_stored_duration_ms", self.settings.get("duration", 42)
-        )
-        delay_ms = max(1, int(delay_ms))
-        var_delay = self.settings.get("var_delay", False)
-
-        if var_delay:
-            self.custom_frame_durations = self.frame_durations.copy()
-        else:
-            fixed_delay = max(10, round(delay_ms, -1))
-            self.custom_frame_durations = [int(fixed_delay)] * len(self.frame_durations)
+        self.custom_frame_durations = self.frame_durations.copy()
 
     def _update_frame_delay_spinbox(self):
         """Update the FPS spinbox to show the current frame's delay when in per-frame mode."""
