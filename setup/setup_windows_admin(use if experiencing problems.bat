@@ -14,9 +14,9 @@ set "PF86=%ProgramFiles(x86)%"
 set "REQ_STABLE=requirements.txt"
 set "REQ_EXPERIMENTAL=requirements-experimental.txt"
 set "PY_MIN_MAJOR=3"
-set "PY_MIN_MINOR=10"
-set "PY_INSTALL_DIR=Python312"
-set "PY_INSTALL_URL=https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe"
+set "PY_MIN_MINOR=14"
+set "PY_INSTALL_DIR=Python314"
+set "PY_INSTALL_URL=https://www.python.org/ftp/python/3.14.0/python-3.14.0-amd64.exe"
 set "PY_INSTALLER=%TEMP%\textureatlas-python-installer.exe"
 
 call :DetectPython
@@ -160,11 +160,11 @@ exit /b 0
 :RefreshEnv
 for /f "skip=2 tokens=3*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH 2^>nul') do set "SYS_PATH=%%A %%B"
 for /f "skip=2 tokens=3*" %%A in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "USR_PATH=%%A %%B"
-set "PATH=%SYS_PATH%;%USR_PATH%;%USERPROFILE%\AppData\Roaming\Python\Python312\Scripts"
+set "PATH=%SYS_PATH%;%USR_PATH%;%USERPROFILE%\AppData\Roaming\Python\Python314\Scripts"
 exit /b 0
 
 :AddScriptsToPath
-set "SCRIPTS_DIR=%USERPROFILE%\AppData\Roaming\Python\Python312\Scripts"
+set "SCRIPTS_DIR=%USERPROFILE%\AppData\Roaming\Python\Python314\Scripts"
 for /f "skip=2 tokens=3*" %%A in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "CURRENT_PATH=%%A %%B"
 echo !CURRENT_PATH! | findstr /C:"!SCRIPTS_DIR!" >nul
 if errorlevel 1 (
