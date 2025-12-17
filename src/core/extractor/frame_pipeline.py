@@ -296,6 +296,12 @@ def build_frame_durations(
         if var_delay:
             next_mark = (index + 1) * base_interval
             current_mark = index * base_interval
+            if round_to_ten:
+                next_mark = round(next_mark, -1)
+                current_mark = round(current_mark, -1)
+            else:
+                next_mark = round(next_mark)
+                current_mark = round(current_mark)
             duration = next_mark - current_mark
         else:
             duration = base_interval
