@@ -290,12 +290,11 @@ def build_frame_durations(
     if fps_value <= 0:
         fps_value = 24.0
 
-    base_interval = 1000.0 / fps_value
     durations: List[float] = []
     for index in range(frame_count):
         if var_delay:
-            next_mark = (index + 1) * base_interval
-            current_mark = index * base_interval
+            next_mark = (index + 1) * 1000 / fps_value
+            current_mark = index * 1000 / fps_value
             if round_to_ten:
                 next_mark = round(next_mark, -1)
                 current_mark = round(current_mark, -1)
@@ -304,7 +303,7 @@ def build_frame_durations(
                 current_mark = round(current_mark)
             duration = next_mark - current_mark
         else:
-            duration = base_interval
+            duration = 1000 / fps_value
         if round_to_ten:
             duration = round(duration, -1)
         durations.append(duration)
