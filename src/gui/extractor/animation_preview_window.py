@@ -46,6 +46,7 @@ from utils.duration_utils import (
     convert_duration,
     duration_to_milliseconds,
     get_duration_display_meta,
+    load_duration_display_value,
     milliseconds_to_duration,
 )
 from utils.combo_options import (
@@ -632,9 +633,13 @@ class AnimationPreviewWindow(QDialog):
         checked_frames = self.get_checked_frame_indices()
 
         duration_ms = self._get_spinbox_duration_ms()
+        display_value = self.fps_spinbox.value()
+        duration_type = self._get_current_duration_type()
 
         save_settings = {
             "duration": duration_ms,
+            "duration_display_value": display_value,
+            "duration_display_type": duration_type,
             "scale": self.anim_scale_spinbox.value(),
             "resampling_method": get_resampling_name(
                 self.resampling_combo.currentIndex()
@@ -743,7 +748,11 @@ class AnimationPreviewWindow(QDialog):
         self.fps_spinbox.valueChanged.connect(self.on_fps_changed)
         playback_layout.addWidget(self.fps_spinbox, 0, 1)
 
-        self._set_duration_spinbox_from_ms(self.settings.get("duration", 42))
+        self._set_duration_spinbox_from_ms(
+            self.settings.get("duration", 42),
+            self.settings.get("duration_display_value"),
+            self.settings.get("duration_display_type"),
+        )
         self.update_frame_rate_display()
 
         playback_layout.addWidget(QLabel(self.tr("Loop delay")), 1, 0)
@@ -1422,11 +1431,20 @@ class AnimationPreviewWindow(QDialog):
     def _get_animation_format(self) -> str:
         return self.format_combo.currentText().upper() if self.format_combo else "GIF"
 
-    def _set_duration_spinbox_from_ms(self, duration_ms: int) -> None:
+    def _set_duration_spinbox_from_ms(
+        self,
+        duration_ms: int,
+        stored_display_value: int | None = None,
+        stored_display_type: str | None = None,
+    ) -> None:
         duration_type = self._get_current_duration_type()
         anim_format = self._get_animation_format()
-        display_value = milliseconds_to_duration(
-            max(1, duration_ms), duration_type, anim_format
+        display_value = load_duration_display_value(
+            max(1, duration_ms),
+            stored_display_value,
+            stored_display_type,
+            duration_type,
+            anim_format,
         )
         self._prev_duration_type = duration_type
         if self.fps_spinbox:

@@ -258,6 +258,98 @@ class DurationDisplayMeta(NamedTuple):
     max_value: int
 
 
+class StoredDuration(NamedTuple):
+    """Container for duration values that preserves FPS precision.
+
+    When storing FPS values, integer milliseconds can't perfectly represent
+    all frame rates. For example, 60 FPS = 16.67ms, which rounds to 17ms,
+    and converting back gives 59 FPS.
+
+    This class stores both the millisecond value (for formats that need it)
+    and the original display value with its type, allowing perfect round-trips.
+    """
+
+    duration_ms: int
+    display_value: int
+    display_type: str
+
+
+def store_duration(
+    display_value: int,
+    duration_type: str,
+    animation_format: str,
+) -> StoredDuration:
+    """Create a StoredDuration that preserves the original display value.
+
+    Args:
+        display_value: The value as entered by the user (e.g., 60 for 60fps).
+        duration_type: The duration type (fps, centiseconds, etc.).
+        animation_format: Animation format for resolving 'native' type.
+
+    Returns:
+        A StoredDuration containing both ms and original display values.
+    """
+    resolved_type = duration_type
+    if duration_type == DURATION_NATIVE:
+        resolved_type = resolve_native_duration_type(animation_format)
+
+    duration_ms = duration_to_milliseconds(
+        display_value, resolved_type, animation_format
+    )
+    return StoredDuration(
+        duration_ms=duration_ms,
+        display_value=display_value,
+        display_type=resolved_type,
+    )
+
+
+def load_duration_display_value(
+    duration_ms: int,
+    stored_display_value: int | None,
+    stored_display_type: str | None,
+    target_display_type: str,
+    animation_format: str,
+) -> int:
+    """Load the display value, using stored value when types match.
+
+    This function enables lossless FPS round-trips by returning the
+    originally stored display value when the target type matches.
+
+    Args:
+        duration_ms: The duration in milliseconds (fallback source).
+        stored_display_value: The originally stored display value, if any.
+        stored_display_type: The type of the stored display value.
+        target_display_type: The type to display (fps, centiseconds, etc.).
+        animation_format: Animation format for resolving 'native' type.
+
+    Returns:
+        The display value to show in the UI.
+
+    Example:
+        >>> # User stored 60 FPS -> 17ms
+        >>> load_duration_display_value(17, 60, "fps", "fps", "GIF")
+        60  # Returns exact original, not round(1000/17)=59
+        >>> load_duration_display_value(17, 60, "fps", "milliseconds", "GIF")
+        17  # Different type, convert from ms
+    """
+    resolved_target = target_display_type
+    if target_display_type == DURATION_NATIVE:
+        resolved_target = resolve_native_duration_type(animation_format)
+
+    resolved_stored = stored_display_type
+    if stored_display_type == DURATION_NATIVE:
+        resolved_stored = resolve_native_duration_type(animation_format)
+
+    if (
+        stored_display_value is not None
+        and stored_display_type is not None
+        and resolved_stored == resolved_target
+    ):
+        return stored_display_value
+
+    return milliseconds_to_duration(duration_ms, resolved_target, animation_format)
+
+
 def get_duration_display_meta(
     duration_type: str, animation_format: str
 ) -> DurationDisplayMeta:

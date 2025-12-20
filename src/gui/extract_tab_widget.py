@@ -45,6 +45,7 @@ from utils.duration_utils import (
     convert_duration,
     duration_to_milliseconds,
     get_duration_display_meta,
+    load_duration_display_value,
     milliseconds_to_duration,
     resolve_native_duration_type,
 )
@@ -668,6 +669,9 @@ class ExtractTabWidget(BaseTabWidget):
             )
 
             duration_ms = defaults.get("duration", 42)
+            stored_display_value = defaults.get("duration_display_value")
+            stored_display_type = defaults.get("duration_display_type")
+
             self.loop_delay_entry.setValue(defaults.get("delay", 250))
             self.min_period_entry.setValue(defaults.get("period", 0))
             self.scale_entry.setValue(defaults.get("scale", 1.0))
@@ -695,7 +699,9 @@ class ExtractTabWidget(BaseTabWidget):
             )
             self.resampling_method_combobox.setCurrentIndex(resampling_index)
 
-            self._set_duration_spinbox_from_ms(duration_ms)
+            self._set_duration_spinbox_from_stored(
+                duration_ms, stored_display_value, stored_display_type
+            )
 
         self.update_frame_rate_display()
 
@@ -2227,8 +2233,9 @@ class ExtractTabWidget(BaseTabWidget):
         anim_format = self._get_animation_format()
         resolved_type = self._resolve_duration_type(duration_type, anim_format)
 
+        display_value = self.frame_rate_entry.value()
         duration_ms = duration_to_milliseconds(
-            self.frame_rate_entry.value(), resolved_type, anim_format
+            display_value, resolved_type, anim_format
         )
 
         settings = {
@@ -2237,6 +2244,8 @@ class ExtractTabWidget(BaseTabWidget):
             "animation_export": animation_export,
             "frame_export": frame_export,
             "duration": duration_ms,
+            "duration_display_value": display_value,
+            "duration_display_type": resolved_type,
             "delay": self.loop_delay_entry.value(),
             "period": self.min_period_entry.value(),
             "scale": self.scale_entry.value(),
@@ -2310,11 +2319,35 @@ class ExtractTabWidget(BaseTabWidget):
         Args:
             duration_ms: Frame duration in milliseconds.
         """
+        self._set_duration_spinbox_from_stored(duration_ms, None, None)
+
+    def _set_duration_spinbox_from_stored(
+        self,
+        duration_ms: int,
+        stored_display_value: int | None,
+        stored_display_type: str | None,
+    ) -> None:
+        """Set the frame rate spinbox, using stored display value when possible.
+
+        This method enables lossless FPS round-trips by using the stored
+        display value directly when the stored type matches the current
+        display type. This avoids precision loss from ms -> fps conversion
+        (e.g., 60 FPS -> 17ms -> 59 FPS).
+
+        Args:
+            duration_ms: Frame duration in milliseconds (fallback).
+            stored_display_value: The originally stored display value.
+            stored_display_type: The type of the stored display value.
+        """
         duration_type = self._get_duration_input_type()
         anim_format = self._get_animation_format()
         resolved_type = self._resolve_duration_type(duration_type, anim_format)
-        display_value = milliseconds_to_duration(
-            duration_ms, resolved_type, anim_format
+        display_value = load_duration_display_value(
+            duration_ms,
+            stored_display_value,
+            stored_display_type,
+            resolved_type,
+            anim_format,
         )
         self._prev_duration_type = resolved_type
         self.frame_rate_entry.setValue(display_value)

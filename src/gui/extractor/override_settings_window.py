@@ -32,6 +32,7 @@ from utils.duration_utils import (
     DURATION_NATIVE,
     duration_to_milliseconds,
     get_duration_display_meta,
+    load_duration_display_value,
     milliseconds_to_duration,
 )
 from utils.resampling import (
@@ -436,6 +437,35 @@ class OverrideSettingsWindow(QDialog):
             anim_format,
         )
 
+    def _load_duration_display_value(
+        self,
+        duration_ms: int,
+        stored_display_value: int | None,
+        stored_display_type: str | None,
+    ) -> int:
+        """Load the display value, using stored value when types match.
+
+        This enables lossless FPS round-trips by returning the originally
+        stored display value when the target type matches.
+
+        Args:
+            duration_ms: The duration in milliseconds (fallback source).
+            stored_display_value: The originally stored display value.
+            stored_display_type: The type of the stored display value.
+
+        Returns:
+            The display value to show in the UI.
+        """
+        duration_type = self._get_effective_duration_type()
+        anim_format = self._get_animation_format()
+        return load_duration_display_value(
+            duration_ms,
+            stored_display_value,
+            stored_display_type,
+            duration_type,
+            anim_format,
+        )
+
     def _display_value_to_duration_ms(self, display_value: int) -> int:
         """Convert a display-unit value back to milliseconds.
 
@@ -488,6 +518,9 @@ class OverrideSettingsWindow(QDialog):
             )
 
         duration_ms = self.local_settings.get("duration")
+        stored_display_value = self.local_settings.get("duration_display_value")
+        stored_display_type = self.local_settings.get("duration_display_type")
+
         if duration_ms is None and "fps" in self.local_settings:
             fps_value = self.local_settings.pop("fps", None)
             duration_ms = self._legacy_fps_to_ms(fps_value)
@@ -495,13 +528,18 @@ class OverrideSettingsWindow(QDialog):
 
         if duration_ms is None:
             duration_ms = self.settings.get("duration")
+            stored_display_value = self.settings.get("duration_display_value")
+            stored_display_type = self.settings.get("duration_display_type")
             if duration_ms is None and "fps" in self.settings:
                 duration_ms = self._legacy_fps_to_ms(self.settings.get("fps"))
 
         if duration_ms is None:
             duration_ms = 42
 
-        self.fps_spinbox.setValue(self._duration_ms_to_display(int(duration_ms)))
+        display_value = self._load_duration_display_value(
+            int(duration_ms), stored_display_value, stored_display_type
+        )
+        self.fps_spinbox.setValue(display_value)
         self.delay_spinbox.setValue(
             self.local_settings.get("delay", self.settings.get("delay", 250))
         )
@@ -690,8 +728,11 @@ class OverrideSettingsWindow(QDialog):
         if anim_format != "None":
             settings["animation_format"] = anim_format
 
-        duration_ms = self._display_value_to_duration_ms(self.fps_spinbox.value())
+        display_value = self.fps_spinbox.value()
+        duration_ms = self._display_value_to_duration_ms(display_value)
         settings["duration"] = duration_ms
+        settings["duration_display_value"] = display_value
+        settings["duration_display_type"] = self._get_effective_duration_type()
         settings["delay"] = self.delay_spinbox.value()
         settings["period"] = self.period_spinbox.value()
         settings["scale"] = self.scale_spinbox.value()

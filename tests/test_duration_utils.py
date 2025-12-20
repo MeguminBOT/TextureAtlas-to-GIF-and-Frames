@@ -18,7 +18,9 @@ from utils.duration_utils import (  # noqa: E402
     convert_duration,
     duration_to_milliseconds,
     get_duration_display_meta,
+    load_duration_display_value,
     milliseconds_to_duration,
+    store_duration,
 )
 
 
@@ -76,3 +78,72 @@ def test_duration_display_meta_resolves_native_units() -> None:
     assert fps_meta.suffix == " fps"
     assert fps_meta.min_value == 1
     assert fps_meta.max_value == 1000
+
+def test_store_duration_preserves_display_value() -> None:
+    """Test that store_duration captures both ms and display value."""
+    stored = store_duration(60, DURATION_FPS, "GIF")
+    assert stored.duration_ms == 17  # round(1000/60)
+    assert stored.display_value == 60
+    assert stored.display_type == DURATION_FPS
+
+    stored_cs = store_duration(10, DURATION_CENTISECONDS, "GIF")
+    assert stored_cs.duration_ms == 100
+    assert stored_cs.display_value == 10
+    assert stored_cs.display_type == DURATION_CENTISECONDS
+
+
+def test_load_duration_display_value_uses_stored_when_types_match() -> None:
+    """Test that load_duration_display_value returns stored value when types match."""
+    # 60 FPS -> 17ms -> would be 59 FPS without stored value
+    # With stored value, should return exact 60
+    result = load_duration_display_value(
+        duration_ms=17,
+        stored_display_value=60,
+        stored_display_type=DURATION_FPS,
+        target_display_type=DURATION_FPS,
+        animation_format="GIF",
+    )
+    assert result == 60  # Exact stored value, not round(1000/17)=59
+
+
+def test_load_duration_display_value_converts_when_types_differ() -> None:
+    """Test that load_duration_display_value converts when types differ."""
+    # Stored as FPS but requesting milliseconds - should convert from ms
+    result = load_duration_display_value(
+        duration_ms=17,
+        stored_display_value=60,
+        stored_display_type=DURATION_FPS,
+        target_display_type=DURATION_MILLISECONDS,
+        animation_format="GIF",
+    )
+    assert result == 17  # Converted from ms, not stored FPS value
+
+
+def test_load_duration_display_value_falls_back_without_stored() -> None:
+    """Test that load_duration_display_value falls back to ms conversion."""
+    # No stored value - should convert from ms
+    result = load_duration_display_value(
+        duration_ms=17,
+        stored_display_value=None,
+        stored_display_type=None,
+        target_display_type=DURATION_FPS,
+        animation_format="GIF",
+    )
+    assert result == 59  # round(1000/17) without stored value
+
+
+def test_high_fps_values_preserve_precision() -> None:
+    """Test that high FPS values like 60 and 120 preserve precision."""
+    # These are the problematic values reported in the bug
+    problematic_fps = [60, 120]
+
+    for fps in problematic_fps:
+        stored = store_duration(fps, DURATION_FPS, "GIF")
+        restored = load_duration_display_value(
+            duration_ms=stored.duration_ms,
+            stored_display_value=stored.display_value,
+            stored_display_type=stored.display_type,
+            target_display_type=DURATION_FPS,
+            animation_format="GIF",
+        )
+        assert restored == fps, f"FPS {fps} was not preserved (got {restored})"

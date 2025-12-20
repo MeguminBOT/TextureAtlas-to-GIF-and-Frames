@@ -25,6 +25,8 @@ class AppConfig:
             "animation_format": "GIF",
             "animation_export": False,
             "duration": 42,
+            "duration_display_value": 24,
+            "duration_display_type": "fps",
             "delay": 250,
             "period": 0,
             "scale": 1.0,

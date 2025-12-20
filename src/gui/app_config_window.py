@@ -43,7 +43,7 @@ from utils.duration_utils import (
     DURATION_NATIVE,
     duration_to_milliseconds,
     get_duration_display_meta,
-    milliseconds_to_duration,
+    load_duration_display_value,
     resolve_native_duration_type,
 )
 
@@ -569,15 +569,25 @@ class AppConfigWindow(QDialog):
 
         return max(1, int(getattr(self, "_duration_value_ms", 42)))
 
-    def _update_duration_controls(self, duration_ms: int | None = None) -> None:
+    def _update_duration_controls(
+        self,
+        duration_ms: int | None = None,
+        stored_display_value: int | None = None,
+        stored_display_type: str | None = None,
+    ) -> None:
         """Refresh the duration spinbox label, range, and value.
 
         Converts the canonical millisecond value to the current display
         unit and updates the spinbox without triggering change signals.
+        When stored display values are provided and match the current
+        display type, uses them directly to avoid FPS precision loss.
 
         Args:
             duration_ms: Authoritative duration in milliseconds. When
                 ``None``, uses the cached ``_duration_value_ms``.
+            stored_display_value: Previously stored display value for
+                lossless FPS round-trips.
+            stored_display_type: Type of the stored display value.
         """
         if not self.duration_spinbox or not self.duration_label:
             return
@@ -604,8 +614,12 @@ class AppConfigWindow(QDialog):
         self.duration_spinbox.setRange(display_meta.min_value, display_meta.max_value)
         self.duration_spinbox.setSuffix(self.tr(display_meta.suffix))
 
-        display_value = milliseconds_to_duration(
-            duration_ms, display_meta.resolved_type, anim_format
+        display_value = load_duration_display_value(
+            duration_ms,
+            stored_display_value,
+            stored_display_type,
+            display_meta.resolved_type,
+            anim_format,
         )
         clamped_value = max(
             display_meta.min_value,
@@ -1126,7 +1140,15 @@ class AppConfigWindow(QDialog):
                     if key == "threshold":
                         control.setValue(int(float(value) * 100))
                     elif key == "duration":
-                        self._update_duration_controls(int(value))
+                        stored_display_value = extraction_defaults.get(
+                            "duration_display_value"
+                        )
+                        stored_display_type = extraction_defaults.get(
+                            "duration_display_type"
+                        )
+                        self._update_duration_controls(
+                            int(value), stored_display_value, stored_display_type
+                        )
                     else:
                         control.setValue(int(value))
                 elif isinstance(control, QDoubleSpinBox):
@@ -1315,6 +1337,10 @@ class AppConfigWindow(QDialog):
                         extraction_defaults[key] = control.value() / 100.0
                     elif key == "duration":
                         extraction_defaults[key] = self._get_duration_spinbox_value_ms()
+                        extraction_defaults["duration_display_value"] = control.value()
+                        extraction_defaults["duration_display_type"] = getattr(
+                            self, "_duration_display_type", "fps"
+                        )
                     else:
                         extraction_defaults[key] = control.value()
                 elif isinstance(control, QDoubleSpinBox):
