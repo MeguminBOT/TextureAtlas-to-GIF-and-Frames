@@ -393,6 +393,13 @@ class AppConfigWindow(QDialog):
         anim_layout.addWidget(threshold_spinbox, row, 1)
         row += 1
 
+        anim_layout.addWidget(QLabel(self.tr("Variable delay:")), row, 0)
+        variable_delay_cb = QCheckBox()
+        variable_delay_cb.setChecked(False)
+        self.extraction_fields["variable_delay"] = variable_delay_cb
+        anim_layout.addWidget(variable_delay_cb, row, 1)
+        row += 1
+
         layout.addWidget(anim_group)
 
         # Frame export group

@@ -724,9 +724,6 @@ class TextureAtlasExtractorApp(QMainWindow):
     def on_variable_delay_toggled(self, checked):
         """Handle the variable delay menu toggle."""
         self.variable_delay = checked
-        # Update the app config if needed
-        if hasattr(self.app_config, "settings"):
-            self.app_config.settings["variable_delay"] = checked
 
     def on_fnf_idle_loop_toggled(self, checked):
         """Handle the FNF idle loop menu toggle."""
