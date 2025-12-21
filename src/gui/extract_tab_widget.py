@@ -699,6 +699,30 @@ class ExtractTabWidget(BaseTabWidget):
             )
             self.resampling_method_combobox.setCurrentIndex(resampling_index)
 
+            if "frame_selection" in defaults:
+                idx = self.frame_selection_combobox.findData(
+                    defaults["frame_selection"]
+                )
+                if idx >= 0:
+                    self.frame_selection_combobox.setCurrentIndex(idx)
+
+            if "crop_option" in defaults:
+                idx = self.cropping_method_combobox.findData(defaults["crop_option"])
+                if idx >= 0:
+                    self.cropping_method_combobox.setCurrentIndex(idx)
+
+            if "filename_format" in defaults:
+                idx = self.filename_format_combobox.findData(
+                    defaults["filename_format"]
+                )
+                if idx >= 0:
+                    self.filename_format_combobox.setCurrentIndex(idx)
+
+            if "filename_prefix" in defaults:
+                self.filename_prefix_entry.setText(defaults["filename_prefix"])
+            if "filename_suffix" in defaults:
+                self.filename_suffix_entry.setText(defaults["filename_suffix"])
+
             self._set_duration_spinbox_from_stored(
                 duration_ms, stored_display_value, stored_display_type
             )
